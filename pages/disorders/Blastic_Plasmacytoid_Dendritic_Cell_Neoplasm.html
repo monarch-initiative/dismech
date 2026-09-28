@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4347,6 +4389,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-regulator-loss-in-a-hematopoietic-progenitor" data-dismech-node="Epigenetic Regulator Loss in a Hematopoietic Progenitor" data-dismech-type="pathophysiology">
                 <div class="item-name">Epigenetic Regulator Loss in a Hematopoietic Progenitor</div>
 
+
                 <div class="item-desc">Loss-of-function mutations in DNA- and chromatin-modifying genes — most consistently TET2, often biallelic, together with the canonical ASXL1 c.1934dupG frameshift — arise in a hematopoietic progenitor and behave as founder events. The same variants are recoverable from a preceding or concurrent myeloid neoplasm in the same patient, which places the lesion upstream of pDC commitment rather than inside the pDC compartment.</div>
 
 
@@ -4565,6 +4608,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-hematopoiesis-of-the-mutant-progenitor" data-dismech-node="Clonal Hematopoiesis of the Mutant Progenitor" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Hematopoiesis of the Mutant Progenitor</div>
 
+
                 <div class="item-desc">The mutant progenitor expands as a premalignant clone in the bone marrow, still capable of normal differentiation. This is the state shared with the antecedent myeloid neoplasms that a fifth of BPDCN patients also carry, and it is the substrate the later lesions act on rather than the disease itself.</div>
 
 
@@ -4640,6 +4684,7 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdkn2a-and-cdkn2b-deletion-at-9p21-3" data-dismech-node="CDKN2A and CDKN2B Deletion at 9p21.3" data-dismech-type="pathophysiology">
                 <div class="item-name">CDKN2A and CDKN2B Deletion at 9p21.3</div>
+
 
                 <div class="item-desc">Recurrent copy-number loss at 9p21.3 removes the CDKN2A/CDKN2B cell-cycle inhibitors, and the same broad deletions take out neighbouring tumour suppressors including CDKN1B and RB1. Unlike most of the recurrent lesions here it is a deletion rather than a point mutation.</div>
 
@@ -4799,6 +4844,7 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myc-rearrangement-at-8q24" data-dismech-node="MYC Rearrangement at 8q24" data-dismech-type="pathophysiology">
                 <div class="item-name">MYC Rearrangement at 8q24</div>
 
+
                 <div class="item-desc">Rearrangement of the MYC locus, most often partnered with 6p21 (RUNX2) rather than an immunoglobulin locus, driving MYC overexpression. Reported frequencies differ substantially by cohort and ascertainment - 12% in one single-institution karyotype series, about a third in a cytogenetics review - and the rearranged cases are associated with an immunoblastoid cytomorphology.</div>
 
 
@@ -4943,6 +4989,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glucocorticoid-resistance" data-dismech-node="Glucocorticoid Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Glucocorticoid Resistance</div>
 
+
                 <div class="item-desc">Reduced glucocorticoid-receptor dosage renders the clone corticoresistant. This is the functional consequence the NR3C1 deletion was characterized by, and it matters clinically because corticosteroids are otherwise a standard component of the lymphoma- and ALL-type regimens used here.</div>
 
 
@@ -5003,6 +5050,7 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphoid-organ-infiltration" data-dismech-node="Lymphoid Organ Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphoid Organ Infiltration</div>
+
 
                 <div class="item-desc">Infiltration of lymph nodes and spleen. In the SEER population-based series lymph node was the most frequently recorded primary site, which makes this a major compartment rather than an afterthought to the cutaneous and marrow disease.</div>
 
@@ -5110,6 +5158,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zrsr2-loss-of-function-splicing-defect" data-dismech-node="ZRSR2 Loss-of-Function Splicing Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">ZRSR2 Loss-of-Function Splicing Defect</div>
+
 
                 <div class="item-desc">ZRSR2, an X-linked minor-spliceosome component, is recurrently inactivated in BPDCN and almost exclusively in males. The resulting intron retention prevents pDCs from upregulating IRF7 after inflammatory stimulation, so the cells neither activate nor undergo the apoptosis that normally follows activation. This is the best-supported mechanistic account of the disease&#39;s approximately 3:1 male predominance.</div>
 
@@ -5268,6 +5317,7 @@ This pathophysiological event involves decreased RNA splicing (GO:0008380). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ikzf1-structural-inactivation" data-dismech-node="IKZF1 Structural Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">IKZF1 Structural Inactivation</div>
 
+
                 <div class="item-desc">IKZF1, which encodes the transcription factor required for plasmacytoid dendritic cell precursor differentiation, is focally inactivated by recurrent structural rearrangements. Whole-genome sequencing found this to be the disease&#39;s most characteristic structural lesion, and the transcriptome carries the corresponding loss-of-IKZF1 target-gene signature together with the cell-adhesion program that IKZF1 deficiency de-represses.</div>
 
 
@@ -5393,6 +5443,7 @@ This pathophysiological event involves IKZF1 (hgnc:13176). hgnc:13176 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myb-rearrangement" data-dismech-node="MYB Rearrangement" data-dismech-type="pathophysiology">
                 <div class="item-name">MYB Rearrangement</div>
 
+
                 <div class="item-desc">Rearrangements fusing the MYB N-terminus to a partner C-terminus are markedly enriched in BPDCN relative to other blood cancers and are sometimes the only detectable somatic lesion. Chromatin profiling shows the fusion protein redirects MYB away from dendritic-cell lineage genes and onto G2/M cell-cycle control genes, converting a differentiation factor into a proliferation driver.</div>
 
 
@@ -5517,6 +5568,7 @@ This pathophysiological event involves MYB (hgnc:7545). hgnc:7545 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasmacytoid-dendritic-cell-differentiation-block" data-dismech-node="Plasmacytoid Dendritic Cell Differentiation Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasmacytoid Dendritic Cell Differentiation Block</div>
+
 
                 <div class="item-desc">The convergent consequence of the upstream lesions is arrest of the pDC differentiation program, producing an immature blast population that nevertheless retains defining pDC identity (CD123, TCF4, TCL1, CD303, CD304). It is this retained identity, not the block itself, that makes the lineage&#39;s own master regulators exploitable as therapeutic targets.</div>
 
@@ -5710,6 +5762,7 @@ This pathophysiological event involves decreased plasmacytoid dendritic cell dif
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tcf4-dependent-super-enhancer-network-addiction" data-dismech-node="TCF4-Dependent Super-Enhancer Network Addiction" data-dismech-type="pathophysiology">
                 <div class="item-name">TCF4-Dependent Super-Enhancer Network Addiction</div>
+
 
                 <div class="item-desc">TCF4 (E2-2), the master transcription factor of normal pDC development, is retained by the malignant clone and establishes BPDCN-specific super-enhancers that recruit BRD4. RNAi knockdown of TCF4 collapses the BPDCN-specific expression program and triggers apoptosis, and BET inhibitors reproduce that effect pharmacologically — so this is a genuine oncogenic addiction rather than a lineage marker.</div>
 
@@ -5953,6 +6006,7 @@ This pathophysiological event involves TCF4 transcription factor activity at BPD
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd123-overexpression-on-malignant-pdc-blasts" data-dismech-node="CD123 Overexpression on Malignant pDC Blasts" data-dismech-type="pathophysiology">
                 <div class="item-name">CD123 Overexpression on Malignant pDC Blasts</div>
 
+
                 <div class="item-desc">The malignant blasts express interleukin-3 receptor subunit alpha (IL3RA, CD123) at high density. It is both the diagnostic anchor and the address that every approved and investigational targeted agent in this disease is written to. Note what is *not* claimed here: tagraxofusp works by receptor-mediated delivery of a toxin payload, not by blocking IL-3 signalling, and nothing curated in this entry establishes that CD123 signalling itself drives survival.</div>
 
 
@@ -6069,6 +6123,7 @@ This pathophysiological event involves IL3RA (hgnc:6012). hgnc:6012 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptosis-resistance-in-the-pdc-compartment" data-dismech-node="Apoptosis Resistance in the pDC Compartment" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptosis Resistance in the pDC Compartment</div>
+
 
                 <div class="item-desc">Malignant pDCs escape apoptosis by two independently demonstrated routes: loss of the activation-coupled apoptotic response that follows ZRSR2 inactivation, and dependence on the antiapoptotic protein BCL2. BH3 profiling of primary patient cells shows the BCL2 dependence is uniform rather than confined to a genetic subgroup, which is why it does not have a companion biomarker.</div>
 
@@ -6270,6 +6325,7 @@ This pathophysiological event involves increased negative regulation of apoptoti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-g2-m-cell-cycle-gene-regulation" data-dismech-node="Aberrant G2/M Cell Cycle Gene Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant G2/M Cell Cycle Gene Regulation</div>
 
+
                 <div class="item-desc">MYB fusion proteins bind G2/M cell-cycle control loci with greater magnitude than wild-type MYB, driving the corresponding expression changes.</div>
 
 
@@ -6381,6 +6437,7 @@ This pathophysiological event involves increased G2/M transition of mitotic cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr3c1-haploinsufficiency" data-dismech-node="NR3C1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">NR3C1 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Monoallelic deletion of NR3C1 at 5q31, encoding the glucocorticoid receptor, occurs in roughly a quarter of cases without accompanying point mutations, lowering receptor expression. It marks a subgroup with markedly inferior survival and provides a mechanistic account of intrinsic corticosteroid resistance.</div>
 
@@ -6534,6 +6591,7 @@ This pathophysiological event involves NR3C1 (hgnc:7978). hgnc:7978 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uv-selected-survival-of-tet2-mutant-pdc-precursors-in-sun-exposed-skin" data-dismech-node="UV-Selected Survival of TET2-Mutant pDC Precursors in Sun-Exposed Skin" data-dismech-type="pathophysiology">
                 <div class="item-name">UV-Selected Survival of TET2-Mutant pDC Precursors in Sun-Exposed Skin</div>
 
+
                 <div class="item-desc">Phylogenomic reconstruction places ultraviolet damage *before* the alterations associated with malignant transformation in at least some tumours - the source says UV damage &#34;can precede&#34; them, and BPDCN skin tumours appear first at sun-exposed anatomical sites carrying clonally expanded UV mutational signatures. The selection mechanism is lineage-specific: Tet2 loss of function confers resistance to UV-induced cell death in plasmacytoid but not conventional dendritic cells. The founder lesion therefore does more than permit transformation — it determines *where* the premalignant clone survives, which is why the disease presents in skin.</div>
 
 
@@ -6678,6 +6736,7 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-cell-adhesion-program" data-dismech-node="Aberrant Cell Adhesion Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Cell Adhesion Program</div>
 
+
                 <div class="item-desc">Transcriptome analysis shows upregulation of cell-cell and cell-matrix interaction programs, the expected consequence of IKZF1 deficiency. This is the closest thing the literature currently offers to a mechanism for the disease&#39;s characteristic tissue tropism, and it remains an association rather than a demonstrated cause of skin homing.</div>
 
 
@@ -6791,6 +6850,7 @@ This pathophysiological event involves increased cell adhesion (GO:0007155). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-expansion-of-pdc-lineage-blasts" data-dismech-node="Clonal Expansion of pDC-Lineage Blasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion of pDC-Lineage Blasts</div>
+
 
                 <div class="item-desc">The differentiation-arrested, apoptosis-resistant clone expands, and this expanded population is what subsequently distributes to skin, marrow, blood, lymph nodes and the leptomeninges.</div>
 
@@ -6970,6 +7030,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-infiltration-by-malignant-pdc-blasts" data-dismech-node="Cutaneous Infiltration by Malignant pDC Blasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Infiltration by Malignant pDC Blasts</div>
 
+
                 <div class="item-desc">Blasts infiltrate the dermis and extend into subcutaneous fat, producing the disseminated erythematous to bluish-livid plaques and nodules that are the presenting sign in the great majority of patients. Cutaneous involvement characteristically precedes marrow and nodal dissemination.</div>
 
 
@@ -7077,6 +7138,7 @@ This pathophysiological event occurs in skin, annotated with skin of body (UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-and-leukemic-dissemination" data-dismech-node="Bone Marrow and Leukemic Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow and Leukemic Dissemination</div>
 
+
                 <div class="item-desc">Marrow infiltration and circulating blasts follow, displacing normal haematopoiesis.</div>
 
 
@@ -7172,6 +7234,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-marrow-failure-cytopenias" data-dismech-node="Marrow Failure Cytopenias" data-dismech-type="pathophysiology">
                 <div class="item-name">Marrow Failure Cytopenias</div>
 
+
                 <div class="item-desc">Replacement of normal marrow produces anaemia, thrombocytopenia and neutropenia, with the attendant risks of infection and bleeding.</div>
 
 
@@ -7253,6 +7316,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-infiltration" data-dismech-node="Central Nervous System Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Infiltration</div>
+
 
                 <div class="item-desc">Leptomeningeal involvement is characteristically occult: patients are usually neurologically asymptomatic, so it is missed unless cerebrospinal fluid is examined deliberately, and it most often becomes apparent at relapse. That combination - clinically silent, and therefore not ruled out by a normal neurological examination - is why CNS assessment and treatment are handled as a mandatory part of first-line management rather than as a reaction to symptoms. A frequently quoted figure of roughly 30% occult involvement at diagnosis is not curated here: it traces to a source this session did not fetch.</div>
 
@@ -7336,6 +7400,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diphthamide-pathway-silencing" data-dismech-node="Diphthamide Pathway Silencing" data-dismech-type="pathophysiology">
                 <div class="item-name">Diphthamide Pathway Silencing</div>
 
+
                 <div class="item-desc">Acquired resistance to tagraxofusp does not run through loss of the target. CD123 is retained; what the cell loses is the diphthamide biosynthesis pathway, silenced by DNA methylation, and diphthamide is the modified histidine residue the diphtheria-toxin moiety needs in order to ADP-ribosylate elongation factor 2. The drug still binds and still enters - it simply has nothing to act on. This is why a hypomethylating agent, which restores the pathway, is a rational partner rather than merely an additive cytotoxic.</div>
 
 
@@ -7396,6 +7461,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-exhaustion-in-the-marrow-microenvironment" data-dismech-node="T Cell Exhaustion in the Marrow Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">T Cell Exhaustion in the Marrow Microenvironment</div>
+
 
                 <div class="item-desc">Single-cell profiling of BPDCN marrow shows T cells with an upregulated interferon-alpha response, downregulated TNF-alpha signalling, and exhaustion that scales with clonotype expansion — an immunosuppressive niche around a tumour that is itself made of professional interferon-producing immune cells.</div>
 
@@ -7739,6 +7805,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7812,6 +7881,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neutropenia" data-dismech-node="Neutropenia" data-dismech-type="phenotype">
@@ -7839,6 +7911,9 @@ This clinical feature is Decreased total neutrophil count (HP:0001875). HP:00018
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7884,6 +7959,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7953,6 +8031,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8035,6 +8116,9 @@ This clinical feature is violaceous cutaneous plaques and nodules, annotated wit
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8145,6 +8229,9 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -8181,6 +8268,9 @@ This clinical feature is Abnormal cerebrospinal fluid morphology (HP:0002921). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8264,6 +8354,9 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8337,6 +8430,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8457,6 +8553,9 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8556,6 +8655,9 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8626,6 +8728,9 @@ This disease-associated gene is ZRSR2 (hgnc:23019). hgnc:23019 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -8704,6 +8809,9 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8778,6 +8886,9 @@ This disease-associated gene is MYB (hgnc:7545). hgnc:7545 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8848,6 +8959,9 @@ This disease-associated gene is NR3C1 (hgnc:7978). hgnc:7978 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -8951,6 +9065,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9021,6 +9138,9 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

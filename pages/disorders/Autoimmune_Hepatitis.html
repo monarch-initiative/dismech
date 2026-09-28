@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4938,6 +4980,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-hla-linked-susceptibility" data-dismech-node="Polygenic HLA-linked susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic HLA-linked susceptibility</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Common germline variation creates a polygenic susceptibility rather than a Mendelian cause. HLA-DRB1*03:01 and *04:01 are major signals in European type-1-serology cohorts, while HLA-B*35:01 is the strongest signal in a Han Chinese cohort; these ancestry-dependent associations implicate antigen presentation. SH2B3 adds a non-HLA immune-signaling susceptibility signal.</div>
 
 
@@ -5181,6 +5230,13 @@ This pathophysiological event involves SH2B3 (hgnc:29605). hgnc:29605 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-liver-autoantigen-specific-adaptive-immune-activation" data-dismech-node="Liver-autoantigen-specific adaptive immune activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Liver-autoantigen-specific adaptive immune activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Autoreactive T and B cells recognize liver-associated self antigens. Human clonal analysis has directly demonstrated SepSecS/SLA-specific CD4 T cells and B cells, while also finding lower-level SepSecS-reactive T cells in controls; the response is therefore disease-associated but not by itself diagnostic or universally disease-specific.</div>
 
@@ -5490,6 +5546,13 @@ This pathophysiological event involves B cell activation (GO:0042113). GO:004211
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-and-hyper-igg-response" data-dismech-node="Autoantibody and hyper-IgG response" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody and hyper-IgG response</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Activated B-cell and plasma-cell lineages generate elevated IgG and characteristic ANA, SMA, anti-LKM1/LC1, and anti-SLA/SepSecS antibodies. These are diagnostically useful outputs of adaptive immunity; this graph does not assume that circulating autoantibodies directly injure hepatocytes.</div>
 
 
@@ -5648,6 +5711,13 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-mediated-hepatocyte-injury" data-dismech-node="T-cell-mediated hepatocyte injury" data-dismech-type="pathophysiology">
                 <div class="item-name">T-cell-mediated hepatocyte injury</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Liver-autoantigen-directed T-cell activation and inflammatory cytokine production promote hepatocyte injury and death. The prior record&#39;s claim that CD8 T cells recognize MHC class II on hepatocytes was removed: CD8 restriction is to MHC class I, and the available AIH evidence does not establish that erroneous route.</div>
 
@@ -5926,6 +5996,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interface-hepatitis-and-hepatocellular-necroinflammation" data-dismech-node="Interface hepatitis and hepatocellular necroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Interface hepatitis and hepatocellular necroinflammation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Immune-cell-rich interface hepatitis and periportal necroinflammation are the characteristic tissue injury pattern. Histology is central to diagnosis but is not independently pathognomonic.</div>
 
 
@@ -6135,6 +6212,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-hepatic-fibrogenesis" data-dismech-node="Chronic hepatic fibrogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic hepatic fibrogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Recurrent or persistent inflammatory injury drives extracellular-matrix accumulation and architectural remodeling of the liver. Advanced fibrosis culminates in cirrhosis and its complications.</div>
 
@@ -6368,7 +6452,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute liver failure with massive hepatocyte necrosis is an uncommon but life-threatening possible presentation.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0006554\"}}, {\"id\": \"Anti-LKM1 and anti-LC1 antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-LKM1/LC1 positivity reports a recognized AIH serologic pattern.\"}]}}, {\"id\": \"Anti-SLA/SepSecS antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-SLA/SepSecS positivity reports an affinity-matured autoantigen-specific B-cell response.\"}]}}, {\"id\": \"Antinuclear antibodies (ANA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"specificity\": \"Not specific for AIH\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"ANA positivity is a serologic readout of the adaptive autoantibody response, not proof of direct antibody-mediated hepatocyte injury.\"}]}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a recognized extrahepatic symptom; no population frequency is inferred from the source.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Autoantibody and hyper-IgG response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated B-cell and plasma-cell lineages generate elevated IgG and characteristic ANA, SMA, anti-LKM1/LC1, and anti-SLA/SepSecS antibodies. These are diagnostically useful outputs of adaptive immunity; this graph does not assume that circulating autoantibodies directly injure hepatocytes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\"]}}, {\"id\": \"Azathioprine steroid-sparing therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Azathioprine is introduced as a steroid-sparing agent for maintenance or as part of combination induction, with patient-specific contraindication and toxicity assessment.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"azathioprine\"]}}, {\"id\": \"Chronic hepatic fibrogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent or persistent inflammatory injury drives extracellular-matrix accumulation and architectural remodeling of the liver. Advanced fibrosis culminates in cirrhosis and its complications.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"liver\"]}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced fibrosis can progress to cirrhosis when active disease is missed or inadequately controlled.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tiredness is a recognized patient symptom; no frequency band is asserted because the reviewed sources do not provide a representative estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"HLA-B susceptibility alleles\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-B\"], \"gene_terms\": [{\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}], \"association\": \"HLA-B*35:01 and additional independent HLA-B signals in a Han Chinese type-1-serology cohort\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HLA-DRB1 susceptibility alleles\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"HLA-DRB1*03:01 primary and HLA-DRB1*04:01 secondary susceptibility in replicated European type-1-serology cohorts\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Interface hepatitis and hepatocellular necroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune-cell-rich interface hepatitis and periportal necroinflammation are the characteristic tissue injury pattern. Histology is central to diagnosis but is not independently pathognomonic.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"liver\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice can accompany clinically apparent hepatitis or advanced liver dysfunction; its absence does not exclude AIH.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is a rescue treatment for acute liver failure or decompensated end-stage disease when medical therapy cannot restore adequate function. AIH may recur after transplantation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Liver-autoantigen-specific adaptive immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive T and B cells recognize liver-associated self antigens. Human clonal analysis has directly demonstrated SepSecS/SLA-specific CD4 T cells and B cells, while also finding lower-level SepSecS-reactive T cells in controls; the response is therefore disease-associated but not by itself diagnostic or universally disease-specific.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"B cell\"], \"biological_processes\": [\"adaptive immune response\", \"T cell activation\", \"B cell activation\"]}}, {\"id\": \"Mycophenolate mofetil immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mycophenolate mofetil (MMF) is a current first-line alternative to azathioprine and remains an option for intolerance or inadequate response. It is teratogenic and requires reproductive-risk counseling. The strongest direct comparison is a small 24-week, open-label adult trial, so long-term and broader-population comparative effectiveness remains less certain.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mycophenolate mofetil\"]}}, {\"id\": \"Polygenic HLA-linked susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common germline variation creates a polygenic susceptibility rather than a Mendelian cause. HLA-DRB1*03:01 and *04:01 are major signals in European type-1-serology cohorts, while HLA-B*35:01 is the strongest signal in a Han Chinese cohort; these ancestry-dependent associations implicate antigen presentation. SH2B3 adds a non-HLA immune-signaling susceptibility signal.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HLA-DRB1\", \"HLA-B\", \"SH2B3\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}, {\"label\": \"SH2B3\", \"id\": \"hgnc:29605\"}]}}, {\"id\": \"Prednisone or prednisolone-based corticosteroid induction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic prednisone or prednisolone is used to induce remission, with dose and taper individualized to severity, response, and toxicity. Budesonide is deliberately not grouped into this current first-line entry; its older noncirrhotic trial and the 2025 guideline reversal are documented below.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SH2B3 susceptibility variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SH2B3\"], \"gene_terms\": [{\"label\": \"SH2B3\", \"id\": \"hgnc:29605\"}], \"association\": \"Non-HLA common-variant susceptibility signal (rs3184504) in a European GWAS\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Serum ALT and AST\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Interface hepatitis and hepatocellular necroinflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Elevated aminotransferases report active hepatocellular injury but are not specific to AIH.\"}]}}, {\"id\": \"Serum immunoglobulin G (IgG)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased serum IgG reports the humoral immune response and is used with other diagnostic findings.\"}]}}, {\"id\": \"Smooth-muscle and F-actin antibodies (SMA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"specificity\": \"Not specific for AIH\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"SMA/F-actin positivity reports the adaptive autoantibody response.\"}]}}, {\"id\": \"T-cell-mediated hepatocyte injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver-autoantigen-directed T-cell activation and inflammatory cytokine production promote hepatocyte injury and death. The prior record\u0027s claim that CD8 T cells recognize MHC class II on hepatocytes was removed: CD8 restriction is to MHC class I, and the available AIH evidence does not establish that erroneous route.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"hepatocyte\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"inflammatory response\", \"apoptotic process\"], \"locations\": [\"liver\"]}}], \"edges\": [{\"source\": \"Polygenic HLA-linked susceptibility\", \"target\": \"Liver-autoantigen-specific adaptive immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic susceptibility, together with incompletely defined triggers and tolerance failure, permits an adaptive response against liver autoantigens.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Environmental triggers are not defined for most patients.\", \"The steps converting HLA-associated risk into loss of self-tolerance remain incompletely resolved.\"]}, {\"source\": \"Liver-autoantigen-specific adaptive immune activation\", \"target\": \"Autoantibody and hyper-IgG response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognate B-cell antigen presentation and T-cell help support affinity-matured autoantibody production and the polyclonal IgG response.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\", \"b_cell_amplification\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Liver-autoantigen-specific adaptive immune activation\", \"target\": \"T-cell-mediated hepatocyte injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The autoreactive response is modeled as driving hepatocyte injury through effector T-cell and cytokine pathways; the precise dominant cytotoxic subset and antigenic targets remain incompletely mapped in human liver.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Liver-autoantigen-specific adaptive immune activation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint pain is an extrahepatic symptom of AIH, but the intermediates linking liver-directed adaptive autoimmunity to arthralgia are not established.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"T-cell-mediated hepatocyte injury\", \"target\": \"Interface hepatitis and hepatocellular necroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent adaptive immune injury produces periportal/interface inflammation and hepatocyte necroinflammation.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic consequences of inflammatory liver disease can manifest as fatigue, although the responsible intermediates are not resolved.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular dysfunction can impair bilirubin handling and produce jaundice.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired hepatic bilirubin uptake, conjugation, or excretion\"]}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Acute hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe, rapidly progressive hepatocyte necrosis can cause acute liver failure at presentation.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Chronic hepatic fibrogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent necroinflammation stimulates progressive hepatic matrix deposition; effective treatment can halt or reverse part of this process.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatic stellate-cell activation\", \"Excess extracellular-matrix deposition\"]}, {\"source\": \"Chronic hepatic fibrogenesis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced fibrotic remodeling produces cirrhotic liver architecture.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prednisone or prednisolone-based corticosteroid induction\", \"target\": \"T-cell-mediated hepatocyte injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prednisone or prednisolone-based corticosteroid induction\", \"target\": \"Interface hepatitis and hepatocellular necroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Azathioprine steroid-sparing therapy\", \"target\": \"Liver-autoantigen-specific adaptive immune activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mycophenolate mofetil immunosuppression\", \"target\": \"Liver-autoantigen-specific adaptive immune activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Acute hepatic failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Cirrhosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Antinuclear antibodies (ANA)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"ANA positivity is a serologic readout of the adaptive autoantibody response, not proof of direct antibody-mediated hepatocyte injury.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Smooth-muscle and F-actin antibodies (SMA)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"SMA/F-actin positivity reports the adaptive autoantibody response.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Anti-LKM1 and anti-LC1 antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-LKM1/LC1 positivity reports a recognized AIH serologic pattern.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Anti-SLA/SepSecS antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-SLA/SepSecS positivity reports an affinity-matured autoantigen-specific B-cell response.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Serum immunoglobulin G (IgG)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased serum IgG reports the humoral immune response and is used with other diagnostic findings.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Serum ALT and AST\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated aminotransferases report active hepatocellular injury but are not specific to AIH.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"HLA-DRB1 susceptibility alleles\", \"target\": \"Polygenic HLA-linked susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-B susceptibility alleles\", \"target\": \"Polygenic HLA-linked susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SH2B3 susceptibility variant\", \"target\": \"Polygenic HLA-linked susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute liver failure with massive hepatocyte necrosis is an uncommon but life-threatening possible presentation.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0006554\"}}, {\"id\": \"Anti-LKM1 and anti-LC1 antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-LKM1/LC1 positivity reports a recognized AIH serologic pattern.\"}]}}, {\"id\": \"Anti-SLA/SepSecS antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-SLA/SepSecS positivity reports an affinity-matured autoantigen-specific B-cell response.\"}]}}, {\"id\": \"Antinuclear antibodies (ANA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"specificity\": \"Not specific for AIH\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"ANA positivity is a serologic readout of the adaptive autoantibody response, not proof of direct antibody-mediated hepatocyte injury.\"}]}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain is a recognized extrahepatic symptom; no population frequency is inferred from the source.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Autoantibody and hyper-IgG response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated B-cell and plasma-cell lineages generate elevated IgG and characteristic ANA, SMA, anti-LKM1/LC1, and anti-SLA/SepSecS antibodies. These are diagnostically useful outputs of adaptive immunity; this graph does not assume that circulating autoantibodies directly injure hepatocytes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Azathioprine steroid-sparing therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Azathioprine is introduced as a steroid-sparing agent for maintenance or as part of combination induction, with patient-specific contraindication and toxicity assessment.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"azathioprine\"]}}, {\"id\": \"Chronic hepatic fibrogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent or persistent inflammatory injury drives extracellular-matrix accumulation and architectural remodeling of the liver. Advanced fibrosis culminates in cirrhosis and its complications.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"liver\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced fibrosis can progress to cirrhosis when active disease is missed or inadequately controlled.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0001394\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tiredness is a recognized patient symptom; no frequency band is asserted because the reviewed sources do not provide a representative estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"HLA-B susceptibility alleles\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-B\"], \"gene_terms\": [{\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}], \"association\": \"HLA-B*35:01 and additional independent HLA-B signals in a Han Chinese type-1-serology cohort\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HLA-DRB1 susceptibility alleles\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"HLA-DRB1*03:01 primary and HLA-DRB1*04:01 secondary susceptibility in replicated European type-1-serology cohorts\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Interface hepatitis and hepatocellular necroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune-cell-rich interface hepatitis and periportal necroinflammation are the characteristic tissue injury pattern. Histology is central to diagnosis but is not independently pathognomonic.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"liver\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice can accompany clinically apparent hepatitis or advanced liver dysfunction; its absence does not exclude AIH.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is a rescue treatment for acute liver failure or decompensated end-stage disease when medical therapy cannot restore adequate function. AIH may recur after transplantation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Liver-autoantigen-specific adaptive immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive T and B cells recognize liver-associated self antigens. Human clonal analysis has directly demonstrated SepSecS/SLA-specific CD4 T cells and B cells, while also finding lower-level SepSecS-reactive T cells in controls; the response is therefore disease-associated but not by itself diagnostic or universally disease-specific.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"B cell\"], \"biological_processes\": [\"adaptive immune response\", \"T cell activation\", \"B cell activation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mycophenolate mofetil immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mycophenolate mofetil (MMF) is a current first-line alternative to azathioprine and remains an option for intolerance or inadequate response. It is teratogenic and requires reproductive-risk counseling. The strongest direct comparison is a small 24-week, open-label adult trial, so long-term and broader-population comparative effectiveness remains less certain.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mycophenolate mofetil\"]}}, {\"id\": \"Polygenic HLA-linked susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common germline variation creates a polygenic susceptibility rather than a Mendelian cause. HLA-DRB1*03:01 and *04:01 are major signals in European type-1-serology cohorts, while HLA-B*35:01 is the strongest signal in a Han Chinese cohort; these ancestry-dependent associations implicate antigen presentation. SH2B3 adds a non-HLA immune-signaling susceptibility signal.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HLA-DRB1\", \"HLA-B\", \"SH2B3\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}, {\"label\": \"SH2B3\", \"id\": \"hgnc:29605\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Prednisone or prednisolone-based corticosteroid induction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic prednisone or prednisolone is used to induce remission, with dose and taper individualized to severity, response, and toxicity. Budesonide is deliberately not grouped into this current first-line entry; its older noncirrhotic trial and the 2025 guideline reversal are documented below.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SH2B3 susceptibility variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SH2B3\"], \"gene_terms\": [{\"label\": \"SH2B3\", \"id\": \"hgnc:29605\"}], \"association\": \"Non-HLA common-variant susceptibility signal (rs3184504) in a European GWAS\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Serum ALT and AST\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Interface hepatitis and hepatocellular necroinflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Elevated aminotransferases report active hepatocellular injury but are not specific to AIH.\"}]}}, {\"id\": \"Serum immunoglobulin G (IgG)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased serum IgG reports the humoral immune response and is used with other diagnostic findings.\"}]}}, {\"id\": \"Smooth-muscle and F-actin antibodies (SMA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"specificity\": \"Not specific for AIH\", \"readouts\": [{\"target\": \"Autoantibody and hyper-IgG response\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"SMA/F-actin positivity reports the adaptive autoantibody response.\"}]}}, {\"id\": \"T-cell-mediated hepatocyte injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver-autoantigen-directed T-cell activation and inflammatory cytokine production promote hepatocyte injury and death. The prior record\u0027s claim that CD8 T cells recognize MHC class II on hepatocytes was removed: CD8 restriction is to MHC class I, and the available AIH evidence does not establish that erroneous route.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"hepatocyte\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"inflammatory response\", \"apoptotic process\"], \"locations\": [\"liver\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Polygenic HLA-linked susceptibility\", \"target\": \"Liver-autoantigen-specific adaptive immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic susceptibility, together with incompletely defined triggers and tolerance failure, permits an adaptive response against liver autoantigens.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Environmental triggers are not defined for most patients.\", \"The steps converting HLA-associated risk into loss of self-tolerance remain incompletely resolved.\"]}, {\"source\": \"Liver-autoantigen-specific adaptive immune activation\", \"target\": \"Autoantibody and hyper-IgG response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognate B-cell antigen presentation and T-cell help support affinity-matured autoantibody production and the polyclonal IgG response.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\", \"b_cell_amplification\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Liver-autoantigen-specific adaptive immune activation\", \"target\": \"T-cell-mediated hepatocyte injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The autoreactive response is modeled as driving hepatocyte injury through effector T-cell and cytokine pathways; the precise dominant cytotoxic subset and antigenic targets remain incompletely mapped in human liver.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Liver-autoantigen-specific adaptive immune activation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint pain is an extrahepatic symptom of AIH, but the intermediates linking liver-directed adaptive autoimmunity to arthralgia are not established.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"T-cell-mediated hepatocyte injury\", \"target\": \"Interface hepatitis and hepatocellular necroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent adaptive immune injury produces periportal/interface inflammation and hepatocyte necroinflammation.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic consequences of inflammatory liver disease can manifest as fatigue, although the responsible intermediates are not resolved.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular dysfunction can impair bilirubin handling and produce jaundice.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired hepatic bilirubin uptake, conjugation, or excretion\"]}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Acute hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe, rapidly progressive hepatocyte necrosis can cause acute liver failure at presentation.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Chronic hepatic fibrogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent necroinflammation stimulates progressive hepatic matrix deposition; effective treatment can halt or reverse part of this process.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatic stellate-cell activation\", \"Excess extracellular-matrix deposition\"]}, {\"source\": \"Chronic hepatic fibrogenesis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced fibrotic remodeling produces cirrhotic liver architecture.\", \"hypothesis_groups\": [\"canonical_adaptive_autoimmunity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prednisone or prednisolone-based corticosteroid induction\", \"target\": \"T-cell-mediated hepatocyte injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prednisone or prednisolone-based corticosteroid induction\", \"target\": \"Interface hepatitis and hepatocellular necroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Azathioprine steroid-sparing therapy\", \"target\": \"Liver-autoantigen-specific adaptive immune activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mycophenolate mofetil immunosuppression\", \"target\": \"Liver-autoantigen-specific adaptive immune activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Acute hepatic failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Cirrhosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Antinuclear antibodies (ANA)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"ANA positivity is a serologic readout of the adaptive autoantibody response, not proof of direct antibody-mediated hepatocyte injury.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Smooth-muscle and F-actin antibodies (SMA)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"SMA/F-actin positivity reports the adaptive autoantibody response.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Anti-LKM1 and anti-LC1 antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-LKM1/LC1 positivity reports a recognized AIH serologic pattern.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Anti-SLA/SepSecS antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-SLA/SepSecS positivity reports an affinity-matured autoantigen-specific B-cell response.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoantibody and hyper-IgG response\", \"target\": \"Serum immunoglobulin G (IgG)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased serum IgG reports the humoral immune response and is used with other diagnostic findings.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Interface hepatitis and hepatocellular necroinflammation\", \"target\": \"Serum ALT and AST\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated aminotransferases report active hepatocellular injury but are not specific to AIH.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"HLA-DRB1 susceptibility alleles\", \"target\": \"Polygenic HLA-linked susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-B susceptibility alleles\", \"target\": \"Polygenic HLA-linked susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SH2B3 susceptibility variant\", \"target\": \"Polygenic HLA-linked susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6425,6 +6509,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6499,6 +6586,9 @@ This clinical feature is Acute hepatic failure (HP:0006554). HP:0006554 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6563,6 +6653,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6646,6 +6739,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6710,6 +6806,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6832,6 +6931,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6908,6 +7010,9 @@ This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6980,6 +7085,9 @@ This disease-associated gene is SH2B3 (hgnc:29605). hgnc:29605 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Bronchiectasis%20and%20Nasal%20Polyposis"
@@ -4011,7 +4053,7 @@ What makes the entry mechanistically interesting is a negative result. WFDC2 is 
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -4020,7 +4062,7 @@ What makes the entry mechanistically interesting is a negative result. WFDC2 is 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4056,6 +4098,14 @@ What makes the entry mechanistically interesting is a negative result. WFDC2 is 
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4231,7 +4281,297 @@ What makes the entry mechanistically interesting is a negative result. WFDC2 is 
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="wfdc2_mouse_ciliary_alveolar_mismatch">
+                <div class="item-name">Does the murine Wfdc2-null ciliary and alveolar phenotype reflect a mechanism the human ciliary and clearance measurements missed, or a genuine species divergence in how loss of WFDC2 is tolerated?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">wfdc2_mouse_ciliary_alveolar_mismatch</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-preserved-mucociliary-clearance">pathophysiology#Preserved Mucociliary Clearance</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#animal-model-wfdc2-null-mouse-nakajima-et-al">animal_models#Wfdc2-null mouse (Nakajima et al.)</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Two independently generated Wfdc2-null mouse lines both die of neonatal respiratory failure, but by different routes: impaired cilia, absent mature club cells and malformed AECII lamellar bodies in one line (PMID:31562139), and type-I alveolar epithelial cell apoptosis with lung hypovascularity in the other (PMID:31780266). The ciliary defect is not present in WFDC2-deficient humans, whose ciliary length, ciliary beat frequency and coordination, cilia and centrosome composition, mucus viscosity and directed mucociliary transport match controls, and who survive the neonatal period with a chronic but non-lethal airway disease. The alveolar lesions - type-I cell apoptosis, hypovascularity, AECII lamellar body malformation - have not been assessed in humans at all, so their absence is not established. Cellular morphology and fate in patient airway cultures were inspected and no obvious change was seen, but club-cell maturation markers were not specifically assayed.
+Two readings are both consistent with the data. Under a mechanism-missed reading, the mouse&#39;s ciliary and alveolar defects point to a WFDC2 function the human measurements have not yet probed - the human ALI cultures examined ciliary beat and structure but not the AECII lamellar body or club-cell differentiation axis the mouse implicates beyond an informal inspection of cell morphology and fate. Under a species-divergence reading, the extra 52-residue linker in murine WFDC2 relative to human WFDC2 means the mouse ortholog simply does something different, and its loss produces a developmental lung phenotype with no human counterpart - consistent with humans having no equivalent neonatal-lethal presentation despite biallelic loss-of-function alleles. The question matters because the mouse is otherwise the obvious system for testing candidate mechanisms (protein replacement, the antiprotease hypothesis), and neonatal lethality forecloses that use if the mismatch is genuine species divergence rather than a missed human measurement.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Club-cell maturation assay in WFDC2-deficient human bronchial air-liquid-interface cultures</div>
+
+            </div>
+
+            <div class="experiment-id">wfdc2_club_cell_maturation_in_human_airway_cultures</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">The human air-liquid-interface cultures were examined for ciliary beat, ciliary length and mucus viscosity, and cell morphology and fate were inspected informally, but club-cell maturation markers such as SCGB1A1 were not assayed. Quantifying SCGB1A1-positive club cells in patient-derived bronchial cultures against controls tests the airway half of the mouse phenotype directly.</div>
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-preserved-mucociliary-clearance">pathophysiology#Preserved Mucociliary Clearance</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-preserved-mucociliary-clearance">pathophysiology#Preserved Mucociliary Clearance</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Normal club-cell maturation in WFDC2-deficient cultures, which would support the species-divergence reading for the airway phenotype.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Reduced or absent SCGB1A1-positive mature club cells in WFDC2-deficient cultures, which would show that the mouse secretory-cell defect is present in humans but was not measured.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">AECII lamellar body and type-I cell survival assay in patient iPSC-derived alveolar cells</div>
+
+            </div>
+
+            <div class="experiment-id">wfdc2_alveolar_type_ii_cells_from_patient_ipsc</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">No alveolar tissue or alveolar cell culture from a WFDC2-deficient individual has been examined. Patient iPSC-derived alveolar type II cells or alveolospheres would test whether the lamellar body malformation and type-I cell loss seen in the two mouse lines occur in human cells lacking WFDC2.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Normal lamellar bodies and type-I cell survival in patient-derived alveolar cells, which would support the species-divergence reading for the alveolar phenotype.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Malformed lamellar bodies or type-I cell apoptosis in patient-derived alveolar cells, which would identify a human alveolar corollary to the lethal mouse phenotype that the airway-focused human studies could not detect.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotypic variation between human WFDC2 deficiency described here and mouse WFDC2 deficiency may reflect in part the sequence difference between human and mouse WFDC2, of which the latter contains a unique 52-amino acid linker region between WAP domains"</div>
+
+
+                <div class="evidence-explanation">The founding human-cohort paper&#39;s own hypothesis for the mismatch, framing the species-sequence-difference reading recorded in this discussion. It is an inference from a sequence comparison rather than a clinical observation, hence OTHER and INDIRECT.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although cytoplasmic accumulation of WFDC2 was noted in UNC-186 II2, obvious changes in cellular morphology or fate (also in OP-2032 II1) were not apparent."</div>
+
+
+                <div class="evidence-explanation">Records that cell morphology and fate in patient airway epithelia were inspected and showed no obvious change. This is an informal inspection, not a club-cell maturation assay, so it leaves the club-cell axis the mouse implicates open.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31780266" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31780266" target="_blank">PMID:31780266</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mechanistic studies indicated increased apoptosis in type-I alveolar cells in lung tissues, which caused hypovascular lung tissue, then led to severe dyspnea in wfdc2-/- neonates"</div>
+
+
+                <div class="evidence-explanation">Independent confirmation, via a second Wfdc2-null mouse line generated by a different targeting method, that murine Wfdc2 loss is neonatally lethal - through an alveolar rather than ciliary lesion - reinforcing that the mismatch with the human disease is not an artifact of one mouse line.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
             </div>
 
             <div class="item-box discussion-box anchor-target" id="wfdc2_mechanism_to_bronchiectasis_unexplained">
@@ -4590,6 +4930,7 @@ This is tractable without new discovery work: serum WFDC2 can be measured with a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-in-wfdc2" data-dismech-node="Biallelic Loss of Function in WFDC2" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss of Function in WFDC2</div>
 
+
                 <div class="item-desc">The initiating lesion. WFDC2 encodes a small secreted whey-acidic-protein family member expressed by airway secretory cells. Reported disease alleles include nonsense, frameshift and missense changes; the recurrent p.Cys49Arg founder variant acts by disrupting a disulfide-forming cysteine rather than by truncating the protein.</div>
 
 
@@ -4735,6 +5076,7 @@ This pathophysiological event involves WFDC2 (hgnc:15939). hgnc:15939 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-wfdc2-secretion" data-dismech-node="Failure of WFDC2 Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of WFDC2 Secretion</div>
+
 
                 <div class="item-desc">The proximate consequence. For the p.Cys49Arg founder allele the mechanism is specific and was modelled directly: the substitution structurally hampers glycosylation, and the immature protein is not secreted. The result for the airway is the same whichever allele is involved - no mature WFDC2 reaches the extracellular space.</div>
 
@@ -4911,6 +5253,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-wfdc2-from-airway-surface-liquid-and-secretions" data-dismech-node="Depletion of WFDC2 from Airway Surface Liquid and Secretions" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of WFDC2 from Airway Surface Liquid and Secretions</div>
 
+
                 <div class="item-desc">The measurable deficiency state. WFDC2 is below the limit of detection in serum and barely detectable in saliva, seminal fluid and airway surface liquid from affected individuals. The contrast with the disease controls is informative: patients with CF and PCD have detectable, indeed elevated, WFDC2, so this is not a nonspecific consequence of chronic airway disease. It is also what makes a commercially available serum assay usable diagnostically.</div>
 
 
@@ -5040,6 +5383,7 @@ This pathophysiological event involves decreased extracellular region (GO:000557
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-airway-antiprotease-milieu" data-dismech-node="Altered Airway Antiprotease Milieu" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Airway Antiprotease Milieu</div>
+
 
                 <div class="item-desc">A candidate, partially supported consequence. WFDC family members are protease inhibitors, and comparative proteomics of saliva found the serine protease inhibitor SPINK5 significantly reduced in WFDC2-deficient individuals relative to both healthy controls and airway-disease controls. SLPI, the other WFDC protein highly expressed in airway epithelium, was not significantly altered.
 The claim carried here is deliberately narrow. The SPINK5 finding is real and controlled against disease as well as healthy comparators, but it is measured in saliva rather than in the airway, in three patients, and it establishes an association rather than a route to tissue destruction. It is modelled as a node because the protease-antiprotease balance is the mechanism the protein family&#39;s known biology predicts, not because the pathway to bronchiectasis has been demonstrated.</div>
@@ -5183,6 +5527,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-airway-infection-and-rhinosinusitis" data-dismech-node="Chronic Airway Infection and Rhinosinusitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Airway Infection and Rhinosinusitis</div>
 
+
                 <div class="item-desc">Chronic infection of the upper and lower airways, with Pseudomonas aeruginosa prominent, together with pronounced chronic rhinosinusitis. This is the step at which the disorder becomes clinically indistinguishable from cystic fibrosis and inborn errors of immunity, and it is a persistent state rather than recurrent discrete episodes.</div>
 
 
@@ -5258,6 +5603,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-wall-destruction-and-nasal-polyp-formation" data-dismech-node="Airway Wall Destruction and Nasal Polyp Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Wall Destruction and Nasal Polyp Formation</div>
+
 
                 <div class="item-desc">The structural endpoint: irreversible bronchial dilatation and nasal polyposis. The general route from repeated airway insult to bronchiectasis is the vicious cycle of infection, inflammation, damage and abnormal remodelling that is common to bronchiectasis of any cause; what is specific to this disorder is what initiates the cycle. Distribution is a useful discriminator - disease in all lobes, mimicking CF and inborn errors of immunity, rather than the middle and lower lobe predominance of PCD.</div>
 
@@ -5349,6 +5695,7 @@ This pathophysiological event involves decreased serine-type endopeptidase inhib
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-mucociliary-clearance" data-dismech-node="Preserved Mucociliary Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Mucociliary Clearance</div>
 
+
                 <div class="item-desc">Recorded as an explicitly excluded step rather than omitted. Because WFDC2 is a secreted airway protein, impaired mucociliary clearance is the natural hypothesis, and it is the mechanism by which both diseases this disorder mimics - cystic fibrosis and primary ciliary dyskinesia - cause bronchiectasis. It was tested and did not hold. In patient-derived cultures at air-liquid interface, ciliary beat frequency was normal, ciliary length was unchanged, epithelial morphology and cilia and centrosome composition were comparable to controls, mucus viscosity was no different, and the cultures generated directed mucociliary transport. Transport speed was low relative to controls, but the authors&#39; own conclusion is that clearance is within the normal range.
 This node carries no downstream edge on purpose: the point is that the expected link to airway destruction is absent. The residual transport-speed observation is the loose end, and it is captured as a knowledge gap rather than promoted to a mechanism.</div>
 
@@ -5399,6 +5746,26 @@ This pathophysiological event involves mucociliary clearance (GO:0120197). GO:01
 
 
 
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-wfdc2-null-mouse-nakajima-et-al">Wfdc2-null mouse (Nakajima et al.)</a>
+
+                            <span class="crosslink-meta">Mouse</span>
+
+
+                            <span class="crosslink-meta">fails to recapitulate</span>
+
+
+                            <span class="crosslink-desc">The mouse does not reproduce the human finding that ciliary structure and mucociliary clearance are preserved despite WFDC2 loss. Wfdc2-null mouse airways instead show impaired cilia and failed secretory-cell differentiation, and the mutant is neonatally lethal - a phenotype absent entirely from the human disease, where clearance measurements are normal and affected individuals survive the neonatal period with a chronic, non-lethal airway disease.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -5523,7 +5890,7 @@ This pathophysiological event involves mucociliary clearance (GO:0120197). GO:01
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway Wall Destruction and Nasal Polyp Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural endpoint: irreversible bronchial dilatation and nasal polyposis. The general route from repeated airway insult to bronchiectasis is the vicious cycle of infection, inflammation, damage and abnormal remodelling that is common to bronchiectasis of any cause; what is specific to this disorder is what initiates the cycle. Distribution is a useful discriminator - disease in all lobes, mimicking CF and inborn errors of immunity, rather than the middle and lower lobe predominance of PCD.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Altered Airway Antiprotease Milieu\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate, partially supported consequence. WFDC family members are protease inhibitors, and comparative proteomics of saliva found the serine protease inhibitor SPINK5 significantly reduced in WFDC2-deficient individuals relative to both healthy controls and airway-disease controls. SLPI, the other WFDC protein highly expressed in airway epithelium, was not significantly altered.\\nThe claim carried here is deliberately narrow. The SPINK5 finding is real and controlled against disease as well as healthy comparators, but it is measured in saliva rather than in the airway, in three patients, and it establishes an association rather than a route to tissue destruction. It is modelled as a node because the protease-antiprotease balance is the mechanism the protein family\u0027s known biology predicts, not because the pathway to bronchiectasis has been demonstrated.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"serine-type endopeptidase inhibitor activity\"]}}, {\"id\": \"Biallelic Loss of Function in WFDC2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. WFDC2 encodes a small secreted whey-acidic-protein family member expressed by airway secretory cells. Reported disease alleles include nonsense, frameshift and missense changes; the recurrent p.Cys49Arg founder variant acts by disrupting a disulfide-forming cysteine rather than by truncating the protein.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"WFDC2\"], \"gene_terms\": [{\"label\": \"WFDC2\", \"id\": \"hgnc:15939\"}]}}, {\"id\": \"Chronic Airway Infection and Rhinosinusitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic infection of the upper and lower airways, with Pseudomonas aeruginosa prominent, together with pronounced chronic rhinosinusitis. This is the step at which the disorder becomes clinically indistinguishable from cystic fibrosis and inborn errors of immunity, and it is a persistent state rather than recurrent discrete episodes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measurable deficiency state. WFDC2 is below the limit of detection in serum and barely detectable in saliva, seminal fluid and airway surface liquid from affected individuals. The contrast with the disease controls is informative: patients with CF and PCD have detectable, indeed elevated, WFDC2, so this is not a nonspecific consequence of chronic airway disease. It is also what makes a commercially available serum assay usable diagnostically.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure of WFDC2 Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate consequence. For the p.Cys49Arg founder allele the mechanism is specific and was modelled directly: the substitution structurally hampers glycosylation, and the immature protein is not secreted. The result for the airway is the same whichever allele is involved - no mature WFDC2 reaches the extracellular space.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Airway secretory cell\"], \"biological_processes\": [\"protein secretion\"]}}, {\"id\": \"WFDC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WFDC2\"], \"gene_terms\": [{\"label\": \"WFDC2\", \"id\": \"hgnc:15939\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"WFDC2 Protein Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Proposed but not tested. The rationale is unusually clean for a Mendelian disorder - the missing gene product is small and acts extracellularly, so it need not be delivered into cells - which is why it is recorded here despite being hypothetical. No preclinical or clinical data exist.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Loss of Function in WFDC2\", \"target\": \"Failure of WFDC2 Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of WFDC2 Secretion\", \"target\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"target\": \"Altered Airway Antiprotease Milieu\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"target\": \"Chronic Airway Infection and Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Airway Antiprotease Milieu\", \"target\": \"Chronic Airway Infection and Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Airway Infection and Rhinosinusitis\", \"target\": \"Airway Wall Destruction and Nasal Polyp Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"WFDC2 Protein Replacement\", \"target\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"WFDC2\", \"target\": \"Biallelic Loss of Function in WFDC2\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway Wall Destruction and Nasal Polyp Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural endpoint: irreversible bronchial dilatation and nasal polyposis. The general route from repeated airway insult to bronchiectasis is the vicious cycle of infection, inflammation, damage and abnormal remodelling that is common to bronchiectasis of any cause; what is specific to this disorder is what initiates the cycle. Distribution is a useful discriminator - disease in all lobes, mimicking CF and inborn errors of immunity, rather than the middle and lower lobe predominance of PCD.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Altered Airway Antiprotease Milieu\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate, partially supported consequence. WFDC family members are protease inhibitors, and comparative proteomics of saliva found the serine protease inhibitor SPINK5 significantly reduced in WFDC2-deficient individuals relative to both healthy controls and airway-disease controls. SLPI, the other WFDC protein highly expressed in airway epithelium, was not significantly altered.\\nThe claim carried here is deliberately narrow. The SPINK5 finding is real and controlled against disease as well as healthy comparators, but it is measured in saliva rather than in the airway, in three patients, and it establishes an association rather than a route to tissue destruction. It is modelled as a node because the protease-antiprotease balance is the mechanism the protein family\u0027s known biology predicts, not because the pathway to bronchiectasis has been demonstrated.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"serine-type endopeptidase inhibitor activity\"]}}, {\"id\": \"Biallelic Loss of Function in WFDC2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. WFDC2 encodes a small secreted whey-acidic-protein family member expressed by airway secretory cells. Reported disease alleles include nonsense, frameshift and missense changes; the recurrent p.Cys49Arg founder variant acts by disrupting a disulfide-forming cysteine rather than by truncating the protein.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"WFDC2\"], \"gene_terms\": [{\"label\": \"WFDC2\", \"id\": \"hgnc:15939\"}]}}, {\"id\": \"Chronic Airway Infection and Rhinosinusitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic infection of the upper and lower airways, with Pseudomonas aeruginosa prominent, together with pronounced chronic rhinosinusitis. This is the step at which the disorder becomes clinically indistinguishable from cystic fibrosis and inborn errors of immunity, and it is a persistent state rather than recurrent discrete episodes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measurable deficiency state. WFDC2 is below the limit of detection in serum and barely detectable in saliva, seminal fluid and airway surface liquid from affected individuals. The contrast with the disease controls is informative: patients with CF and PCD have detectable, indeed elevated, WFDC2, so this is not a nonspecific consequence of chronic airway disease. It is also what makes a commercially available serum assay usable diagnostically.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure of WFDC2 Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate consequence. For the p.Cys49Arg founder allele the mechanism is specific and was modelled directly: the substitution structurally hampers glycosylation, and the immature protein is not secreted. The result for the airway is the same whichever allele is involved - no mature WFDC2 reaches the extracellular space.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Airway secretory cell\"], \"biological_processes\": [\"protein secretion\"]}}, {\"id\": \"Preserved Mucociliary Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recorded as an explicitly excluded step rather than omitted. Because WFDC2 is a secreted airway protein, impaired mucociliary clearance is the natural hypothesis, and it is the mechanism by which both diseases this disorder mimics - cystic fibrosis and primary ciliary dyskinesia - cause bronchiectasis. It was tested and did not hold. In patient-derived cultures at air-liquid interface, ciliary beat frequency was normal, ciliary length was unchanged, epithelial morphology and cilia and centrosome composition were comparable to controls, mucus viscosity was no different, and the cultures generated directed mucociliary transport. Transport speed was low relative to controls, but the authors\u0027 own conclusion is that clearance is within the normal range.\\nThis node carries no downstream edge on purpose: the point is that the expected link to airway destruction is absent. The residual transport-speed observation is the loose end, and it is captured as a knowledge gap rather than promoted to a mechanism.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mucociliary clearance\"], \"animal_models\": [{\"name\": \"Wfdc2-null mouse (Nakajima et al.)\", \"species\": \"Mouse\", \"genotype\": \"Wfdc2-null mutant, homozygous\", \"background\": \"ICR\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse does not reproduce the human finding that ciliary structure and mucociliary clearance are preserved despite WFDC2 loss. Wfdc2-null mouse airways instead show impaired cilia and failed secretory-cell differentiation, and the mutant is neonatally lethal - a phenotype absent entirely from the human disease, where clearance measurements are normal and affected individuals survive the neonatal period with a chronic, non-lethal airway disease.\"}]}}, {\"id\": \"WFDC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WFDC2\"], \"gene_terms\": [{\"label\": \"WFDC2\", \"id\": \"hgnc:15939\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"WFDC2 Protein Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Proposed but not tested. The rationale is unusually clean for a Mendelian disorder - the missing gene product is small and acts extracellularly, so it need not be delivered into cells - which is why it is recorded here despite being hypothetical. No preclinical or clinical data exist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wfdc2-null mouse (Nakajima et al.)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Wfdc2 is expressed by basal cells, club cells and type II alveolar epithelial cells (AECIIs) in the neonatal murine lung. Wfdc2-null mice develop progressive atelectasis after birth and die of respiratory failure, with impaired cilia, absent mature club cells in the tracheo-bronchial airways, and malformed AECII lamellar bodies.\"}], \"edges\": [{\"source\": \"Biallelic Loss of Function in WFDC2\", \"target\": \"Failure of WFDC2 Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of WFDC2 Secretion\", \"target\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"target\": \"Altered Airway Antiprotease Milieu\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"target\": \"Chronic Airway Infection and Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Airway Antiprotease Milieu\", \"target\": \"Chronic Airway Infection and Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Airway Infection and Rhinosinusitis\", \"target\": \"Airway Wall Destruction and Nasal Polyp Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"WFDC2 Protein Replacement\", \"target\": \"Depletion of WFDC2 from Airway Surface Liquid and Secretions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wfdc2-null mouse (Nakajima et al.)\", \"target\": \"Preserved Mucociliary Clearance\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse does not reproduce the human finding that ciliary structure and mucociliary clearance are preserved despite WFDC2 loss. Wfdc2-null mouse airways instead show impaired cilia and failed secretory-cell differentiation, and the mutant is neonatally lethal - a phenotype absent entirely from the human disease, where clearance measurements are normal and affected individuals survive the neonatal period with a chronic, non-lethal airway disease.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The human comparison rests on the airway measurements reported for WFDC2-deficient individuals (PMID:38626355) - ciliary length, beat frequency and coordination, and mucus viscosity - none of which covers the alveolar compartment. Neonatal lethality forecloses any comparison with the adult human disease course, so the mouse cannot address what happens to airway function past the newborn period. Human and mouse WFDC2 also differ in primary sequence - the murine protein carries an extra 52-residue linker between its two WAP domains - which is a candidate structural explanation for why loss of the mouse protein produces a ciliary and secretory-cell phenotype the human disease does not share. A second, independently generated Wfdc2-null mouse line (TALEN-mediated deletion, PMID:31780266) is also neonatally lethal, but through a distinct proximate lesion - type-I alveolar epithelial cell apoptosis and lung hypovascularity rather than a ciliary defect - which argues the murine lethality is a robust feature of Wfdc2 loss in mouse generally rather than an artifact of one targeting strategy, and correspondingly that the human/mouse divergence is not confined to cilia.\"}, {\"source\": \"WFDC2\", \"target\": \"Biallelic Loss of Function in WFDC2\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5548,9 +5915,9 @@ This pathophysiological event involves mucociliary clearance (GO:0120197). GO:01
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5588,6 +5955,9 @@ This clinical feature is Otitis media (HP:0000388). HP:0000388 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5702,6 +6072,9 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5811,6 +6184,9 @@ This clinical feature is Nasal polyposis (HP:0100582). HP:0100582 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5899,6 +6275,9 @@ This clinical feature is Chronic sinusitis (HP:0011109), qualified as temporalit
 
 
                     </div>
+
+
+
 
 
 
@@ -5997,6 +6376,9 @@ This clinical feature is Broadening of the nasal pyramid, annotated with Wide no
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6045,6 +6427,111 @@ This clinical feature is Broadening of the nasal pyramid, annotated with Wide no
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-pseudomonas-aeruginosa-airway-infection" data-dismech-node="Chronic Pseudomonas aeruginosa Airway Infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic Pseudomonas aeruginosa Airway Infection
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent Pseudomonas aeruginosa infection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_5210057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:5210057</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Pseudomonas aeruginosa airway infection, annotated with Recurrent Pseudomonas aeruginosa infection (HP:5210057), qualified as temporality chronic. HP:5210057 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furthermore, nine individuals with WFDC2 mutations suffered from chronic P. aeruginosa infection, which is known to be a risk factor associated with bronchiectasis (14)."</div>
+
+
+                <div class="evidence-explanation">The cohort frequency, nine of eleven. Replaces the paper&#39;s Objectives sentence, which describes who was recruited rather than what was found and so could not establish a frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
                     <span class="cat-count">4</span>
                 </summary>
@@ -6065,10 +6552,10 @@ This clinical feature is Broadening of the nasal pyramid, annotated with Wide no
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110), qualified as course progressive. HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6092,6 +6579,9 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
                     </div>
+
+
+
 
 
 
@@ -6210,15 +6700,18 @@ This clinical feature is Bronchiectasis (HP:0002110), qualified as course progre
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002643</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002643</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6285,15 +6778,18 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032342</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0032342</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced forced expiratory volume in one second (HP:0032342). HP:0032342 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6387,15 +6883,18 @@ This clinical feature is Reduced forced expiratory volume in one second (HP:0032
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0033036</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0033036</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased nasal nitric oxide (HP:0033036). HP:0033036 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6429,108 +6928,6 @@ This clinical feature is Decreased nasal nitric oxide (HP:0033036). HP:0033036 i
 
 
                 <div class="evidence-explanation">All nine measured, and the source itself names the overlap with PCD and CF that causes the diagnostic confusion.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-pseudomonas-aeruginosa-airway-infection" data-dismech-node="Chronic Pseudomonas aeruginosa Airway Infection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic Pseudomonas aeruginosa Airway Infection
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Recurrent Pseudomonas aeruginosa infection</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:5210057</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic Pseudomonas aeruginosa airway infection, annotated with Recurrent Pseudomonas aeruginosa infection (HP:5210057), qualified as temporality chronic. HP:5210057 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38626355" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38626355" target="_blank">PMID:38626355</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Furthermore, nine individuals with WFDC2 mutations suffered from chronic P. aeruginosa infection, which is known to be a risk factor associated with bronchiectasis (14)."</div>
-
-
-                <div class="evidence-explanation">The cohort frequency, nine of eleven. Replaces the paper&#39;s Objectives sentence, which describes who was recruited rather than what was found and so could not establish a frequency.</div>
 
 
 
@@ -6614,6 +7011,9 @@ This disease-associated gene is WFDC2 (hgnc:15939). hgnc:15939 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7676,6 +8076,240 @@ The open question is whether Woakes&#39; syndrome is this disease described befo
 
         <!-- Animal Models -->
 
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-wfdc2-null-mouse-nakajima-et-al" data-dismech-node="Wfdc2-null mouse (Nakajima et al.)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Wfdc2-null mouse (Nakajima et al.)
+
+                </div>
+
+                <div class="item-desc">Wfdc2 is expressed by basal cells, club cells and type II alveolar epithelial cells (AECIIs) in the neonatal murine lung. Wfdc2-null mice develop progressive atelectasis after birth and die of respiratory failure, with impaired cilia, absent mature club cells in the tracheo-bronchial airways, and malformed AECII lamellar bodies.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Wfdc2-null mutant, homozygous</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">ICR</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/31562139" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:31562139">PMID:31562139</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-preserved-mucociliary-clearance">Preserved Mucociliary Clearance</a>
+
+                <span class="crosslink-meta">fails to recapitulate</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">The mouse does not reproduce the human finding that ciliary structure and mucociliary clearance are preserved despite WFDC2 loss. Wfdc2-null mouse airways instead show impaired cilia and failed secretory-cell differentiation, and the mutant is neonatally lethal - a phenotype absent entirely from the human disease, where clearance measurements are normal and affected individuals survive the neonatal period with a chronic, non-lethal airway disease.</span>
+
+
+                <div class="mapping-notes">Limitations: The human comparison rests on the airway measurements reported for WFDC2-deficient individuals (PMID:38626355) - ciliary length, beat frequency and coordination, and mucus viscosity - none of which covers the alveolar compartment. Neonatal lethality forecloses any comparison with the adult human disease course, so the mouse cannot address what happens to airway function past the newborn period. Human and mouse WFDC2 also differ in primary sequence - the murine protein carries an extra 52-residue linker between its two WAP domains - which is a candidate structural explanation for why loss of the mouse protein produces a ciliary and secretory-cell phenotype the human disease does not share. A second, independently generated Wfdc2-null mouse line (TALEN-mediated deletion, PMID:31780266) is also neonatally lethal, but through a distinct proximate lesion - type-I alveolar epithelial cell apoptosis and lung hypovascularity rather than a ciliary defect - which argues the murine lethality is a robust feature of Wfdc2 loss in mouse generally rather than an artifact of one targeting strategy, and correspondingly that the human/mouse divergence is not confined to cilia.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Ciliary and secretory-cell differentiation in Wfdc2-null mouse airways</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: Impaired cilia and absent mature club cells, the opposite of the normal ciliary structure and directed mucociliary transport reported in WFDC2-deficient human airway cultures.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31562139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31562139" target="_blank">PMID:31562139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutant lungs have multiple defects, including impaired cilia and the absence of mature club cells from the tracheo-bronchial airways, and malformed lamellar bodies in AECIIs."</div>
+
+
+                <div class="evidence-explanation">Documents the ciliary and secretory-cell defects in the mouse that are absent in the human disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31562139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31562139" target="_blank">PMID:31562139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutant lungs have multiple defects, including impaired cilia and the absence of mature club cells from the tracheo-bronchial airways, and malformed lamellar bodies in AECIIs."</div>
+
+
+                <div class="evidence-explanation">Supports treating this model as informative for whether ciliary structure and clearance are preserved after WFDC2 loss: the mouse shows the opposite of the human &#34;preserved&#34; finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31562139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31562139" target="_blank">PMID:31562139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Wfdc2-null-mutant mice display progressive atelectasis after birth with a lethal phenotype."</div>
+
+
+                <div class="evidence-explanation">Establishes the neonatally lethal respiratory phenotype of this Wfdc2-null mouse line.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Computational Models -->
 
@@ -8015,6 +8649,85 @@ pathophysiology:
       rather than SUPPORT: it is the only result inconsistent with wholly normal
       transport, even though the authors judged the overall level to be within the
       normal range.
+
+animal_models:
+- name: Wfdc2-null mouse (Nakajima et al.)
+  species: Mouse
+  genotype: Wfdc2-null mutant, homozygous
+  background: ICR
+  publication: PMID:31562139
+  description: &gt;-
+    Wfdc2 is expressed by basal cells, club cells and type II alveolar
+    epithelial cells (AECIIs) in the neonatal murine lung. Wfdc2-null mice
+    develop progressive atelectasis after birth and die of respiratory
+    failure, with impaired cilia, absent mature club cells in the
+    tracheo-bronchial airways, and malformed AECII lamellar bodies.
+  modeled_mechanisms:
+  - target: Preserved Mucociliary Clearance
+    relationship: FAILS_TO_RECAPITULATE
+    fidelity: LOW
+    model_scale: CELLULAR
+    description: &gt;-
+      The mouse does not reproduce the human finding that ciliary structure
+      and mucociliary clearance are preserved despite WFDC2 loss. Wfdc2-null
+      mouse airways instead show impaired cilia and failed secretory-cell
+      differentiation, and the mutant is neonatally lethal - a phenotype
+      absent entirely from the human disease, where clearance measurements
+      are normal and affected individuals survive the neonatal period with a
+      chronic, non-lethal airway disease.
+    limitations: &gt;-
+      The human comparison rests on the airway measurements reported for
+      WFDC2-deficient individuals (PMID:38626355) - ciliary length, beat
+      frequency and coordination, and mucus viscosity - none of which covers
+      the alveolar compartment. Neonatal lethality forecloses any comparison with the adult human
+      disease course, so the mouse cannot address what happens to airway
+      function past the newborn period. Human and mouse WFDC2 also differ in
+      primary sequence - the murine protein carries an extra 52-residue
+      linker between its two WAP domains - which is a candidate structural
+      explanation for why loss of the mouse protein produces a ciliary and
+      secretory-cell phenotype the human disease does not share. A second,
+      independently generated Wfdc2-null mouse line (TALEN-mediated deletion,
+      PMID:31780266) is also neonatally lethal, but through a distinct
+      proximate lesion - type-I alveolar epithelial cell apoptosis and lung
+      hypovascularity rather than a ciliary defect - which argues the murine
+      lethality is a robust feature of Wfdc2 loss in mouse generally rather
+      than an artifact of one targeting strategy, and correspondingly that
+      the human/mouse divergence is not confined to cilia.
+    evidence:
+    - reference: PMID:31562139
+      reference_title: &#34;Lack of whey acidic protein (WAP) four-disulfide core domain protease inhibitor 2 (WFDC2) causes neonatal death from respiratory failure in mice.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      directness: DIRECT
+      snippet: &#34;Mutant lungs have multiple defects, including impaired cilia and the absence of mature club cells from the tracheo-bronchial airways, and malformed lamellar bodies in AECIIs.&#34;
+      explanation: &gt;-
+        Supports treating this model as informative for whether ciliary
+        structure and clearance are preserved after WFDC2 loss: the mouse
+        shows the opposite of the human &#34;preserved&#34; finding.
+    readouts:
+    - name: Ciliary and secretory-cell differentiation in Wfdc2-null mouse airways
+      target: Preserved Mucociliary Clearance
+      direction: ALTERED
+      interpretation: &gt;-
+        Impaired cilia and absent mature club cells, the opposite of the
+        normal ciliary structure and directed mucociliary transport reported
+        in WFDC2-deficient human airway cultures.
+      evidence:
+      - reference: PMID:31562139
+        reference_title: &#34;Lack of whey acidic protein (WAP) four-disulfide core domain protease inhibitor 2 (WFDC2) causes neonatal death from respiratory failure in mice.&#34;
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        directness: DIRECT
+        snippet: &#34;Mutant lungs have multiple defects, including impaired cilia and the absence of mature club cells from the tracheo-bronchial airways, and malformed lamellar bodies in AECIIs.&#34;
+        explanation: Documents the ciliary and secretory-cell defects in the mouse that are absent in the human disease.
+  evidence:
+  - reference: PMID:31562139
+    reference_title: &#34;Lack of whey acidic protein (WAP) four-disulfide core domain protease inhibitor 2 (WFDC2) causes neonatal death from respiratory failure in mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    directness: DIRECT
+    snippet: &#34;Wfdc2-null-mutant mice display progressive atelectasis after birth with a lethal phenotype.&#34;
+    explanation: Establishes the neonatally lethal respiratory phenotype of this Wfdc2-null mouse line.
 
 phenotypes:
 - category: Respiratory
@@ -8526,6 +9239,125 @@ clinical_burden:
     explanation: Supports a high burden assessment through refractoriness to standard treatment.
 
 discussions:
+- discussion_id: wfdc2_mouse_ciliary_alveolar_mismatch
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Preserved Mucociliary Clearance
+  - animal_models#Wfdc2-null mouse (Nakajima et al.)
+  prompt: &gt;-
+    Does the murine Wfdc2-null ciliary and alveolar phenotype reflect a
+    mechanism the human ciliary and clearance measurements missed, or a
+    genuine species divergence in how loss of WFDC2 is tolerated?
+  rationale: &gt;-
+    Two independently generated Wfdc2-null mouse lines both die of neonatal
+    respiratory failure, but by different routes: impaired cilia, absent
+    mature club cells and malformed AECII lamellar bodies in one line
+    (PMID:31562139), and type-I alveolar epithelial cell apoptosis with lung
+    hypovascularity in the other (PMID:31780266). The ciliary defect is not
+    present in WFDC2-deficient humans, whose ciliary length, ciliary beat
+    frequency and coordination, cilia and centrosome composition, mucus
+    viscosity and directed mucociliary transport match controls, and who
+    survive the neonatal period with a chronic but non-lethal airway
+    disease. The alveolar lesions - type-I cell apoptosis, hypovascularity,
+    AECII lamellar body malformation - have not been assessed in humans at
+    all, so their absence is not established. Cellular morphology and fate
+    in patient airway cultures were inspected and no obvious change was seen,
+    but club-cell maturation markers were not specifically assayed.
+
+    Two readings are both consistent with the data. Under a mechanism-missed
+    reading, the mouse&#39;s ciliary and alveolar defects point to a WFDC2
+    function the human measurements have not yet probed - the human ALI
+    cultures examined ciliary beat and structure but not the AECII lamellar
+    body or club-cell differentiation axis the mouse implicates beyond an
+    informal inspection of cell morphology and fate. Under a
+    species-divergence reading, the extra 52-residue linker in murine WFDC2
+    relative to human WFDC2 means the mouse ortholog simply does something
+    different, and its loss produces a developmental lung phenotype with no
+    human counterpart - consistent with humans having no equivalent
+    neonatal-lethal presentation despite biallelic loss-of-function alleles.
+    The question matters because the mouse is otherwise the obvious system
+    for testing candidate mechanisms (protein replacement, the antiprotease
+    hypothesis), and neonatal lethality forecloses that use if the mismatch
+    is genuine species divergence rather than a missed human measurement.
+  evidence:
+  - reference: PMID:38626355
+    reference_title: &#34;Recessively Inherited Deficiency of Secreted WFDC2 (HE4) Causes Nasal Polyposis and Bronchiectasis.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    directness: INDIRECT
+    snippet: &#34;The phenotypic variation between human WFDC2 deficiency described here and mouse WFDC2 deficiency may reflect in part the sequence difference between human and mouse WFDC2, of which the latter contains a unique 52-amino acid linker region between WAP domains&#34;
+    explanation: &gt;-
+      The founding human-cohort paper&#39;s own hypothesis for the mismatch,
+      framing the species-sequence-difference reading recorded in this
+      discussion. It is an inference from a sequence comparison rather than
+      a clinical observation, hence OTHER and INDIRECT.
+  - reference: PMID:38626355
+    reference_title: &#34;Recessively Inherited Deficiency of Secreted WFDC2 (HE4) Causes Nasal Polyposis and Bronchiectasis.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    directness: DIRECT
+    snippet: &#34;Although cytoplasmic accumulation of WFDC2 was noted in UNC-186 II2, obvious changes in cellular morphology or fate (also in OP-2032 II1) were not apparent.&#34;
+    explanation: &gt;-
+      Records that cell morphology and fate in patient airway epithelia were
+      inspected and showed no obvious change. This is an informal inspection,
+      not a club-cell maturation assay, so it leaves the club-cell axis the
+      mouse implicates open.
+  - reference: PMID:31780266
+    reference_title: &#34;WFDC2 gene deletion in mouse led to severe dyspnea and type-I alveolar cell apoptosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    directness: DIRECT
+    snippet: &#34;mechanistic studies indicated increased apoptosis in type-I alveolar cells in lung tissues, which caused hypovascular lung tissue, then led to severe dyspnea in wfdc2-/- neonates&#34;
+    explanation: &gt;-
+      Independent confirmation, via a second Wfdc2-null mouse line generated
+      by a different targeting method, that murine Wfdc2 loss is neonatally
+      lethal - through an alveolar rather than ciliary lesion - reinforcing
+      that the mismatch with the human disease is not an artifact of one
+      mouse line.
+  proposed_experiments:
+  - experiment_id: wfdc2_club_cell_maturation_in_human_airway_cultures
+    name: Club-cell maturation assay in WFDC2-deficient human bronchial air-liquid-interface cultures
+    description: &gt;-
+      The human air-liquid-interface cultures were examined for ciliary beat,
+      ciliary length and mucus viscosity, and cell morphology and fate were
+      inspected informally, but club-cell maturation markers such as SCGB1A1
+      were not assayed. Quantifying SCGB1A1-positive club cells in
+      patient-derived bronchial cultures against controls tests the airway
+      half of the mouse phenotype directly.
+    would_refute:
+    - pathophysiology#Preserved Mucociliary Clearance
+    refuting_outcome:
+    - &gt;-
+      Reduced or absent SCGB1A1-positive mature club cells in WFDC2-deficient
+      cultures, which would show that the mouse secretory-cell defect is
+      present in humans but was not measured.
+    would_support:
+    - pathophysiology#Preserved Mucociliary Clearance
+    supporting_outcome:
+    - &gt;-
+      Normal club-cell maturation in WFDC2-deficient cultures, which would
+      support the species-divergence reading for the airway phenotype.
+  - experiment_id: wfdc2_alveolar_type_ii_cells_from_patient_ipsc
+    name: AECII lamellar body and type-I cell survival assay in patient iPSC-derived alveolar cells
+    description: &gt;-
+      No alveolar tissue or alveolar cell culture from a WFDC2-deficient
+      individual has been examined. Patient iPSC-derived alveolar type II
+      cells or alveolospheres would test whether the lamellar body
+      malformation and type-I cell loss seen in the two mouse lines occur in
+      human cells lacking WFDC2.
+    supporting_outcome:
+    - &gt;-
+      Normal lamellar bodies and type-I cell survival in patient-derived
+      alveolar cells, which would support the species-divergence reading for
+      the alveolar phenotype.
+    refuting_outcome:
+    - &gt;-
+      Malformed lamellar bodies or type-I cell apoptosis in patient-derived
+      alveolar cells, which would identify a human alveolar corollary to the
+      lethal mouse phenotype that the airway-focused human studies could not
+      detect.
+
 - discussion_id: wfdc2_mechanism_to_bronchiectasis_unexplained
   kind: KNOWLEDGE_GAP
   status: OPEN
@@ -9437,7 +10269,7 @@ Deep-research divergence. The committed OpenScientist report reproduces this ent
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bronchiectasis and Nasal Polyposis", "mondoId": "MONDO:0975835", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bronchiectasis_and_Nasal_Polyposis", "yamlRevision": "41ba5938fbe3"};
+        const OS_CONFIG = {"diseaseName": "Bronchiectasis and Nasal Polyposis", "mondoId": "MONDO:0975835", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bronchiectasis_and_Nasal_Polyposis", "yamlRevision": "fdc015fa5549"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

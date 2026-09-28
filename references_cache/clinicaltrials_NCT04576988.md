@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04576988"
+reference_id: clinicaltrials:NCT04576988
 title: "A Phase 3, Randomized, Double-Blind, Placebo-Controlled Study to Compare the Efficacy and Safety of Sotatercept Versus Placebo When Added to Background Pulmonary Arterial Hypertension (PAH) Therapy for the Treatment of PAH"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3, Randomized, Double-Blind, Placebo-Controlled Study to Compare the Efficacy and Safety of Sotatercept Versus Placebo When Added to Background Pulmonary Arterial Hypertension (PAH) Therapy for the Treatment of PAH

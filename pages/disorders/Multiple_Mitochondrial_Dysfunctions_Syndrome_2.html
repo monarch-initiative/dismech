@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4480,6 +4522,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-bola3-loss-of-function" data-dismech-node="Biallelic BOLA3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic BOLA3 Loss of Function</div>
 
+
                 <div class="item-desc">Pathogenic variants abolish mitochondrial BOLA3 (isoform 1) or disrupt its ability to form a [2Fe-2S]-bridged heterocomplex with GLRX5, either by preventing GLRX5 binding (p.Ile67Asn) or by producing an aberrant complex that cannot pass its cluster onward (p.His96Arg, p.Cys59Tyr). Holo BOLA3 can also form a cluster-carrying homodimer.
 </div>
 
@@ -4579,6 +4622,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-the-glrx5-bola3-node-in-4fe-4s-cluster-assembly" data-dismech-node="Failure of the GLRX5-BOLA3 Node in 4Fe-4S Cluster Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of the GLRX5-BOLA3 Node in 4Fe-4S Cluster Assembly</div>
+
 
                 <div class="item-desc">The GLRX5-BOLA3 heterocomplex delivers [2Fe-2S] clusters for [4Fe-4S] assembly on NFU1 and to the mitoribosome; BOLA3 is also needed for NFU1 stability. Loss of BOLA3 therefore impairs the NFU1-dependent targets, lipoic acid synthase and respiratory chain complexes I and II, while aconitase is spared, and attenuates mitochondrial protein synthesis.
 </div>
@@ -4746,6 +4790,7 @@ This pathophysiological event involves decreased iron-sulfur cluster assembly (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipoic-acid-synthase-deficiency-and-loss-of-protein-lipoylation" data-dismech-node="Lipoic Acid Synthase Deficiency and Loss of Protein Lipoylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipoic Acid Synthase Deficiency and Loss of Protein Lipoylation</div>
+
 
                 <div class="item-desc">Without a functional cluster supply, the [4Fe-4S] radical-SAM enzyme lipoic acid synthase cannot lipoylate the E2 subunits of the 2-oxoacid dehydrogenases or the H protein of the glycine cleavage system; lipoic acid levels in patient fibroblasts are restored by re-expression of mitochondrial BOLA3.
 </div>
@@ -4922,6 +4967,7 @@ This pathophysiological event involves decreased lipoate synthase activity (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-2-oxoacid-dehydrogenase-and-glycine-cleavage-system-deficiency" data-dismech-node="Combined 2-Oxoacid Dehydrogenase and Glycine Cleavage System Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined 2-Oxoacid Dehydrogenase and Glycine Cleavage System Deficiency</div>
+
 
                 <div class="item-desc">Loss of lipoylation inactivates pyruvate dehydrogenase and the other 2-oxoacid dehydrogenases, causing lactic acidosis with accumulation of pyruvate, alanine, TCA intermediates and branched-chain amino acids, and inactivates the glycine cleavage system, causing non-ketotic hyperglycinemia with raised CSF:plasma glycine ratio.
 </div>
@@ -5145,6 +5191,7 @@ This pathophysiological event involves decreased pyruvate dehydrogenase (acetyl-
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-chain-complex-i-and-ii-deficiency" data-dismech-node="Respiratory Chain Complex I and II Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Chain Complex I and II Deficiency</div>
 
+
                 <div class="item-desc">Complexes I and II carry [4Fe-4S] clusters dependent on the BOLA3-NFU1 axis; muscle and fibroblasts show combined deficiency of complexes I, II and II+III with barely detectable assembled complexes on native gels.
 </div>
 
@@ -5298,6 +5345,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-mitochondrial-protein-synthesis" data-dismech-node="Attenuated Mitochondrial Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Mitochondrial Protein Synthesis</div>
 
+
                 <div class="item-desc">The mitoribosome&#39;s three [2Fe-2S] clusters are supplied by the GLRX5-BOLA3 node and play a structural role in mitoribosome assembly; MMDS2 patient fibroblasts show attenuated mitochondrial protein synthesis that adds to the OXPHOS deficit.
 </div>
 
@@ -5410,6 +5458,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-in-brain-and-heart" data-dismech-node="Bioenergetic Failure in Brain and Heart" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure in Brain and Heart</div>
+
 
                 <div class="item-desc">Combined loss of PDH-dependent and respiratory-chain ATP production injures the most energy-dependent tissues: a rapidly progressive leukodystrophy with necrotic/cavitary white matter lesions, optic nerve involvement and markedly elevated lactate on MR spectroscopy, together with hypertrophic or dilated cardiomyopathy, which distinguishes MMDS2 from the other MMDS forms.
 </div>
@@ -5616,6 +5665,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-endothelial-metabolic-dysfunction" data-dismech-node="Pulmonary Endothelial Metabolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Endothelial Metabolic Dysfunction</div>
+
 
                 <div class="item-desc">In pulmonary artery endothelial cells BOLA3 deficiency, whether by knockdown or by naturally occurring patient variants, impairs Fe-S integrity and lipoate-dependent 2-oxoacid dehydrogenases, reprogrammes glycolysis and respiration, downregulates glycine cleavage protein H to raise intracellular glycine, and increases endothelial proliferation, survival and vasoconstriction while reducing angiogenic potential; endothelial BOLA3 knockdown in mice produces pulmonary hypertension that glycine supplementation reverses.
 </div>
@@ -5846,6 +5896,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5942,6 +5995,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6006,6 +6062,9 @@ This clinical feature is Pulmonary hypertension, annotated with Pulmonary arteri
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6114,6 +6173,9 @@ This clinical feature is Feeding impairment, annotated with Feeding difficulties
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6194,6 +6256,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6269,6 +6334,9 @@ This clinical feature is Non-ketotic hyperglycinemia, annotated with Hyperglycin
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6365,6 +6433,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6475,6 +6546,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6550,6 +6624,9 @@ This clinical feature is Leukodystrophy, annotated with Leukoencephalopathy (HP:
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6651,6 +6728,9 @@ This clinical feature is Neurodevelopmental regression, annotated with Developme
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6719,6 +6799,9 @@ This clinical feature is Myoclonic seizures, annotated with Myoclonic seizure (H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6804,6 +6887,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6884,6 +6970,9 @@ This clinical feature is Decreased complex I activity, annotated with Decreased 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6950,6 +7039,9 @@ This clinical feature is Succinate dehydrogenase deficiency, annotated with Decr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7028,6 +7120,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7146,6 +7241,9 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7196,7 +7294,9 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
@@ -7204,6 +7304,11 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Frameshift duplication identified in the second family of the original mapping study; produces a premature stop.</div>
@@ -7266,7 +7371,9 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7274,6 +7381,11 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense at a conserved [2Fe-2S] ligand residue, associated with a severe phenotype of leukodystrophy with hypertrophic cardiomyopathy and death at 10 months; the mutant still binds GLRX5 but forms an aberrant heterocomplex unable to assemble a [4Fe-4S] cluster on NFU1.
@@ -7362,7 +7474,9 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7370,6 +7484,11 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Novel missense allele, compound heterozygous with p.Arg46*, in the patient with clinical recovery; it perturbs the cluster-binding region without abolishing cluster binding on the heterocomplex and promotes an aberrant apo complex.
@@ -7458,7 +7577,9 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7466,6 +7587,11 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense allele that impairs binding of BOLA3 to GLRX5 and prevents formation of the bridged heterocomplex without gross structural change.</div>
@@ -7528,7 +7654,9 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7536,6 +7664,11 @@ This disease-associated gene is BOLA3 (hgnc:24415). hgnc:24415 is a gene from th
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense variant; both reported carriers had a milder phenotype than the other patients, and one of the two was the only patient alive at 12 years of age with no cardiomyopathy recorded. The informative outlier for variable expressivity.

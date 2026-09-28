@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Bilateral%20Striopallidodentate%20Calcinosis"
@@ -3968,7 +4010,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -3984,7 +4038,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4005,7 +4059,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4014,7 +4068,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4044,6 +4098,14 @@
 
 
 
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
@@ -4060,6 +4122,383 @@
 
 
         <!-- Mappings -->
+
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0024538" target="_blank" class="missing-ontology-link">MONDO:0024538</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 1</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO splits this disease into one numbered `basal ganglia calcification, idiopathic, N` leaf per causal gene, each a direct child of MONDO:0008947 and each defined only as &#34;any bilateral striopallidodentate calcinosis in which the cause is a mutation in &lt;gene&gt;&#34;. This entry curates the whole dominant and recessive spectrum at the root term instead, with the per-gene detail in `genetic:` (see `notes:` for why). The nine gene-defined leaves are therefore declared here as narrowMatch mappings rather than as `has_subtypes` rows, which would duplicate the `genetic:` section without adding a mechanism. IBGC1 is the SLC20A2 leaf; its `genetic:` record is `SLC20A2`.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0014004" target="_blank" class="missing-ontology-link">MONDO:0014004</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 4</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC4, the PDGFRB leaf; curated here as the `PDGFRB` `genetic:` record. See the MONDO:0024538 justification for why the gene-defined leaves are mappings rather than subtype rows.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0014204" target="_blank" class="missing-ontology-link">MONDO:0014204</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 5</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC5, the PDGFB leaf; curated here as the `PDGFB` `genetic:` record.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0014628" target="_blank" class="missing-ontology-link">MONDO:0014628</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 6</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC6, the XPR1 leaf; curated here as the `XPR1` `genetic:` record.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0032673" target="_blank" class="missing-ontology-link">MONDO:0032673</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 7, autosomal recessive</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC7, the MYORG leaf; curated here as the `MYORG` `genetic:` record.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0032938" target="_blank" class="missing-ontology-link">MONDO:0032938</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 8, autosomal recessive</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC8, the JAM2 leaf; curated here as the `JAM2` `genetic:` record.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0968977" target="_blank" class="missing-ontology-link">MONDO:0968977</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 9, autosomal recessive</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC9, the NAA60 leaf; curated here as the `NAA60` `genetic:` record.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0975875" target="_blank" class="missing-ontology-link">MONDO:0975875</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 10, autosomal recessive</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC10, the CMPK2 leaf; curated here as the `CMPK2` `genetic:` record and the `Neuronal and endothelial mitochondrial dysfunction` pathophysiology node.</div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0980939" target="_blank" class="missing-ontology-link">MONDO:0980939</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">basal ganglia calcification, idiopathic, 11, autosomal recessive</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">IBGC11, the RRP12 leaf; curated here as the `RRP12` `genetic:` record, which types the relationship as a declared candidate rather than as established, following the founding report&#39;s own wording.</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
 
 
         <!-- Definitions -->
@@ -4325,7 +4764,7 @@
 
                     </div>
 
-                    <div class="item-desc">Recessive BSPDC/PFBC currently includes MYORG-, JAM2-, and NAA60-associated disease and tends to have heavier calcification burden and more severe neurologic involvement than the dominant forms.</div>
+                    <div class="item-desc">Recessive BSPDC/PFBC includes MYORG-, JAM2-, NAA60- and CMPK2-associated disease and tends to have heavier calcification burden and more severe neurologic involvement than the dominant forms. RRP12 is a further recessive locus, reported biallelic in four families, that its founding authors describe as a candidate rather than as established; see the `RRP12` `genetic:` record.</div>
 
 
 
@@ -4333,7 +4772,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4387,6 +4826,31 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:37446066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37446066" target="_blank">PMID:37446066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hitherto, seven genes have been associated with PFBC, including four dominant inherited genes (SLC20A2, PDGFRB, PDGFB, and XPR1) and three recessive inherited genes (MYORG, JAM2, and CMPK2)."</div>
+
+
+                <div class="evidence-explanation">Places CMPK2 in the recessive group alongside MYORG and JAM2, which is the membership claim this subtype row makes. The review predates the NAA60 and RRP12 reports, so its count of seven is the count at the time and not a statement that no further gene exists.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4413,11 +4877,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-phosphate-transport-homeostasis" data-dismech-node="Disrupted phosphate transport homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted phosphate transport homeostasis</div>
+
 
                 <div class="item-desc">SLC20A2 and XPR1 directly regulate inorganic phosphate influx and efflux, while NAA60 loss secondarily reduces SLC20A2 surface abundance and phosphate uptake. Together these defects dysregulate phosphate handling in the brain microvascular environment and promote calcium-phosphate deposition.</div>
 
@@ -4739,8 +5204,338 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-and-endothelial-mitochondrial-dysfunction" data-dismech-node="Neuronal and endothelial mitochondrial dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">Neuronal and endothelial mitochondrial dysfunction</div>
+
+
+                <div class="item-desc">CMPK2 loss of function depletes mitochondrial DNA and mitochondrial protein in neurons and vascular endothelial cells, two brain cell types with high energy expenditure, lowering ATP production, distorting cristae architecture, and raising intracellular inorganic phosphate. This is a third initiating axis in this disease, alongside the phosphate transporters and the neurovascular-unit genes, and it converges on the same deposition step.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        neuron
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        vascular endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002139</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular endothelial cell, annotated with endothelial cell of vascular tree (CL:0002139). CL:0002139 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CMPK2
+
+
+    <a href="https://bioregistry.io/hgnc:27015" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:27015</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CMPK2 (hgnc:27015). hgnc:27015 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        ATP biosynthetic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006754" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006754</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ATP biosynthetic process (GO:0006754). GO:0006754 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        mitochondrion organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007005</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        basal ganglion
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002420</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neurovascular calcium-phosphate deposition</span>
+
+	                            <span class="crosslink-desc">Failed mitochondrial energy metabolism with raised intracellular inorganic phosphate in high-demand neurons and vascular endothelial cells favours calcium-phosphate precipitation at the same deep-brain microvascular sites the transporter and neurovascular-unit lesions act on.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36443312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443312" target="_blank">PMID:36443312</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In situ hybridization and single-cell RNA sequencing revealed robust Cmpk2 expression in neurons and vascular endothelial cells (vECs), two cell types with high energy expenditure in the brain."</div>
+
+
+                <div class="evidence-explanation">The basis for the two cell types bound at this node, and for describing them as the high-energy-demand cells in which a mitochondrial defect would bite first.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36443312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443312" target="_blank">PMID:36443312</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The neurons in Cmpk2-knockout (KO) mice have fewer mitochondrial DNA copies, down-regulated mitochondrial proteins, reduced ATP production, and elevated intracellular inorganic phosphate (Pi) level, recapitulating the mitochondrial dysfunction observed in the PBMCs isolated from the FBC patients."</div>
+
+
+                <div class="evidence-explanation">Supports the decreased ATP biosynthesis bound here, and the elevated intracellular phosphate that is this node&#39;s link to the deposition step.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36443312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443312" target="_blank">PMID:36443312</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Morphologically, the cristae architecture of the Cmpk2-KO murine neurons was also impaired."</div>
+
+
+                <div class="evidence-explanation">Supports the abnormal mitochondrion organization bound here, as distinct from the separate quantitative loss of ATP output.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurovascular-calcium-phosphate-deposition" data-dismech-node="Neurovascular calcium-phosphate deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurovascular calcium-phosphate deposition</div>
+
 
                 <div class="item-desc">PFBC-linked PDGFB/PDGFRB and JAM2 defects impair pericyte-endothelial-astrocyte homeostasis, while related recessive pathways such as MYORG likely converge on the same neurovascular system. Reduced blood-brain barrier maintenance and cell-cell adhesion favor vascular and perivascular brain calcification.</div>
 
@@ -4756,11 +5551,11 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000043" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:2000043</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000043" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:2000043</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves brain pericyte (CL:2000043). CL:2000043 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4786,11 +5581,11 @@ This pathophysiological event involves brain pericyte (CL:2000043). CL:2000043 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:2000044</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000044" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:2000044</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves brain microvascular endothelial cell (CL:2000044). CL:2000044 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4816,11 +5611,11 @@ This pathophysiological event involves brain microvascular endothelial cell (CL:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4858,11 +5653,11 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
         PDGFB
 
 
-    <a href="https://bioregistry.io/hgnc:8800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:8800</a>
+    <a href="https://bioregistry.io/hgnc:8800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:8800</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PDGFB (hgnc:8800). hgnc:8800 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4897,11 +5692,11 @@ This pathophysiological event involves PDGFB (hgnc:8800). hgnc:8800 is a gene fr
         PDGFRB
 
 
-    <a href="https://bioregistry.io/hgnc:8804" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:8804</a>
+    <a href="https://bioregistry.io/hgnc:8804" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:8804</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PDGFRB (hgnc:8804). hgnc:8804 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4936,11 +5731,11 @@ This pathophysiological event involves PDGFRB (hgnc:8804). hgnc:8804 is a gene f
         JAM2
 
 
-    <a href="https://bioregistry.io/hgnc:14686" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:14686</a>
+    <a href="https://bioregistry.io/hgnc:14686" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:14686</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves JAM2 (hgnc:14686). hgnc:14686 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4975,11 +5770,11 @@ This pathophysiological event involves JAM2 (hgnc:14686). hgnc:14686 is a gene f
         MYORG
 
 
-    <a href="https://bioregistry.io/hgnc:19918" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:19918</a>
+    <a href="https://bioregistry.io/hgnc:19918" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:19918</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MYORG (hgnc:19918). hgnc:19918 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5017,11 +5812,11 @@ This pathophysiological event involves MYORG (hgnc:19918). hgnc:19918 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035633" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0035633</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035633" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0035633</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased maintenance of blood-brain barrier (GO:0035633). GO:0035633 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5051,11 +5846,11 @@ This pathophysiological event involves decreased maintenance of blood-brain barr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0098609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0098609</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell-cell adhesion (GO:0098609). GO:0098609 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5092,11 +5887,11 @@ This pathophysiological event involves decreased cell-cell adhesion (GO:0098609)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000120" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0000120</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000120" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000120</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in blood-brain barrier, annotated with blood brain barrier (UBERON:0000120). UBERON:0000120 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5109,11 +5904,11 @@ This pathophysiological event occurs in blood-brain barrier, annotated with bloo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002420</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5126,11 +5921,11 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002132" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002132</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002132" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002132</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON:0002132 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5246,7 +6041,7 @@ This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted phosphate transport homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLC20A2 and XPR1 directly regulate inorganic phosphate influx and efflux, while NAA60 loss secondarily reduces SLC20A2 surface abundance and phosphate uptake. Together these defects dysregulate phosphate handling in the brain microvascular environment and promote calcium-phosphate deposition.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"phosphate ion transmembrane transport\"], \"genes\": [\"SLC20A2\", \"XPR1\", \"NAA60\"], \"gene_terms\": [{\"label\": \"SLC20A2\", \"id\": \"hgnc:10947\"}, {\"label\": \"XPR1\", \"id\": \"hgnc:12827\"}, {\"label\": \"NAA60\", \"id\": \"hgnc:25875\"}], \"locations\": [\"blood-brain barrier\", \"basal ganglion\"]}}, {\"id\": \"Dopaminergic replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic dopaminergic therapy can improve PFBC-associated parkinsonism, although treatment may require adjustment because motor fluctuations and dyskinesia can emerge.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\"]}}, {\"id\": \"Intracranial calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral intracranial calcification involving the basal ganglia and other deep brain regions is the defining radiographic hallmark of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0430048\"}}, {\"id\": \"JAM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"JAM2\"], \"gene_terms\": [{\"label\": \"JAM2\", \"id\": \"hgnc:14686\"}], \"association\": \"Causative\"}}, {\"id\": \"MYORG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYORG\"], \"gene_terms\": [{\"label\": \"MYORG\", \"id\": \"hgnc:19918\"}], \"association\": \"Causative\"}}, {\"id\": \"NAA60\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NAA60\"], \"gene_terms\": [{\"label\": \"NAA60\", \"id\": \"hgnc:25875\"}], \"association\": \"Causative\"}}, {\"id\": \"Neurovascular calcium-phosphate deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PFBC-linked PDGFB/PDGFRB and JAM2 defects impair pericyte-endothelial-astrocyte homeostasis, while related recessive pathways such as MYORG likely converge on the same neurovascular system. Reduced blood-brain barrier maintenance and cell-cell adhesion favor vascular and perivascular brain calcification.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"brain pericyte\", \"brain microvascular endothelial cell\", \"astrocyte\"], \"biological_processes\": [\"maintenance of blood-brain barrier\", \"cell-cell adhesion\"], \"genes\": [\"PDGFB\", \"PDGFRB\", \"JAM2\", \"MYORG\"], \"gene_terms\": [{\"label\": \"PDGFB\", \"id\": \"hgnc:8800\"}, {\"label\": \"PDGFRB\", \"id\": \"hgnc:8804\"}, {\"label\": \"JAM2\", \"id\": \"hgnc:14686\"}, {\"label\": \"MYORG\", \"id\": \"hgnc:19918\"}], \"locations\": [\"blood-brain barrier\", \"basal ganglion\", \"dentate nucleus\"]}}, {\"id\": \"PDGFB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFB\"], \"gene_terms\": [{\"label\": \"PDGFB\", \"id\": \"hgnc:8800\"}], \"association\": \"Causative\"}}, {\"id\": \"PDGFRB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRB\"], \"gene_terms\": [{\"label\": \"PDGFRB\", \"id\": \"hgnc:8804\"}], \"association\": \"Causative\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Parkinsonism is one of the most common symptomatic motor manifestations in clinically affected BSPDC/PFBC carriers.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001300\"}}, {\"id\": \"SLC20A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC20A2\"], \"gene_terms\": [{\"label\": \"SLC20A2\", \"id\": \"hgnc:10947\"}], \"association\": \"Causative\"}}, {\"id\": \"XPR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"XPR1\"], \"gene_terms\": [{\"label\": \"XPR1\", \"id\": \"hgnc:12827\"}], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"Disrupted phosphate transport homeostasis\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated phosphate handling favors calcium-phosphate precipitation along deep-brain microvascular structures.\"}, {\"source\": \"Neurovascular calcium-phosphate deposition\", \"target\": \"Intracranial calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcium-phosphate deposition along neurovascular structures manifests radiographically as bilateral intracranial calcifications.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopaminergic replacement therapy\", \"target\": \"Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SLC20A2\", \"target\": \"Disrupted phosphate transport homeostasis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"XPR1\", \"target\": \"Disrupted phosphate transport homeostasis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDGFRB\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDGFB\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYORG\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"JAM2\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NAA60\", \"target\": \"Disrupted phosphate transport homeostasis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CMPK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CMPK2\"], \"gene_terms\": [{\"label\": \"CMPK2\", \"id\": \"hgnc:27015\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Disrupted phosphate transport homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLC20A2 and XPR1 directly regulate inorganic phosphate influx and efflux, while NAA60 loss secondarily reduces SLC20A2 surface abundance and phosphate uptake. Together these defects dysregulate phosphate handling in the brain microvascular environment and promote calcium-phosphate deposition.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"phosphate ion transmembrane transport\"], \"genes\": [\"SLC20A2\", \"XPR1\", \"NAA60\"], \"gene_terms\": [{\"label\": \"SLC20A2\", \"id\": \"hgnc:10947\"}, {\"label\": \"XPR1\", \"id\": \"hgnc:12827\"}, {\"label\": \"NAA60\", \"id\": \"hgnc:25875\"}], \"locations\": [\"blood-brain barrier\", \"basal ganglion\"]}}, {\"id\": \"Dopaminergic replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic dopaminergic therapy can improve PFBC-associated parkinsonism, although treatment may require adjustment because motor fluctuations and dyskinesia can emerge.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\"]}}, {\"id\": \"Intracranial calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral intracranial calcification involving the basal ganglia and other deep brain regions is the defining radiographic hallmark of the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0430048\"}}, {\"id\": \"JAM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"JAM2\"], \"gene_terms\": [{\"label\": \"JAM2\", \"id\": \"hgnc:14686\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"MYORG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYORG\"], \"gene_terms\": [{\"label\": \"MYORG\", \"id\": \"hgnc:19918\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NAA60\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NAA60\"], \"gene_terms\": [{\"label\": \"NAA60\", \"id\": \"hgnc:25875\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Neuronal and endothelial mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CMPK2 loss of function depletes mitochondrial DNA and mitochondrial protein in neurons and vascular endothelial cells, two brain cell types with high energy expenditure, lowering ATP production, distorting cristae architecture, and raising intracellular inorganic phosphate. This is a third initiating axis in this disease, alongside the phosphate transporters and the neurovascular-unit genes, and it converges on the same deposition step.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\", \"vascular endothelial cell\"], \"biological_processes\": [\"ATP biosynthetic process\", \"mitochondrion organization\"], \"genes\": [\"CMPK2\"], \"gene_terms\": [{\"label\": \"CMPK2\", \"id\": \"hgnc:27015\"}], \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Neurovascular calcium-phosphate deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PFBC-linked PDGFB/PDGFRB and JAM2 defects impair pericyte-endothelial-astrocyte homeostasis, while related recessive pathways such as MYORG likely converge on the same neurovascular system. Reduced blood-brain barrier maintenance and cell-cell adhesion favor vascular and perivascular brain calcification.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"brain pericyte\", \"brain microvascular endothelial cell\", \"astrocyte\"], \"biological_processes\": [\"maintenance of blood-brain barrier\", \"cell-cell adhesion\"], \"genes\": [\"PDGFB\", \"PDGFRB\", \"JAM2\", \"MYORG\"], \"gene_terms\": [{\"label\": \"PDGFB\", \"id\": \"hgnc:8800\"}, {\"label\": \"PDGFRB\", \"id\": \"hgnc:8804\"}, {\"label\": \"JAM2\", \"id\": \"hgnc:14686\"}, {\"label\": \"MYORG\", \"id\": \"hgnc:19918\"}], \"locations\": [\"blood-brain barrier\", \"basal ganglion\", \"dentate nucleus\"]}}, {\"id\": \"PDGFB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFB\"], \"gene_terms\": [{\"label\": \"PDGFB\", \"id\": \"hgnc:8800\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PDGFRB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRB\"], \"gene_terms\": [{\"label\": \"PDGFRB\", \"id\": \"hgnc:8804\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Parkinsonism is one of the most common symptomatic motor manifestations in clinically affected BSPDC/PFBC carriers.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001300\"}}, {\"id\": \"SLC20A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC20A2\"], \"gene_terms\": [{\"label\": \"SLC20A2\", \"id\": \"hgnc:10947\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"XPR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"XPR1\"], \"gene_terms\": [{\"label\": \"XPR1\", \"id\": \"hgnc:12827\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Disrupted phosphate transport homeostasis\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated phosphate handling favors calcium-phosphate precipitation along deep-brain microvascular structures.\"}, {\"source\": \"Neuronal and endothelial mitochondrial dysfunction\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed mitochondrial energy metabolism with raised intracellular inorganic phosphate in high-demand neurons and vascular endothelial cells favours calcium-phosphate precipitation at the same deep-brain microvascular sites the transporter and neurovascular-unit lesions act on.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurovascular calcium-phosphate deposition\", \"target\": \"Intracranial calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcium-phosphate deposition along neurovascular structures manifests radiographically as bilateral intracranial calcifications.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dopaminergic replacement therapy\", \"target\": \"Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SLC20A2\", \"target\": \"Disrupted phosphate transport homeostasis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"XPR1\", \"target\": \"Disrupted phosphate transport homeostasis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDGFRB\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDGFB\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYORG\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"JAM2\", \"target\": \"Neurovascular calcium-phosphate deposition\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NAA60\", \"target\": \"Disrupted phosphate transport homeostasis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CMPK2\", \"target\": \"Neuronal and endothelial mitochondrial dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5294,15 +6089,18 @@ This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0430048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0430048</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0430048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0430048</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intracranial calcification (HP:0430048). HP:0430048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5372,15 +6170,18 @@ This clinical feature is Intracranial calcification (HP:0430048). HP:0430048 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5441,15 +6242,18 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5510,15 +6314,18 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5579,15 +6386,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002072</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5648,15 +6458,18 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001337</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5717,15 +6530,18 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5786,15 +6602,18 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5855,15 +6674,18 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000726</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5924,15 +6746,18 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000709</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000709</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5993,15 +6818,18 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001260</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6087,15 +6915,18 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6178,7 +7009,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-slc20a2" data-dismech-node="SLC20A2" data-dismech-type="genetic">
@@ -6199,17 +7030,22 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         Gene: SLC20A2
 
 
-    <a href="https://bioregistry.io/hgnc:10947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:10947</a>
+    <a href="https://bioregistry.io/hgnc:10947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:10947</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SLC20A2 (hgnc:10947). hgnc:10947 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6277,17 +7113,22 @@ This disease-associated gene is SLC20A2 (hgnc:10947). hgnc:10947 is a gene from 
                         Gene: XPR1
 
 
-    <a href="https://bioregistry.io/hgnc:12827" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:12827</a>
+    <a href="https://bioregistry.io/hgnc:12827" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:12827</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is XPR1 (hgnc:12827). hgnc:12827 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6355,17 +7196,22 @@ This disease-associated gene is XPR1 (hgnc:12827). hgnc:12827 is a gene from the
                         Gene: PDGFRB
 
 
-    <a href="https://bioregistry.io/hgnc:8804" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:8804</a>
+    <a href="https://bioregistry.io/hgnc:8804" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:8804</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PDGFRB (hgnc:8804). hgnc:8804 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6433,17 +7279,22 @@ This disease-associated gene is PDGFRB (hgnc:8804). hgnc:8804 is a gene from the
                         Gene: PDGFB
 
 
-    <a href="https://bioregistry.io/hgnc:8800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:8800</a>
+    <a href="https://bioregistry.io/hgnc:8800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:8800</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PDGFB (hgnc:8800). hgnc:8800 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6511,17 +7362,22 @@ This disease-associated gene is PDGFB (hgnc:8800). hgnc:8800 is a gene from the 
                         Gene: MYORG
 
 
-    <a href="https://bioregistry.io/hgnc:19918" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:19918</a>
+    <a href="https://bioregistry.io/hgnc:19918" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:19918</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MYORG (hgnc:19918). hgnc:19918 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6614,17 +7470,22 @@ This disease-associated gene is MYORG (hgnc:19918). hgnc:19918 is a gene from th
                         Gene: JAM2
 
 
-    <a href="https://bioregistry.io/hgnc:14686" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:14686</a>
+    <a href="https://bioregistry.io/hgnc:14686" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:14686</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is JAM2 (hgnc:14686). hgnc:14686 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6692,17 +7553,22 @@ This disease-associated gene is JAM2 (hgnc:14686). hgnc:14686 is a gene from the
                         Gene: NAA60
 
 
-    <a href="https://bioregistry.io/hgnc:25875" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:25875</a>
+    <a href="https://bioregistry.io/hgnc:25875" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:25875</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NAA60 (hgnc:25875). hgnc:25875 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6752,6 +7618,274 @@ This disease-associated gene is NAA60 (hgnc:25875). hgnc:25875 is a gene from th
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-cmpk2" data-dismech-node="CMPK2" data-dismech-type="genetic">
+                <div class="item-name">
+                    CMPK2
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CMPK2
+
+
+    <a href="https://bioregistry.io/hgnc:27015" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:27015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CMPK2 (hgnc:27015). hgnc:27015 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36443312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443312" target="_blank">PMID:36443312</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we analyzed two brain calcification families and identified calcification co-segregated biallelic variants in the CMPK2 gene that disrupt mitochondrial functions."</div>
+
+
+                <div class="evidence-explanation">Establishes CMPK2 as a recessive brain-calcification gene on co-segregation of biallelic variants in two families.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36443312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36443312" target="_blank">PMID:36443312</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, calcification developed in a progressive manner in the homozygous Cmpk2-KO mice thalamus region as well as in the Cmpk2-knock-in mice bearing the patient mutation, thus phenocopying the calcification pathology observed in the patients."</div>
+
+
+                <div class="evidence-explanation">Two independent mouse models - a knockout and a knock-in carrying the patient allele - reproduce the calcification, which is what raises CMPK2 above a co-segregation observation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37446066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37446066" target="_blank">PMID:37446066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hitherto, seven genes have been associated with PFBC, including four dominant inherited genes (SLC20A2, PDGFRB, PDGFB, and XPR1) and three recessive inherited genes (MYORG, JAM2, and CMPK2)."</div>
+
+
+                <div class="evidence-explanation">Independent review counting CMPK2 among the established recessive PFBC genes, which is the basis for typing it CAUSATIVE rather than as a candidate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-rrp12" data-dismech-node="RRP12" data-dismech-type="genetic">
+                <div class="item-name">
+                    RRP12
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Candidate)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RRP12
+
+
+    <a href="https://bioregistry.io/hgnc:29100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:29100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RRP12 (hgnc:29100). hgnc:29100 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: UNKNOWN</span>
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41059649" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41059649" target="_blank">PMID:41059649</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Screening of two large cohorts of patients with unresolved brain calcifications revealed two affected French siblings and one unrelated Chinese individual, each carrying rare, biallelic, missense variants in the RRP12 gene"</div>
+
+
+                <div class="evidence-explanation">The replication beyond the two index Pakistani probands: three further individuals from two more families, all with biallelic missense variants.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41059649" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41059649" target="_blank">PMID:41059649</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RRP12 is a novel candidate gene for autosomal recessive brain calcifications, possibly associated with a wide clinical spectrum ranging from early-onset severe forms to adult-onset paucisymptomatic presentations."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own classification, and the reason this record is typed UNKNOWN/Candidate rather than CAUSATIVE.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41059649" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41059649" target="_blank">PMID:41059649</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary brain calcifications are observed in several inherited diseases due to different pathogenic mechanisms, including the disruption of the neurovascular unit, mitochondrial dysfunction, and impaired nucleic acid metabolism."</div>
+
+
+                <div class="evidence-explanation">Names the three mechanistic axes of inherited brain calcification, which is how RRP12 is positioned relative to the other genes on this entry. Marked BACKGROUND because it is the paper&#39;s structured `BACKGROUND:` framing rather than a result of the study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
@@ -6778,7 +7912,7 @@ This disease-associated gene is NAA60 (hgnc:25875). hgnc:25875 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6819,11 +7953,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:15765</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:15765</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6861,11 +7995,11 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001300</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6921,7 +8055,7 @@ This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">antisense oligonucleotide therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">antisense oligonucleotide therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is antisense oligonucleotide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7158,10 +8292,10 @@ This treatment is antisense oligonucleotide therapy, annotated with Pharmacother
 
                 </div>
 
-                <div class="evidence-snippet">"A total of 81.5% of carriers were symptomatic and the most recurrent symptoms were parkinsonism, cognitive impairment, and psychiatric disturbances (52.3%, 40.9%, and 38.6% of symptomatic individuals, respectively), with a wide range of age at onset (from childhood to 81 years)."</div>
+                <div class="evidence-snippet">"Primary familial brain calcification (PFBC) is a rare cerebral microvascular calcifying disorder with a wide spectrum of motor, cognitive, and neuropsychiatric symptoms. ... Our study aimed at screening the coding regions of these genes in a series of 177 unrelated probands that fulfilled the..."</div>
 
 
-                <div class="evidence-explanation">Supports age-dependent penetrance and broad onset variability.</div>
+                <div class="evidence-explanation">Identifies primary familial brain calcification and variable onset, retaining the distinction between pathogenic/likely pathogenic variants and variants of uncertain significance.</div>
 
 
 
@@ -7254,6 +8388,91 @@ synonyms:
 - primary familial brain calcification
 - idiopathic basal ganglia calcification
 - Fahr disease
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0024538
+      label: basal ganglia calcification, idiopathic, 1
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO splits this disease into one numbered `basal ganglia calcification,
+      idiopathic, N` leaf per causal gene, each a direct child of MONDO:0008947
+      and each defined only as &#34;any bilateral striopallidodentate calcinosis in
+      which the cause is a mutation in &lt;gene&gt;&#34;. This entry curates the whole
+      dominant and recessive spectrum at the root term instead, with the
+      per-gene detail in `genetic:` (see `notes:` for why). The nine gene-defined
+      leaves are therefore declared here as narrowMatch mappings rather than as
+      `has_subtypes` rows, which would duplicate the `genetic:` section without
+      adding a mechanism. IBGC1 is the SLC20A2 leaf; its `genetic:` record is
+      `SLC20A2`.
+  - term:
+      id: MONDO:0014004
+      label: basal ganglia calcification, idiopathic, 4
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC4, the PDGFRB leaf; curated here as the `PDGFRB` `genetic:` record.
+      See the MONDO:0024538 justification for why the gene-defined leaves are
+      mappings rather than subtype rows.
+  - term:
+      id: MONDO:0014204
+      label: basal ganglia calcification, idiopathic, 5
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC5, the PDGFB leaf; curated here as the `PDGFB` `genetic:` record.
+  - term:
+      id: MONDO:0014628
+      label: basal ganglia calcification, idiopathic, 6
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC6, the XPR1 leaf; curated here as the `XPR1` `genetic:` record.
+  - term:
+      id: MONDO:0032673
+      label: basal ganglia calcification, idiopathic, 7, autosomal recessive
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC7, the MYORG leaf; curated here as the `MYORG` `genetic:` record.
+  - term:
+      id: MONDO:0032938
+      label: basal ganglia calcification, idiopathic, 8, autosomal recessive
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC8, the JAM2 leaf; curated here as the `JAM2` `genetic:` record.
+  - term:
+      id: MONDO:0968977
+      label: basal ganglia calcification, idiopathic, 9, autosomal recessive
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC9, the NAA60 leaf; curated here as the `NAA60` `genetic:` record.
+  - term:
+      id: MONDO:0975875
+      label: basal ganglia calcification, idiopathic, 10, autosomal recessive
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC10, the CMPK2 leaf; curated here as the `CMPK2` `genetic:` record and
+      the `Neuronal and endothelial mitochondrial dysfunction` pathophysiology
+      node.
+  - term:
+      id: MONDO:0980939
+      label: basal ganglia calcification, idiopathic, 11, autosomal recessive
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      IBGC11, the RRP12 leaf; curated here as the `RRP12` `genetic:` record,
+      which types the relationship as a declared candidate rather than as
+      established, following the founding report&#39;s own wording.
+references:
+- reference: PMID:20301594
+  title: Primary Familial Brain Calcification Overview.
+  tags:
+  - GeneReviews
 notes: &gt;-
   This entry is intentionally curated at the disease/root level for
   MONDO:0008947 rather than split into multiple premature gene-specific pages.
@@ -7261,8 +8480,37 @@ notes: &gt;-
   place, with subtype heterogeneity documented under `has_subtypes` and
   gene-level heterogeneity documented under `genetic`. The current
   PMID-supported core gene set curated here is SLC20A2, XPR1, PDGFRB, PDGFB,
-  MYORG, JAM2, and NAA60. Secondary causes of basal ganglia calcification are
-  outside scope for this disease-level entry.
+  MYORG, JAM2, NAA60, CMPK2, and RRP12. Secondary causes of basal ganglia
+  calcification are outside scope for this disease-level entry.
+
+  Each of those nine genes has its own numbered MONDO leaf below MONDO:0008947
+  (`basal ganglia calcification, idiopathic, 1` and `4` through `11`), and each
+  leaf is declared in `mappings.mondo_mappings` as a `skos:narrowMatch` rather
+  than turned into a `has_subtypes` row. The reason is that a MONDO leaf here
+  carries no clinical content of its own - its definition is just &#34;any bilateral
+  striopallidodentate calcinosis in which the cause is a mutation in &lt;gene&gt;&#34; -
+  so a subtype row per leaf would restate the `genetic:` section under a second
+  heading. The two `has_subtypes` rows that do exist split the spectrum the way
+  the literature does, by inheritance, which is the axis that carries a
+  phenotype difference (heavier calcification burden in the recessive forms).
+  Two further MONDO descendants of this term carry no causal-gene edge and so
+  have nothing to curate genetically: MONDO:0007247 (`basal ganglia
+  calcification, idiopathic, childhood-onset`, OMIM:114100, whose own MONDO
+  definition reads &#34;Not in the OMIM series.&#34;). The IBGC2 and IBGC3 designations
+  are not separate terms at all: MONDO:0024538 carries `IBGC2` and `basal ganglia
+  calcification, idiopathic, 2` as exact synonyms, the latter cross-referenced to
+  the merged term MONDO:0011692, and `basal ganglia calcification, idiopathic, 3`
+  as a related synonym cross-referenced to OMIM:213600, the same OMIM entry the
+  IBGC1 leaf itself carries.
+
+  The GeneReviews chapter `Primary Familial Brain Calcification Overview`
+  (PMID:20301594) is tagged in `references:` as the mandatory baseline, but no
+  evidence item quotes it: its PubMed record contains only the chapter&#39;s
+  five-point statement of scope, with no clinical or genetic finding in it. The
+  chapter text itself is served from an NCBI Bookshelf URL, and dismech#12747
+  reports that those URLs were returning a bot-detection interstitial rather
+  than chapter content around the time this entry was revised, so it was not
+  fetched.
 has_subtypes:
 - name: Autosomal Dominant PFBC
   classification: inheritance
@@ -7280,9 +8528,12 @@ has_subtypes:
 - name: Autosomal Recessive PFBC
   classification: inheritance
   description: &gt;-
-    Recessive BSPDC/PFBC currently includes MYORG-, JAM2-, and
-    NAA60-associated disease and tends to have heavier calcification burden and
-    more severe neurologic involvement than the dominant forms.
+    Recessive BSPDC/PFBC includes MYORG-, JAM2-, NAA60- and CMPK2-associated
+    disease and tends to have heavier calcification burden and more severe
+    neurologic involvement than the dominant forms. RRP12 is a further recessive
+    locus, reported biallelic in four families, that its founding authors
+    describe as a candidate rather than as established; see the `RRP12`
+    `genetic:` record.
   evidence:
   - reference: PMID:31851307
     reference_title: &#34;Biallelic loss-of-function mutations in JAM2 cause primary familial brain calcification.&#34;
@@ -7296,6 +8547,16 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here, we identify biallelic NAA60 variants in ten individuals from seven families with autosomal recessive PFBC.&#34;
     explanation: Confirms that autosomal recessive PFBC extends beyond MYORG and JAM2.
+  - reference: PMID:37446066
+    reference_title: &#34;The Genetics of Primary Familial Brain Calcification: A Literature Review.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Hitherto, seven genes have been associated with PFBC, including four dominant inherited genes (SLC20A2, PDGFRB, PDGFB, and XPR1) and three recessive inherited genes (MYORG, JAM2, and CMPK2).&#34;
+    explanation: &gt;-
+      Places CMPK2 in the recessive group alongside MYORG and JAM2, which is the
+      membership claim this subtype row makes. The review predates the NAA60 and
+      RRP12 reports, so its count of seven is the count at the time and not a
+      statement that no further gene exists.
 progression:
 - phase: Variable onset and age-dependent expressivity
   notes: &gt;-
@@ -7306,8 +8567,19 @@ progression:
     reference_title: &#34;Primary brain calcification: an international study reporting novel variants and associated phenotypes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A total of 81.5% of carriers were symptomatic and the most recurrent symptoms were parkinsonism, cognitive impairment, and psychiatric disturbances (52.3%, 40.9%, and 38.6% of symptomatic individuals, respectively), with a wide range of age at onset (from childhood to 81 years).&#34;
-    explanation: Supports age-dependent penetrance and broad onset variability.
+    snippet: &gt;-
+      Primary familial brain calcification (PFBC) is a rare cerebral microvascular calcifying
+      disorder with a wide spectrum of motor, cognitive, and neuropsychiatric symptoms. ... Our
+      study aimed at screening the coding regions of these genes in a series of 177 unrelated
+      probands that fulfilled the diagnostic criteria for primary brain calcification regardless of
+      their family history. ... We identified 45 probands (25.4%) carrying either pathogenic or
+      likely pathogenic variants (n = 34, 19.2%) or VUS (n = 11, 6.2%). ... A total of 81.5% of
+      carriers were symptomatic and the most recurrent symptoms were parkinsonism, cognitive
+      impairment, and psychiatric disturbances (52.3%, 40.9%, and 38.6% of symptomatic individuals,
+      respectively), with a wide range of age at onset (from childhood to 81 years).
+    explanation: &gt;-
+      Identifies primary familial brain calcification and variable onset, retaining the distinction
+      between pathogenic/likely pathogenic variants and variants of uncertain significance.
 inheritance:
 - name: Autosomal dominant inheritance
   inheritance_term:
@@ -7349,6 +8621,7 @@ genetic:
       id: hgnc:10947
       label: SLC20A2
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;-
     SLC20A2 encodes the PiT-2 inorganic phosphate importer and is the major
     cause of autosomal dominant PFBC. Loss of expression or regulatory
@@ -7370,6 +8643,7 @@ genetic:
       id: hgnc:12827
       label: XPR1
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;-
     XPR1 encodes a phosphate exporter. Pathogenic dominant variants impair
     phosphate efflux and reinforce phosphate homeostasis as a central disease
@@ -7390,6 +8664,7 @@ genetic:
       id: hgnc:8804
       label: PDGFRB
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;-
     PDGFRB encodes the platelet-derived growth factor receptor beta. Reduced
     receptor function implicates pericyte biology, angiogenic signaling, and
@@ -7410,6 +8685,7 @@ genetic:
       id: hgnc:8800
       label: PDGFB
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;-
     PDGFB is the major ligand for PDGFRB. Endothelial PDGF-B loss is linked to
     pericyte deficiency, blood-brain barrier compromise, and brain
@@ -7430,6 +8706,7 @@ genetic:
       id: hgnc:19918
       label: MYORG
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;-
     MYORG encodes an astrocyte-associated glycosidase-family protein and causes
     recessive PFBC. Current evidence links MYORG-associated disease to
@@ -7456,6 +8733,7 @@ genetic:
       id: hgnc:14686
       label: JAM2
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;-
     JAM2 encodes a junctional adhesion protein enriched in neurovascular-unit
     cell types. Biallelic loss disrupts cell-cell adhesion and neurovascular
@@ -7476,6 +8754,7 @@ genetic:
       id: hgnc:25875
       label: NAA60
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;-
     NAA60 encodes a Golgi-localized N-terminal acetyltransferase. Recessive
     loss of NAA60 impairs transmembrane-protein acetylation, lowers cell-surface
@@ -7489,6 +8768,115 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This study establishes NAA60 as a causal gene for PFBC, provides a possible biochemical explanation of its disease-causing mechanisms and underscores NAA60-mediated Nt-acetylation of transmembrane proteins as a fundamental process for healthy neurobiological functioning.&#34;
     explanation: Establishes NAA60 as a recessive PFBC gene with a defined biochemical mechanism.
+- name: CMPK2
+  gene_term:
+    preferred_term: CMPK2
+    term:
+      id: hgnc:27015
+      label: CMPK2
+  association: Causative
+  relationship_type: CAUSATIVE
+  features: &gt;-
+    Biallelic CMPK2 loss of function lowers mitochondrial DNA copy number,
+    mitochondrial protein abundance and ATP production, and raises intracellular
+    inorganic phosphate. That is a third mechanistic axis in this disease,
+    distinct from the phosphate transporters and from the neurovascular-unit
+    genes, and it is the one this entry models at the `Neuronal and endothelial
+    mitochondrial dysfunction` node. The cited work characterises the
+    consequences of losing the gene rather than stating what the protein does, so
+    no claim about the enzyme&#39;s normal substrate is made here.
+  inheritance:
+  - name: Autosomal Recessive
+  evidence:
+  - reference: PMID:36443312
+    reference_title: &#34;Loss of function of CMPK2 causes mitochondria deficiency and brain calcification.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here, we analyzed two brain calcification families and identified calcification co-segregated biallelic variants in the CMPK2 gene that disrupt mitochondrial functions.&#34;
+    explanation: &gt;-
+      Establishes CMPK2 as a recessive brain-calcification gene on co-segregation
+      of biallelic variants in two families.
+  - reference: PMID:36443312
+    reference_title: &#34;Loss of function of CMPK2 causes mitochondria deficiency and brain calcification.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Notably, calcification developed in a progressive manner in the homozygous Cmpk2-KO mice thalamus region as well as in the Cmpk2-knock-in mice bearing the patient mutation, thus phenocopying the calcification pathology observed in the patients.&#34;
+    explanation: &gt;-
+      Two independent mouse models - a knockout and a knock-in carrying the
+      patient allele - reproduce the calcification, which is what raises CMPK2
+      above a co-segregation observation.
+  - reference: PMID:37446066
+    reference_title: &#34;The Genetics of Primary Familial Brain Calcification: A Literature Review.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Hitherto, seven genes have been associated with PFBC, including four dominant inherited genes (SLC20A2, PDGFRB, PDGFB, and XPR1) and three recessive inherited genes (MYORG, JAM2, and CMPK2).&#34;
+    explanation: &gt;-
+      Independent review counting CMPK2 among the established recessive PFBC
+      genes, which is the basis for typing it CAUSATIVE rather than as a
+      candidate.
+- name: RRP12
+  gene_term:
+    preferred_term: RRP12
+    term:
+      id: hgnc:29100
+      label: RRP12
+  association: Candidate
+  relationship_type: UNKNOWN
+  features: &gt;-
+    Biallelic RRP12 missense variants were reported in four families with brain
+    calcification, with reduced RRP12 protein and abnormal nucleolar morphology in
+    patient fibroblasts. The founding report describes RRP12 as having an
+    essential role in RNA metabolism, which places the gene on the
+    nucleic-acid-metabolism axis of brain calcification rather than on the
+    phosphate-transport or neurovascular-unit axes the other eight genes occupy.
+    No pathophysiology node is curated for it here, because the reported
+    functional work establishes that the variants reduce RRP12 protein and
+    disturb the nucleolus, not how either step reaches calcium-phosphate
+    deposition; the zebrafish knockdown in that report gave developmental delay,
+    crimping and early lethality rather than a calcification phenotype.
+  inheritance:
+  - name: Autosomal Recessive
+  notes: &gt;-
+    `relationship_type: UNKNOWN` with `association: Candidate` follows the
+    founding report&#39;s own conclusion, which calls RRP12 &#34;a novel candidate gene&#34;
+    rather than an established cause. Four families with biallelic variants and a
+    protein-level readout is real support, but the two large screening cohorts it
+    drew on (France n = 111, China n = 543) yielded three further individuals
+    between them, its own zebrafish knockdown produced developmental delay and
+    lethality rather than calcification, and the current ClinGen Gene-Disease
+    Validity table (file created 2026-09-25,
+    downloaded from the unversioned URL pinned in data/clingen/MANIFEST.yaml)
+    contains no RRP12 assertion - nor any assertion for the other eight genes on
+    this entry, so that silence is about the panel&#39;s coverage of this disease
+    rather than about RRP12 specifically.
+  evidence:
+  - reference: PMID:41059649
+    reference_title: &#34;RRP12 Variants Are Associated With Autosomal Recessive Brain Calcifications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Screening of two large cohorts of patients with unresolved brain calcifications revealed two affected French siblings and one unrelated Chinese individual, each carrying rare, biallelic, missense variants in the RRP12 gene&#34;
+    explanation: &gt;-
+      The replication beyond the two index Pakistani probands: three further
+      individuals from two more families, all with biallelic missense variants.
+  - reference: PMID:41059649
+    reference_title: &#34;RRP12 Variants Are Associated With Autosomal Recessive Brain Calcifications.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;RRP12 is a novel candidate gene for autosomal recessive brain calcifications, possibly associated with a wide clinical spectrum ranging from early-onset severe forms to adult-onset paucisymptomatic presentations.&#34;
+    explanation: &gt;-
+      The authors&#39; own classification, and the reason this record is typed
+      UNKNOWN/Candidate rather than CAUSATIVE.
+  - reference: PMID:41059649
+    reference_title: &#34;RRP12 Variants Are Associated With Autosomal Recessive Brain Calcifications.&#34;
+    supports: SUPPORT
+    quote_role: BACKGROUND
+    evidence_source: OTHER
+    snippet: &#34;Primary brain calcifications are observed in several inherited diseases due to different pathogenic mechanisms, including the disruption of the neurovascular unit, mitochondrial dysfunction, and impaired nucleic acid metabolism.&#34;
+    explanation: &gt;-
+      Names the three mechanistic axes of inherited brain calcification, which is
+      how RRP12 is positioned relative to the other genes on this entry. Marked
+      BACKGROUND because it is the paper&#39;s structured `BACKGROUND:` framing
+      rather than a result of the study.
 biochemical:
 - name: Normal serum calcium and phosphate metabolism
   presence: NORMAL
@@ -7570,6 +8958,98 @@ pathophysiology:
   downstream:
   - target: Neurovascular calcium-phosphate deposition
     description: Dysregulated phosphate handling favors calcium-phosphate precipitation along deep-brain microvascular structures.
+- name: Neuronal and endothelial mitochondrial dysfunction
+  biological_scale: CELLULAR
+  description: &gt;-
+    CMPK2 loss of function depletes mitochondrial DNA and mitochondrial protein
+    in neurons and vascular endothelial cells, two brain cell types with high
+    energy expenditure, lowering ATP production, distorting cristae
+    architecture, and raising intracellular inorganic phosphate. This is a third
+    initiating axis in this disease, alongside the phosphate transporters and the
+    neurovascular-unit genes, and it converges on the same deposition step.
+  genes:
+  - preferred_term: CMPK2
+    term:
+      id: hgnc:27015
+      label: CMPK2
+  cell_types:
+  - preferred_term: neuron
+    term:
+      id: CL:0000540
+      label: neuron
+  - preferred_term: vascular endothelial cell
+    term:
+      id: CL:0002139
+      label: endothelial cell of vascular tree
+  biological_processes:
+  - preferred_term: ATP biosynthetic process
+    term:
+      id: GO:0006754
+      label: ATP biosynthetic process
+    modifier: DECREASED
+  - preferred_term: mitochondrion organization
+    term:
+      id: GO:0007005
+      label: mitochondrion organization
+    modifier: ABNORMAL
+  locations:
+  - preferred_term: basal ganglion
+    term:
+      id: UBERON:0002420
+      label: basal ganglion
+  evidence:
+  - reference: PMID:36443312
+    reference_title: &#34;Loss of function of CMPK2 causes mitochondria deficiency and brain calcification.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In situ hybridization and single-cell RNA sequencing revealed robust Cmpk2 expression in neurons and vascular endothelial cells (vECs), two cell types with high energy expenditure in the brain.&#34;
+    explanation: &gt;-
+      The basis for the two cell types bound at this node, and for describing them
+      as the high-energy-demand cells in which a mitochondrial defect would bite
+      first.
+  - reference: PMID:36443312
+    reference_title: &#34;Loss of function of CMPK2 causes mitochondria deficiency and brain calcification.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;The neurons in Cmpk2-knockout (KO) mice have fewer mitochondrial DNA copies, down-regulated mitochondrial proteins, reduced ATP production, and elevated intracellular inorganic phosphate (Pi) level, recapitulating the mitochondrial dysfunction observed in the PBMCs isolated from the FBC patients.&#34;
+    explanation: &gt;-
+      Supports the decreased ATP biosynthesis bound here, and the elevated
+      intracellular phosphate that is this node&#39;s link to the deposition step.
+  - reference: PMID:36443312
+    reference_title: &#34;Loss of function of CMPK2 causes mitochondria deficiency and brain calcification.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Morphologically, the cristae architecture of the Cmpk2-KO murine neurons was also impaired.&#34;
+    explanation: &gt;-
+      Supports the abnormal mitochondrion organization bound here, as distinct from
+      the separate quantitative loss of ATP output.
+  - reference: PMID:37446066
+    reference_title: &#34;The Genetics of Primary Familial Brain Calcification: A Literature Review.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The function of currently known genes suggests that PFBC could be caused by the dysfunction of the neurovascular unit, the dysregulation of phosphate homeostasis, or mitochondrial dysfunction.&#34;
+    explanation: &gt;-
+      Independent review naming mitochondrial dysfunction as one of the three
+      mechanisms of this disease, which is why it is modelled as its own node
+      rather than folded into the phosphate-handling node.
+  downstream:
+  - target: Neurovascular calcium-phosphate deposition
+    description: &gt;-
+      Failed mitochondrial energy metabolism with raised intracellular inorganic
+      phosphate in high-demand neurons and vascular endothelial cells favours
+      calcium-phosphate precipitation at the same deep-brain microvascular sites
+      the transporter and neurovascular-unit lesions act on.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:36443312
+      reference_title: &#34;Loss of function of CMPK2 causes mitochondria deficiency and brain calcification.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Notably, calcification developed in a progressive manner in the homozygous Cmpk2-KO mice thalamus region as well as in the Cmpk2-knock-in mice bearing the patient mutation, thus phenocopying the calcification pathology observed in the patients.&#34;
+      explanation: &gt;-
+        Connects the mitochondrial lesion to deposition: removing or mutating
+        Cmpk2 in mouse produces the calcification itself, not only the
+        mitochondrial phenotype.
 - name: Neurovascular calcium-phosphate deposition
   description: &gt;-
     PFBC-linked PDGFB/PDGFRB and JAM2 defects impair pericyte-endothelial-astrocyte
@@ -7926,6 +9406,31 @@ treatments:
                 <h2 class="card-title">References &amp; Deep Research</h2>
             </div>
 
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301594" target="_blank">PMID:20301594</a>
+                            </div>
+
+                            <div class="reference-title">Primary Familial Brain Calcification Overview.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
 
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
@@ -8158,7 +9663,7 @@ No YAML files or `references_cache/*.md` files were edited for this review.
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bilateral Striopallidodentate Calcinosis", "mondoId": "MONDO:0008947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bilateral_Striopallidodentate_Calcinosis", "yamlRevision": "6c299495fa02"};
+        const OS_CONFIG = {"diseaseName": "Bilateral Striopallidodentate Calcinosis", "mondoId": "MONDO:0008947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bilateral_Striopallidodentate_Calcinosis", "yamlRevision": "f31d93fc5afc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4620,6 +4662,13 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-pyrophosphate-anti-mineralization-failure" data-dismech-node="Extracellular pyrophosphate anti-mineralization failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular pyrophosphate anti-mineralization failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">ENPP1 or ABCC6 loss of function perturbs extracellular pyrophosphate and phosphate balance, reducing anti-mineralization capacity and promoting hydroxyapatite deposition in arteries and soft tissues.</div>
 
 
@@ -4866,6 +4915,13 @@ This pathophysiological event involves increased ectopic mineralization, annotat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-amp-adenosine-signaling" data-dismech-node="Reduced AMP/adenosine signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced AMP/adenosine signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">ENPP1 deficiency can reduce AMP and downstream adenosine signaling in addition to reducing PPi. This parallel purinergic mechanism is proposed to drive myointimal proliferation and can contribute to stenosis even when overt calcification is less prominent.</div>
 
 
@@ -4984,6 +5040,13 @@ This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arterial-calcification-and-stenosis" data-dismech-node="Arterial calcification and stenosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Arterial calcification and stenosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Ectopic arterial mineralization and associated stenosis increase vascular resistance, driving severe hypertension, cardiac dysfunction, and high early mortality in severe infantile presentations.</div>
 
@@ -5182,6 +5245,13 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgf23-mediated-renal-phosphate-wasting" data-dismech-node="FGF23-mediated renal phosphate wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">FGF23-mediated renal phosphate wasting</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">ENPP1-related survivor disease includes elevated intact FGF23 with inverse phosphate-FGF23 coupling, producing phosphate wasting and hypophosphatemic rickets.</div>
 
 
@@ -5321,6 +5391,13 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enpp1-related-auditory-dysfunction-of-uncertain-mechanism" data-dismech-node="ENPP1-related auditory dysfunction of uncertain mechanism" data-dismech-type="pathophysiology">
                 <div class="item-name">ENPP1-related auditory dysfunction of uncertain mechanism</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Long-term ENPP1-deficient GACI survivors have high lifetime risk of hearing loss. The affected auditory compartment and the causal molecular bridge from ENPP1 deficiency remain insufficiently established, so no specific hair-cell mechanism is asserted.</div>
 
 
@@ -5419,7 +5496,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCC6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ABCC6\"], \"gene_terms\": [{\"label\": \"ABCC6\", \"id\": \"hgnc:57\"}], \"subtypes\": [\"ABCC6-related\"], \"presence\": \"Positive\", \"association\": \"Causative loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Arterial calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extensive arterial calcification is the defining lesion. A retrospective natural-history compilation found it in 77.2% of ENPP1-deficient and 89.5% of ABCC6-deficient reported cases; FREQUENT is used as the conservative shared band across the two molecular subtypes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004934\"}}, {\"id\": \"Arterial calcification and stenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic arterial mineralization and associated stenosis increase vascular resistance, driving severe hypertension, cardiac dysfunction, and high early mortality in severe infantile presentations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"blood vessel remodeling\"]}}, {\"id\": \"Arterial stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial stenosis occurs with arterial mineral deposition and remodeling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100545\"}}, {\"id\": \"Bisphosphonate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bisphosphonates such as pamidronate and etidronate may be started early in severe GACI, but reported evidence is mixed: case reports describe benefit, while a larger natural-history analysis found no survival benefit in a start-time matched analysis. No standardized regimen is established.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"etidronate\", \"pamidronate\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heart failure can occur because diffuse arterial disease increases cardiovascular workload.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"ENPP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ENPP1\"], \"gene_terms\": [{\"label\": \"ENPP1\", \"id\": \"hgnc:3356\"}], \"subtypes\": [\"ENPP1-related\"], \"presence\": \"Positive\", \"association\": \"Causative loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ENPP1-related auditory dysfunction of uncertain mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-term ENPP1-deficient GACI survivors have high lifetime risk of hearing loss. The affected auditory compartment and the causal molecular bridge from ENPP1 deficiency remain insufficiently established, so no specific hair-cell mechanism is asserted.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ENPP1-related\"]}}, {\"id\": \"Extracellular pyrophosphate anti-mineralization failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ENPP1 or ABCC6 loss of function perturbs extracellular pyrophosphate and phosphate balance, reducing anti-mineralization capacity and promoting hydroxyapatite deposition in arteries and soft tissues.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ectopic mineralization\"], \"genes\": [\"ENPP1\", \"ABCC6\"], \"gene_terms\": [{\"label\": \"ENPP1\", \"id\": \"hgnc:3356\"}, {\"label\": \"ABCC6\", \"id\": \"hgnc:57\"}]}}, {\"id\": \"FGF23-mediated renal phosphate wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ENPP1-related survivor disease includes elevated intact FGF23 with inverse phosphate-FGF23 coupling, producing phosphate wasting and hypophosphatemic rickets.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phosphate ion homeostasis\"], \"subtypes\": [\"ENPP1-related\"]}}, {\"id\": \"Hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is frequent in ENPP1-deficient GACI survivors and may be progressive.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"ENPP1-related\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension may be severe and can present from birth or early infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hypophosphatemic rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors with ENPP1 deficiency commonly develop FGF23-mediated phosphate wasting and hypophosphatemic rickets or osteomalacia.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"ENPP1-related\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004912\"}}, {\"id\": \"INZ-701 enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"INZ-701 is a recombinant ENPP1 enzyme-replacement approach intended to restore extracellular PPi generation in ENPP1 deficiency and related GACI biology. Clinical evidence is currently trial-stage.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intact fibroblast growth factor 23\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ENPP1-related\"], \"presence\": \"Elevated\", \"term_id\": \"NCIT:C96650\", \"term_label\": \"Fibroblast Growth Factor 23 Measurement\", \"readouts\": [{\"target\": \"FGF23-mediated renal phosphate wasting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Elevated intact FGF23 and its inverse relationship with serum phosphate report the ENPP1-related phosphate-wasting mechanism.\"}]}}, {\"id\": \"Multidisciplinary supportive management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care includes management of arterial hypertension, mineral metabolism, hearing and ophthalmologic complications, and coordinated follow-up by an expert multidisciplinary team.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Plasma inorganic pyrophosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low plasma PPi reports the proximal loss of the extracellular anti-mineralization brake, although assay availability and diagnostic thresholds are not established here.\"}]}}, {\"id\": \"Reduced AMP/adenosine signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ENPP1 deficiency can reduce AMP and downstream adenosine signaling in addition to reducing PPi. This parallel purinergic mechanism is proposed to drive myointimal proliferation and can contribute to stenosis even when overt calcification is less prominent.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ENPP1\"], \"gene_terms\": [{\"label\": \"ENPP1\", \"id\": \"hgnc:3356\"}]}}], \"edges\": [{\"source\": \"Extracellular pyrophosphate anti-mineralization failure\", \"target\": \"Arterial calcification and stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the extracellular PPi anti-mineralization brake permits hydroxyapatite deposition; mineralized arterial walls and secondary remodeling produce the defining calcification and stenosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hydroxyapatite deposition in the arterial internal elastic lamina\"]}, {\"source\": \"Reduced AMP/adenosine signaling\", \"target\": \"Arterial calcification and stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient AMP/adenosine signaling is proposed to promote myointimal proliferation, narrowing muscular arteries alongside the mineralization branch.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myointimal proliferation\"]}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Arterial calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic mineralization in arterial walls manifests as vascular calcification.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Arterial stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arterial mineralization and intimal proliferation narrow affected vessels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse arterial narrowing and stiffness increase vascular resistance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased arterial stiffness and vascular resistance\"]}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe diffuse arterial disease increases cardiac workload and can cause heart failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased ventricular afterload and myocardial ischemia\"]}, {\"source\": \"FGF23-mediated renal phosphate wasting\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGF23-associated renal phosphate depletion impairs skeletal mineralization and produces hypophosphatemic rickets.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Renal phosphate wasting and chronic hypophosphatemia\"]}, {\"source\": \"ENPP1-related auditory dysfunction of uncertain mechanism\", \"target\": \"Hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is a frequent ENPP1-survivor association, but its directness and intermediates are not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Bisphosphonate therapy\", \"target\": \"Arterial calcification and stenosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bisphosphonate therapy\", \"target\": \"Arterial calcification\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Congestive heart failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"INZ-701 enzyme replacement therapy\", \"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"INZ-701 enzyme replacement therapy\", \"target\": \"Arterial calcification\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"INZ-701 enzyme replacement therapy\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Extracellular pyrophosphate anti-mineralization failure\", \"target\": \"Plasma inorganic pyrophosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low plasma PPi reports the proximal loss of the extracellular anti-mineralization brake, although assay availability and diagnostic thresholds are not established here.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"FGF23-mediated renal phosphate wasting\", \"target\": \"Intact fibroblast growth factor 23\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated intact FGF23 and its inverse relationship with serum phosphate report the ENPP1-related phosphate-wasting mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"ENPP1\", \"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ENPP1\", \"target\": \"Reduced AMP/adenosine signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCC6\", \"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCC6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ABCC6\"], \"gene_terms\": [{\"label\": \"ABCC6\", \"id\": \"hgnc:57\"}], \"subtypes\": [\"ABCC6-related\"], \"presence\": \"Positive\", \"association\": \"Causative loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Arterial calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extensive arterial calcification is the defining lesion. A retrospective natural-history compilation found it in 77.2% of ENPP1-deficient and 89.5% of ABCC6-deficient reported cases; FREQUENT is used as the conservative shared band across the two molecular subtypes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004934\"}}, {\"id\": \"Arterial calcification and stenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic arterial mineralization and associated stenosis increase vascular resistance, driving severe hypertension, cardiac dysfunction, and high early mortality in severe infantile presentations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"blood vessel remodeling\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Arterial stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial stenosis occurs with arterial mineral deposition and remodeling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100545\"}}, {\"id\": \"Bisphosphonate therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bisphosphonates such as pamidronate and etidronate may be started early in severe GACI, but reported evidence is mixed: case reports describe benefit, while a larger natural-history analysis found no survival benefit in a start-time matched analysis. No standardized regimen is established.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"etidronate\", \"pamidronate\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heart failure can occur because diffuse arterial disease increases cardiovascular workload.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"ENPP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ENPP1\"], \"gene_terms\": [{\"label\": \"ENPP1\", \"id\": \"hgnc:3356\"}], \"subtypes\": [\"ENPP1-related\"], \"presence\": \"Positive\", \"association\": \"Causative loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ENPP1-related auditory dysfunction of uncertain mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-term ENPP1-deficient GACI survivors have high lifetime risk of hearing loss. The affected auditory compartment and the causal molecular bridge from ENPP1 deficiency remain insufficiently established, so no specific hair-cell mechanism is asserted.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ENPP1-related\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Extracellular pyrophosphate anti-mineralization failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ENPP1 or ABCC6 loss of function perturbs extracellular pyrophosphate and phosphate balance, reducing anti-mineralization capacity and promoting hydroxyapatite deposition in arteries and soft tissues.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"ectopic mineralization\"], \"genes\": [\"ENPP1\", \"ABCC6\"], \"gene_terms\": [{\"label\": \"ENPP1\", \"id\": \"hgnc:3356\"}, {\"label\": \"ABCC6\", \"id\": \"hgnc:57\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FGF23-mediated renal phosphate wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ENPP1-related survivor disease includes elevated intact FGF23 with inverse phosphate-FGF23 coupling, producing phosphate wasting and hypophosphatemic rickets.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phosphate ion homeostasis\"], \"subtypes\": [\"ENPP1-related\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is frequent in ENPP1-deficient GACI survivors and may be progressive.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"ENPP1-related\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertension may be severe and can present from birth or early infancy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hypophosphatemic rickets\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors with ENPP1 deficiency commonly develop FGF23-mediated phosphate wasting and hypophosphatemic rickets or osteomalacia.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"ENPP1-related\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004912\"}}, {\"id\": \"INZ-701 enzyme replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"INZ-701 is a recombinant ENPP1 enzyme-replacement approach intended to restore extracellular PPi generation in ENPP1 deficiency and related GACI biology. Clinical evidence is currently trial-stage.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intact fibroblast growth factor 23\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"ENPP1-related\"], \"presence\": \"Elevated\", \"term_id\": \"NCIT:C96650\", \"term_label\": \"Fibroblast Growth Factor 23 Measurement\", \"readouts\": [{\"target\": \"FGF23-mediated renal phosphate wasting\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Elevated intact FGF23 and its inverse relationship with serum phosphate report the ENPP1-related phosphate-wasting mechanism.\"}]}}, {\"id\": \"Multidisciplinary supportive management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive care includes management of arterial hypertension, mineral metabolism, hearing and ophthalmologic complications, and coordinated follow-up by an expert multidisciplinary team.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Plasma inorganic pyrophosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low plasma PPi reports the proximal loss of the extracellular anti-mineralization brake, although assay availability and diagnostic thresholds are not established here.\"}]}}, {\"id\": \"Reduced AMP/adenosine signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ENPP1 deficiency can reduce AMP and downstream adenosine signaling in addition to reducing PPi. This parallel purinergic mechanism is proposed to drive myointimal proliferation and can contribute to stenosis even when overt calcification is less prominent.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ENPP1\"], \"gene_terms\": [{\"label\": \"ENPP1\", \"id\": \"hgnc:3356\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Extracellular pyrophosphate anti-mineralization failure\", \"target\": \"Arterial calcification and stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the extracellular PPi anti-mineralization brake permits hydroxyapatite deposition; mineralized arterial walls and secondary remodeling produce the defining calcification and stenosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hydroxyapatite deposition in the arterial internal elastic lamina\"]}, {\"source\": \"Reduced AMP/adenosine signaling\", \"target\": \"Arterial calcification and stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient AMP/adenosine signaling is proposed to promote myointimal proliferation, narrowing muscular arteries alongside the mineralization branch.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myointimal proliferation\"]}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Arterial calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic mineralization in arterial walls manifests as vascular calcification.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Arterial stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arterial mineralization and intimal proliferation narrow affected vessels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse arterial narrowing and stiffness increase vascular resistance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased arterial stiffness and vascular resistance\"]}, {\"source\": \"Arterial calcification and stenosis\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe diffuse arterial disease increases cardiac workload and can cause heart failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased ventricular afterload and myocardial ischemia\"]}, {\"source\": \"FGF23-mediated renal phosphate wasting\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGF23-associated renal phosphate depletion impairs skeletal mineralization and produces hypophosphatemic rickets.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Renal phosphate wasting and chronic hypophosphatemia\"]}, {\"source\": \"ENPP1-related auditory dysfunction of uncertain mechanism\", \"target\": \"Hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is a frequent ENPP1-survivor association, but its directness and intermediates are not established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Bisphosphonate therapy\", \"target\": \"Arterial calcification and stenosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bisphosphonate therapy\", \"target\": \"Arterial calcification\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Congestive heart failure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive management\", \"target\": \"Hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"INZ-701 enzyme replacement therapy\", \"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"INZ-701 enzyme replacement therapy\", \"target\": \"Arterial calcification\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"INZ-701 enzyme replacement therapy\", \"target\": \"Hypophosphatemic rickets\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Extracellular pyrophosphate anti-mineralization failure\", \"target\": \"Plasma inorganic pyrophosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low plasma PPi reports the proximal loss of the extracellular anti-mineralization brake, although assay availability and diagnostic thresholds are not established here.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"FGF23-mediated renal phosphate wasting\", \"target\": \"Intact fibroblast growth factor 23\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated intact FGF23 and its inverse relationship with serum phosphate report the ENPP1-related phosphate-wasting mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"ENPP1\", \"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ENPP1\", \"target\": \"Reduced AMP/adenosine signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCC6\", \"target\": \"Extracellular pyrophosphate anti-mineralization failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5442,9 +5519,7 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5484,6 +5559,9 @@ This clinical feature is Arterial calcification, annotated with Vascular calcifi
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5583,6 +5661,9 @@ This clinical feature is Arterial stenosis (HP:0100545). HP:0100545 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5652,6 +5733,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5716,6 +5800,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5803,6 +5890,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5874,8 +5964,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">1</span>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypophosphatemic-rickets" data-dismech-node="Hypophosphatemic rickets" data-dismech-type="phenotype">
@@ -5903,6 +5993,9 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5974,15 +6067,6 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-fusion" data-dismech-node="Cervical spine fusion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cervical spine fusion
@@ -6010,6 +6094,9 @@ This clinical feature is Cervical spine fusion, annotated with Fused cervical ve
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6081,6 +6168,9 @@ This clinical feature is Enthesis abnormality, annotated with Abnormal Sharpey f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6203,6 +6293,9 @@ This disease-associated gene is ENPP1 (hgnc:3356). hgnc:3356 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6300,6 +6393,9 @@ This disease-associated gene is ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

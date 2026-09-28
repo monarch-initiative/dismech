@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4867,6 +4909,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wwtr1-camta1-fusion-oncogene-formation" data-dismech-node="WWTR1-CAMTA1 Fusion Oncogene Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">WWTR1-CAMTA1 Fusion Oncogene Formation</div>
 
+
                 <div class="item-desc">A somatic t(1;3)(p36.23;q25.1) translocation fuses the 5&#39; portion of WWTR1 (encoding the Hippo effector TAZ) on 3q25 to the 3&#39; portion of CAMTA1 on 1p36. The chimeric gene is driven by the WWTR1 promoter, which is highly active in endothelial cells, so CAMTA1 sequence - normally expressed only in brain - is inappropriately activated by a promoter-switch mechanism. The fusion retains the TAZ 14-3-3-binding and WW domains together with the CAMTA1 TIG DNA-binding domain, ankyrin repeats and IQ calmodulin-binding motifs.</div>
 
 
@@ -5000,6 +5043,8 @@ This pathophysiological event involves CAMTA1 (hgnc:18806). hgnc:18806 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5008,6 +5053,9 @@ This pathophysiological event involves CAMTA1 (hgnc:18806). hgnc:18806 is a gene
 
 
     </div>
+
+
+
 
 
 
@@ -5103,6 +5151,7 @@ This pathophysiological event involves CAMTA1 (hgnc:18806). hgnc:18806 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-yap1-tfe3-fusion-oncogene-formation" data-dismech-node="YAP1-TFE3 Fusion Oncogene Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">YAP1-TFE3 Fusion Oncogene Formation</div>
+
 
                 <div class="item-desc">In a minority of tumours a YAP1-TFE3 fusion replaces WWTR1-CAMTA1. YAP1 exon 1 is fused to TFE3 exon 4, retaining the TFE3 bHLH-leucine-zipper DNA-binding and transactivation domains while discarding the YAP1 S127 14-3-3 site, WW domain and C-terminal transactivation domain. YAP1 therefore supplies a strong endothelial promoter that misexpresses an otherwise intact MiT-family transcription factor. These tumours are WWTR1-CAMTA1-negative, CAMTA1-immunonegative and strongly TFE3-positive.</div>
 
@@ -5324,6 +5373,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-nuclear-taz-tead-transcriptional-activation" data-dismech-node="Constitutive Nuclear TAZ-TEAD Transcriptional Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Nuclear TAZ-TEAD Transcriptional Activation</div>
+
 
                 <div class="item-desc">Normally, Hippo-pathway LATS kinases phosphorylate TAZ, promoting 14-3-3 binding and cytoplasmic sequestration. TAZ-CAMTA1 loses the C-terminal regulatory elements and gains CAMTA1-mediated nuclear localisation, so it is largely relieved of that restraint and behaves as a constitutively activated TAZ. Importantly, the restraint is attenuated rather than abolished: LATS1/2 deletion and mutation of the LATS phosphosites still increase the fusion&#39;s nuclear localisation and target-gene output, so TAZ-CAMTA1 remains susceptible to Hippo regulation - which is why interventions that drive YAP/TAZ phosphorylation and cytoplasmic sequestration (e.g. statins) can inhibit it. The nuclear fusion drives TEAD-dependent transcription; disruption of the fusion-TEAD interaction or expression of a dominant-negative TEAD blocks transformation, identifying this node as the central effector of the disease and the primary fusion-directed drug target.</div>
 
@@ -5577,6 +5627,7 @@ This pathophysiological event involves increased transcription coactivator activ
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtorc1-pathway-activation" data-dismech-node="mTORC1 Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">mTORC1 Pathway Activation</div>
 
+
                 <div class="item-desc">YAP/TAZ activity - and hence the EHE fusion oncoproteins - converges on activation of mTOR complex 1. This is the biologic rationale for sirolimus, the systemic agent with the strongest disease-specific activity signal in EHE. Sirolimus acts on this node, inhibiting phosphorylation of the mTORC1 substrate 4E-BP1 and, downstream of that, suppressing the ATF4/ATF5-driven release of GDF-15 that tracks disease aggressiveness.</div>
 
 
@@ -5715,6 +5766,7 @@ This pathophysiological event involves increased TORC1 signaling (GO:0038202). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-cell-reprogramming" data-dismech-node="Endothelial Cell Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Cell Reprogramming</div>
+
 
                 <div class="item-desc">Expression of TAZ-CAMTA1 in endothelial cells initiates an angiogenic and regenerative-like transcriptional program and is by itself sufficient to generate vascular tumours with the distinctive features of EHE. Two independent conditional mouse models - endogenous-locus knock-in and endothelial-specific expression - reproduce human EHE, and inhibiting the fusion causes established tumours to regress, establishing continued oncogene dependence (oncogene addiction).</div>
 
@@ -5913,6 +5965,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctgf-integrin-ras-mapk-signaling" data-dismech-node="CTGF-Integrin-RAS-MAPK Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">CTGF-Integrin-RAS-MAPK Signaling</div>
+
 
                 <div class="item-desc">Connective tissue growth factor (CTGF/CCN2) is a tumorigenic transcriptional target of TAZ-CAMTA1. Secreted CTGF binds integrin alphaIIbbeta3, sustaining anchorage-independent proliferation, and drives RAS and MAPK signalling; CTGF knockdown reduces pathway activity and MEK inhibition with PD 0325901 or trametinib abolishes fusion-driven anchorage-independent growth and xenograft expansion. This is the disease-specific route by which a Hippo-pathway lesion converges on the conserved constitutive-mitogenic-signalling hallmark node, and it supplied the preclinical rationale for the phase II trametinib trial. Model caveat: this arm was mapped in TAZ-CAMTA1-transformed NIH3T3 fibroblasts and their xenografts, not in native human EHE endothelium, so its fidelity to the endothelial disease is an open question (see the linked HUMAN_MODEL_MISMATCH discussion).</div>
 
@@ -6121,6 +6174,7 @@ This pathophysiological event involves decreased anoikis (GO:0043276). GO:004327
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelioid-endothelial-neoplastic-proliferation" data-dismech-node="Epithelioid Endothelial Neoplastic Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelioid Endothelial Neoplastic Proliferation</div>
 
+
                 <div class="item-desc">The reprogrammed endothelial cells form the characteristic lesion: cords, strands and nests of epithelioid cells embedded in a myxohyaline (myxochondroid to sclerotic) stroma, with primitive intracytoplasmic vascular lumina (&#34;blister cells&#34;) rather than well-formed vascular channels. Tumours retain endothelial differentiation (CD31/PECAM1 and ERG positive) and grow in an infiltrative pattern in liver, lung, bone and soft tissue.</div>
 
 
@@ -6323,6 +6377,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdkn2a-loss-and-tumour-progression" data-dismech-node="CDKN2A Loss and Tumour Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">CDKN2A Loss and Tumour Progression</div>
+
 
                 <div class="item-desc">Roughly half of EHEs carry a secondary genetic alteration beyond the defining fusion; loss of the CDKN2A tumour suppressor is the most common. In a conditional mouse model, adding Cdkn2a knockout to the TAZ-CAMTA1 allele produced earlier tumour-related morbidity and mortality and enhanced tumour cell proliferation, identifying CDKN2A loss as a progression event rather than an initiating one. This is the disease-specific substitution for the conserved tumour-suppressor-inactivation trigger of the evading-growth-suppressors hallmark.</div>
 
@@ -6564,6 +6619,7 @@ This pathophysiological event involves decreased negative regulation of cell cyc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multifocal-dissemination-and-serosal-involvement" data-dismech-node="Multifocal Dissemination and Serosal Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Multifocal Dissemination and Serosal Involvement</div>
+
 
                 <div class="item-desc">EHE is characteristically multifocal, and multifocality is best interpreted as early metastatic colonisation rather than independent primary tumours. Successful colonisation of lung, liver, bone, lymph nodes and - most ominously - pleural and peritoneal surfaces determines outcome. Pleural involvement and lymph node metastasis confer an aggressive course akin to high-grade sarcoma, and serosal effusion is the single most consistent adverse prognostic feature.</div>
 
@@ -7066,6 +7122,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7146,6 +7205,9 @@ This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7210,6 +7272,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7318,6 +7383,9 @@ This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7398,6 +7466,9 @@ This clinical feature is Neoplasm of the skeletal system (HP:0010622). HP:001062
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7473,6 +7544,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7581,6 +7655,9 @@ This clinical feature is Sarcoma (HP:0100242). HP:0100242 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7654,6 +7731,9 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7722,6 +7802,9 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7810,6 +7893,9 @@ This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phen
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No `term:` binding is asserted. HPO has no generic metastasis term (HP:0200059 is Metastatic angiosarcoma, a different disease) and the available generic HP:0002664 Neoplasm would encode nothing beyond &#34;this is a cancer&#34;; metastasis is better represented from NCIT/SNOMED, which is not in scope for `phenotype_term`.</div>
@@ -7955,6 +8041,9 @@ This disease-associated gene is WWTR1 (hgnc:24042). hgnc:24042 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8052,6 +8141,9 @@ This disease-associated gene is CAMTA1 (hgnc:18806). hgnc:18806 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8120,6 +8212,9 @@ This disease-associated gene is YAP1 (hgnc:16262). hgnc:16262 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8246,6 +8341,9 @@ This disease-associated gene is TFE3 (hgnc:11752). hgnc:11752 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8314,6 +8412,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

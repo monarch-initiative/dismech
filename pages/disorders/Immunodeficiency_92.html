@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4363,6 +4405,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-rel-variants" data-dismech-node="Biallelic Loss-of-Function REL Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss-of-Function REL Variants</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The primary lesion is biallelic damage to REL, encoding c-Rel. Three homozygous alleles are published, all reaching the same endpoint - absent or severely reduced protein - by different molecular routes, and two of them are an instructive contrast at the same exon. The index patient carried a canonical DONOR splice-site variant AFTER exon 5 (c.535+1G&gt;A), which forces use of cryptic donor and acceptor sites and produces an IN-FRAME transcript lacking 54 nucleotides - 18 residues - within the Rel homology domain, the DNA-binding and dimerisation module. The second patient carried the mirror lesion: c.395-1G&gt;A, in the essential ACCEPTOR splice site of exon 5, common to both known REL isoforms. Skipping exon 5 there generates a FRAMESHIFT and a premature stop at codon 134. Same exon, opposite splice boundary, and a different class of consequence. The third patient carried a homozygous frameshift, c.24del p.(Tyr9Ilefs*2), introducing a premature stop almost at the start of the coding sequence.</div>
 
 
@@ -4533,6 +4582,13 @@ This pathophysiological event involves REL (hgnc:9954). hgnc:9954 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-c-rel-protein" data-dismech-node="Absent c-Rel Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent c-Rel Protein</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Both patients were shown by immunoblot of peripheral blood mononuclear cells to lack c-Rel protein - absent with no detectable truncation product in the index patient, severely reduced in the third. The third report adds an important specificity control: p65 (RelA) levels were preserved, so the lesion is subunit-selective rather than a general collapse of NF-kB. This is what makes the disease informative about c-Rel&#39;s non-redundant role in humans.</div>
 
@@ -4715,6 +4771,13 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-transcription-of-c-rel-dependent-cytokine-genes" data-dismech-node="Failed Transcription of c-Rel-Dependent Cytokine Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Transcription of c-Rel-Dependent Cytokine Genes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">c-Rel binds the promoters of IL-2, IFN-gamma, IL-12, IL-21 and IL-23. That target set is not a random collection: IL-12 and IFN-gamma are the axis controlling macrophage activation against intracellular pathogens, IL-2 drives T-cell clonal expansion, and IL-21 is the principal T-follicular-helper signal for B-cell class switching and memory formation. The disease phenotype can be read almost directly off this promoter list, which is the strongest argument that the mechanism is correct despite the tiny patient number.</div>
 
@@ -4960,6 +5023,13 @@ This pathophysiological event involves decreased interleukin-12 production (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-antigen-presenting-cell-failure" data-dismech-node="Myeloid Antigen-Presenting Cell Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid Antigen-Presenting Cell Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The arm that the phrase &#34;combined immunodeficiency&#34; hides. c-Rel is required in conventional type 1 dendritic cells and monocytes for IL-12 and IL-23 production, and its loss abolishes that output - while cDC2s are spared. It is also required for CD86 induction on conventional dendritic cells, so the defect is not only cytokine secretion but antigen-presenting capacity itself. Since IL-12 from cDC1s is what licenses Th1 differentiation and IFN-gamma-dependent macrophage activation, this node explains the mycobacterial and intracellular susceptibility without needing to invoke a T-cell-intrinsic defect at all - though the entry models both, because both are measured.</div>
 
 
@@ -5197,6 +5267,13 @@ This pathophysiological event involves decreased antigen processing and presenta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-t-cell-activation-and-proliferation" data-dismech-node="Impaired T Cell Activation and Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired T Cell Activation and Proliferation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The index patient had numerically increased CD4+ and CD8+ T cells but reduced memory CD4+CD45RO+ cells and reduced proliferation to phytohaemagglutinin. The dissociation is informative: T cells are made and survive, but do not respond - a functional rather than a numerical T-cell defect, which is why the disease presents as combined immunodeficiency without lymphopenia.</div>
 
 
@@ -5374,6 +5451,13 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-b-cell-maturation-and-class-switching" data-dismech-node="Impaired B Cell Maturation and Class Switching" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired B Cell Maturation and Class Switching</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">B-cell lymphopenia with impaired proliferation to CD40 ligand plus IL-21, reduced IgG and undetectable IgA, and non-protective tetanus and diphtheria titres despite boosters. Immunophenotyping at 9 years showed the compartment stuck at the naive stage - 85% naive CD19+IgD+CD27- B cells against a normal range of 47.3-77%, and 0.3% switched memory CD19+CD27+IgD- cells against a reference range of 10.0-30.4%. The failure of proliferation specifically to CD40L+IL-21 connects the cellular defect back to the c-Rel-dependent cytokine IL-21.</div>
 
@@ -5588,6 +5672,13 @@ This pathophysiological event involves decreased B cell proliferation (GO:004210
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-intracellular-and-opportunistic-pathogens" data-dismech-node="Susceptibility to Intracellular and Opportunistic Pathogens" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Intracellular and Opportunistic Pathogens</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint. The index patient&#39;s organisms - Mycobacterium tuberculosis, Salmonella enterica, Cryptosporidium and cytomegalovirus - are precisely the set controlled by the IL-12/IFN-gamma axis and by cellular immunity, and the coherence of that list with c-Rel&#39;s promoter targets is the main evidence that the mechanism is right. The second patient&#39;s list is broader still - BCG disease, chronic mucocutaneous candidiasis, cryptosporidiosis, CMV disease and shingles - and adds a fungal axis that the IL-23/Th17 arm explains. Chronic cryptosporidiosis led on to cholangitis in BOTH fully described patients, the classic biliary complication of that organism in immunodeficiency, which makes it one of the better-replicated features here. The defect is graded rather than absolute, but the evidence for that is a DISSOCIATION rather than a uniform observation: the index patient tolerated live BCG, poliovirus and measles vaccines without sequelae, while the second patient developed disseminated BCG disease from the vaccine. Both are true, and the entry does not average them.</div>
 
 
@@ -5723,7 +5814,7 @@ This pathophysiological event involves decreased B cell proliferation (GO:004210
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent c-Rel Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both patients were shown by immunoblot of peripheral blood mononuclear cells to lack c-Rel protein - absent with no detectable truncation product in the index patient, severely reduced in the third. The third report adds an important specificity control: p65 (RelA) levels were preserved, so the lesion is subunit-selective rather than a general collapse of NF-kB. This is what makes the disease informative about c-Rel\u0027s non-redundant role in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"], \"genes\": [\"REL\"], \"gene_terms\": [{\"label\": \"REL\", \"id\": \"hgnc:9954\"}]}}, {\"id\": \"Antimicrobial Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylactic antibiotics alongside immunoglobulin replacement in the index patient. Split from the immunoglobulin entry so that the modality and the mechanism it targets are separately queryable - the two interventions address different arms of the defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic Loss-of-Function REL Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to REL, encoding c-Rel. Three homozygous alleles are published, all reaching the same endpoint - absent or severely reduced protein - by different molecular routes, and two of them are an instructive contrast at the same exon. The index patient carried a canonical DONOR splice-site variant AFTER exon 5 (c.535+1G\u003eA), which forces use of cryptic donor and acceptor sites and produces an IN-FRAME transcript lacking 54 nucleotides - 18 residues - within the Rel homology domain, the DNA-binding and dimerisation module. The second patient carried the mirror lesion: c.395-1G\u003eA, in the essential ACCEPTOR splice site of exon 5, common to both known REL isoforms. Skipping exon 5 there generates a FRAMESHIFT and a premature stop at codon 134. Same exon, opposite splice boundary, and a different class of consequence. The third patient carried a homozygous frameshift, c.24del p.(Tyr9Ilefs*2), introducing a premature stop almost at the start of the coding sequence.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"REL\"], \"gene_terms\": [{\"label\": \"REL\", \"id\": \"hgnc:9954\"}]}}, {\"id\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"c-Rel binds the promoters of IL-2, IFN-gamma, IL-12, IL-21 and IL-23. That target set is not a random collection: IL-12 and IFN-gamma are the axis controlling macrophage activation against intracellular pathogens, IL-2 drives T-cell clonal expansion, and IL-21 is the principal T-follicular-helper signal for B-cell class switching and memory formation. The disease phenotype can be read almost directly off this promoter list, which is the strongest argument that the mechanism is correct despite the tiny patient number.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\", \"interleukin-12 production\"], \"animal_models\": [{\"name\": \"Rel-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"c-rel-/- (germline inactivation)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Rel-/- T cells show impaired cytokine production with normal surface activation markers, confirming that the lesion is transcriptional rather than a failure of activation.\"}]}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The curative option, and it has been done. The second patient was transplanted in 2017 and her infectious phenotypes were cured. The index patient was under evaluation for transplantation at the time of his report. The cure is worth more to this entry than a treatment outcome. Because HSCT replaces only the haematopoietic compartment, simultaneous correction of the immunological and the infectious phenotypes is a rescue experiment: it establishes that the disease is caused by intrinsic defects of leukocytes rather than by anything c-Rel does elsewhere. That is direct support for the pathograph modelled above, not just for the treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Immunoglobulin Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The supportive standard for a combined immunodeficiency with humoral failure. The index patient received intravenous immunoglobulin. This is the management actually reported; it is not disease-specific and no outcome data exist for it in IMD92.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired B Cell Maturation and Class Switching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B-cell lymphopenia with impaired proliferation to CD40 ligand plus IL-21, reduced IgG and undetectable IgA, and non-protective tetanus and diphtheria titres despite boosters. Immunophenotyping at 9 years showed the compartment stuck at the naive stage - 85% naive CD19+IgD+CD27- B cells against a normal range of 47.3-77%, and 0.3% switched memory CD19+CD27+IgD- cells against a reference range of 10.0-30.4%. The failure of proliferation specifically to CD40L+IL-21 connects the cellular defect back to the c-Rel-dependent cytokine IL-21.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"memory B cell\"], \"biological_processes\": [\"B cell proliferation\"]}}, {\"id\": \"Impaired T Cell Activation and Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The index patient had numerically increased CD4+ and CD8+ T cells but reduced memory CD4+CD45RO+ cells and reduced proliferation to phytohaemagglutinin. The dissociation is informative: T cells are made and survive, but do not respond - a functional rather than a numerical T-cell defect, which is why the disease presents as combined immunodeficiency without lymphopenia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell proliferation\"], \"animal_models\": [{\"name\": \"Rel-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"c-rel-/- (germline inactivation)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Rel-/- mice develop all haemopoietic lineages normally but have impaired humoral immunity and mature B and T cells unresponsive to most mitogens - the same functional-rather-than-numerical pattern seen in the human patients. The model additionally locates the defect: exogenous IL-2 restores T-cell but not B-cell proliferation, so c-Rel regulates different required genes in the two lineages.\"}]}}, {\"id\": \"Myeloid Antigen-Presenting Cell Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arm that the phrase \\\"combined immunodeficiency\\\" hides. c-Rel is required in conventional type 1 dendritic cells and monocytes for IL-12 and IL-23 production, and its loss abolishes that output - while cDC2s are spared. It is also required for CD86 induction on conventional dendritic cells, so the defect is not only cytokine secretion but antigen-presenting capacity itself. Since IL-12 from cDC1s is what licenses Th1 differentiation and IFN-gamma-dependent macrophage activation, this node explains the mycobacterial and intracellular susceptibility without needing to invoke a T-cell-intrinsic defect at all - though the entry models both, because both are measured.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"conventional dendritic cell\", \"monocyte\"], \"biological_processes\": [\"interleukin-23 production\", \"antigen processing and presentation\"]}}, {\"id\": \"REL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"REL\"], \"gene_terms\": [{\"label\": \"REL\", \"id\": \"hgnc:9954\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Rel-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline c-rel knockout mouse, described in 1995 - nearly a quarter of a century before the first human patient, and the reason c-Rel was an immediate candidate when that patient was sequenced.\"}, {\"id\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. The index patient\u0027s organisms - Mycobacterium tuberculosis, Salmonella enterica, Cryptosporidium and cytomegalovirus - are precisely the set controlled by the IL-12/IFN-gamma axis and by cellular immunity, and the coherence of that list with c-Rel\u0027s promoter targets is the main evidence that the mechanism is right. The second patient\u0027s list is broader still - BCG disease, chronic mucocutaneous candidiasis, cryptosporidiosis, CMV disease and shingles - and adds a fungal axis that the IL-23/Th17 arm explains. Chronic cryptosporidiosis led on to cholangitis in BOTH fully described patients, the classic biliary complication of that organism in immunodeficiency, which makes it one of the better-replicated features here. The defect is graded rather than absolute, but the evidence for that is a DISSOCIATION rather than a uniform observation: the index patient tolerated live BCG, poliovirus and measles vaccines without sequelae, while the second patient developed disseminated BCG disease from the vaccine. Both are true, and the entry does not average them.\", \"meta\": {\"evidence_count\": 5}}], \"edges\": [{\"source\": \"Biallelic Loss-of-Function REL Variants\", \"target\": \"Absent c-Rel Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both alleles abolish or severely reduce c-Rel protein, which is the functional lesion rather than the transcript change itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent c-Rel Protein\", \"target\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"c-Rel\u0027s function is transcriptional, so its absence is read out as failure to transcribe its promoter targets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Myeloid Antigen-Presenting Cell Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-12/IL-23 output and of CD86 induction disables the myeloid arm of the response, independently of anything happening in lymphocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Impaired T Cell Activation and Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-2 transcription removes the principal autocrine proliferation signal for activated T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Impaired B Cell Maturation and Class Switching\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-21, a T-cell-derived signal, acts on B cells through the helper compartment as well as through B-cell-intrinsic c-Rel.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-12 and IFN-gamma transcription disables the axis that activates macrophages against intracellular organisms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid Antigen-Presenting Cell Failure\", \"target\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cDC1-derived IL-12 removes the signal that licenses Th1 responses and IFN-gamma-dependent macrophage activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immunoglobulin Replacement\", \"target\": \"Impaired B Cell Maturation and Class Switching\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis\", \"target\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Absent c-Rel Protein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rel-knockout mouse\", \"target\": \"Impaired T Cell Activation and Proliferation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Rel-/- mice develop all haemopoietic lineages normally but have impaired humoral immunity and mature B and T cells unresponsive to most mitogens - the same functional-rather-than-numerical pattern seen in the human patients. The model additionally locates the defect: exogenous IL-2 restores T-cell but not B-cell proliferation, so c-Rel regulates different required genes in the two lineages.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A mouse null against human alleles that also abolish protein, so the genotype match is good - but the mouse phenotype is described as a mitogenic-response defect rather than as susceptibility to mycobacteria and opportunistic organisms, and the cDC1-selective IL-12 defect that dominates the human disease was not part of the original murine characterisation.\"}, {\"source\": \"Rel-knockout mouse\", \"target\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Rel-/- T cells show impaired cytokine production with normal surface activation markers, confirming that the lesion is transcriptional rather than a failure of activation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The murine work also shows c-Rel acting as a REPRESSOR in another cell type - LPS-stimulated Rel-/- macrophages overproduce GM-CSF - so a purely loss-of-activation model is too simple, and this entry\u0027s transcriptional node does not attempt to capture the repressor role.\"}, {\"source\": \"REL\", \"target\": \"Absent c-Rel Protein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"REL\", \"target\": \"Biallelic Loss-of-Function REL Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent c-Rel Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both patients were shown by immunoblot of peripheral blood mononuclear cells to lack c-Rel protein - absent with no detectable truncation product in the index patient, severely reduced in the third. The third report adds an important specificity control: p65 (RelA) levels were preserved, so the lesion is subunit-selective rather than a general collapse of NF-kB. This is what makes the disease informative about c-Rel\u0027s non-redundant role in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"], \"genes\": [\"REL\"], \"gene_terms\": [{\"label\": \"REL\", \"id\": \"hgnc:9954\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Antimicrobial Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylactic antibiotics alongside immunoglobulin replacement in the index patient. Split from the immunoglobulin entry so that the modality and the mechanism it targets are separately queryable - the two interventions address different arms of the defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic Loss-of-Function REL Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic damage to REL, encoding c-Rel. Three homozygous alleles are published, all reaching the same endpoint - absent or severely reduced protein - by different molecular routes, and two of them are an instructive contrast at the same exon. The index patient carried a canonical DONOR splice-site variant AFTER exon 5 (c.535+1G\u003eA), which forces use of cryptic donor and acceptor sites and produces an IN-FRAME transcript lacking 54 nucleotides - 18 residues - within the Rel homology domain, the DNA-binding and dimerisation module. The second patient carried the mirror lesion: c.395-1G\u003eA, in the essential ACCEPTOR splice site of exon 5, common to both known REL isoforms. Skipping exon 5 there generates a FRAMESHIFT and a premature stop at codon 134. Same exon, opposite splice boundary, and a different class of consequence. The third patient carried a homozygous frameshift, c.24del p.(Tyr9Ilefs*2), introducing a premature stop almost at the start of the coding sequence.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"REL\"], \"gene_terms\": [{\"label\": \"REL\", \"id\": \"hgnc:9954\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"c-Rel binds the promoters of IL-2, IFN-gamma, IL-12, IL-21 and IL-23. That target set is not a random collection: IL-12 and IFN-gamma are the axis controlling macrophage activation against intracellular pathogens, IL-2 drives T-cell clonal expansion, and IL-21 is the principal T-follicular-helper signal for B-cell class switching and memory formation. The disease phenotype can be read almost directly off this promoter list, which is the strongest argument that the mechanism is correct despite the tiny patient number.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\", \"interleukin-12 production\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Rel-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"c-rel-/- (germline inactivation)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Rel-/- T cells show impaired cytokine production with normal surface activation markers, confirming that the lesion is transcriptional rather than a failure of activation.\"}]}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The curative option, and it has been done. The second patient was transplanted in 2017 and her infectious phenotypes were cured. The index patient was under evaluation for transplantation at the time of his report. The cure is worth more to this entry than a treatment outcome. Because HSCT replaces only the haematopoietic compartment, simultaneous correction of the immunological and the infectious phenotypes is a rescue experiment: it establishes that the disease is caused by intrinsic defects of leukocytes rather than by anything c-Rel does elsewhere. That is direct support for the pathograph modelled above, not just for the treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Immunoglobulin Replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The supportive standard for a combined immunodeficiency with humoral failure. The index patient received intravenous immunoglobulin. This is the management actually reported; it is not disease-specific and no outcome data exist for it in IMD92.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired B Cell Maturation and Class Switching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B-cell lymphopenia with impaired proliferation to CD40 ligand plus IL-21, reduced IgG and undetectable IgA, and non-protective tetanus and diphtheria titres despite boosters. Immunophenotyping at 9 years showed the compartment stuck at the naive stage - 85% naive CD19+IgD+CD27- B cells against a normal range of 47.3-77%, and 0.3% switched memory CD19+CD27+IgD- cells against a reference range of 10.0-30.4%. The failure of proliferation specifically to CD40L+IL-21 connects the cellular defect back to the c-Rel-dependent cytokine IL-21.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\", \"memory B cell\"], \"biological_processes\": [\"B cell proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired T Cell Activation and Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The index patient had numerically increased CD4+ and CD8+ T cells but reduced memory CD4+CD45RO+ cells and reduced proliferation to phytohaemagglutinin. The dissociation is informative: T cells are made and survive, but do not respond - a functional rather than a numerical T-cell defect, which is why the disease presents as combined immunodeficiency without lymphopenia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Rel-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"c-rel-/- (germline inactivation)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Rel-/- mice develop all haemopoietic lineages normally but have impaired humoral immunity and mature B and T cells unresponsive to most mitogens - the same functional-rather-than-numerical pattern seen in the human patients. The model additionally locates the defect: exogenous IL-2 restores T-cell but not B-cell proliferation, so c-Rel regulates different required genes in the two lineages.\"}]}}, {\"id\": \"Myeloid Antigen-Presenting Cell Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arm that the phrase \\\"combined immunodeficiency\\\" hides. c-Rel is required in conventional type 1 dendritic cells and monocytes for IL-12 and IL-23 production, and its loss abolishes that output - while cDC2s are spared. It is also required for CD86 induction on conventional dendritic cells, so the defect is not only cytokine secretion but antigen-presenting capacity itself. Since IL-12 from cDC1s is what licenses Th1 differentiation and IFN-gamma-dependent macrophage activation, this node explains the mycobacterial and intracellular susceptibility without needing to invoke a T-cell-intrinsic defect at all - though the entry models both, because both are measured.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"conventional dendritic cell\", \"monocyte\"], \"biological_processes\": [\"interleukin-23 production\", \"antigen processing and presentation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"REL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"REL\"], \"gene_terms\": [{\"label\": \"REL\", \"id\": \"hgnc:9954\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Rel-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The germline c-rel knockout mouse, described in 1995 - nearly a quarter of a century before the first human patient, and the reason c-Rel was an immediate candidate when that patient was sequenced.\"}, {\"id\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint. The index patient\u0027s organisms - Mycobacterium tuberculosis, Salmonella enterica, Cryptosporidium and cytomegalovirus - are precisely the set controlled by the IL-12/IFN-gamma axis and by cellular immunity, and the coherence of that list with c-Rel\u0027s promoter targets is the main evidence that the mechanism is right. The second patient\u0027s list is broader still - BCG disease, chronic mucocutaneous candidiasis, cryptosporidiosis, CMV disease and shingles - and adds a fungal axis that the IL-23/Th17 arm explains. Chronic cryptosporidiosis led on to cholangitis in BOTH fully described patients, the classic biliary complication of that organism in immunodeficiency, which makes it one of the better-replicated features here. The defect is graded rather than absolute, but the evidence for that is a DISSOCIATION rather than a uniform observation: the index patient tolerated live BCG, poliovirus and measles vaccines without sequelae, while the second patient developed disseminated BCG disease from the vaccine. Both are true, and the entry does not average them.\", \"meta\": {\"evidence_count\": 5, \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Biallelic Loss-of-Function REL Variants\", \"target\": \"Absent c-Rel Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both alleles abolish or severely reduce c-Rel protein, which is the functional lesion rather than the transcript change itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent c-Rel Protein\", \"target\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"c-Rel\u0027s function is transcriptional, so its absence is read out as failure to transcribe its promoter targets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Myeloid Antigen-Presenting Cell Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-12/IL-23 output and of CD86 induction disables the myeloid arm of the response, independently of anything happening in lymphocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Impaired T Cell Activation and Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-2 transcription removes the principal autocrine proliferation signal for activated T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Impaired B Cell Maturation and Class Switching\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-21, a T-cell-derived signal, acts on B cells through the helper compartment as well as through B-cell-intrinsic c-Rel.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"target\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IL-12 and IFN-gamma transcription disables the axis that activates macrophages against intracellular organisms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid Antigen-Presenting Cell Failure\", \"target\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cDC1-derived IL-12 removes the signal that licenses Th1 responses and IFN-gamma-dependent macrophage activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immunoglobulin Replacement\", \"target\": \"Impaired B Cell Maturation and Class Switching\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antimicrobial Prophylaxis\", \"target\": \"Susceptibility to Intracellular and Opportunistic Pathogens\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Absent c-Rel Protein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rel-knockout mouse\", \"target\": \"Impaired T Cell Activation and Proliferation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Rel-/- mice develop all haemopoietic lineages normally but have impaired humoral immunity and mature B and T cells unresponsive to most mitogens - the same functional-rather-than-numerical pattern seen in the human patients. The model additionally locates the defect: exogenous IL-2 restores T-cell but not B-cell proliferation, so c-Rel regulates different required genes in the two lineages.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A mouse null against human alleles that also abolish protein, so the genotype match is good - but the mouse phenotype is described as a mitogenic-response defect rather than as susceptibility to mycobacteria and opportunistic organisms, and the cDC1-selective IL-12 defect that dominates the human disease was not part of the original murine characterisation.\"}, {\"source\": \"Rel-knockout mouse\", \"target\": \"Failed Transcription of c-Rel-Dependent Cytokine Genes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Rel-/- T cells show impaired cytokine production with normal surface activation markers, confirming that the lesion is transcriptional rather than a failure of activation.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The murine work also shows c-Rel acting as a REPRESSOR in another cell type - LPS-stimulated Rel-/- macrophages overproduce GM-CSF - so a purely loss-of-activation model is too simple, and this entry\u0027s transcriptional node does not attempt to capture the repressor role.\"}, {\"source\": \"REL\", \"target\": \"Absent c-Rel Protein\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"REL\", \"target\": \"Biallelic Loss-of-Function REL Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5788,6 +5879,9 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5864,6 +5958,9 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5930,6 +6027,9 @@ This clinical feature is Decreased proportion of memory B cells, annotated with 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The HPO binding captures only the memory-B-cell component. There is no single HP term for the pattern actually observed - a coordinated reduction across NK, Temra CD8, memory CD4/Th1, Treg and memory B compartments with other subsets normal - so the binding necessarily understates the finding, and the description carries the rest.</div>
@@ -6030,6 +6130,9 @@ This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted, for the reason this entry states elsewhere: at n=3 a FrequencyEnum band is a statistical fiction. Two of three is in any case FREQUENT, not VERY_FREQUENT, and the description carries the information honestly without a band.</div>
 
 
@@ -6124,6 +6227,9 @@ This clinical feature is Sclerosing cholangitis (HP:0030991). HP:0030991 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Replicated across both fully described patients, in unrelated families, with the same aetiology - cryptosporidial biliary infection. That makes it one of the better-supported features in the entry, despite being secondary to a treatable infection rather than intrinsic to the mechanism.</div>
@@ -6231,6 +6337,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">A single unreplicated observation in a consanguineous child, where a second recessive condition is a live alternative explanation. Recorded so it can be checked against future cases, not asserted as a disease feature. See the discussion `imd92_novel_features_third_patient`.</div>
 
 
@@ -6316,6 +6425,9 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6382,6 +6494,9 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported in one patient. No frequency is asserted; with three cases in total, a FrequencyEnum band would be a statistical fiction.</div>
@@ -6455,6 +6570,9 @@ This clinical feature is BCGosis (HP:0020087). HP:0020087 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">One of two BCG-vaccinated patients. The index patient tolerated BCG without sequelae. Both outcomes are recorded, and no frequency is asserted - see the discussion `imd92_bcg_dissociation`.</div>
@@ -6574,6 +6692,9 @@ This clinical feature is Chronic mucocutaneous candidiasis (HP:0002728), qualifi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6668,6 +6789,9 @@ This clinical feature is Severe cytomegalovirus infection (HP:0031692). HP:00316
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6755,6 +6879,9 @@ This clinical feature is Recurrent viral infections (HP:0004429), qualified as t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6830,6 +6957,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">As for craniosynostosis - single unreplicated report in a consanguineous child.</div>
@@ -6948,6 +7078,9 @@ This disease-associated gene is REL (hgnc:9954). hgnc:9954 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

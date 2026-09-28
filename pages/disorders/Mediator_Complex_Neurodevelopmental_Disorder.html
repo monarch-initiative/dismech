@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5493,6 +5535,7 @@ This subtype is caused by variation in MED20 (hgnc:16840). hgnc:16840 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mediator-complex-disruption" data-dismech-node="Mediator Complex Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Mediator Complex Disruption</div>
 
+
                 <div class="item-desc">The Mediator complex is a large multi-subunit assembly (~30 subunits in humans) that serves as a transcriptional coactivator bridging gene-specific transcription factors bound at enhancers and the RNA polymerase II general transcription machinery at promoters. Mutations in Mediator subunits disrupt this enhancer-promoter communication, leading to dysregulated expression of developmentally critical genes. The complex is organized into head, middle, tail, and CDK8 kinase modules, each with distinct interaction partners and regulatory functions.</div>
 
 
@@ -5775,6 +5818,7 @@ This pathophysiological event involves dysregulated Regulation of gene expressio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdk8-kinase-module-dysfunction" data-dismech-node="CDK8 Kinase Module Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">CDK8 Kinase Module Dysfunction</div>
+
 
                 <div class="item-desc">The CDK8 kinase module (CKM) is a four-part cap that reversibly associates with the core Mediator complex to regulate its activity: a kinase (CDK8 or its paralog CDK19), cyclin C, a scaffold (MED12 or its paralog MED12L), and a large subunit (MED13 or MED13L). Disease variants affect every CKM component except cyclin C (CCNC has no confirmed germline disease): MED12 (FG/Lujan/Ohdo/Hardikar/female NDD), MED12L (Nizon-Isidor syndrome), MED13 (MRD61), MED13L (MED13L syndrome), CDK8 (IDDHBA), and CDK19 (DEE87). The CKM has both activating and repressive roles in transcription and modulates Wnt, Notch, GLI3/Sonic Hedgehog, and other signaling pathways during development. Mutations in CKM subunits preferentially affect neural crest-derived structures and brain development; the CDK8/CDK19 kinase subunits are a disproportionately mutation-prone part of the module.</div>
 
@@ -6229,6 +6273,7 @@ This pathophysiological event involves dysregulated Notch signaling pathway (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-transcriptional-dysregulation" data-dismech-node="Neurodevelopmental Transcriptional Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental Transcriptional Dysregulation</div>
 
+
                 <div class="item-desc">Mediator subunit mutations lead to broad transcriptional dysregulation affecting genes required for neuronal differentiation, cortical layering, radial migration, callosal projection, dendritic arborization, and synaptogenesis. This manifests as intellectual disability and speech delay across all subtypes, with severity correlating with the degree of transcriptional disruption.</div>
 
 
@@ -6494,6 +6539,7 @@ This pathophysiological event involves decreased Dendrite development (GO:001635
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-neuron-migration-and-projection-defects" data-dismech-node="Cortical Neuron Migration and Projection Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Neuron Migration and Projection Defects</div>
+
 
                 <div class="item-desc">MED13 deficiency disrupts cortical neuron radial migration, contralateral projection, and dendritic complexity during corticogenesis. Experimental rescue of migration and callosal projection by PLXNA4 overexpression suggests that altered axon-guidance and projection programs are a specific downstream mechanism within the broader CKM-mediated neurodevelopmental defect.</div>
 
@@ -6876,6 +6922,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-med13-ubiquitination-regulatory-cluster-variants" data-dismech-node="MED13 Ubiquitination Regulatory Cluster Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">MED13 Ubiquitination Regulatory Cluster Variants</div>
 
+
                 <div class="item-desc">A subset of MED13 missense variants in MED13-related intellectual developmental disorder (MRD61) cluster at adjacent N-terminal residues p.Thr326 and p.Pro327, which are regulatory sites for MED13 ubiquitination and proteasomal degradation. Variants at this cluster are predicted to disrupt MED13 protein turnover, providing a stability/regulatory loss-of-function mechanism distinct from truncating alleles. In the syndrome-defining 13-patient cohort, six of seven non-truncating variants clustered at N- or C-terminal hotspots, and the four N-terminal variants involved these adjacent ubiquitination-related residues — pointing to MED13 protein-turnover dysregulation as a recurrent MRD61 mechanism rather than purely structural disruption.</div>
 
 
@@ -7091,6 +7138,7 @@ This pathophysiological event involves dysregulated Proteasomal degradation of M
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-developmental-defects" data-dismech-node="Cardiac Developmental Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Developmental Defects</div>
+
 
                 <div class="item-desc">Congenital heart defects are a prominent feature of MED13L syndrome and are also recurrent in MED12/FG syndrome, with milder involvement in some MED13 cases. MED13L is highly expressed in the developing heart, and Mediator dysfunction affects transcription factor programs (e.g., NKX2-5, GATA4, TBX5) required for cardiac septation, outflow tract development, and valve formation. Cardiac phenotypes range from patent foramen ovale to septal defects and transposition of the great arteries.</div>
 
@@ -7308,6 +7356,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-core-module-disruption-head-structural-and-tail" data-dismech-node="Core Module Disruption (Head, Structural, and Tail)" data-dismech-type="pathophysiology">
                 <div class="item-name">Core Module Disruption (Head, Structural, and Tail)</div>
+
 
                 <div class="item-desc">In contrast to the dissociable CDK8 kinase module, the head, structural core, and tail modules form the constitutive body of Mediator that docks RNA polymerase II and integrates enhancer signals. Biallelic (autosomal recessive) variants in these subunits — MED11, MED17, and MED20 (head module); MED27 (structural core); MED25 and MED16 (tail module) — impair assembly or stability of the core complex itself. Several act by disrupting subunit-subunit contacts (MED11 C-terminal truncation destabilizes the MED11-MED22-MED17 four-helix bundle; MED25 founder alleles impair incorporation into the complex; most MED16 variants cause nuclear-to-cytoplasmic mislocalization). The resulting phenotypes skew toward severe, early-onset, and often neurodegenerative disease — postnatal progressive microcephaly with cerebral/cerebellar atrophy (MED17), lethal neurodegeneration (MED11), basal ganglia degeneration and dystonia (MED20), cerebellar hypoplasia with spasticity and cataracts (MED27), eye-brain malformation syndromes (MED25), and multiple congenital anomalies (MED16) — distinct from the predominantly non-degenerative CKM disorders.</div>
 
@@ -7745,6 +7794,7 @@ This pathophysiological event involves decreased Transcription by RNA polymerase
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tail-module-disruption-and-immediate-early-gene-dysregulation" data-dismech-node="Tail Module Disruption and Immediate Early Gene Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tail Module Disruption and Immediate Early Gene Dysregulation</div>
 
+
                 <div class="item-desc">MED23, a subunit of the Mediator tail module, specifically interacts with transcription factors such as ELK1 and other ETS-family activators. Loss of MED23 function disrupts the activation of immediate early genes (IEGs) including JUN and FOS, which are critical for synaptic plasticity and neuronal activity-dependent gene expression. This mechanism underlies the distinct movement disorder phenotype (spasticity, dystonia, choreoathetosis) seen in MED23-related intellectual disability.</div>
 
 
@@ -8029,6 +8079,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8143,6 +8196,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13</span>
 
 
@@ -8152,6 +8207,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Mild congenital heart abnormalities are reported in a subset of MED13 patients.</div>
@@ -8217,6 +8275,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -8226,6 +8286,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Variable penetrance. Ranges from patent foramen ovale to ASD, VSD, and transposition of the great arteries.</div>
@@ -8291,6 +8354,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED12</span>
 
 
@@ -8300,6 +8365,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Congenital cardiac anomalies are a recurrent part of the MED12/FG syndrome phenotype.</div>
@@ -8365,6 +8433,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED23</span>
 
 
@@ -8374,6 +8444,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Congenital heart disease reported in some patients.</div>
@@ -8464,6 +8537,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8532,6 +8608,9 @@ This clinical feature is Imperforate anus, annotated with Anal atresia (HP:00020
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8612,6 +8691,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8706,6 +8788,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13</span>
 
 
@@ -8715,6 +8799,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Hearing involvement is part of the expanded MED13 phenotype but is not universal.</div>
@@ -8780,6 +8867,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -8789,6 +8878,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Hearing impairment is a reported but non-core MED13L feature.</div>
@@ -8879,6 +8971,9 @@ This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8954,6 +9049,9 @@ This clinical feature is Abnormality of facial shape, annotated with Abnormal fa
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9057,6 +9155,9 @@ This clinical feature is Abnormality of facial shape, annotated with Abnormal fa
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9153,6 +9254,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9221,6 +9325,9 @@ This clinical feature is Abnormality of facial shape, annotated with Abnormal fa
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9317,6 +9424,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9427,6 +9537,9 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9502,6 +9615,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9596,6 +9712,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13</span>
 
 
@@ -9605,6 +9723,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Hypotonia is recurrent but not universal in MED13/MRD61.</div>
@@ -9670,6 +9791,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -9679,6 +9802,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Hypotonia is a common feature of MED13L syndrome.</div>
@@ -9744,6 +9870,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED12</span>
 
 
@@ -9753,6 +9881,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Congenital hypotonia is a cardinal feature of FG syndrome.</div>
@@ -9818,6 +9949,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED23</span>
 
 
@@ -9827,6 +9960,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Axial hypotonia reported in MED23 patients.</div>
@@ -9906,6 +10042,9 @@ This clinical feature is Abnormality of the skeletal system (HP:0000924). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9972,6 +10111,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10077,6 +10219,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10196,6 +10341,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13</span>
 
 
@@ -10203,6 +10350,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Intellectual disability severity is variable in MED13-related disorder, with current reports ranging from mild to severe.</div>
@@ -10268,6 +10418,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -10275,6 +10427,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">MED13L syndrome spans a wide severity range from mild to profound developmental delay and intellectual disability.</div>
@@ -10340,6 +10495,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED12</span>
 
 
@@ -10347,6 +10504,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">FG syndrome cognitive impairment is variable from borderline to severe, although all mutation-confirmed individuals have cognitive disability.</div>
@@ -10412,6 +10572,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED23</span>
 
 
@@ -10419,6 +10581,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">MED23-related intellectual disability is variable from mild to severe.</div>
@@ -10495,6 +10660,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10598,6 +10766,9 @@ This clinical feature is Autism spectrum disorder, annotated with Autistic behav
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10687,6 +10858,8 @@ This clinical feature is Autism spectrum disorder, annotated with Autistic behav
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13</span>
 
 
@@ -10696,6 +10869,9 @@ This clinical feature is Autism spectrum disorder, annotated with Autistic behav
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">ASD is a recurrent but non-universal behavioral feature in MED13 patients.</div>
@@ -10761,6 +10937,8 @@ This clinical feature is Autism spectrum disorder, annotated with Autistic behav
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -10770,6 +10948,9 @@ This clinical feature is Autism spectrum disorder, annotated with Autistic behav
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Autistic features are part of the MED13L neurobehavioral spectrum.</div>
@@ -10844,6 +11025,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10945,6 +11129,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11034,6 +11221,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13</span>
 
 
@@ -11043,6 +11232,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Epilepsy appears to be an uncommon but established severe manifestation of MED13-related disorder.</div>
@@ -11108,6 +11300,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -11117,6 +11311,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Seizures reported in a subset of MED13L patients.</div>
@@ -11182,6 +11379,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED12</span>
 
 
@@ -11191,6 +11390,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Seizures are not a core FG syndrome feature but are reported in some MED12-confirmed individuals.</div>
@@ -11281,6 +11483,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED23</span>
 
 
@@ -11290,6 +11494,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Epilepsy is a variable feature; OMIM designation includes &#34;with or without epilepsy.&#34;</div>
@@ -11366,6 +11573,9 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11460,6 +11670,8 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13</span>
 
 
@@ -11469,6 +11681,9 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Corpus callosum anomalies are not universal in MED13 but are part of the expanded reported spectrum.</div>
@@ -11534,6 +11749,8 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -11543,6 +11760,9 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Thin or absent corpus callosum on brain imaging.</div>
@@ -11608,6 +11828,8 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED12</span>
 
 
@@ -11617,6 +11839,9 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Agenesis or hypoplasia of the corpus callosum is a cardinal feature of FG syndrome.</div>
@@ -11682,6 +11907,8 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED23</span>
 
 
@@ -11691,6 +11918,9 @@ This clinical feature is Abnormality of the corpus callosum, annotated with Abno
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Thin corpus callosum reported in some patients.</div>
@@ -11767,6 +11997,9 @@ This clinical feature is Abnormality of the white matter, annotated with Abnorma
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11861,6 +12094,8 @@ This clinical feature is Abnormality of the white matter, annotated with Abnorma
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED13L</span>
 
 
@@ -11870,6 +12105,9 @@ This clinical feature is Abnormality of the white matter, annotated with Abnorma
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Delayed or absent myelination, periventricular and subcortical white matter abnormalities.</div>
@@ -11935,6 +12173,8 @@ This clinical feature is Abnormality of the white matter, annotated with Abnorma
 
 
 
+
+
                 <span class="context-label context-label-subtype">MED23</span>
 
 
@@ -11944,6 +12184,9 @@ This clinical feature is Abnormality of the white matter, annotated with Abnorma
 
 
             </div>
+
+
+
 
 
             <div class="context-notes">Temporal lobe hypomyelination and pontine hypoplasia.</div>
@@ -12023,6 +12266,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12094,6 +12340,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12160,6 +12409,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12242,6 +12494,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12358,6 +12613,9 @@ This disease-associated gene is MED13 (hgnc:22474). hgnc:22474 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -12459,6 +12717,9 @@ This disease-associated gene is MED13L (hgnc:22962). hgnc:22962 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -12591,6 +12852,9 @@ This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked Recessive</span>
@@ -12692,6 +12956,9 @@ This disease-associated gene is MED23 (hgnc:2372). hgnc:2372 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -12822,6 +13089,9 @@ This disease-associated gene is CDK8 (hgnc:1779). hgnc:1779 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -12898,6 +13168,9 @@ This disease-associated gene is CDK19 (hgnc:19338). hgnc:19338 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -12978,6 +13251,9 @@ This disease-associated gene is MED12L (hgnc:16050). hgnc:16050 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -13054,6 +13330,9 @@ This disease-associated gene is MED17 (hgnc:2375). hgnc:2375 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -13134,6 +13413,9 @@ This disease-associated gene is MED11 (hgnc:32687). hgnc:32687 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -13210,6 +13492,9 @@ This disease-associated gene is MED27 (hgnc:2377). hgnc:2377 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -13290,6 +13575,9 @@ This disease-associated gene is MED25 (hgnc:28845). hgnc:28845 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -13368,6 +13656,9 @@ This disease-associated gene is MED16 (hgnc:17556). hgnc:17556 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -13444,6 +13735,9 @@ This disease-associated gene is MED20 (hgnc:16840). hgnc:16840 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

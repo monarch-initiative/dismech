@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4543,6 +4585,13 @@ A worked mechanism matters here because it would say whether the statin rational
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomorphic-non-mosaic-ebp-variant" data-dismech-node="Hypomorphic Non-Mosaic EBP Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomorphic Non-Mosaic EBP Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A hemizygous missense or hypomorphic variant in EBP, present in every cell. EBP lies at Xp11.23 and encodes a 230-amino-acid protein with four functionally important transmembrane domains, resident in the endoplasmic reticulum membrane. Reported MEND alleles include p.W47R, p.W47C (twice, at the same residue), and p.W186R.
 The defining feature is not which residue is hit but how much activity survives and in how many cells. A null allele kills a hemizygous male in early gestation; a hypomorphic one leaves enough enzyme for viability. And the variant being constitutional rather than postzygotic is what makes the phenotype uniform rather than Blaschko-linear.</div>
 
@@ -4604,6 +4653,8 @@ This pathophysiological event involves EBP (hgnc:3133). hgnc:3133 is a gene from
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4616,6 +4667,9 @@ This pathophysiological event involves EBP (hgnc:3133). hgnc:3133 is a gene from
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4709,6 +4763,13 @@ This pathophysiological event involves EBP (hgnc:3133). hgnc:3133 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-3-beta-hydroxysteroid-delta8-delta7-isomerase-activity" data-dismech-node="Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">EBP catalyses the delta8-to-delta7 isomerisation in the final steps of cholesterol biosynthesis, converting cholestenol to lathosterol. Partial loss of that activity has two consequences at once, and both matter: too little cholesterol is made, and the immediate substrates accumulate.
 That the accumulating species are toxic rather than inert is the standard reading, and it is worth marking as an assumption the sources state rather than demonstrate - &#34;allows potentially toxic byproducts... to build up in the body leading to abnormal clinical manifestations&#34; is the strength of the claim in the literature.</div>
@@ -4934,6 +4995,13 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sterol-precursor-accumulation-and-cholesterol-deficiency" data-dismech-node="Sterol Precursor Accumulation and Cholesterol Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Sterol Precursor Accumulation and Cholesterol Deficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Plasma, skin scales and cultured cells show raised 8(9)-cholestenol and 8-dehydrocholesterol. This is the biochemical signature of the disease and the basis of biochemical diagnosis.
 It is also, deliberately, where the mechanism chain in this entry stops. How a cholesterol-poor, precursor-rich cellular environment produces intellectual disability, cataract, epiphyseal stippling and ichthyosis is not established, and the entry does not construct a chain it cannot cite. Two things are known that bear on it and neither closes the gap: the same biochemistry in CDPX2 produces a very different phenotype, and sterol levels do not correlate with phenotype within either disease.</div>
 
@@ -5074,7 +5142,7 @@ It is also, deliberately, where the mechanism chain in this entry stops. How a c
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"EBP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EBP\"], \"gene_terms\": [{\"label\": \"EBP\", \"id\": \"hgnc:3133\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Epiphyseal Stippling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chondrodysplasia punctata - stippled calcification of epiphyses, vertebrae, trachea and distal ribs. It is the feature the EBP disorders are named for. In MEND it is symmetrical, where in the mosaic CDPX2 phenotype it is often asymmetric; that asymmetry is one of the clinical criteria separating the two in a male.\\nGraded OCCASIONAL rather than FREQUENT deliberately. The only available evidence is a GeneReviews sentence describing the feature for EBP-CDPX as a whole, and stippling is absent from the clinical table of the one MEND family reported in detail. The feature belongs to the gene; its frequency in this disorder specifically is not established.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010655\"}}, {\"id\": \"Hypomorphic Non-Mosaic EBP Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hemizygous missense or hypomorphic variant in EBP, present in every cell. EBP lies at Xp11.23 and encodes a 230-amino-acid protein with four functionally important transmembrane domains, resident in the endoplasmic reticulum membrane. Reported MEND alleles include p.W47R, p.W47C (twice, at the same residue), and p.W186R.\\nThe defining feature is not which residue is hit but how much activity survives and in how many cells. A null allele kills a hemizygous male in early gestation; a hypomorphic one leaves enough enzyme for viability. And the variant being constitutional rather than postzygotic is what makes the phenotype uniform rather than Blaschko-linear.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"EBP\"], \"gene_terms\": [{\"label\": \"EBP\", \"id\": \"hgnc:3133\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\"}, \"role\": \"trigger\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal scaling that can present as a collodion membrane, and in the reported cases is transient rather than persistent - one boy had scaly erythematous lesions on limbs, trunk and scalp soon after birth that later resolved. This is a real difference from CDPX2, where the skin follows Blaschko lines and leaves follicular atrophoderma and scarring alopecia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008064\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present with developmental delay and, in some families, behavioural difficulty severe enough to dominate the presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBP catalyses the delta8-to-delta7 isomerisation in the final steps of cholesterol biosynthesis, converting cholestenol to lathosterol. Partial loss of that activity has two consequences at once, and both matter: too little cholesterol is made, and the immediate substrates accumulate.\\nThat the accumulating species are toxic rather than inert is the standard reading, and it is worth marking as an assumption the sources state rather than demonstrate - \\\"allows potentially toxic byproducts... to build up in the body leading to abnormal clinical manifestations\\\" is the strength of the claim in the literature.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol biosynthetic process\"], \"molecular_functions\": [\"cholestenol delta-isomerase activity\"]}}, {\"id\": \"Simvastatin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mechanistic candidate rather than an established therapy. Statins inhibit HMG-CoA reductase upstream of the block, which should reduce flux into the accumulating precursors, and this was shown directly: cholest-8(9)-enol was raised in patient fibroblasts and suppressed by incubation with simvastatin. Therapy was being evaluated in two males from that family at the time of writing, and no outcome has been reported.\\nThe topical route has been used in the allelic disorder: a case of Conradi-Hunermann-Happle syndrome treated with simvastatin-cholesterol ointment, which pairs substrate-flux reduction with cholesterol replacement. That is cited here as a related precedent, not as evidence for MEND.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"simvastatin\"]}}, {\"id\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasma, skin scales and cultured cells show raised 8(9)-cholestenol and 8-dehydrocholesterol. This is the biochemical signature of the disease and the basis of biochemical diagnosis.\\nIt is also, deliberately, where the mechanism chain in this entry stops. How a cholesterol-poor, precursor-rich cellular environment produces intellectual disability, cataract, epiphyseal stippling and ichthyosis is not established, and the entry does not construct a chain it cannot cite. Two things are known that bear on it and neither closes the gap: the same biochemistry in CDPX2 produces a very different phenotype, and sterol levels do not correlate with phenotype within either disease.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Hypomorphic Non-Mosaic EBP Variant\", \"target\": \"Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity\", \"target\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Epiphyseal Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Simvastatin\", \"target\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EBP\", \"target\": \"Hypomorphic Non-Mosaic EBP Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"EBP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"EBP\"], \"gene_terms\": [{\"label\": \"EBP\", \"id\": \"hgnc:3133\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Epiphyseal Stippling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chondrodysplasia punctata - stippled calcification of epiphyses, vertebrae, trachea and distal ribs. It is the feature the EBP disorders are named for. In MEND it is symmetrical, where in the mosaic CDPX2 phenotype it is often asymmetric; that asymmetry is one of the clinical criteria separating the two in a male.\\nGraded OCCASIONAL rather than FREQUENT deliberately. The only available evidence is a GeneReviews sentence describing the feature for EBP-CDPX as a whole, and stippling is absent from the clinical table of the one MEND family reported in detail. The feature belongs to the gene; its frequency in this disorder specifically is not established.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010655\"}}, {\"id\": \"Hypomorphic Non-Mosaic EBP Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hemizygous missense or hypomorphic variant in EBP, present in every cell. EBP lies at Xp11.23 and encodes a 230-amino-acid protein with four functionally important transmembrane domains, resident in the endoplasmic reticulum membrane. Reported MEND alleles include p.W47R, p.W47C (twice, at the same residue), and p.W186R.\\nThe defining feature is not which residue is hit but how much activity survives and in how many cells. A null allele kills a hemizygous male in early gestation; a hypomorphic one leaves enough enzyme for viability. And the variant being constitutional rather than postzygotic is what makes the phenotype uniform rather than Blaschko-linear.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"EBP\"], \"gene_terms\": [{\"label\": \"EBP\", \"id\": \"hgnc:3133\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal scaling that can present as a collodion membrane, and in the reported cases is transient rather than persistent - one boy had scaly erythematous lesions on limbs, trunk and scalp soon after birth that later resolved. This is a real difference from CDPX2, where the skin follows Blaschko lines and leaves follicular atrophoderma and scarring alopecia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008064\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present with developmental delay and, in some families, behavioural difficulty severe enough to dominate the presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBP catalyses the delta8-to-delta7 isomerisation in the final steps of cholesterol biosynthesis, converting cholestenol to lathosterol. Partial loss of that activity has two consequences at once, and both matter: too little cholesterol is made, and the immediate substrates accumulate.\\nThat the accumulating species are toxic rather than inert is the standard reading, and it is worth marking as an assumption the sources state rather than demonstrate - \\\"allows potentially toxic byproducts... to build up in the body leading to abnormal clinical manifestations\\\" is the strength of the claim in the literature.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol biosynthetic process\"], \"molecular_functions\": [\"cholestenol delta-isomerase activity\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Simvastatin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mechanistic candidate rather than an established therapy. Statins inhibit HMG-CoA reductase upstream of the block, which should reduce flux into the accumulating precursors, and this was shown directly: cholest-8(9)-enol was raised in patient fibroblasts and suppressed by incubation with simvastatin. Therapy was being evaluated in two males from that family at the time of writing, and no outcome has been reported.\\nThe topical route has been used in the allelic disorder: a case of Conradi-Hunermann-Happle syndrome treated with simvastatin-cholesterol ointment, which pairs substrate-flux reduction with cholesterol replacement. That is cited here as a related precedent, not as evidence for MEND.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"simvastatin\"]}}, {\"id\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasma, skin scales and cultured cells show raised 8(9)-cholestenol and 8-dehydrocholesterol. This is the biochemical signature of the disease and the basis of biochemical diagnosis.\\nIt is also, deliberately, where the mechanism chain in this entry stops. How a cholesterol-poor, precursor-rich cellular environment produces intellectual disability, cataract, epiphyseal stippling and ichthyosis is not established, and the entry does not construct a chain it cannot cite. Two things are known that bear on it and neither closes the gap: the same biochemistry in CDPX2 produces a very different phenotype, and sterol levels do not correlate with phenotype within either disease.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Hypomorphic Non-Mosaic EBP Variant\", \"target\": \"Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced 3-beta-Hydroxysteroid-Delta8,Delta7-Isomerase Activity\", \"target\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"target\": \"Epiphyseal Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Simvastatin\", \"target\": \"Sterol Precursor Accumulation and Cholesterol Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EBP\", \"target\": \"Hypomorphic Non-Mosaic EBP Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5147,6 +5215,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5232,6 +5303,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5298,6 +5372,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5383,6 +5460,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5458,6 +5538,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5556,6 +5639,9 @@ This clinical feature is Ichthyosis (HP:0008064), qualified as temporality trans
 
 
                     </div>
+
+
+
 
 
 
@@ -5666,6 +5752,9 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5746,6 +5835,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5817,6 +5909,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5883,6 +5978,9 @@ This clinical feature is Epiphyseal stippling (HP:0010655). HP:0010655 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5970,6 +6068,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6036,6 +6137,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6112,6 +6216,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6178,6 +6285,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6254,6 +6364,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6325,6 +6438,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6391,6 +6507,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6471,6 +6590,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6591,6 +6713,9 @@ This disease-associated gene is EBP (hgnc:3133). hgnc:3133 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6688,6 +6813,9 @@ This disease-associated gene is APOA5 (hgnc:17288). hgnc:17288 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6760,6 +6888,9 @@ This disease-associated gene is ABCA1 (hgnc:29). hgnc:29 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6828,6 +6959,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
 

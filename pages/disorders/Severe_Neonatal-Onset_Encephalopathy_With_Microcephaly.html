@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5550,6 +5592,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemizygous-mecp2-loss-of-function-variant" data-dismech-node="Hemizygous MECP2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemizygous MECP2 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">A pathogenic MECP2 variant on the single X chromosome of a 46,XY male. Reported variant classes include nonsense and frameshift changes truncating the transcription-repression domain, splice-disrupting deletions, small insertions causing frameshift, and methyl-CpG-binding-domain missense substitutions such as T158M. Variants may be de novo, which is the majority situation, or inherited from a heterozygous mother with favorably skewed X-chromosome inactivation.</div>
 
 
@@ -5766,6 +5809,7 @@ This pathophysiological event involves dysregulated epigenetic regulation of gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-mosaic-rescue-by-x-chromosome-inactivation" data-dismech-node="Absence of Mosaic Rescue by X-Chromosome Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of Mosaic Rescue by X-Chromosome Inactivation</div>
+
 
                 <div class="item-desc">The mechanistic pivot of this entity. A heterozygous female inactivates one X per cell, so roughly half of her neurons express wild-type MeCP2 and buffer the mutant population, and her phenotype accordingly permits an initial period of normal development. A non-mosaic hemizygous male has no such population. The clinical proof of this node is inverted rather than direct. Males who do have a wild-type-expressing cell population, because of post-zygotic somatic mosaicism or a supernumerary X in 47,XXY Klinefelter syndrome, present instead with a recognizable Rett phenotype and survive.</div>
 
@@ -6009,6 +6053,7 @@ This pathophysiological event involves absent dosage compensation by inactivatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mecp2-methyl-cpg-binding-and-chromocenter-clustering" data-dismech-node="Impaired MeCP2 Methyl-CpG Binding and Chromocenter Clustering" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired MeCP2 Methyl-CpG Binding and Chromocenter Clustering</div>
+
 
                 <div class="item-desc">MeCP2 binds chromocentric DNA through its methyl-CpG-binding domain. Variants at the MBD-DNA interface impair the MeCP2-DNA interaction, while more distal MBD variants impair chromatin clustering, and binding and mobility dynamics degrade in a graded fashion depending on amino-acid properties and MBD tertiary structure. In hemizygous males, where X-inactivation does not confound the comparison, the degree of functional impairment correlates directly with clinical severity across a range that runs from neonatal encephalopathy at the severe extreme to mild psychiatric abnormalities at the mild extreme. This node therefore explains the residual severity gradient within the male spectrum, given the shared absence of mosaic rescue.</div>
 
@@ -6271,6 +6316,7 @@ This pathophysiological event involves decreased methyl-CpG binding (GO:0008327)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variant-dependent-severity-within-the-male-mecp2-spectrum" data-dismech-node="Variant-Dependent Severity Within the Male MECP2 Spectrum" data-dismech-type="pathophysiology">
                 <div class="item-name">Variant-Dependent Severity Within the Male MECP2 Spectrum</div>
 
+
                 <div class="item-desc">Given hemizygosity, the residual determinant of which male MECP2 phenotype results is the functional severity of the variant. Three phenotypes are seen in males with a single copy of MECP2 carrying a pathogenic variant, namely severe neonatal encephalopathy at the severe end, X-linked intellectual deficiency 13 in the middle, and pyramidal signs with parkinsonism and macroorchidism (PPM-X) at the mild end. Clinical severity across this range correlates directly with the measured functional impairment of MeCP2. Within the severe end, specific recurrent alleles may define recognizable sub-entities: two brothers with T158M followed a near identical lethal course, and the reporting authors proposed that T158M males might constitute a clinical-genetic entity within the male congenital encephalopathies, whereas an R294X boy had a more protracted course with survival past four years.</div>
 
 
@@ -6441,6 +6487,7 @@ This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uniform-neuronal-and-glial-mecp2-deficiency" data-dismech-node="Uniform Neuronal and Glial MeCP2 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Uniform Neuronal and Glial MeCP2 Deficiency</div>
+
 
                 <div class="item-desc">Every neuron and every glial cell lacks functional MeCP2. Note the two different kinds of warrant behind that statement. The HUMAN claim is genetic rather than histological: MECP2 is X-linked, so a non-mosaic 46,XY male carries the variant in every cell with no wild-type allele anywhere, and uniform deficiency follows by deduction from hemizygosity. No human study has demonstrated MeCP2 protein loss in glia specifically; that demonstration comes from the Rett MOUSE model, in which MeCP2 is absent from astrocytes as well as neurons. The consequence asserted here, that the deficiency affects both compartments simultaneously and so removes the possibility of MeCP2-competent astrocytes supporting MeCP2-deficient neurons, is therefore a human-genetic inference supported by a model-organism observation, and is flagged as such rather than presented as human autopsy data.</div>
 
@@ -6744,6 +6791,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preferential-de-repression-of-long-neuronal-genes" data-dismech-node="Preferential De-Repression of Long Neuronal Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Preferential De-Repression of Long Neuronal Genes</div>
 
+
                 <div class="item-desc">The best-characterized transcriptional signature of MeCP2 loss, and the step that explains why neuronal connectivity programs specifically are hit rather than gene expression being perturbed at random. Profiling discrete neuronal subtypes rather than brain homogenates (which had shown only subtle changes because of a dilution problem) reveals that the genes up-regulated on loss of MeCP2 are biased toward longer genes, while down-regulated genes show no such bias, implying that MeCP2 selectively represses long genes. Because cell-adhesion and cell-cell-signalling genes governing neuronal connectivity and communication are themselves enriched among long genes, their de-repression is the proposed route from a generic chromatin defect to specifically miswired circuits. In a hemizygous male this de-repression is unbuffered, since no neuron retains a wild-type allele. Evidence is model-organism (Mecp2 knock-out mouse neuronal subtypes); no equivalent cell-type-resolved transcriptomic dataset exists for an affected human male.</div>
 
 
@@ -7027,6 +7075,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-activity-dependent-neuronal-gene-expression" data-dismech-node="Dysregulated Activity-Dependent Neuronal Gene Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Activity-Dependent Neuronal Gene Expression</div>
 
+
                 <div class="item-desc">MeCP2 regulates the expression of a wide range of neuronal genes and can act as both a repressor and an activator. Its complete absence changes the expression levels of thousands of genes, disrupting the activity-dependent transcriptional programs that drive neuronal maturation.</div>
 
 
@@ -7199,6 +7248,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-cell-autonomous-astrocytic-failure-to-support-dendritic-morphology" data-dismech-node="Non-Cell-Autonomous Astrocytic Failure to Support Dendritic Morphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Cell-Autonomous Astrocytic Failure to Support Dendritic Morphology</div>
+
 
                 <div class="item-desc">MeCP2-null astrocytes, and their conditioned medium alone, fail to support normal dendritic morphology in either wild-type or mutant hippocampal neurons, implicating aberrant secretion of soluble factors. In a hemizygous male, where astrocytes are also uniformly MeCP2-deficient, this non-cell-autonomous insult is unmitigated and compounds the cell-autonomous neuronal defect.</div>
 
@@ -7402,6 +7452,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-dendritic-arborization-and-synaptogenesis" data-dismech-node="Failure of Dendritic Arborization and Synaptogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Dendritic Arborization and Synaptogenesis</div>
+
 
                 <div class="item-desc">The pivotal cellular lesion, documented directly in human autopsy material from an affected male rather than inferred. Golgi staining of pyramidal neurons from cortical layers III and V of the frontal and temporal lobes shows drastically diminished dendritic trees, and synaptophysin staining of synaptic vesicles is greatly reduced in cerebellar and spinal cord sections, indicating that the failure is not confined to cortex. The hemizygous mutant male mouse supplies the quantitative counterpart and shows the deficit is compartment-specific, with spine density reduced by 47.4% in the apical tuft and 54.5% in secondary apical dendrites of layer 5 motor cortical neurons while primary apical and proximal basal dendrites are spared.</div>
 
@@ -7778,6 +7829,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-brain-growth-with-frontotemporal-predominance" data-dismech-node="Reduced Brain Growth With Frontotemporal Predominance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Brain Growth With Frontotemporal Predominance</div>
 
+
                 <div class="item-desc">At autopsy the brain of an affected male is small with disproportionate reduction of the frontal and temporal lobes, matching the regions where the dendritic deficit was measured. In the Mecp2-null mouse, brain weight and neuronal cell size are substantially reduced without obvious structural defects or signs of neurodegeneration, indicating that reduced brain volume reflects failed neuronal growth rather than loss of previously formed neurons.</div>
 
 
@@ -7980,6 +8032,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-malformation-with-perisylvian-polymicrogyria" data-dismech-node="Cortical Malformation With Perisylvian Polymicrogyria" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Malformation With Perisylvian Polymicrogyria</div>
 
+
                 <div class="item-desc">In at least one autopsied affected male the developmental disturbance produced overt cortical malformation, namely bilateral polymicrogyria in the perisylvian region, visibly more severe than previously described in females with Rett syndrome or in another male with a MECP2 mutation. This places part of the pathogenesis prenatally, during cortical development, and motivated the recommendation that MECP2 be screened in bilateral perisylvian polymicrogyria syndromes.</div>
 
 
@@ -8155,6 +8208,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brainstem-respiratory-network-failure" data-dismech-node="Brainstem Respiratory Network Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Brainstem Respiratory Network Failure</div>
+
 
                 <div class="item-desc">Failure of synaptic organization in brainstem and spinal respiratory circuitry destabilizes ventilatory control, producing hypoventilation and irregular breathing from the neonatal period, apnea, and ultimately central respiratory failure. This is the proximate cause of death in autopsied cases.</div>
 
@@ -8399,6 +8453,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-hypoventilation-and-irregular-breathing" data-dismech-node="Central Hypoventilation and Irregular Breathing" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Hypoventilation and Irregular Breathing</div>
 
+
                 <div class="item-desc">Sustained inadequate ventilation with an irregular breathing pattern, present from the neonatal period and driven centrally rather than by intrinsic lung disease.</div>
 
 
@@ -8546,6 +8601,7 @@ This pathophysiological event involves decreased regulation of respiratory gaseo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-central-hypoxia" data-dismech-node="Chronic Central Hypoxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Central Hypoxia</div>
 
+
                 <div class="item-desc">Chronic hypoxia of central (ventilatory) origin, evidenced not by blood gases alone but by its structural footprint in skeletal muscle. On muscle biopsy the type II fibers are reduced in diameter, which the reporting authors interpret as indicating central hypoxia. This gives the entity an objective, biopsy-level marker of the systemic consequence of its brainstem lesion.</div>
 
 
@@ -8689,6 +8745,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-death-in-infancy-from-central-respiratory-failure" data-dismech-node="Death in Infancy From Central Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Death in Infancy From Central Respiratory Failure</div>
 
+
                 <div class="item-desc">The terminal node. Death often occurs before age two years, most commonly from central respiratory failure; reported ages at death across individual cases include 13 months, 15 months, 17 months, 1 year 8 months, 30 months and 3 years 1 month. This is modeled as a pathophysiology node rather than as a phenotypes entry because HP:0001522 (Death in infancy) sits in the HPO mortality branch outside HP:0000118 phenotypic abnormality and is therefore not bindable in phenotype_term. The competing cardiac mode of death is captured separately by the Sudden Death phenotype and the mechanism_of_sudden_death discussion.</div>
 
 
@@ -8801,6 +8858,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
+
 
                 <div class="item-desc">Failed synaptic and dendritic maturation, compounded where present by polymicrogyric cortex, produces an epileptogenic network. Clinically this is expressed as severe, often intractable seizures with accompanying electroencephalographic abnormality, and in reported males as prolonged periods of epileptic myoclonus.</div>
 
@@ -9036,6 +9094,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-motor-control-circuitry" data-dismech-node="Impaired Motor Control Circuitry" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Motor Control Circuitry</div>
+
 
                 <div class="item-desc">Failed maturation of motor and extrapyramidal circuitry yields generalized hypotonia that later shifts to abnormal and fluctuating tone, with involuntary movements including tremor and dystonic extension of the trunk and legs, and, in reported cases, ocular and oropharyngeal dyskinesia. No motor milestones are attained.</div>
 
@@ -9282,6 +9341,7 @@ This pathophysiological event involves dysregulated regulation of muscle contrac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-autonomic-conduction-instability" data-dismech-node="Cardiac Autonomic Conduction Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Autonomic Conduction Instability</div>
+
 
                 <div class="item-desc">A clinically consequential and under-recognized arm. In a familial pair of affected brothers, severe bradycardia preceded sudden death from sick sinus syndrome at 17 and 30 months. Across MECP2 disorders, QTc prolongation is a recognized surveillance target and QT-prolonging drugs are agents to avoid, so cardiac conduction instability is an actionable node rather than an incidental observation.</div>
 
@@ -9627,6 +9687,9 @@ This clinical feature is Bradycardia (HP:0001662), qualified as severity severe.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9723,6 +9786,9 @@ This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9787,6 +9853,9 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9887,6 +9956,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as course 
 
 
                     </div>
+
+
+
 
 
 
@@ -10024,6 +10096,9 @@ This clinical feature is Ocular dyskinesia, annotated with Abnormality of eye mo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10122,6 +10197,9 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10209,6 +10287,7 @@ This clinical feature is Microcephaly (HP:0000252), qualified as course progress
             </div>
 
 
+
             <div class="context-notes">Progressive/acquired pattern documented longitudinally, with head-growth deceleration from six months of age.</div>
 
 
@@ -10290,6 +10369,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10391,6 +10473,9 @@ This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10480,6 +10565,9 @@ This clinical feature is Type 2 muscle fiber atrophy (HP:0003554). HP:0003554 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10580,6 +10668,9 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
                     </div>
+
+
+
 
 
 
@@ -10707,6 +10798,7 @@ This clinical feature is Congenital encephalopathy (HP:0007239), qualified as te
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10775,6 +10867,9 @@ This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10876,6 +10971,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10947,6 +11045,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11013,6 +11114,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11102,6 +11206,9 @@ This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:
 
 
                     </div>
+
+
+
 
 
 
@@ -11201,6 +11308,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11267,6 +11377,9 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11391,6 +11504,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11457,6 +11573,9 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11558,6 +11677,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11624,6 +11746,9 @@ This clinical feature is Bruxism (HP:0003763). HP:0003763 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11727,6 +11852,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11816,6 +11944,9 @@ This clinical feature is Hypoventilation (HP:0002791). HP:0002791 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11933,6 +12064,9 @@ This clinical feature is Central apnea (HP:0002871), qualified as severity sever
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12006,6 +12140,9 @@ This clinical feature is Sudden death (HP:0001699). HP:0001699 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12086,6 +12223,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12231,6 +12371,9 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked inheritance</span>
@@ -12340,6 +12483,12 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense and frameshift variants that truncate MeCP2 within or before the transcription-repression domain. The prototype is 806delG (V288X), which in a single family produced a minimally affected skewed-XCI carrier mother, classic Rett syndrome in heterozygous relatives, and lethal congenital encephalopathy in the hemizygous son. The recurrent nonsense allele R294X has also been reported in an affected male, with a more protracted course.</div>
@@ -12455,6 +12604,12 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A de novo 9-nucleotide deletion spanning the intron 3 to exon 4 splice junction creates a new splice site; the aberrantly spliced transcript loses seven nucleotides, causing a frameshift and premature termination codon.</div>
 
 
@@ -12539,6 +12694,12 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Missense substitutions in and around the methyl-CpG-binding domain, of which T158M is the recurrent allele reported in affected males. In hemizygous males these produce a graded phenotype, with the most functionally damaging variants at the neonatal-encephalopathy end of the spectrum, because X-inactivation does not confound the genotype-phenotype comparison. T158M males have been proposed to form a recognizable clinical-genetic sub-entity.</div>

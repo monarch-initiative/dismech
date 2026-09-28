@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4742,6 +4784,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-yap1-haploinsufficiency" data-dismech-node="YAP1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">YAP1 Haploinsufficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A heterozygous nonsense variant in YAP1 (c.1066G&gt;T, p.Glu356* in the index syndromic family) introduces a premature termination codon in transcripts from both the canonical and the intron-1 alternative transcription start site, so the mutant transcript is expected to be cleared by nonsense-mediated decay and the affected individual is left with roughly half the normal dose of YAP1 protein. YAP1 is not a structural protein of the eye or palate — it is a transcriptional co-activator — so the lesion is a dosage lesion in a developmental transcriptional program rather than loss of a tissue-specific product. The mechanism is loss of function, not gain of function or dominant-negative action. Note that NMD of this specific allele is predicted rather than measured — no patient-tissue transcript assay has been reported for c.1066G&gt;T — which is why the node is PROVISIONAL rather than ESTABLISHED, and why the NMD-escaping YAP1 frameshift reported by Holt et al. is treated as a genuine complication of the model.</div>
 
 
@@ -4975,6 +5024,13 @@ This pathophysiological event involves decreased YAP1 transcriptional co-activat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-yap-tead-transcriptional-output-in-the-hippo-pathway" data-dismech-node="Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">YAP1 is a transcriptional co-activator that, with its paralogue TAZ (WWTR1), acts as the major nuclear effector of the Hippo pathway by binding TEAD1-4 to drive transcription; Hippo activation phosphorylates YAP1 and exports it to the cytoplasm, extinguishing this output. Loss of one YAP1 allele lowers the ceiling of YAP-TEAD transcriptional activity available to developing tissues. Zebrafish work shows this activity is not merely permissive but instructive for ocular fate: Yap/Taz-Tead activity is both necessary and sufficient for optic vesicle progenitors to adopt retinal pigment epithelium identity, and both nuclear localisation and Tead binding are required.</div>
 
@@ -5235,6 +5291,13 @@ This pathophysiological event involves abnormal hippo signaling (GO:0035329). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-optic-fissure-closure" data-dismech-node="Failure of Optic Fissure Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Optic Fissure Closure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The uveal coloboma of this syndrome is an optic fissure closure defect. The optic fissure is a transient groove in the ventral optic cup that must fuse between weeks 5 and 7 of human fetal life; failure of that fusion leaves a persistent ventral gap expressed clinically as an inferonasal iris, chorioretinal, and/or optic disc coloboma, and — when tissue deficiency is severe — as microphthalmia. Williamson et al. framed the entire YAP1 phenotype under this heading, describing both the isolated and the syndromic families as optic fissure closure defects.</div>
 
 
@@ -5448,6 +5511,13 @@ This pathophysiological event occurs in optic fissure (UBERON:0005412). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pleiotropic-yap1-requirement-across-eye-ear-palate-and-kidney-primordia" data-dismech-node="Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia" data-dismech-type="pathophysiology">
                 <div class="item-name">Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">This is the node that explains why the syndrome is a syndrome, and it carries the shared developmental mechanism the eye and the face have in common. Whole-mount in situ hybridisation in mouse embryos localises Yap1 to the eye, brain, and the fusing facial processes; nonradioactive in situ hybridisation on staged human embryos localises YAP1 to the retina, the otic vesicle (primitive ear), the primordium of the lateral palatine process, the neural tube, and the renal tubules. Optic fissure closure and palatal/facial process fusion are both epithelial fusion events occurring in overlapping embryonic windows, and both depend on the same dosage-sensitive Hippo effector — so a single haploinsufficient allele perturbs both. The correspondence of this expression domain to the clinical phenotype is close to one-to-one: retina to coloboma, otic vesicle to sensorineural hearing loss, lateral palatine process to cleft lip/palate, neural tube to the discussed neural tube defect, and renal tubules to the haematuria.</div>
 
@@ -5706,6 +5776,13 @@ This pathophysiological event occurs in neural tube (UBERON:0001049). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fusion-of-the-facial-processes-and-palatal-shelves" data-dismech-node="Impaired Fusion of the Facial Processes and Palatal Shelves" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Fusion of the Facial Processes and Palatal Shelves</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Failure of the medial nasal, maxillary, and palatal shelf fusion events yields the cleft lip and cleft palate of the syndrome. Orphanet records the clefting as variably involving lip, palate, and/or uvula, which is the pattern expected of a partially penetrant, dosage-dependent perturbation of a fusion program rather than a complete block. This node is deliberately kept thin: the generic orofacial clefting cascade is not reproduced here, because the YAP1-specific evidence extends only to expression in the fusing processes and the resulting clinical cleft.</div>
 
 
@@ -5908,6 +5985,13 @@ This pathophysiological event occurs in primordium of the lateral palatine proce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uveal-coloboma-and-colobomatous-microphthalmia" data-dismech-node="Uveal Coloboma and Colobomatous Microphthalmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Uveal Coloboma and Colobomatous Microphthalmia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical ocular endpoint: an inferonasal uveal coloboma that in this entity is typically bilateral and may extend from iris through choroid to the optic disc and macula, with microphthalmia, cataract, and impaired extraocular movement in the fuller expressions. Expression is strikingly variable within the single family, so relatives sharing the allele may range from a minor iris notch to microphthalmia with poor vision — uveal coloboma is nonetheless the most constant feature.</div>
 
 
@@ -6061,6 +6145,13 @@ This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alternative-transcription-start-site-modulation-of-phenotype-severity" data-dismech-node="Alternative Transcription Start Site Modulation of Phenotype Severity" data-dismech-type="pathophysiology">
                 <div class="item-name">Alternative Transcription Start Site Modulation of Phenotype Severity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A candidate explanation for why one YAP1 nonsense family is syndromic and the other is eye-only. YAP1 has an alternative transcription start site in intron 1, widely used in human and mouse development, whose transcripts initiate at codon Met179. The isolated-coloboma allele c.370C&gt;T (p.Arg124*) falls in the 5&#39; UTR of those alternative transcripts and so cannot trigger nonsense-mediated decay in them, leaving a partially rescuing pool of protein; the syndromic allele c.1066G&gt;T (p.Glu356*) lies downstream of both start sites and is predicted to cause NMD of transcripts from either. On this model the syndromic multisystem phenotype of this entity reflects the absence of that alternative-transcript rescue. The model is proposed rather than experimentally demonstrated in patient tissue, and other alleles complicate it — the c.1160delA frameshift escapes NMD altogether yet was inherited from an asymptomatic father.</div>
 
@@ -6273,7 +6364,7 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate explanation for why one YAP1 nonsense family is syndromic and the other is eye-only. YAP1 has an alternative transcription start site in intron 1, widely used in human and mouse development, whose transcripts initiate at codon Met179. The isolated-coloboma allele c.370C\u003eT (p.Arg124*) falls in the 5\u0027 UTR of those alternative transcripts and so cannot trigger nonsense-mediated decay in them, leaving a partially rescuing pool of protein; the syndromic allele c.1066G\u003eT (p.Glu356*) lies downstream of both start sites and is predicted to cause NMD of transcripts from either. On this model the syndromic multisystem phenotype of this entity reflects the absence of that alternative-transcript rescue. The model is proposed rather than experimentally demonstrated in patient tissue, and other alleles complicate it \\u2014 the c.1160delA frameshift escapes NMD altogether yet was inherited from an asymptomatic father.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"modifier\"}}, {\"id\": \"Chorioretinal Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior extension of the coloboma into the choroid and retina, recorded by Orphanet as part of the continuous iris-to-macula defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000567\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the upper lip, forming half of the cleft lip and palate element of the syndrome name and present alongside the coloboma in the defining family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0410030\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the secondary palate; Orphanet notes the clefting may involve lip, palate, and/or uvula, so a submucous or uvular-only cleft is within the described spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Failure of Optic Fissure Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uveal coloboma of this syndrome is an optic fissure closure defect. The optic fissure is a transient groove in the ventral optic cup that must fuse between weeks 5 and 7 of human fetal life; failure of that fusion leaves a persistent ventral gap expressed clinically as an inferonasal iris, chorioretinal, and/or optic disc coloboma, and \\u2014 when tissue deficiency is severe \\u2014 as microphthalmia. Williamson et al. framed the entire YAP1 phenotype under this heading, describing both the isolated and the syndromic families as optic fissure closure defects.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"closure of optic fissure\"], \"role\": \"intermediate\", \"locations\": [\"optic fissure\"], \"animal_models\": [{\"name\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"species\": \"Danio rerio\", \"genotype\": \"yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"yap1 mutants develop coloboma \\u2014 the optic fissure closure defect itself \\u2014 alongside the RPE deficiency proposed to underlie it.\"}]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Haematuria, recognised as a manifestation on re-evaluation of the pedigree and subsequently reported in other individuals with YAP1 variants. Its renal basis has not been characterised histologically; YAP1 expression in the renal tubules of the CS22 human embryo is the only available developmental correlate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of the medial nasal, maxillary, and palatal shelf fusion events yields the cleft lip and cleft palate of the syndrome. Orphanet records the clefting as variably involving lip, palate, and/or uvula, which is the pattern expected of a partially penetrant, dosage-dependent perturbation of a fusion program rather than a complete block. This node is deliberately kept thin: the generic orofacial clefting cascade is not reproduced here, because the YAP1-specific evidence extends only to expression in the fusing processes and the resulting clinical cleft.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\", \"face morphogenesis (medial nasal and maxillary prominence fusion)\"], \"role\": \"consequence\", \"locations\": [\"primordium of the lateral palatine process\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability of variable degree, the feature that gives the syndrome the third element of its name. No frequency band is assigned: the only quantified neurodevelopmental figure in the literature (one third) describes learning difficulties requiring remedial teaching, which is curated separately above, and both primary sources state the intellectual disability itself only in hedged or unquantified terms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Iris Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Iris involvement, the most anterior expression of the uveal coloboma and the element named in the entity\u0027s own label.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000612\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small eye accompanying the colobomatous defect; part of the complete spectrum of eye involvement seen across the pedigree and reported repeatedly in other YAP1 loss-of-function cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000568\"}}, {\"id\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The cosegregating heterozygous nonsense allele identified in the syndromic family (family 132) that defines this entity. It lies downstream of both the canonical and the intron-1 alternative transcription start sites and is therefore predicted to cause nonsense-mediated decay of transcripts from either, producing true YAP1 haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"variant_type\": \"nonsense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Optic Disc Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involvement of the optic disc, the most posterior extension of the optic fissure closure defect in this entity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000588\"}}, {\"id\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that explains why the syndrome is a syndrome, and it carries the shared developmental mechanism the eye and the face have in common. Whole-mount in situ hybridisation in mouse embryos localises Yap1 to the eye, brain, and the fusing facial processes; nonradioactive in situ hybridisation on staged human embryos localises YAP1 to the retina, the otic vesicle (primitive ear), the primordium of the lateral palatine process, the neural tube, and the renal tubules. Optic fissure closure and palatal/facial process fusion are both epithelial fusion events occurring in overlapping embryonic windows, and both depend on the same dosage-sensitive Hippo effector \\u2014 so a single haploinsufficient allele perturbs both. The correspondence of this expression domain to the clinical phenotype is close to one-to-one: retina to coloboma, otic vesicle to sensorineural hearing loss, lateral palatine process to cleft lip/palate, neural tube to the discussed neural tube defect, and renal tubules to the haematuria.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\", \"locations\": [\"optic fissure\", \"primordium of the lateral palatine process\", \"otic vesicle\", \"neural tube\"]}}, {\"id\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YAP1 is a transcriptional co-activator that, with its paralogue TAZ (WWTR1), acts as the major nuclear effector of the Hippo pathway by binding TEAD1-4 to drive transcription; Hippo activation phosphorylates YAP1 and exports it to the cytoplasm, extinguishing this output. Loss of one YAP1 allele lowers the ceiling of YAP-TEAD transcriptional activity available to developing tissues. Zebrafish work shows this activity is not merely permissive but instructive for ocular fate: Yap/Taz-Tead activity is both necessary and sufficient for optic vesicle progenitors to adopt retinal pigment epithelium identity, and both nuclear localisation and Tead binding are required.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"hippo signaling\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\", \"animal_models\": [{\"name\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"species\": \"Danio rerio\", \"genotype\": \"yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors \\u2014 the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.\"}]}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mid-frequency sensorineural hearing loss, recognised on formal audiological re-evaluation of the pedigree. YAP1 is expressed in the human embryonic otic vesicle, supplying a developmental correlate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Uveal Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The cardinal feature: a typically bilateral uveal coloboma arising from failure of optic fissure closure, with iris involvement that may extend to the choroid, optic disc, and/or macula.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical ocular endpoint: an inferonasal uveal coloboma that in this entity is typically bilateral and may extend from iris through choroid to the optic disc and macula, with microphthalmia, cataract, and impaired extraocular movement in the fuller expressions. Expression is strikingly variable within the single family, so relatives sharing the allele may range from a minor iris notch to microphthalmia with poor vision \\u2014 uveal coloboma is nonetheless the most constant feature.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"eye\"]}}, {\"id\": \"YAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"presence\": \"PRESENT\", \"association\": \"Heterozygous loss-of-function (nonsense and frameshift) variants in YAP1 cause dominantly inherited optic fissure closure defects. The syndromic form corresponding to this entity segregates the nonsense allele c.1066G\u003eT (p.Glu356*), predicted to trigger nonsense-mediated decay in transcripts from both the canonical and the intron-1 alternative transcription start site.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"YAP1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense variant in YAP1 (c.1066G\u003eT, p.Glu356* in the index syndromic family) introduces a premature termination codon in transcripts from both the canonical and the intron-1 alternative transcription start site, so the mutant transcript is expected to be cleared by nonsense-mediated decay and the affected individual is left with roughly half the normal dose of YAP1 protein. YAP1 is not a structural protein of the eye or palate \\u2014 it is a transcriptional co-activator \\u2014 so the lesion is a dosage lesion in a developmental transcriptional program rather than loss of a tissue-specific product. The mechanism is loss of function, not gain of function or dominant-negative action. Note that NMD of this specific allele is predicted rather than measured \\u2014 no patient-tissue transcript assay has been reported for c.1066G\u003eT \\u2014 which is why the node is PROVISIONAL rather than ESTABLISHED, and why the NMD-escaping YAP1 frameshift reported by Holt et al. is treated as a genuine complication of the model.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nonsense-mediated decay of the mutant YAP1 transcript\"], \"molecular_functions\": [\"YAP1 transcriptional co-activator activity\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"trigger\"}}, {\"id\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Zebrafish yap1 mutants lack a subset of retinal pigment epithelium and/or develop coloboma, and combined loss of yap and taz abolishes the ability of optic vesicle progenitors to form RPE at all. This is the closest available model of the ocular arm of the syndrome and the source of the instructive (not merely permissive) role of Yap/Taz-Tead in RPE fate. It does not model the clefting, hearing loss, or intellectual disability arms.\"}], \"edges\": [{\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving the dose of the Hippo-pathway effector reduces the amount of nuclear YAP1 available to co-activate TEAD-dependent transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reduced co-activator dose is imposed simultaneously on every developing tissue that expresses YAP1, which is what converts an ocular lesion into a multisystem syndrome. This edge hangs off the dosage lesion itself rather than off the ocular YAP-TEAD node, because the multi-organ requirement is a property of the germline haploinsufficiency, not a consequence of reduced TEAD output in the eye.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the multisystem phenotype attributed to the heterozygous YAP1 loss-of-function allele, but the intervening neurodevelopmental mechanism is unknown. This edge therefore starts at the upstream dosage lesion rather than at the tissue-expression node; it does not assert that embryonic brain expression explains cognition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient YAP-TEAD output in optic vesicle/optic cup progenitors compromises RPE specification and the apposition of the optic cup margins that must fuse to close the optic fissure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of Yap/Taz-Tead-dependent retinal pigment epithelium specification\"]}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed ventral fissure is the anatomical substrate of the clinical coloboma; associated tissue deficiency produces the small eye.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced YAP1 dose in the maxillary/lateral palatine process primordium impairs the fusion events that form the primary and secondary palate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The otic-vesicle arm of the same pleiotropic requirement. The hearing loss cosegregates with the YAP1 allele in the index family, and Holt et al. read their otic-vesicle expression as consistent with that phenotype; the intervening steps are unresolved, and no cochlear phenotype has been assayed at reduced YAP1 dose in any system.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal arm of the same pleiotropic requirement. The haematuria cosegregates with the YAP1 allele in the index family, and Holt et al. read their renal expression as consistent with it; the renal lesion itself is uncharacterised \\u2014 see the open knowledge-gap discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"target\": \"Cleft Lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of medial nasal and maxillary process fusion yields the cleft of the upper lip.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of palatal shelf fusion yields the cleft palate; Orphanet records the clefting as variably involving lip, palate, and/or uvula.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Uveal Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical uveal coloboma is the direct expression of the unclosed ventral fissure at the level of the uveal tract.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Iris Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior (iris) expression of the same colobomatous defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Chorioretinal Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior extension of the same colobomatous defect into choroid and retina.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Optic Disc Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most posterior extension of the same defect, at the optic disc.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Where the colobomatous tissue deficiency is severe enough, the globe is also small \\u2014 colobomatous microphthalmia rather than an isolated cleft.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether a given nonsense allele produces true haploinsufficiency, and hence whether the phenotype is eye-only or syndromic, is proposed to depend on its position relative to the alternative start site.\", \"hypothesis_groups\": [\"alternative_tss_severity_modulation\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors \\u2014 the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Homozygous null and double-mutant genotypes model a far deeper loss of output than a human heterozygous nonsense allele, so the model addresses the direction of the lesion rather than its dose.\"}, {\"source\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"yap1 mutants develop coloboma \\u2014 the optic fissure closure defect itself \\u2014 alongside the RPE deficiency proposed to underlie it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The zygosity mismatch bites hardest here, on the stronger claim: the coloboma is scored in homozygous yap1 nulls, whereas the human disorder is caused by a heterozygous nonsense allele, so the model recapitulates the lesion\u0027s direction and not its dose. Zebrafish ocular morphogenesis is also not identical to the human weeks-5-to-7 fissure closure window, and the model does not reproduce the clefting, hearing loss, haematuria, or intellectual disability arms of the syndrome.\"}, {\"source\": \"YAP1\", \"target\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"target\": \"YAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate explanation for why one YAP1 nonsense family is syndromic and the other is eye-only. YAP1 has an alternative transcription start site in intron 1, widely used in human and mouse development, whose transcripts initiate at codon Met179. The isolated-coloboma allele c.370C\u003eT (p.Arg124*) falls in the 5\u0027 UTR of those alternative transcripts and so cannot trigger nonsense-mediated decay in them, leaving a partially rescuing pool of protein; the syndromic allele c.1066G\u003eT (p.Glu356*) lies downstream of both start sites and is predicted to cause NMD of transcripts from either. On this model the syndromic multisystem phenotype of this entity reflects the absence of that alternative-transcript rescue. The model is proposed rather than experimentally demonstrated in patient tissue, and other alleles complicate it \\u2014 the c.1160delA frameshift escapes NMD altogether yet was inherited from an asymptomatic father.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"modifier\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Chorioretinal Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior extension of the coloboma into the choroid and retina, recorded by Orphanet as part of the continuous iris-to-macula defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000567\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the upper lip, forming half of the cleft lip and palate element of the syndrome name and present alongside the coloboma in the defining family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0410030\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the secondary palate; Orphanet notes the clefting may involve lip, palate, and/or uvula, so a submucous or uvular-only cleft is within the described spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Failure of Optic Fissure Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uveal coloboma of this syndrome is an optic fissure closure defect. The optic fissure is a transient groove in the ventral optic cup that must fuse between weeks 5 and 7 of human fetal life; failure of that fusion leaves a persistent ventral gap expressed clinically as an inferonasal iris, chorioretinal, and/or optic disc coloboma, and \\u2014 when tissue deficiency is severe \\u2014 as microphthalmia. Williamson et al. framed the entire YAP1 phenotype under this heading, describing both the isolated and the syndromic families as optic fissure closure defects.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"closure of optic fissure\"], \"role\": \"intermediate\", \"locations\": [\"optic fissure\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"species\": \"Danio rerio\", \"genotype\": \"yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"yap1 mutants develop coloboma \\u2014 the optic fissure closure defect itself \\u2014 alongside the RPE deficiency proposed to underlie it.\"}]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Haematuria, recognised as a manifestation on re-evaluation of the pedigree and subsequently reported in other individuals with YAP1 variants. Its renal basis has not been characterised histologically; YAP1 expression in the renal tubules of the CS22 human embryo is the only available developmental correlate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of the medial nasal, maxillary, and palatal shelf fusion events yields the cleft lip and cleft palate of the syndrome. Orphanet records the clefting as variably involving lip, palate, and/or uvula, which is the pattern expected of a partially penetrant, dosage-dependent perturbation of a fusion program rather than a complete block. This node is deliberately kept thin: the generic orofacial clefting cascade is not reproduced here, because the YAP1-specific evidence extends only to expression in the fusing processes and the resulting clinical cleft.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\", \"face morphogenesis (medial nasal and maxillary prominence fusion)\"], \"role\": \"consequence\", \"locations\": [\"primordium of the lateral palatine process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability of variable degree, the feature that gives the syndrome the third element of its name. No frequency band is assigned: the only quantified neurodevelopmental figure in the literature (one third) describes learning difficulties requiring remedial teaching, which is curated separately above, and both primary sources state the intellectual disability itself only in hedged or unquantified terms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Iris Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Iris involvement, the most anterior expression of the uveal coloboma and the element named in the entity\u0027s own label.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000612\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small eye accompanying the colobomatous defect; part of the complete spectrum of eye involvement seen across the pedigree and reported repeatedly in other YAP1 loss-of-function cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000568\"}}, {\"id\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The cosegregating heterozygous nonsense allele identified in the syndromic family (family 132) that defines this entity. It lies downstream of both the canonical and the intron-1 alternative transcription start sites and is therefore predicted to cause nonsense-mediated decay of transcripts from either, producing true YAP1 haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"variant_type\": \"nonsense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Optic Disc Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involvement of the optic disc, the most posterior extension of the optic fissure closure defect in this entity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000588\"}}, {\"id\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that explains why the syndrome is a syndrome, and it carries the shared developmental mechanism the eye and the face have in common. Whole-mount in situ hybridisation in mouse embryos localises Yap1 to the eye, brain, and the fusing facial processes; nonradioactive in situ hybridisation on staged human embryos localises YAP1 to the retina, the otic vesicle (primitive ear), the primordium of the lateral palatine process, the neural tube, and the renal tubules. Optic fissure closure and palatal/facial process fusion are both epithelial fusion events occurring in overlapping embryonic windows, and both depend on the same dosage-sensitive Hippo effector \\u2014 so a single haploinsufficient allele perturbs both. The correspondence of this expression domain to the clinical phenotype is close to one-to-one: retina to coloboma, otic vesicle to sensorineural hearing loss, lateral palatine process to cleft lip/palate, neural tube to the discussed neural tube defect, and renal tubules to the haematuria.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\", \"locations\": [\"optic fissure\", \"primordium of the lateral palatine process\", \"otic vesicle\", \"neural tube\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YAP1 is a transcriptional co-activator that, with its paralogue TAZ (WWTR1), acts as the major nuclear effector of the Hippo pathway by binding TEAD1-4 to drive transcription; Hippo activation phosphorylates YAP1 and exports it to the cytoplasm, extinguishing this output. Loss of one YAP1 allele lowers the ceiling of YAP-TEAD transcriptional activity available to developing tissues. Zebrafish work shows this activity is not merely permissive but instructive for ocular fate: Yap/Taz-Tead activity is both necessary and sufficient for optic vesicle progenitors to adopt retinal pigment epithelium identity, and both nuclear localisation and Tead binding are required.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"hippo signaling\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"species\": \"Danio rerio\", \"genotype\": \"yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors \\u2014 the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.\"}]}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mid-frequency sensorineural hearing loss, recognised on formal audiological re-evaluation of the pedigree. YAP1 is expressed in the human embryonic otic vesicle, supplying a developmental correlate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Uveal Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The cardinal feature: a typically bilateral uveal coloboma arising from failure of optic fissure closure, with iris involvement that may extend to the choroid, optic disc, and/or macula.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical ocular endpoint: an inferonasal uveal coloboma that in this entity is typically bilateral and may extend from iris through choroid to the optic disc and macula, with microphthalmia, cataract, and impaired extraocular movement in the fuller expressions. Expression is strikingly variable within the single family, so relatives sharing the allele may range from a minor iris notch to microphthalmia with poor vision \\u2014 uveal coloboma is nonetheless the most constant feature.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"eye\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"YAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"presence\": \"PRESENT\", \"association\": \"Heterozygous loss-of-function (nonsense and frameshift) variants in YAP1 cause dominantly inherited optic fissure closure defects. The syndromic form corresponding to this entity segregates the nonsense allele c.1066G\u003eT (p.Glu356*), predicted to trigger nonsense-mediated decay in transcripts from both the canonical and the intron-1 alternative transcription start site.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"YAP1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense variant in YAP1 (c.1066G\u003eT, p.Glu356* in the index syndromic family) introduces a premature termination codon in transcripts from both the canonical and the intron-1 alternative transcription start site, so the mutant transcript is expected to be cleared by nonsense-mediated decay and the affected individual is left with roughly half the normal dose of YAP1 protein. YAP1 is not a structural protein of the eye or palate \\u2014 it is a transcriptional co-activator \\u2014 so the lesion is a dosage lesion in a developmental transcriptional program rather than loss of a tissue-specific product. The mechanism is loss of function, not gain of function or dominant-negative action. Note that NMD of this specific allele is predicted rather than measured \\u2014 no patient-tissue transcript assay has been reported for c.1066G\u003eT \\u2014 which is why the node is PROVISIONAL rather than ESTABLISHED, and why the NMD-escaping YAP1 frameshift reported by Holt et al. is treated as a genuine complication of the model.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nonsense-mediated decay of the mutant YAP1 transcript\"], \"molecular_functions\": [\"YAP1 transcriptional co-activator activity\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Zebrafish yap1 mutants lack a subset of retinal pigment epithelium and/or develop coloboma, and combined loss of yap and taz abolishes the ability of optic vesicle progenitors to form RPE at all. This is the closest available model of the ocular arm of the syndrome and the source of the instructive (not merely permissive) role of Yap/Taz-Tead in RPE fate. It does not model the clefting, hearing loss, or intellectual disability arms.\"}], \"edges\": [{\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving the dose of the Hippo-pathway effector reduces the amount of nuclear YAP1 available to co-activate TEAD-dependent transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reduced co-activator dose is imposed simultaneously on every developing tissue that expresses YAP1, which is what converts an ocular lesion into a multisystem syndrome. This edge hangs off the dosage lesion itself rather than off the ocular YAP-TEAD node, because the multi-organ requirement is a property of the germline haploinsufficiency, not a consequence of reduced TEAD output in the eye.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the multisystem phenotype attributed to the heterozygous YAP1 loss-of-function allele, but the intervening neurodevelopmental mechanism is unknown. This edge therefore starts at the upstream dosage lesion rather than at the tissue-expression node; it does not assert that embryonic brain expression explains cognition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient YAP-TEAD output in optic vesicle/optic cup progenitors compromises RPE specification and the apposition of the optic cup margins that must fuse to close the optic fissure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of Yap/Taz-Tead-dependent retinal pigment epithelium specification\"]}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed ventral fissure is the anatomical substrate of the clinical coloboma; associated tissue deficiency produces the small eye.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced YAP1 dose in the maxillary/lateral palatine process primordium impairs the fusion events that form the primary and secondary palate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The otic-vesicle arm of the same pleiotropic requirement. The hearing loss cosegregates with the YAP1 allele in the index family, and Holt et al. read their otic-vesicle expression as consistent with that phenotype; the intervening steps are unresolved, and no cochlear phenotype has been assayed at reduced YAP1 dose in any system.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal arm of the same pleiotropic requirement. The haematuria cosegregates with the YAP1 allele in the index family, and Holt et al. read their renal expression as consistent with it; the renal lesion itself is uncharacterised \\u2014 see the open knowledge-gap discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"target\": \"Cleft Lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of medial nasal and maxillary process fusion yields the cleft of the upper lip.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of palatal shelf fusion yields the cleft palate; Orphanet records the clefting as variably involving lip, palate, and/or uvula.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Uveal Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical uveal coloboma is the direct expression of the unclosed ventral fissure at the level of the uveal tract.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Iris Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior (iris) expression of the same colobomatous defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Chorioretinal Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior extension of the same colobomatous defect into choroid and retina.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Optic Disc Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most posterior extension of the same defect, at the optic disc.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Where the colobomatous tissue deficiency is severe enough, the globe is also small \\u2014 colobomatous microphthalmia rather than an isolated cleft.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether a given nonsense allele produces true haploinsufficiency, and hence whether the phenotype is eye-only or syndromic, is proposed to depend on its position relative to the alternative start site.\", \"hypothesis_groups\": [\"alternative_tss_severity_modulation\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors \\u2014 the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Homozygous null and double-mutant genotypes model a far deeper loss of output than a human heterozygous nonsense allele, so the model addresses the direction of the lesion rather than its dose.\"}, {\"source\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"yap1 mutants develop coloboma \\u2014 the optic fissure closure defect itself \\u2014 alongside the RPE deficiency proposed to underlie it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The zygosity mismatch bites hardest here, on the stronger claim: the coloboma is scored in homozygous yap1 nulls, whereas the human disorder is caused by a heterozygous nonsense allele, so the model recapitulates the lesion\u0027s direction and not its dose. Zebrafish ocular morphogenesis is also not identical to the human weeks-5-to-7 fissure closure window, and the model does not reproduce the clefting, hearing loss, haematuria, or intellectual disability arms of the syndrome.\"}, {\"source\": \"YAP1\", \"target\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"target\": \"YAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6338,6 +6429,9 @@ This clinical feature is Mid-frequency sensorineural hearing loss, annotated wit
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6475,6 +6569,9 @@ This clinical feature is Uveal coloboma, annotated with Coloboma (HP:0000589), q
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6598,6 +6695,9 @@ This clinical feature is Iris coloboma (HP:0000612), qualified as congenital ons
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6691,6 +6791,9 @@ This clinical feature is Chorioretinal coloboma (HP:0000567), qualified as conge
 
 
                     </div>
+
+
+
 
 
 
@@ -6794,6 +6897,9 @@ This clinical feature is Optic disc coloboma (HP:0000588), qualified as congenit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6887,6 +6993,9 @@ This clinical feature is Microphthalmia (HP:0000568), qualified as congenital on
 
 
                     </div>
+
+
+
 
 
 
@@ -6986,6 +7095,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7052,6 +7164,9 @@ This clinical feature is Extraocular movement impairment, annotated with Abnorma
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7130,6 +7245,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7267,6 +7385,9 @@ This clinical feature is Cleft lip (HP:0410030), qualified as congenital onset. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7390,6 +7511,9 @@ This clinical feature is Cleft palate (HP:0000175), qualified as congenital onse
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7495,6 +7619,9 @@ This clinical feature is Learning difficulties requiring remedial teaching, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7559,6 +7686,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7653,6 +7783,9 @@ This clinical feature is Neural tube defect (HP:0045005). HP:0045005 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7800,6 +7933,9 @@ This disease-associated gene is YAP1 (hgnc:16262). hgnc:16262 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7911,6 +8047,7 @@ This disease-associated gene is YAP1 (hgnc:16262). hgnc:16262 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7930,11 +8067,17 @@ This variant is in YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The cosegregating heterozygous nonsense allele identified in the syndromic family (family 132) that defines this entity. It lies downstream of both the canonical and the intron-1 alternative transcription start sites and is therefore predicted to cause nonsense-mediated decay of transcripts from either, producing true YAP1 haploinsufficiency.</div>

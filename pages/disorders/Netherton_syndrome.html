@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4462,6 +4504,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spink5-loss-of-function-variants" data-dismech-node="SPINK5 loss-of-function variants" data-dismech-type="pathophysiology">
                 <div class="item-name">SPINK5 loss-of-function variants</div>
 
+
                 <div class="item-desc">Biallelic pathogenic SPINK5 variants reduce functional SPINK5 output and initiate Netherton syndrome pathogenesis.</div>
 
 
@@ -4661,6 +4704,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lekti-protein-deficiency" data-dismech-node="LEKTI protein deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">LEKTI protein deficiency</div>
 
+
                 <div class="item-desc">Reduced or absent LEKTI removes a key epidermal serine-protease brake in skin and hair-bearing epithelium.</div>
 
 
@@ -4799,6 +4843,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unchecked-epidermal-kallikrein-protease-activity" data-dismech-node="Unchecked epidermal kallikrein protease activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Unchecked epidermal kallikrein protease activity</div>
+
 
                 <div class="item-desc">Loss of LEKTI control leads to increased epidermal protease activity, including KLK-dependent proteolysis in the stratum corneum.</div>
 
@@ -4998,6 +5043,7 @@ This pathophysiological event occurs in stratum corneum of epidermis (UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneodesmosome-degradation-and-accelerated-desquamation" data-dismech-node="Corneodesmosome degradation and accelerated desquamation" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneodesmosome degradation and accelerated desquamation</div>
 
+
                 <div class="item-desc">Excess serine-protease activity accelerates stratum corneum protein breakdown, causing premature shedding and unstable cornified layers.</div>
 
 
@@ -5166,6 +5212,7 @@ This pathophysiological event occurs in stratum corneum of epidermis (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-barrier-breakdown-and-increased-transepidermal-water-loss" data-dismech-node="Epidermal barrier breakdown and increased transepidermal water loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal barrier breakdown and increased transepidermal water loss</div>
+
 
                 <div class="item-desc">Defective stratum corneum integrity increases permeability to water, allergens, and microbes, establishing chronic barrier failure.</div>
 
@@ -5373,6 +5420,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-klk-mediated-il-36-cytokine-processing" data-dismech-node="KLK-mediated IL-36 cytokine processing" data-dismech-type="pathophysiology">
                 <div class="item-name">KLK-mediated IL-36 cytokine processing</div>
 
+
                 <div class="item-desc">KLK proteases cleave IL-36 cytokine precursors, amplifying epidermal pro-inflammatory signaling.</div>
 
 
@@ -5508,6 +5556,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cutaneous-entry-of-allergens-and-microbes" data-dismech-node="Enhanced cutaneous entry of allergens and microbes" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced cutaneous entry of allergens and microbes</div>
 
+
                 <div class="item-desc">Persistent barrier failure promotes antigen penetration and microbial exposure, increasing both atopic sensitization and infection vulnerability.</div>
 
 
@@ -5633,6 +5682,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-17-il-36-inflammatory-amplification" data-dismech-node="IL-17/IL-36 inflammatory amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-17/IL-36 inflammatory amplification</div>
+
 
                 <div class="item-desc">Combined IL-36 and IL-17 pathway activation sustains epidermal inflammation and drives persistent erythro-inflammatory and eczematous disease.</div>
 
@@ -5823,6 +5873,7 @@ This pathophysiological event involves interleukin-17-mediated signaling pathway
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-shaft-structural-fragility-from-follicular-protease-imbalance" data-dismech-node="Hair shaft structural fragility from follicular protease imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair shaft structural fragility from follicular protease imbalance</div>
 
+
                 <div class="item-desc">SPINK5/LEKTI dysfunction in hair-bearing epithelium contributes to defective hair-shaft integrity, including trichorrhexis invaginata susceptibility.</div>
 
 
@@ -5946,6 +5997,44 @@ This pathophysiological event involves keratinization (GO:0031424). GO:0031424 i
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        serine-type endopeptidase inhibitor activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004867" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0004867</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased serine-type endopeptidase inhibitor activity (GO:0004867). GO:0004867 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -6032,7 +6121,7 @@ This pathophysiological event involves keratinization (GO:0031424). GO:0031424 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atopic dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous inflammatory skin phenotype overlapping with atopic eczema.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001047\"}}, {\"id\": \"Corneodesmosome degradation and accelerated desquamation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess serine-protease activity accelerates stratum corneum protein breakdown, causing premature shedding and unstable cornified layers.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteolysis\", \"keratinization\"], \"locations\": [\"stratum corneum of epidermis\"]}}, {\"id\": \"Enhanced cutaneous entry of allergens and microbes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent barrier failure promotes antigen penetration and microbial exposure, increasing both atopic sensitization and infection vulnerability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective stratum corneum integrity increases permeability to water, allergens, and microbes, establishing chronic barrier failure.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Erythroderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse inflammatory erythema with scaling involving large skin areas.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001019\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth impairment in subsets of patients with severe or specific SPINK5 variant profiles.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hair shaft abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair-shaft defects are characteristic in NS, often including trichorrhexis invaginata (bamboo hair).\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003328\"}}, {\"id\": \"Hair shaft structural fragility from follicular protease imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SPINK5/LEKTI dysfunction in hair-bearing epithelium contributes to defective hair-shaft integrity, including trichorrhexis invaginata susceptibility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"genes\": [\"SPINK5\"], \"gene_terms\": [{\"label\": \"SPINK5\", \"id\": \"hgnc:15464\"}]}}, {\"id\": \"IL-17/IL-36 inflammatory amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined IL-36 and IL-17 pathway activation sustains epidermal inflammation and drives persistent erythro-inflammatory and eczematous disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"interleukin-17-mediated signaling pathway\"]}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized scaling disorder of cornification and barrier function.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008064\"}}, {\"id\": \"KLK-mediated IL-36 cytokine processing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLK proteases cleave IL-36 cytokine precursors, amplifying epidermal pro-inflammatory signaling.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"LEKTI protein deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced or absent LEKTI removes a key epidermal serine-protease brake in skin and hair-bearing epithelium.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic itch as a major symptomatic burden in NS.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to recurrent infections associated with barrier dysfunction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002719\"}}, {\"id\": \"SPINK5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"SPINK5\"], \"gene_terms\": [{\"label\": \"SPINK5\", \"id\": \"hgnc:15464\"}], \"association\": \"Causative\"}}, {\"id\": \"SPINK5 loss-of-function variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic SPINK5 variants reduce functional SPINK5 output and initiate Netherton syndrome pathogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"genes\": [\"SPINK5\"], \"gene_terms\": [{\"label\": \"SPINK5\", \"id\": \"hgnc:15464\"}], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Unchecked epidermal kallikrein protease activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of LEKTI control leads to increased epidermal protease activity, including KLK-dependent proteolysis in the stratum corneum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"proteolysis\"], \"locations\": [\"stratum corneum of epidermis\"]}}], \"edges\": [{\"source\": \"SPINK5 loss-of-function variants\", \"target\": \"LEKTI protein deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SPINK5 loss of function reduces or abolishes LEKTI protein levels.\"}, {\"source\": \"LEKTI protein deficiency\", \"target\": \"Unchecked epidermal kallikrein protease activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LEKTI deficiency permits excessive epidermal serine protease activity.\"}, {\"source\": \"LEKTI protein deficiency\", \"target\": \"Hair shaft structural fragility from follicular protease imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LEKTI loss in hair follicles predisposes to bamboo-hair morphology.\"}, {\"source\": \"Unchecked epidermal kallikrein protease activity\", \"target\": \"Corneodesmosome degradation and accelerated desquamation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive proteolysis promotes premature corneocyte detachment.\"}, {\"source\": \"Unchecked epidermal kallikrein protease activity\", \"target\": \"KLK-mediated IL-36 cytokine processing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KLKs proteolytically activate IL-36 family pro-cytokines.\"}, {\"source\": \"Corneodesmosome degradation and accelerated desquamation\", \"target\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corneocyte cohesion failure impairs the physical epidermal barrier.\"}, {\"source\": \"Corneodesmosome degradation and accelerated desquamation\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered cornification and scaling manifest clinically as ichthyosis.\"}, {\"source\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"target\": \"Enhanced cutaneous entry of allergens and microbes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased permeability raises exposure to environmental antigens and pathogens.\"}, {\"source\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier failure contributes to repeated skin and systemic infections.\"}, {\"source\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier disruption drives itch through xerosis and neuroimmune activation.\"}, {\"source\": \"KLK-mediated IL-36 cytokine processing\", \"target\": \"IL-17/IL-36 inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-36 signaling feeds forward into chronic inflammatory circuits.\"}, {\"source\": \"Enhanced cutaneous entry of allergens and microbes\", \"target\": \"IL-17/IL-36 inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen and microbe exposure sustains chronic inflammatory signaling.\"}, {\"source\": \"Enhanced cutaneous entry of allergens and microbes\", \"target\": \"Atopic dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous allergen entry contributes to severe eczematous disease.\"}, {\"source\": \"Enhanced cutaneous entry of allergens and microbes\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced barrier defense promotes repeated infectious episodes.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Erythroderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High inflammatory burden produces diffuse erythema and scaling.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Atopic dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic cytokine activation drives eczematous inflammation.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-mediated neuroimmune signaling contributes to severe itch.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained systemic inflammatory burden can impair growth in severe disease.\"}, {\"source\": \"Hair shaft structural fragility from follicular protease imbalance\", \"target\": \"Hair shaft abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Follicular structural defects manifest as bamboo hair and related shaft anomalies.\"}, {\"source\": \"SPINK5\", \"target\": \"Hair shaft structural fragility from follicular protease imbalance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPINK5\", \"target\": \"SPINK5 loss-of-function variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atopic dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczematous inflammatory skin phenotype overlapping with atopic eczema.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001047\"}}, {\"id\": \"Corneodesmosome degradation and accelerated desquamation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess serine-protease activity accelerates stratum corneum protein breakdown, causing premature shedding and unstable cornified layers.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"proteolysis\", \"keratinization\"], \"locations\": [\"stratum corneum of epidermis\"]}}, {\"id\": \"Enhanced cutaneous entry of allergens and microbes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent barrier failure promotes antigen penetration and microbial exposure, increasing both atopic sensitization and infection vulnerability.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective stratum corneum integrity increases permeability to water, allergens, and microbes, establishing chronic barrier failure.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Erythroderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse inflammatory erythema with scaling involving large skin areas.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001019\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth impairment in subsets of patients with severe or specific SPINK5 variant profiles.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hair shaft abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hair-shaft defects are characteristic in NS, often including trichorrhexis invaginata (bamboo hair).\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003328\"}}, {\"id\": \"Hair shaft structural fragility from follicular protease imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SPINK5/LEKTI dysfunction in hair-bearing epithelium contributes to defective hair-shaft integrity, including trichorrhexis invaginata susceptibility.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"], \"molecular_functions\": [\"serine-type endopeptidase inhibitor activity\"], \"genes\": [\"SPINK5\"], \"gene_terms\": [{\"label\": \"SPINK5\", \"id\": \"hgnc:15464\"}]}}, {\"id\": \"IL-17/IL-36 inflammatory amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined IL-36 and IL-17 pathway activation sustains epidermal inflammation and drives persistent erythro-inflammatory and eczematous disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"interleukin-17-mediated signaling pathway\"]}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized scaling disorder of cornification and barrier function.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008064\"}}, {\"id\": \"KLK-mediated IL-36 cytokine processing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KLK proteases cleave IL-36 cytokine precursors, amplifying epidermal pro-inflammatory signaling.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"LEKTI protein deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced or absent LEKTI removes a key epidermal serine-protease brake in skin and hair-bearing epithelium.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic itch as a major symptomatic burden in NS.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to recurrent infections associated with barrier dysfunction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002719\"}}, {\"id\": \"SPINK5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"SPINK5\"], \"gene_terms\": [{\"label\": \"SPINK5\", \"id\": \"hgnc:15464\"}], \"association\": \"Causative\"}}, {\"id\": \"SPINK5 loss-of-function variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic SPINK5 variants reduce functional SPINK5 output and initiate Netherton syndrome pathogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"genes\": [\"SPINK5\"], \"gene_terms\": [{\"label\": \"SPINK5\", \"id\": \"hgnc:15464\"}], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Unchecked epidermal kallikrein protease activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of LEKTI control leads to increased epidermal protease activity, including KLK-dependent proteolysis in the stratum corneum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"proteolysis\"], \"locations\": [\"stratum corneum of epidermis\"]}}], \"edges\": [{\"source\": \"SPINK5 loss-of-function variants\", \"target\": \"LEKTI protein deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SPINK5 loss of function reduces or abolishes LEKTI protein levels.\"}, {\"source\": \"LEKTI protein deficiency\", \"target\": \"Unchecked epidermal kallikrein protease activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LEKTI deficiency permits excessive epidermal serine protease activity.\"}, {\"source\": \"LEKTI protein deficiency\", \"target\": \"Hair shaft structural fragility from follicular protease imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LEKTI loss in hair follicles predisposes to bamboo-hair morphology.\"}, {\"source\": \"Unchecked epidermal kallikrein protease activity\", \"target\": \"Corneodesmosome degradation and accelerated desquamation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive proteolysis promotes premature corneocyte detachment.\"}, {\"source\": \"Unchecked epidermal kallikrein protease activity\", \"target\": \"KLK-mediated IL-36 cytokine processing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KLKs proteolytically activate IL-36 family pro-cytokines.\"}, {\"source\": \"Corneodesmosome degradation and accelerated desquamation\", \"target\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corneocyte cohesion failure impairs the physical epidermal barrier.\"}, {\"source\": \"Corneodesmosome degradation and accelerated desquamation\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered cornification and scaling manifest clinically as ichthyosis.\"}, {\"source\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"target\": \"Enhanced cutaneous entry of allergens and microbes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased permeability raises exposure to environmental antigens and pathogens.\"}, {\"source\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier failure contributes to repeated skin and systemic infections.\"}, {\"source\": \"Epidermal barrier breakdown and increased transepidermal water loss\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier disruption drives itch through xerosis and neuroimmune activation.\"}, {\"source\": \"KLK-mediated IL-36 cytokine processing\", \"target\": \"IL-17/IL-36 inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-36 signaling feeds forward into chronic inflammatory circuits.\"}, {\"source\": \"Enhanced cutaneous entry of allergens and microbes\", \"target\": \"IL-17/IL-36 inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen and microbe exposure sustains chronic inflammatory signaling.\"}, {\"source\": \"Enhanced cutaneous entry of allergens and microbes\", \"target\": \"Atopic dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous allergen entry contributes to severe eczematous disease.\"}, {\"source\": \"Enhanced cutaneous entry of allergens and microbes\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced barrier defense promotes repeated infectious episodes.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Erythroderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High inflammatory burden produces diffuse erythema and scaling.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Atopic dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic cytokine activation drives eczematous inflammation.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-mediated neuroimmune signaling contributes to severe itch.\"}, {\"source\": \"IL-17/IL-36 inflammatory amplification\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained systemic inflammatory burden can impair growth in severe disease.\"}, {\"source\": \"Hair shaft structural fragility from follicular protease imbalance\", \"target\": \"Hair shaft abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Follicular structural defects manifest as bamboo hair and related shaft anomalies.\"}, {\"source\": \"SPINK5\", \"target\": \"Hair shaft structural fragility from follicular protease imbalance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPINK5\", \"target\": \"SPINK5 loss-of-function variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6082,15 +6171,18 @@ This pathophysiological event involves keratinization (GO:0031424). GO:0031424 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6176,15 +6268,18 @@ This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6270,15 +6365,18 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6373,15 +6471,18 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008064</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6444,15 +6545,18 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003328</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal hairshaft morphology (HP:0003328). HP:0003328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6538,15 +6642,18 @@ This clinical feature is Abnormal hairshaft morphology (HP:0003328). HP:0003328 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000989</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6641,15 +6748,18 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6778,10 +6888,10 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         Gene: SPINK5
 
 
-    <a href="https://bioregistry.io/hgnc:15464" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:15464</a>
+    <a href="https://bioregistry.io/hgnc:15464" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:15464</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SPINK5 (hgnc:15464). hgnc:15464 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6789,6 +6899,9 @@ This disease-associated gene is SPINK5 (hgnc:15464). hgnc:15464 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -6910,7 +7023,7 @@ This disease-associated gene is SPINK5 (hgnc:15464). hgnc:15464 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7010,7 +7123,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7146,7 +7259,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7187,11 +7300,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C162455</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C162455</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7204,11 +7317,11 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C152315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C152315</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7221,11 +7334,11 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C166985" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C166985</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C166985" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C166985</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7351,7 +7464,7 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7393,11 +7506,11 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C162455</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C162455</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7410,11 +7523,11 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C152315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C152315</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7515,7 +7628,7 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7640,7 +7753,7 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7682,11 +7795,11 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C162455</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C162455</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7812,7 +7925,7 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7854,11 +7967,11 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C152315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C152315</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7959,7 +8072,7 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8000,11 +8113,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C166985" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C166985</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C166985" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C166985</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8080,7 +8193,7 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8122,11 +8235,11 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C152315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152315" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C152315</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8139,11 +8252,11 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C162455</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C162455</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8439,11 +8552,11 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8579,11 +8692,11 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
         skin biopsy
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C51692" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C51692</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51692" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C51692</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9365,11 +9478,11 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0008064</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9382,11 +9495,11 @@ This clinical trial targets Ichthyosis (HP:0008064). HP:0008064 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001019</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9483,11 +9596,11 @@ This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000989</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9500,11 +9613,11 @@ This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001019</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9576,11 +9689,11 @@ This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001047</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Atopic dermatitis (HP:0001047). HP:0001047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10014,6 +10127,12 @@ pathophysiology:
     term:
       id: CL:0000312
       label: keratinocyte
+  molecular_functions:
+  - preferred_term: serine-type endopeptidase inhibitor activity
+    term:
+      id: GO:0004867
+      label: serine-type endopeptidase inhibitor activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: keratinization
     term:
@@ -11184,7 +11303,7 @@ The retrieved full-text excerpts did not consistently provide PubMed identifiers
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Netherton syndrome", "mondoId": "MONDO:0009735", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Netherton_syndrome", "yamlRevision": "e01bf7033ec6"};
+        const OS_CONFIG = {"diseaseName": "Netherton syndrome", "mondoId": "MONDO:0009735", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Netherton_syndrome", "yamlRevision": "440b50be08d3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

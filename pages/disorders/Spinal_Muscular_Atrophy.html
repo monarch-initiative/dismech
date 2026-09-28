@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 41</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 42</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Spinal%20Muscular%20Atrophy"
@@ -4039,7 +4081,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">41</div>
+                <div class="stat-value">42</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4419,6 +4461,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SMN1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11117" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11117</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SMN1 (hgnc:11117). hgnc:11117 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Most severe, onset before 6 months, never sit independently, death usually by age 2.</div>
@@ -4429,7 +4490,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4453,6 +4514,31 @@
 
 
                 <div class="evidence-explanation">Orphanet cross-reference maps ORPHA:70 to OMIM:253300 (SMA Type 1) as a broader mapping.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301526" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301526" target="_blank">PMID:20301526</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Before the genetic basis of SMA was understood, it was classified into clinical subtypes based on maximum motor function achieved; however, it is now apparent that the phenotype of SMN1-associated SMA spans a continuum without clear delineation of subtypes."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter identifies the clinical severity types as strata of one SMN1-associated disease, which is the basis for binding SMN1 to this subtype row.</div>
 
 
 
@@ -4484,6 +4570,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SMN1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11117" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11117</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SMN1 (hgnc:11117). hgnc:11117 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Intermediate, onset 6-18 months, can sit but never walk independently.</div>
@@ -4494,7 +4599,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4518,6 +4623,31 @@
 
 
                 <div class="evidence-explanation">Orphanet cross-reference maps ORPHA:70 to OMIM:253550 (SMA Type 2) as a broader mapping.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301526" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301526" target="_blank">PMID:20301526</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Before the genetic basis of SMA was understood, it was classified into clinical subtypes based on maximum motor function achieved; however, it is now apparent that the phenotype of SMN1-associated SMA spans a continuum without clear delineation of subtypes."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter identifies the clinical severity types as strata of one SMN1-associated disease, which is the basis for binding SMN1 to this subtype row.</div>
 
 
 
@@ -4549,6 +4679,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SMN1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11117" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11117</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SMN1 (hgnc:11117). hgnc:11117 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Milder, onset after 18 months, can walk but may lose ability later.</div>
@@ -4559,7 +4708,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4583,6 +4732,31 @@
 
 
                 <div class="evidence-explanation">Orphanet cross-reference maps ORPHA:70 to OMIM:253400 (SMA Type 3) as a broader mapping.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301526" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301526" target="_blank">PMID:20301526</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Before the genetic basis of SMA was understood, it was classified into clinical subtypes based on maximum motor function achieved; however, it is now apparent that the phenotype of SMN1-associated SMA spans a continuum without clear delineation of subtypes."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter identifies the clinical severity types as strata of one SMN1-associated disease, which is the basis for binding SMN1 to this subtype row.</div>
 
 
 
@@ -4614,6 +4788,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SMN1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11117" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11117</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SMN1 (hgnc:11117). hgnc:11117 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Adult onset, mildest form, normal lifespan with mild weakness.</div>
@@ -4624,7 +4817,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4648,6 +4841,31 @@
 
 
                 <div class="evidence-explanation">Orphanet cross-reference maps ORPHA:70 to OMIM:271150 (SMA Type 4) as a broader mapping.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301526" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301526" target="_blank">PMID:20301526</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Before the genetic basis of SMA was understood, it was classified into clinical subtypes based on maximum motor function achieved; however, it is now apparent that the phenotype of SMN1-associated SMA spans a continuum without clear delineation of subtypes."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter identifies the clinical severity types as strata of one SMN1-associated disease, which is the basis for binding SMN1 to this subtype row.</div>
 
 
 
@@ -4835,11 +5053,11 @@
 
 
 
-    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-5">
 
         temporal kinetics study with molecular markers
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experiment is of type this experiment type
 This experiment is of type temporal kinetics study with molecular markers.</span>
     </span>
 
@@ -4936,11 +5154,11 @@ This experiment is of type temporal kinetics study with molecular markers.</span
 
 
 
-    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-2">
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         antisense oligonucleotide or antagomiR in vivo efficacy
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment is of type this experiment type
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
 This experiment is of type antisense oligonucleotide or antagomiR in vivo efficacy.</span>
     </span>
 
@@ -5037,11 +5255,11 @@ This experiment is of type antisense oligonucleotide or antagomiR in vivo effica
 
 
 
-    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-3">
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
 
         isogenic genetic background comparison in iPSC-derived neurons
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment is of type this experiment type
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
 This experiment is of type isogenic genetic background comparison in iPSC-derived neurons.</span>
     </span>
 
@@ -5184,6 +5402,7 @@ This experiment is of type isogenic genetic background comparison in iPSC-derive
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smn-protein-deficiency" data-dismech-node="SMN Protein Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SMN Protein Deficiency</div>
 
+
                 <div class="item-desc">Homozygous deletion or mutation of SMN1 gene causes deficiency of survival motor neuron protein. SMN2 gene produces some functional protein but mostly truncated due to exon 7 skipping. SMN protein is essential for motor neuron survival and function.
 </div>
 
@@ -5199,11 +5418,11 @@ This experiment is of type isogenic genetic background comparison in iPSC-derive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000100</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Motor Neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5225,6 +5444,88 @@ This pathophysiological event involves Motor Neuron (CL:0000100). CL:0000100 is 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SMN1
+
+
+    <a href="https://bioregistry.io/hgnc:11117" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11117</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMN1 (hgnc:11117). hgnc:11117 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SMN2
+
+
+    <a href="https://bioregistry.io/hgnc:11118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11118</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMN2 (hgnc:11118). hgnc:11118 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5240,11 +5541,11 @@ This pathophysiological event involves Motor Neuron (CL:0000100). CL:0000100 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000387" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000387</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000387" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0000387</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves spliceosomal snRNP assembly (GO:0000387). GO:0000387 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5358,6 +5659,7 @@ This pathophysiological event involves spliceosomal snRNP assembly (GO:0000387).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-neuron-degeneration" data-dismech-node="Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Neuron Degeneration</div>
 
+
                 <div class="item-desc">Loss of alpha motor neurons in the anterior horn of the spinal cord leads to progressive denervation of skeletal muscles. Proximal muscles are more severely affected than distal muscles.
 </div>
 
@@ -5373,11 +5675,11 @@ This pathophysiological event involves spliceosomal snRNP assembly (GO:0000387).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000100</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Motor Neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5414,11 +5716,11 @@ This pathophysiological event involves Motor Neuron (CL:0000100). CL:0000100 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0008219</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Neurodegeneration, annotated with cell death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5653,6 +5955,7 @@ This pathophysiological event involves Neurodegeneration, annotated with cell de
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-motor-unit-failure" data-dismech-node="Respiratory Motor Unit Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Motor Unit Failure</div>
 
+
                 <div class="item-desc">Denervation of diaphragm and intercostal muscles reduces tidal volume, cough strength, and airway clearance, predisposing to respiratory decompensation.
 </div>
 
@@ -5719,6 +6022,7 @@ This pathophysiological event involves Neurodegeneration, annotated with cell de
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-axial-muscle-imbalance" data-dismech-node="Axial Muscle Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Axial Muscle Imbalance</div>
 
+
                 <div class="item-desc">Asymmetric weakness of paraspinal and truncal muscles during growth leads to progressive spinal curvature.
 </div>
 
@@ -5767,6 +6071,7 @@ This pathophysiological event involves Neurodegeneration, annotated with cell de
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smn-dependent-neurodevelopmental-disruption" data-dismech-node="SMN-Dependent Neurodevelopmental Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">SMN-Dependent Neurodevelopmental Disruption</div>
 
+
                 <div class="item-desc">SMN deficiency during critical developmental windows disrupts neural progenitor dynamics, synapse formation, circuit assembly, and neuron-glia interactions beyond the motor system. These disturbances affect cortical and cerebellar networks, conferring vulnerability to higher-order brain functions including cognition, expressive language, executive function, social communication, and behavioral regulation. Even with early disease-modifying therapy, developmental constraints and limited plasticity of specific neural circuits can leave persistent neurodevelopmental vulnerabilities.
 </div>
 
@@ -5782,11 +6087,11 @@ This pathophysiological event involves Neurodegeneration, annotated with cell de
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0011020</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5812,11 +6117,11 @@ This pathophysiological event involves Neural progenitor cell (CL:0011020). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000598</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5842,11 +6147,11 @@ This pathophysiological event involves Pyramidal neuron (CL:0000598). CL:0000598
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000121</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5883,11 +6188,11 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0022008</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0022008</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Neurogenesis (GO:0022008). GO:0022008 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5917,11 +6222,11 @@ This pathophysiological event involves decreased Neurogenesis (GO:0022008). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0007268</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Synaptic transmission, annotated with chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5951,11 +6256,11 @@ This pathophysiological event involves decreased Synaptic transmission, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007409" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007409</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007409" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007409</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Axonogenesis (GO:0007409). GO:0007409 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6105,6 +6410,7 @@ This pathophysiological event involves decreased Axonogenesis (GO:0007409). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuron-glia-interactions" data-dismech-node="Neuron-Glia Interactions" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuron-Glia Interactions</div>
 
+
                 <div class="item-desc">SMN deficiency impairs communication between neurons and glial cells (astrocytes, oligodendrocytes, microglia), disrupting myelin formation, metabolic support, and immune homeostasis during critical developmental periods.
 </div>
 
@@ -6120,11 +6426,11 @@ This pathophysiological event involves decreased Axonogenesis (GO:0007409). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6150,11 +6456,11 @@ This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000128</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6180,11 +6486,11 @@ This pathophysiological event involves Oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6221,11 +6527,11 @@ This pathophysiological event involves Microglial cell (CL:0000129). CL:0000129 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0022010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0022010</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Myelination, annotated with central nervous system myelination (GO:0022010). GO:0022010 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6255,11 +6561,11 @@ This pathophysiological event involves decreased Myelination, annotated with cen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Neuroinflammation, annotated with inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6378,7 +6684,7 @@ This pathophysiological event involves increased Neuroinflammation, annotated wi
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001284\"}}, {\"id\": \"Autism Spectrum Manifestations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Axial Muscle Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Asymmetric weakness of paraspinal and truncal muscles during growth leads to progressive spinal curvature.\\n\"}, {\"id\": \"Axial Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003327\"}}, {\"id\": \"Bulbar Palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001283\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Difficulty Climbing Stairs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003551\"}}, {\"id\": \"Difficulty Running\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009046\"}}, {\"id\": \"Distal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002460\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Executive Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033051\"}}, {\"id\": \"Expressive Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002474\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Flexion Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001371\"}}, {\"id\": \"Gait Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hip Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002827\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Inability to Walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002540\"}}, {\"id\": \"Intercostal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004878\"}}, {\"id\": \"Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of alpha motor neurons in the anterior horn of the spinal cord leads to progressive denervation of skeletal muscles. Proximal muscles are more severely affected than distal muscles.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor Neuron\"], \"biological_processes\": [\"Neurodegeneration\"]}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"Neurodevelopmental Vulnerability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012759\"}}, {\"id\": \"Neuron-Glia Interactions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMN deficiency impairs communication between neurons and glial cells (astrocytes, oligodendrocytes, microglia), disrupting myelin formation, metabolic support, and immune homeostasis during critical developmental periods.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Astrocyte\", \"Oligodendrocyte\", \"Microglial cell\"], \"biological_processes\": [\"Myelination\", \"Neuroinflammation\"]}}, {\"id\": \"Poor Suck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002033\"}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003323\"}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Quadriceps Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003731\"}}, {\"id\": \"Recurrent Aspiration Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002100\"}}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Respiratory Insufficiency Due to Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Respiratory Motor Unit Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Denervation of diaphragm and intercostal muscles reduces tidal volume, cough strength, and airway clearance, predisposing to respiratory decompensation.\\n\"}, {\"id\": \"SMN Protein Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deletion or mutation of SMN1 gene causes deficiency of survival motor neuron protein. SMN2 gene produces some functional protein but mostly truncated due to exon 7 skipping. SMN protein is essential for motor neuron survival and function.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor Neuron\"], \"biological_processes\": [\"spliceosomal snRNP assembly\"]}}, {\"id\": \"SMN-Dependent Neurodevelopmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMN deficiency during critical developmental windows disrupts neural progenitor dynamics, synapse formation, circuit assembly, and neuron-glia interactions beyond the motor system. These disturbances affect cortical and cerebellar networks, conferring vulnerability to higher-order brain functions including cognition, expressive language, executive function, social communication, and behavioral regulation. Even with early disease-modifying therapy, developmental constraints and limited plasticity of specific neural circuits can leave persistent neurodevelopmental vulnerabilities.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neural progenitor cell\", \"Pyramidal neuron\", \"Purkinje cell\"], \"biological_processes\": [\"Neurogenesis\", \"Synaptic transmission\", \"Axonogenesis\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Skeletal Muscle Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003202\"}}, {\"id\": \"Social Communication Vulnerability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012433\"}}, {\"id\": \"Tongue Fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001308\"}}, {\"id\": \"Triceps Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031108\"}}, {\"id\": \"Weakness of Facial Musculature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030319\"}}], \"edges\": [{\"source\": \"SMN Protein Deficiency\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced SMN impairs spliceosome assembly and selectively injures alpha motor neurons.\"}, {\"source\": \"SMN Protein Deficiency\", \"target\": \"SMN-Dependent Neurodevelopmental Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early SMN deficiency disrupts neural progenitor dynamics, synapse formation, circuit assembly, and neuron-glia interactions during critical developmental windows, affecting spinal, cortical, and cerebellar networks.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early denervation reduces baseline muscle tone.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing denervation and muscle atrophy cause steadily worsening weakness.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of lower motor neurons reduces deep tendon reflex arcs.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Tongue Fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically denervated motor units generate spontaneous discharges visible as tongue fasciculations.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Respiratory Motor Unit Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Involvement of phrenic and intercostal motor neurons compromises ventilation.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Axial Muscle Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent truncal denervation produces progressive postural instability.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Skeletal Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Bulbar Palsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation and bulbar/autonomic motor dysfunction can impair gastrointestinal motility.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and respiratory motor-unit weakness predisposes to reflux and related feeding dysfunction.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Inability to Walk\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Difficulty Climbing Stairs\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Flexion Contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Gait Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Poor Suck\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Distal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Axial Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Quadriceps Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Weakness of Facial Musculature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Difficulty Running\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Triceps Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive ventilatory muscle weakness culminates in chronic or acute respiratory failure.\"}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Recurrent Aspiration Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Respiratory Insufficiency Due to Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Intercostal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Axial Muscle Imbalance\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic axial weakness and imbalance drives neuromuscular scoliosis.\"}, {\"source\": \"Axial Muscle Imbalance\", \"target\": \"Hip Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Neurodevelopmental Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early disrupted neurodevelopment confers persistent cognitive, language, executive, behavioral, and social communication vulnerability.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Expressive Language Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Language-relevant neural circuits in cortex are vulnerable to developmental SMN deficiency.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Executive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted synaptic development and circuit assembly affect executive-control networks.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Social Communication Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental disruption contributes to social communication vulnerabilities in treated SMA.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Autism Spectrum Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuron-Glia Interactions\", \"target\": \"Neurodevelopmental Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neuron-glia support during developmental windows contributes to persistent neurodevelopmental vulnerability.\"}, {\"source\": \"Neuron-Glia Interactions\", \"target\": \"Executive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered myelination and inflammatory signaling can affect circuits supporting executive control.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001284\"}}, {\"id\": \"Autism Spectrum Manifestations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Axial Muscle Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Asymmetric weakness of paraspinal and truncal muscles during growth leads to progressive spinal curvature.\\n\"}, {\"id\": \"Axial Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003327\"}}, {\"id\": \"Bulbar Palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001283\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Difficulty Climbing Stairs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003551\"}}, {\"id\": \"Difficulty Running\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009046\"}}, {\"id\": \"Distal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002460\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Executive Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033051\"}}, {\"id\": \"Expressive Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002474\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Flexion Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001371\"}}, {\"id\": \"Gait Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001288\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hip Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002827\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Inability to Walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002540\"}}, {\"id\": \"Intercostal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004878\"}}, {\"id\": \"Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of alpha motor neurons in the anterior horn of the spinal cord leads to progressive denervation of skeletal muscles. Proximal muscles are more severely affected than distal muscles.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor Neuron\"], \"biological_processes\": [\"Neurodegeneration\"]}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"Neurodevelopmental Vulnerability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012759\"}}, {\"id\": \"Neuron-Glia Interactions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMN deficiency impairs communication between neurons and glial cells (astrocytes, oligodendrocytes, microglia), disrupting myelin formation, metabolic support, and immune homeostasis during critical developmental periods.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Astrocyte\", \"Oligodendrocyte\", \"Microglial cell\"], \"biological_processes\": [\"Myelination\", \"Neuroinflammation\"]}}, {\"id\": \"Poor Suck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002033\"}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003323\"}}, {\"id\": \"Proximal Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"Quadriceps Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003731\"}}, {\"id\": \"Recurrent Aspiration Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002100\"}}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Respiratory Insufficiency Due to Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Respiratory Motor Unit Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Denervation of diaphragm and intercostal muscles reduces tidal volume, cough strength, and airway clearance, predisposing to respiratory decompensation.\\n\"}, {\"id\": \"SMN Protein Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous deletion or mutation of SMN1 gene causes deficiency of survival motor neuron protein. SMN2 gene produces some functional protein but mostly truncated due to exon 7 skipping. SMN protein is essential for motor neuron survival and function.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor Neuron\"], \"biological_processes\": [\"spliceosomal snRNP assembly\"], \"genes\": [\"SMN1\", \"SMN2\"], \"gene_terms\": [{\"label\": \"SMN1\", \"id\": \"hgnc:11117\"}, {\"label\": \"SMN2\", \"id\": \"hgnc:11118\"}]}}, {\"id\": \"SMN-Dependent Neurodevelopmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMN deficiency during critical developmental windows disrupts neural progenitor dynamics, synapse formation, circuit assembly, and neuron-glia interactions beyond the motor system. These disturbances affect cortical and cerebellar networks, conferring vulnerability to higher-order brain functions including cognition, expressive language, executive function, social communication, and behavioral regulation. Even with early disease-modifying therapy, developmental constraints and limited plasticity of specific neural circuits can leave persistent neurodevelopmental vulnerabilities.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neural progenitor cell\", \"Pyramidal neuron\", \"Purkinje cell\"], \"biological_processes\": [\"Neurogenesis\", \"Synaptic transmission\", \"Axonogenesis\"]}}, {\"id\": \"SMN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMN1\"], \"gene_terms\": [{\"label\": \"SMN1\", \"id\": \"hgnc:11117\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Skeletal Muscle Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003202\"}}, {\"id\": \"Social Communication Vulnerability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012433\"}}, {\"id\": \"Tongue Fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001308\"}}, {\"id\": \"Triceps Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031108\"}}, {\"id\": \"Weakness of Facial Musculature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030319\"}}], \"edges\": [{\"source\": \"SMN Protein Deficiency\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced SMN impairs spliceosome assembly and selectively injures alpha motor neurons.\"}, {\"source\": \"SMN Protein Deficiency\", \"target\": \"SMN-Dependent Neurodevelopmental Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early SMN deficiency disrupts neural progenitor dynamics, synapse formation, circuit assembly, and neuron-glia interactions during critical developmental windows, affecting spinal, cortical, and cerebellar networks.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early denervation reduces baseline muscle tone.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing denervation and muscle atrophy cause steadily worsening weakness.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of lower motor neurons reduces deep tendon reflex arcs.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Tongue Fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically denervated motor units generate spontaneous discharges visible as tongue fasciculations.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Respiratory Motor Unit Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Involvement of phrenic and intercostal motor neurons compromises ventilation.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Axial Muscle Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent truncal denervation produces progressive postural instability.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Skeletal Muscle Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Proximal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Bulbar Palsy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation and bulbar/autonomic motor dysfunction can impair gastrointestinal motility.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and respiratory motor-unit weakness predisposes to reflux and related feeding dysfunction.\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Inability to Walk\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Difficulty Climbing Stairs\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Flexion Contracture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Gait Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Poor Suck\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Distal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Axial Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Quadriceps Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Weakness of Facial Musculature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Difficulty Running\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Triceps Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive ventilatory muscle weakness culminates in chronic or acute respiratory failure.\"}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Recurrent Aspiration Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Respiratory Insufficiency Due to Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Intercostal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Motor Unit Failure\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Axial Muscle Imbalance\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic axial weakness and imbalance drives neuromuscular scoliosis.\"}, {\"source\": \"Axial Muscle Imbalance\", \"target\": \"Hip Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Neurodevelopmental Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early disrupted neurodevelopment confers persistent cognitive, language, executive, behavioral, and social communication vulnerability.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Expressive Language Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Language-relevant neural circuits in cortex are vulnerable to developmental SMN deficiency.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Executive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted synaptic development and circuit assembly affect executive-control networks.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Social Communication Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental disruption contributes to social communication vulnerabilities in treated SMA.\"}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SMN-Dependent Neurodevelopmental Disruption\", \"target\": \"Autism Spectrum Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuron-Glia Interactions\", \"target\": \"Neurodevelopmental Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neuron-glia support during developmental windows contributes to persistent neurodevelopmental vulnerability.\"}, {\"source\": \"Neuron-Glia Interactions\", \"target\": \"Executive Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered myelination and inflammatory signaling can affect circuits supporting executive control.\"}, {\"source\": \"SMN1\", \"target\": \"SMN Protein Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6440,15 +6746,18 @@ This pathophysiological event involves increased Neuroinflammation, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies dysphagia as frequent (79-30%); swallowing difficulties are common especially in severe types.</div>
@@ -6513,15 +6822,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies constipation as occasional (29-5%); due to reduced abdominal muscle tone and immobility.</div>
@@ -6586,15 +6898,18 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002020</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies gastroesophageal reflux as occasional (29-5%).</div>
@@ -6659,15 +6974,18 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002033" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002033</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002033" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002033</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Poor suck (HP:0002033). HP:0002033 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies poor suck as frequent (79-30%); particularly relevant in SMA types 1 and 2.</div>
@@ -6741,15 +7059,18 @@ This clinical feature is Poor suck (HP:0002033). HP:0002033 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001308</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001308</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Tongue fasciculations are particularly characteristic of SMA and a key clinical diagnostic sign.</div>
@@ -6814,15 +7135,18 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030319</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies weakness of facial musculature as frequent (79-30%).</div>
@@ -6896,15 +7220,18 @@ This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002100</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent aspiration pneumonia (HP:0002100). HP:0002100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies recurrent aspiration pneumonia as frequent (79-30%); dysphagia and weak cough predispose to aspiration.</div>
@@ -6978,15 +7305,18 @@ This clinical feature is Recurrent aspiration pneumonia (HP:0002100). HP:0002100
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002827</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002827</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies hip dislocation as occasional (29-5%); secondary to muscle weakness and contractures.</div>
@@ -7051,15 +7381,18 @@ This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003731" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003731</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003731" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003731</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Quadriceps muscle weakness (HP:0003731). HP:0003731 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies quadriceps muscle weakness as frequent (79-30%).</div>
@@ -7124,15 +7457,18 @@ This clinical feature is Quadriceps muscle weakness (HP:0003731). HP:0003731 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0031108</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0031108</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Triceps weakness (HP:0031108). HP:0031108 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies triceps weakness as frequent (79-30%).</div>
@@ -7206,15 +7542,18 @@ This clinical feature is Triceps weakness (HP:0031108). HP:0031108 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Floppy infant presentation in severe forms; Orphanet rates occasional across the full proximal SMA spectrum (very frequent in Type 1, mild/absent in Types 3-4).</div>
@@ -7302,15 +7641,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003323" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003323</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003323" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003323</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progressive Muscle Weakness (HP:0003323). HP:0003323 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Symmetric, proximal greater than distal</div>
@@ -7373,15 +7715,18 @@ This clinical feature is Progressive Muscle Weakness (HP:0003323). HP:0003323 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Progressive spinal curvature due to paraspinal muscle weakness; Orphanet rates occasional across the full proximal SMA spectrum.</div>
@@ -7469,15 +7814,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003202</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies skeletal muscle atrophy as very frequent (99-80%) in proximal SMA.</div>
@@ -7567,15 +7915,18 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003701</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003701</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies proximal muscle weakness as very frequent (99-80%) in proximal SMA.</div>
@@ -7640,15 +7991,18 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001283</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001283</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies bulbar palsy as frequent (79-30%); bulbar motor neuron involvement causes feeding and speech difficulties.</div>
@@ -7713,15 +8067,18 @@ This clinical feature is Bulbar palsy (HP:0001283). HP:0001283 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002747</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies respiratory insufficiency due to muscle weakness as frequent (79-30%).</div>
@@ -7786,15 +8143,18 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0004878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0004878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intercostal muscle weakness (HP:0004878). HP:0004878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies intercostal muscle weakness as frequent (79-30%); contributes to paradoxical breathing pattern.</div>
@@ -7859,15 +8219,18 @@ This clinical feature is Intercostal muscle weakness (HP:0004878). HP:0004878 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003551</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0003551</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Difficulty climbing stairs (HP:0003551). HP:0003551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies difficulty climbing stairs as frequent (79-30%); hallmark of proximal weakness in ambulatory SMA patients.</div>
@@ -7932,15 +8295,18 @@ This clinical feature is Difficulty climbing stairs (HP:0003551). HP:0003551 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001371</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001371</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies flexion contracture as occasional (29-5%); develops secondary to chronic immobility and muscle weakness.</div>
@@ -8005,15 +8371,18 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002460</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies distal muscle weakness as frequent (79-30%); proximal weakness predominates but distal involvement occurs.</div>
@@ -8078,15 +8447,18 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003327</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003327</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies axial muscle weakness as frequent (79-30%); contributes to head lag and truncal instability.</div>
@@ -8151,15 +8523,18 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0009046</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0009046</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Difficulty running (HP:0009046). HP:0009046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies difficulty running as frequent (79-30%); early sign in ambulatory SMA patients.</div>
@@ -8233,15 +8608,18 @@ This clinical feature is Difficulty running (HP:0009046). HP:0009046 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002398</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002398</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Degeneration of anterior horn cells (HP:0002398). HP:0002398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8329,15 +8707,18 @@ This clinical feature is Degeneration of anterior horn cells (HP:0002398). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001284</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001284</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Absent deep tendon reflexes</div>
@@ -8425,15 +8806,18 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002540</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002540</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies inability to walk as frequent (79-30%); SMA types 1 and 2 patients are typically non-ambulatory.</div>
@@ -8498,15 +8882,18 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001288</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies gait disturbance as frequent (79-30%); characteristic waddling gait in ambulatory SMA patients.</div>
@@ -8571,15 +8958,18 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Subtle neurodevelopmental vulnerabilities persist even with early DMT treatment. Pre-DMT studies reported preserved cognition but were shaped by survival bias and motor-dependent assessment tools. Contemporary studies reveal heterogeneous outcomes with recognition of higher-order brain function involvement.</div>
@@ -8647,15 +9037,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0012759</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0012759</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neurodevelopmental abnormality (HP:0012759). HP:0012759 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">In the disease-modifying therapy (DMT) era, presymptomatic treatment has improved developmental outcomes; however, subtle cognitive, language, behavioral, executive function, and social communication vulnerabilities remain heterogeneous even among optimally treated individuals. These vulnerabilities reflect biological constraints imposed by developmental timing and limited plasticity of specific neural circuits affected by early SMN deficiency.</div>
@@ -8743,15 +9136,18 @@ This clinical feature is Neurodevelopmental abnormality (HP:0012759). HP:0012759
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002474</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002474</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Subtle expressive language vulnerabilities are increasingly recognized in DMT-treated individuals, reflecting developmental constraints of language-relevant neural circuits vulnerable to SMN deficiency.</div>
@@ -8819,15 +9215,18 @@ This clinical feature is Expressive language delay (HP:0002474). HP:0002474 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0033051</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0033051</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deficits in executive function represent a subtle neurodevelopmental vulnerability persisting despite improved motor outcomes with DMT.</div>
@@ -8895,15 +9294,18 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Social communication and behavioral phenotypes reflect the broader neurodevelopmental impact of SMN deficiency beyond motor neuron pathology, particularly affecting social and communicative domains.</div>
@@ -8969,15 +9371,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0012433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0012433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Social communication vulnerability, annotated with Abnormal social behavior (HP:0012433). HP:0012433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Social communication vulnerabilities are increasingly recognized in DMT-treated individuals as part of the broader non-motor neurodevelopmental phenotype.</div>
@@ -9051,15 +9456,18 @@ This clinical feature is Social communication vulnerability, annotated with Abno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory Failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Leading cause of death in SMA types 1 and 2; Orphanet rates occasional across the full proximal SMA spectrum.</div>
@@ -9147,15 +9555,18 @@ This clinical feature is Respiratory Failure (HP:0002878). HP:0002878 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002643</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0002643</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies neonatal respiratory distress as frequent (79-30%); particularly in SMA type 1 infants.</div>
@@ -9229,15 +9640,18 @@ This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies fatigue as frequent (79-30%).</div>
@@ -9343,17 +9757,22 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         Gene: SMN1
 
 
-    <a href="https://bioregistry.io/hgnc:11117" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:11117</a>
+    <a href="https://bioregistry.io/hgnc:11117" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:11117</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SMN1 (hgnc:11117). hgnc:11117 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -9413,20 +9832,60 @@ This disease-associated gene is SMN1 (hgnc:11117). hgnc:11117 is a gene from the
                         Gene: SMN2
 
 
-    <a href="https://bioregistry.io/hgnc:11118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:11118</a>
+    <a href="https://bioregistry.io/hgnc:11118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:11118</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SMN2 (hgnc:11118). hgnc:11118 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: MODIFIER</span>
 
 
                 </div>
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301526" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301526" target="_blank">PMID:20301526</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Increases in SMN2 copy number often modify the phenotype."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews chapter states the modifier relationship directly, which is why SMN2 is recorded here as MODIFIER rather than CAUSATIVE.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -9606,11 +10065,11 @@ This disease-associated gene is SMN2 (hgnc:11118). hgnc:11118 is a gene from the
         SMN2
 
 
-    <a href="https://bioregistry.io/hgnc:11118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:11118</a>
+    <a href="https://bioregistry.io/hgnc:11118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:11118</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this treatment base-pairs with the transcript of this gene
 This treatment base-pairs with the transcript of SMN2 (hgnc:11118). hgnc:11118 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9882,7 +10341,7 @@ This treatment base-pairs with the transcript of SMN2 (hgnc:11118). hgnc:11118 i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10456,11 +10915,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-59">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-65">CL:0000100</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Cell Ontology (CL)
 Relation: this dataset samples this sample type
 This dataset samples motor neuron (CL:0000100). CL:0000100 is a sample type from the Cell Ontology.</span>
                     </span>
@@ -10621,6 +11080,24 @@ has_subtypes:
     evidence_source: OTHER
     snippet: &#34;OMIM:253300 | Broader&#34;
     explanation: Orphanet cross-reference maps ORPHA:70 to OMIM:253300 (SMA Type 1) as a broader mapping.
+  - reference: PMID:20301526
+    reference_title: Spinal Muscular Atrophy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Before the genetic basis of SMA was understood, it was classified into
+      clinical subtypes based on maximum motor function achieved; however, it is
+      now apparent that the phenotype of SMN1-associated SMA spans a continuum
+      without clear delineation of subtypes.
+    explanation: &gt;-
+      The GeneReviews chapter identifies the clinical severity types as strata of
+      one SMN1-associated disease, which is the basis for binding SMN1 to this
+      subtype row.
+  genes:
+  - preferred_term: SMN1
+    term:
+      id: hgnc:11117
+      label: SMN1
 - name: SMA Type 2
   description: Intermediate, onset 6-18 months, can sit but never walk independently.
   subtype_term:
@@ -10635,6 +11112,24 @@ has_subtypes:
     evidence_source: OTHER
     snippet: &#34;OMIM:253550 | Broader&#34;
     explanation: Orphanet cross-reference maps ORPHA:70 to OMIM:253550 (SMA Type 2) as a broader mapping.
+  - reference: PMID:20301526
+    reference_title: Spinal Muscular Atrophy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Before the genetic basis of SMA was understood, it was classified into
+      clinical subtypes based on maximum motor function achieved; however, it is
+      now apparent that the phenotype of SMN1-associated SMA spans a continuum
+      without clear delineation of subtypes.
+    explanation: &gt;-
+      The GeneReviews chapter identifies the clinical severity types as strata of
+      one SMN1-associated disease, which is the basis for binding SMN1 to this
+      subtype row.
+  genes:
+  - preferred_term: SMN1
+    term:
+      id: hgnc:11117
+      label: SMN1
 - name: SMA Type 3 (Kugelberg-Welander)
   description: Milder, onset after 18 months, can walk but may lose ability later.
   subtype_term:
@@ -10649,6 +11144,24 @@ has_subtypes:
     evidence_source: OTHER
     snippet: &#34;OMIM:253400 | Broader&#34;
     explanation: Orphanet cross-reference maps ORPHA:70 to OMIM:253400 (SMA Type 3) as a broader mapping.
+  - reference: PMID:20301526
+    reference_title: Spinal Muscular Atrophy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Before the genetic basis of SMA was understood, it was classified into
+      clinical subtypes based on maximum motor function achieved; however, it is
+      now apparent that the phenotype of SMN1-associated SMA spans a continuum
+      without clear delineation of subtypes.
+    explanation: &gt;-
+      The GeneReviews chapter identifies the clinical severity types as strata of
+      one SMN1-associated disease, which is the basis for binding SMN1 to this
+      subtype row.
+  genes:
+  - preferred_term: SMN1
+    term:
+      id: hgnc:11117
+      label: SMN1
 - name: SMA Type 4
   description: Adult onset, mildest form, normal lifespan with mild weakness.
   subtype_term:
@@ -10663,6 +11176,24 @@ has_subtypes:
     evidence_source: OTHER
     snippet: &#34;OMIM:271150 | Broader&#34;
     explanation: Orphanet cross-reference maps ORPHA:70 to OMIM:271150 (SMA Type 4) as a broader mapping.
+  - reference: PMID:20301526
+    reference_title: Spinal Muscular Atrophy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Before the genetic basis of SMA was understood, it was classified into
+      clinical subtypes based on maximum motor function achieved; however, it is
+      now apparent that the phenotype of SMN1-associated SMA spans a continuum
+      without clear delineation of subtypes.
+    explanation: &gt;-
+      The GeneReviews chapter identifies the clinical severity types as strata of
+      one SMN1-associated disease, which is the basis for binding SMN1 to this
+      subtype row.
+  genes:
+  - preferred_term: SMN1
+    term:
+      id: hgnc:11117
+      label: SMN1
 prevalence:
 - population: United States modeled prevalence and published birth-prevalence literature
   percentage: approximately 9,429 people living with SMA in the United States
@@ -10825,6 +11356,15 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Spinal muscular atrophy is an autosomal recessive neurodegenerative disease characterised by degeneration of spinal cord motor neurons, atrophy of skeletal muscles, and generalised weakness. It is caused by homozygous disruption of the survival motor neuron 1 (SMN1) gene by deletion, conversion, or mutation.&#34;
     explanation: Lancet review confirms SMN1 gene disruption causes SMA with motor neuron degeneration.
+  genes:
+  - preferred_term: SMN1
+    term:
+      id: hgnc:11117
+      label: SMN1
+  - preferred_term: SMN2
+    term:
+      id: hgnc:11118
+      label: SMN2
   downstream:
   - target: Motor Neuron Degeneration
     description: Reduced SMN impairs spliceosome assembly and selectively injures alpha motor neurons.
@@ -11664,6 +12204,7 @@ genetic:
       id: hgnc:11117
       label: SMN1
   association: Causative
+  relationship_type: CAUSATIVE
   notes: Autosomal recessive, homozygous deletion in 95% of cases, compound heterozygotes in remainder
   evidence:
   - reference: PMID:18572081
@@ -11678,7 +12219,17 @@ genetic:
       id: hgnc:11118
       label: SMN2
   association: Modifier
+  relationship_type: MODIFIER
   notes: Copy number inversely correlates with severity; more copies = milder phenotype
+  evidence:
+  - reference: PMID:20301526
+    reference_title: Spinal Muscular Atrophy.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Increases in SMN2 copy number often modify the phenotype.
+    explanation: &gt;-
+      The GeneReviews chapter states the modifier relationship directly, which is
+      why SMN2 is recorded here as MODIFIER rather than CAUSATIVE.
 treatments:
 - name: Nusinersen (Spinraza)
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
@@ -12536,7 +13087,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spinal Muscular Atrophy", "mondoId": "MONDO:0001516", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinal_Muscular_Atrophy", "yamlRevision": "2103711bc432"};
+        const OS_CONFIG = {"diseaseName": "Spinal Muscular Atrophy", "mondoId": "MONDO:0001516", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinal_Muscular_Atrophy", "yamlRevision": "a929df4e88b6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

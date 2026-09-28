@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5614,6 +5656,7 @@ This subtype is caused by variation in NSD1 (hgnc:14234). hgnc:14234 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-allelic-homologous-recombination-at-5q35-sos-rep-low-copy-repeats" data-dismech-node="Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats</div>
 
+
                 <div class="item-desc">The recurrent Sotos deletion is generated by a structural-variant mechanism rather than by a point mutational process. Two complex mosaic low-copy repeat blocks flank NSD1 - proximal Sos-PREP (~390 kb) and distal Sos-DREP (~429 kb), each built from six subunits, most in inverted orientation. Only the C and C&#39; subunits are directly oriented with respect to each other and they are more than 99% identical; recombination between them yields the common deletion and a patient-specific junction fragment absent from controls. This mechanism explains why the deletion recurs at the same breakpoints across unrelated individuals.</div>
 
 
@@ -5666,6 +5709,8 @@ This genetic context concerns NSD1 (hgnc:14234). hgnc:14234 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5682,6 +5727,9 @@ This genetic context concerns NSD1 (hgnc:14234). hgnc:14234 is a gene from the H
 
 
     </div>
+
+
+
 
     <div class="context-detail">A heterozygous contiguous deletion of the 5q35 interval containing NSD1, almost always arising de novo.</div>
 
@@ -5780,6 +5828,7 @@ This genetic context concerns NSD1 (hgnc:14234). hgnc:14234 is a gene from the H
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nsd1-haploinsufficiency" data-dismech-node="NSD1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">NSD1 Haploinsufficiency</div>
 
+
                 <div class="item-desc">The initiating lesion in essentially all Sotos syndrome is loss of one functional copy of NSD1, reached either by an intragenic loss-of-function variant or by the 5q35 microdeletion above. NSD1 is a writer in the four-class scheme of the epigenetic machinery, so this node is the disease-specific instance of the module&#39;s dosage-sensitive component loss. Haploinsufficiency - rather than a dominant-negative or gain-of-function mechanism - is established both by the mutational spectrum (nonsense, frameshift and whole-gene deletion all producing the same syndrome) and by the near-exclusive association of NSD1 aberrations with the Sotos phenotype across a large diagnostic series.</div>
 
 
@@ -5873,6 +5922,8 @@ This genetic context concerns NSD1 (hgnc:14234). hgnc:14234 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5895,6 +5946,9 @@ This genetic context concerns NSD1 (hgnc:14234). hgnc:14234 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline NSD1 loss of function, usually de novo. The allelic events listed span the two curated subtypes; missense variants also occur but only within the functional domains.</div>
 
@@ -6000,6 +6054,7 @@ This genetic context concerns NSD1 (hgnc:14234). hgnc:14234 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genome-wide-h3k36me2-depletion" data-dismech-node="Genome-Wide H3K36me2 Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Genome-Wide H3K36me2 Depletion</div>
+
 
                 <div class="item-desc">NSD1 is a SET-domain methyltransferase that primarily dimethylates nucleosomal histone H3 lysine 36, and its catalytic domain carries an autoregulatory loop that normally occludes the substrate until the nucleosome stabilises the active conformation. Reduced NSD1 dosage therefore lowers H3K36me2 across the large intergenic euchromatic domains where this mark predominates. Because H3K36me2 is one arm of the permissive-repressive balance, its depletion is not simply a subtraction: at developmental enhancers the same loss permits excessive H3K27me3 and lowers H3K27ac. Catalysis depends on several NSD1 modules together (PHD1-4, PWWP2 and SET), which is why missense variants restricted to those domains behave like truncating alleles - molecular modelling of SET-domain substitutions shows loss of structural stability or steric clash near the S-adenosylmethionine binding site.</div>
 
@@ -6213,6 +6268,7 @@ This pathophysiological event involves decreased NSD1 H3K36 dimethyltransferase 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intergenic-dna-hypomethylation-from-loss-of-dnmt3a-recruitment" data-dismech-node="Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment</div>
 
+
                 <div class="item-desc">DNMT3A reads H3K36me2 through its PWWP domain and is thereby concentrated in intergenic euchromatin. When NSD1 dosage falls, DNMT3A redistributes to H3K36me3-marked gene bodies and intergenic CpG methylation is lost. This is the mechanistic bridge between a histone-modifier disorder and a DNA-methylation phenotype, and it is the reason Sotos syndrome and Tatton-Brown-Rahman syndrome (germline DNMT3A) overlap clinically: the two genes act in one pathway, at consecutive steps. Peripheral blood from Sotos patients shows this intergenic hypomethylation directly, and it is the substrate of the diagnostic episignature - 99.3% of the signature&#39;s CpG sites lose rather than gain methylation. In patient tissue the hypomethylation is concentrated at the promoters of the transcriptionally deregulated genes themselves. Note that dismech does not treat the blood episignature as a step in the brain&#39;s causal chain; see the knowledge-gap discussion on this entry.</div>
 
 
@@ -6417,6 +6473,7 @@ This pathophysiological event involves decreased DNMT3A de novo CpG methyltransf
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-developmental-enhancer-priming" data-dismech-node="Loss of Developmental Enhancer Priming" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Developmental Enhancer Priming</div>
 
+
                 <div class="item-desc">Independently of the DNA-methylation arm, NSD1 occupies the distal enhancers of lineage-specifying transcription-factor genes while cells are still pluripotent and holds them in a primed state that can respond rapidly to differentiation cues. Losing NSD1 leaves those enhancers unable to support the rapid induction of their genes, so the defect is one of responsiveness at the moment of lineage commitment rather than of steady-state expression alone. This is a distinct claim from intergenic hypomethylation and is evidenced in a different system, which is why it is a separate node.</div>
 
 
@@ -6528,6 +6585,7 @@ This pathophysiological event involves dysregulated epigenetic regulation of gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-developmental-transcriptional-program" data-dismech-node="Dysregulated Developmental Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Developmental Transcriptional Program</div>
+
 
                 <div class="item-desc">The convergence point of both chromatin arms, and the node this entry shares with every other chromatinopathy. Transcriptomic profiling of Sotos patients identifies a signature that separates them from controls; most deregulated genes are underexpressed, and they are predominantly bivalent genes enriched for regulators of development and neural synapse function. The methylation signature points the same way: its CpG sites sit near genes for cellular morphogenesis, differentiation, neuronal differentiation and axonogenesis, and cell adhesion. One downstream target has been identified specifically - Nsd1 knockdown downregulates Apc2, a cytoskeletal regulator in neurons, and biallelic APC2 loss independently produces Sotos-like features in humans.</div>
 
@@ -6809,6 +6867,13 @@ This pathophysiological event involves decreased nervous system development (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-neuronal-migration-and-laminar-positioning" data-dismech-node="Impaired Cortical Neuronal Migration and Laminar Positioning" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortical Neuronal Migration and Laminar Positioning</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Nsd1 knockdown in embryonic mouse cortex reduces Apc2 expression and impairs neuronal migration and laminar positioning; forced Apc2 expression rescues the migration defect. This supports an NSD1–APC2 neural pathway in a model. The reported human APC2 siblings lacked NSD1 mutations and had a distinct recessive Sotos-like disorder, so their phenotype does not directly establish this mechanism in NSD1-related Sotos syndrome.</div>
 
 
@@ -7000,6 +7065,13 @@ This pathophysiological event involves decreased cerebral cortex cell migration 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mesendodermal-lineage-differentiation" data-dismech-node="Impaired Mesendodermal Lineage Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mesendodermal Lineage Differentiation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Nsd1-deficient mouse embryonic stem cells fail to induce mesendodermal developmental programs normally. Human NSD1-deficient iPSCs also show impaired endodermal and mesodermal commitment. These are cellular models, not observations of malformed organs in patients; their relevance to congenital heart and renal anomalies is a developmental hypothesis.</div>
 
 
@@ -7181,6 +7253,13 @@ This pathophysiological event involves decreased endodermal cell differentiation
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-nsd1-tumor-suppressor-function" data-dismech-node="Reduced NSD1 Tumor-Suppressor Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced NSD1 Tumor-Suppressor Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">NSD1 loss may reduce transcriptional repression of growth-promoting targets such as MEIS1. NSD1 depletion and restoration alter proliferation in neuroblastoma cells; Sotos lymphoblastoid cells also show reduced NSD1 recruitment and increased MEIS1 expression. These experiments support a proposed tumor-suppressor role, but do not establish the penetrance, second-hit requirements or tumor spectrum of germline NSD1 haploinsufficiency. The reported H3K36/H4K20 changes in this older tumor study were principally trimethylation readouts, distinct from the H3K36 dimethylation mechanism above.</div>
 
 
@@ -7320,6 +7399,13 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proposed-disruption-of-synaptic-development" data-dismech-node="Proposed Disruption of Synaptic Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Proposed Disruption of Synaptic Development</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Silencing of developmental genes that govern synaptic assembly is proposed to impair neural circuit development. This hypothesis arises from enrichment of downregulated synaptic genes in patient blood and remains untested in Sotos neural tissue.</div>
 
 
@@ -7406,6 +7492,13 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-fgf-mapk-erk-signaling" data-dismech-node="Dysregulated FGF-MAPK-ERK Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated FGF-MAPK-ERK Signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Patient-derived fibroblasts show altered FGF-MAPK/ERK-related expression and phosphorylation. Reduced kinase activation became significant after excluding one outlier; RASIP1 overexpression in HEK293 cells instead increased a reporter response. The net effect is therefore not represented as a universal RASIP1-driven decrease across tissues.</div>
 
 
@@ -7483,6 +7576,13 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-growth-plate-chondrocyte-maturation" data-dismech-node="Altered Growth-Plate Chondrocyte Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Growth-Plate Chondrocyte Maturation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Altered FGF-MAPK/ERK signaling is proposed to change hypertrophic chondrocyte differentiation in the epiphyseal growth plate. NSD1 expression was demonstrated in normal human hypertrophic chondrocytes, but altered maturation was not directly measured in Sotos growth plates.</div>
 
@@ -7577,6 +7677,13 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-sucking-and-swallowing" data-dismech-node="Impaired Sucking and Swallowing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Sucking and Swallowing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Difficulty with sucking and swallowing compromises oral feeding in affected infants. Clinical reports support the feeding consequence but do not establish a specific NSD1-dependent neural or muscular route.</div>
 
@@ -7676,7 +7783,7 @@ This pathophysiological event involves dysregulated chromatin organization (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Advanced Bone Age\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accelerated skeletal maturation is commonly identified before puberty. GeneReviews summarizes 75\\u201380% of prepubertal children, while the Korean study found advancement of more than two years in 8/20 males and 1/13 females assessed at their last visit. Age, assessment threshold and ascertainment differ, so a single lifetime frequency band is not assigned.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005616\"}}, {\"id\": \"Altered Growth-Plate Chondrocyte Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered FGF-MAPK/ERK signaling is proposed to change hypertrophic chondrocyte differentiation in the epiphyseal growth plate. NSD1 expression was demonstrated in normal human hypertrophic chondrocytes, but altered maturation was not directly measured in Sotos growth plates.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autism Spectrum Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic symptoms are common. In a convenience sample of 33 children, 72.7% had mild-to-moderate ADOS-2 symptoms; this is neither a population prevalence nor the proportion meeting a clinical ASD diagnosis. A nonsignificant difference in SRS scores against an ASD comparison group does not establish equivalence.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Childhood Overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Childhood overgrowth is defined by height and/or head circumference at least two standard deviations above age- and sex-matched norms. The combined endpoint occurs in about 90% of NSD1-positive individuals; it does not establish the frequency of tall stature alone. Height may approach the normal range in adulthood, but the adult distribution is broad and macrocephaly often persists.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Intragenic NSD1 Variant\", \"5q35 Microdeletion\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001548\"}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing loss may result from recurrent or chronic otitis media.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Congenital Heart Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital septal, ductal and valvular abnormalities occur. A tertiary-center cohort found cardiac abnormalities in 27/45 patients, including congenital malformations, aortic dilation and ventricular hypertrabeculation. That broader 60% endpoint and the center\\u2019s cardiology referral profile do not establish a general frequency of congenital malformations alone. The small deletion subgroup does not establish equivalence of genotype-specific risks.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Developmental and Educational Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Referral to appropriate specialists for learning disability and speech delay is the mainstay of management. There is no disease-modifying therapy; care is supportive, multidisciplinary and organised around the affected domains. The neuropsychological profile argues for targeting language, visuospatial ability and mathematics specifically rather than delivering generic support.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Distinctive Facial Appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The characteristic facial gestalt includes a broad prominent forehead, dolichocephaly, sparse frontotemporal hair, downslanted palpebral fissures, malar flushing, a long narrow face and tall chin. The gestalt is especially recognizable in early childhood and changes with age. The reported frequency of at least 90% applies to the overall gestalt, not to each component.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Dysgyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal cortical gyration was frequent in a selected MRI cohort; the anatomical distribution varied.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032398\"}}, {\"id\": \"Dysregulated Developmental Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of both chromatin arms, and the node this entry shares with every other chromatinopathy. Transcriptomic profiling of Sotos patients identifies a signature that separates them from controls; most deregulated genes are underexpressed, and they are predominantly bivalent genes enriched for regulators of development and neural synapse function. The methylation signature points the same way: its CpG sites sit near genes for cellular morphogenesis, differentiation, neuronal differentiation and axonogenesis, and cell adhesion. One downstream target has been identified specifically - Nsd1 knockdown downregulates Apc2, a cytoskeletal regulator in neurons, and biallelic APC2 loss independently produces Sotos-like features in humans.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"nervous system development\"], \"animal_models\": [{\"name\": \"Nsd1 heterozygous mouse (CRISPR exon 3)\", \"species\": \"Mouse\", \"genotype\": \"Nsd1 heterozygous loss-of-function (CRISPR-targeted)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Halving Nsd1 dose in the mouse produces behavioural change but, on the published account, only a partial resemblance to the human phenotype. The model therefore supports the transcriptional-program node as dose-sensitive without establishing that the human syndrome follows from it in full.\"}]}}, {\"id\": \"Dysregulated FGF-MAPK-ERK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived fibroblasts show altered FGF-MAPK/ERK-related expression and phosphorylation. Reduced kinase activation became significant after excluding one outlier; RASIP1 overexpression in HEK293 cells instead increased a reporter response. The net effect is therefore not represented as a universal RASIP1-driven decrease across tissues.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding affects approximately 70% of neonates in the clinical synthesis. Sucking and swallowing difficulty may require feeding support; this neonatal estimate is not a lifetime feeding-disorder prevalence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Genome-Wide H3K36me2 Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NSD1 is a SET-domain methyltransferase that primarily dimethylates nucleosomal histone H3 lysine 36, and its catalytic domain carries an autoregulatory loop that normally occludes the substrate until the nucleosome stabilises the active conformation. Reduced NSD1 dosage therefore lowers H3K36me2 across the large intergenic euchromatic domains where this mark predominates. Because H3K36me2 is one arm of the permissive-repressive balance, its depletion is not simply a subtraction: at developmental enhancers the same loss permits excessive H3K27me3 and lowers H3K27ac. Catalysis depends on several NSD1 modules together (PHD1-4, PWWP2 and SET), which is why missense variants restricted to those domains behave like truncating alleles - molecular modelling of SET-domain substitutions shows loss of structural stability or steric clash near the S-adenosylmethionine binding site.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"NSD1 H3K36 dimethyltransferase activity\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early delay affects multiple developmental domains and may precede a later diagnosis of intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss can develop in childhood or adulthood. Conductive loss from chronic otitis is represented separately; broader hearing impairment is retained because adult reports do not specify the type in every affected person.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"High Arched Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high arched palate is among the head-and-neck congenital malformations identified across the reported literature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hippocampal Malrotation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incomplete hippocampal rotation was frequent in the MRI-selected cohort and often bilateral; unilateral incomplete rotation can also be a normal variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034396\"}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital absence of teeth, particularly premolars, is reported. In a dental series, 9/13 children and adolescents lacked one or more premolars; 12/13 had an identified NSD1 mutation, including all nine with hypodontia. This small dental sample is not a population estimate. GeneReviews lists hypodontia among associated findings in the \\u22652% to \u003c15% interval; differing ascertainment and that interval\\u2019s overlap of frequency bands preclude a single category. Poor adult dentition is not evidence of congenital tooth absence.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000668\"}}, {\"id\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nsd1 knockdown in embryonic mouse cortex reduces Apc2 expression and impairs neuronal migration and laminar positioning; forced Apc2 expression rescues the migration defect. This supports an NSD1\\u2013APC2 neural pathway in a model. The reported human APC2 siblings lacked NSD1 mutations and had a distinct recessive Sotos-like disorder, so their phenotype does not directly establish this mechanism in NSD1-related Sotos syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical projection neuron\"], \"biological_processes\": [\"cerebral cortex cell migration\"]}}, {\"id\": \"Impaired Mesendodermal Lineage Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nsd1-deficient mouse embryonic stem cells fail to induce mesendodermal developmental programs normally. Human NSD1-deficient iPSCs also show impaired endodermal and mesodermal commitment. These are cellular models, not observations of malformed organs in patients; their relevance to congenital heart and renal anomalies is a developmental hypothesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mesodermal cell differentiation\", \"endodermal cell differentiation\"]}}, {\"id\": \"Impaired Sucking and Swallowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Difficulty with sucking and swallowing compromises oral feeding in affected infants. Clinical reports support the feeding consequence but do not establish a specific NSD1-dependent neural or muscular route.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual impairment ranges widely; some individuals have average intellectual functioning. Developmental delay in young children and broader learning difficulties are assessed separately. Microdeletions are associated with greater severity at group level, but intellectual disability also occurs with intragenic variants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNMT3A reads H3K36me2 through its PWWP domain and is thereby concentrated in intergenic euchromatin. When NSD1 dosage falls, DNMT3A redistributes to H3K36me3-marked gene bodies and intergenic CpG methylation is lost. This is the mechanistic bridge between a histone-modifier disorder and a DNA-methylation phenotype, and it is the reason Sotos syndrome and Tatton-Brown-Rahman syndrome (germline DNMT3A) overlap clinically: the two genes act in one pathway, at consecutive steps. Peripheral blood from Sotos patients shows this intergenic hypomethylation directly, and it is the substrate of the diagnostic episignature - 99.3% of the signature\u0027s CpG sites lose rather than gain methylation. In patient tissue the hypomethylation is concentrated at the promoters of the transcriptionally deregulated genes themselves. Note that dismech does not treat the blood episignature as a step in the brain\u0027s causal chain; see the knowledge-gap discussion on this entry.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"epigenetic regulation of gene expression\"], \"molecular_functions\": [\"DNMT3A de novo CpG methyltransferase activity at intergenic euchromatin\"]}}, {\"id\": \"Loss of Developmental Enhancer Priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of the DNA-methylation arm, NSD1 occupies the distal enhancers of lineage-specifying transcription-factor genes while cells are still pluripotent and holds them in a primed state that can respond rapidly to differentiation cues. Losing NSD1 leaves those enhancers unable to support the rapid induction of their genes, so the defect is one of responsiveness at the moment of lineage commitment rather than of steady-state expression alone. This is a distinct claim from intergenic hypomethylation and is evidenced in a different system, which is why it is a separate node.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epigenetic regulation of gene expression at developmental enhancers\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones are delayed, with large body size, hypotonia and poor coordination contributing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"NSD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"NSD1\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}], \"frequency\": \"identified in about 93% of individuals with a clinical diagnosis of Sotos syndrome\", \"association\": \"Haploinsufficiency (loss-of-function variants and whole-gene deletion)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NSD1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion in essentially all Sotos syndrome is loss of one functional copy of NSD1, reached either by an intragenic loss-of-function variant or by the 5q35 microdeletion above. NSD1 is a writer in the four-class scheme of the epigenetic machinery, so this node is the disease-specific instance of the module\u0027s dosage-sensitive component loss. Haploinsufficiency - rather than a dominant-negative or gain-of-function mechanism - is established both by the mutational spectrum (nonsense, frameshift and whole-gene deletion all producing the same syndrome) and by the near-exclusive association of NSD1 aberrations with the Sotos phenotype across a large diagnostic series.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NSD1\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline NSD1 loss of function, usually de novo. The allelic events listed span the two curated subtypes; missense variants also occur but only within the functional domains.\", \"allelic_events\": [\"PATHOGENIC_VARIANT\", \"NONSENSE_VARIANT\", \"FRAMESHIFT_VARIANT\", \"DELETION\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}]}}}, {\"id\": \"Neonatal Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia in the newborn period is one of the neonatal complications that prompts diagnostic suspicion, alongside feeding difficulty.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Neoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tumors are uncommon and heterogeneous. Historical reviews estimate a tumor frequency below 5%; contemporary GeneReviews estimates approximately 3%. Reported benign tumors and hamartomas must not be described collectively as malignancies. The germline tumor-susceptibility mechanism remains provisional.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002664\"}}, {\"id\": \"Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent Sotos deletion is generated by a structural-variant mechanism rather than by a point mutational process. Two complex mosaic low-copy repeat blocks flank NSD1 - proximal Sos-PREP (~390 kb) and distal Sos-DREP (~429 kb), each built from six subunits, most in inverted orientation. Only the C and C\u0027 subunits are directly oriented with respect to each other and they are more than 99% identical; recombination between them yields the common deletion and a patient-specific junction fragment absent from controls. This mechanism explains why the deletion recurs at the same breakpoints across unrelated individuals.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"A heterozygous contiguous deletion of the 5q35 interval containing NSD1, almost always arising de novo.\", \"allelic_events\": [\"DELETION\", \"COPY_NUMBER_LOSS\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}]}, \"subtypes\": [\"5q35 Microdeletion\"]}}, {\"id\": \"Nsd1 heterozygous mouse (CRISPR exon 3)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only reported constitutive heterozygous mouse for the Sotos gene, made to ask whether Nsd1 haploinsufficiency reproduces the human syndrome. Nsd1 expression in the mouse brain is predominantly neuronal, and the heterozygotes show behavioural changes reminiscent of some of the human deficits. Homozygous loss is embryonic lethal, so heterozygosity is the only postnatal window on this gene.\"}, {\"id\": \"Ophthalmological Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular abnormalities include strabismus and refractive errors such as hypermetropia and astigmatism, represented separately. Broader ocular findings were reported in 29/77 individuals in a molecularly confirmed MRI-selected cohort. The selected denominator does not establish the frequency of individual eye findings. Correctable visual problems warrant specific assessment rather than being attributed to developmental disability alone.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000478\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymicrogyria was identified in 22.1% of the selected 77-person MRI cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Proposed Disruption of Synaptic Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing of developmental genes that govern synaptic assembly is proposed to impair neural circuit development. This hypothesis arises from enrichment of downregulated synaptic genes in patient blood and remains untested in Sotos neural tissue.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent middle-ear inflammation can impair sound conduction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000403\"}}, {\"id\": \"Reduced NSD1 Tumor-Suppressor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NSD1 loss may reduce transcriptional repression of growth-promoting targets such as MEIS1. NSD1 depletion and restoration alter proliferation in neuroblastoma cells; Sotos lymphoblastoid cells also show reduced NSD1 recruitment and increased MEIS1 expression. These experiments support a proposed tumor-suppressor role, but do not establish the penetrance, second-hit requirements or tumor spectrum of germline NSD1 haploinsufficiency. The reported H3K36/H4K20 changes in this older tumor study were principally trimethylation readouts, distinct from the H3K36 dimethylation mechanism above.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"]}}, {\"id\": \"Renal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural renal anomalies include horseshoe kidney, cystic lesions and abnormal kidney size. Vesicoureteral reflux is represented separately because reflux does not necessarily imply a renal morphological abnormality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012210\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disturbed sleep includes altered sleep timing and sleep-related breathing or transition problems. Early bed and rise times do not by themselves establish insomnia or an advanced sleep-phase disorder. In a pediatric survey, 27/38 had a positive SDSC screen, while only two had a prior sleep-disorder diagnosis. The sleep-breathing subscale was positive in 10/38 (26.3%), which does not establish polysomnography-confirmed obstructive sleep apnea. The 60% questionnaire response rate and referral ascertainment preclude treating 71.1% as population prevalence; no frequency band is assigned.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tall stature is particularly prominent during childhood. It occurred in 23/57 patients at the last visit in the Korean cohort; height can normalize in adulthood.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000098\"}}], \"edges\": [{\"source\": \"Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats\", \"target\": \"NSD1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recombination product removes one entire NSD1 allele, so the structural event and the dosage lesion are the same event viewed at two levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NSD1 Haploinsufficiency\", \"target\": \"Genome-Wide H3K36me2 Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NSD1 loss reduces deposition of H3K36me2. This dependence is demonstrated in engineered mouse and human cells; the magnitude and tissue distribution of the change in heterozygous patients are not inferred from complete-loss experiments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NSD1 Haploinsufficiency\", \"target\": \"Reduced NSD1 Tumor-Suppressor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of NSD1 may impair repression of growth-promoting targets. Evidence from Sotos lymphoblastoid cells and transformed-cell perturbations supports this as a provisional susceptibility mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genome-Wide H3K36me2 Depletion\", \"target\": \"Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"H3K36me2 is the chromatin signal that positions DNMT3A over intergenic DNA, so depleting the mark relocates the enzyme and the methylation it deposits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide H3K36me2 Depletion\", \"target\": \"Loss of Developmental Enhancer Priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At distal enhancers of lineage transcription-factor genes, NSD1-deposited H3K36me2 holds off H3K27me3 and sustains basal H3K27ac; losing the mark collapses that primed state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment\", \"target\": \"Dysregulated Developmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proposed route links altered promoter DNA methylation to PRC2-mediated silencing of developmental genes. Patient blood profiles support the association, while functional confirmation in affected developing tissues is still required.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered PRC2 activity at bivalent developmental promoters\"]}, {\"source\": \"Loss of Developmental Enhancer Priming\", \"target\": \"Dysregulated Developmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The APC2 arm of the transcriptional program is the one with a demonstrated cellular readout, established by rescue rather than by correlation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Impaired Mesendodermal Lineage Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Distinctive Facial Appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deregulation of craniofacial developmental genes is proposed to contribute to the facial gestalt. The individual routes to forehead width, head shape, hair distribution and chin height remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Neonatal Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced COL6A1 expression is a proposed contributor to hypotonia or weakness; neonatal tissue specificity and the central versus peripheral contribution remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Autism Spectrum Behaviour\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulation of neurodevelopmental targets including CTTNBP2 and NEO1 is a proposed contributor to autistic features; behavioral consequences were not experimentally rescued in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Ophthalmological Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulation of ocular-development genes including NECTIN3 and GPC4 is a proposed contributor to ocular abnormalities; the study does not resolve individual eye findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Underexpression of tooth-development genes GREM2 and TSPEAR is proposed to contribute to tooth agenesis. The patient blood study identifies this phenotype-specific candidate route, but does not test tooth germs or demonstrate mediation of premolar development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Proposed Disruption of Synaptic Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced expression of bivalent synaptic-development genes may impair assembly of developing neural circuits.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Dysregulated FGF-MAPK-ERK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NSD1-associated transcriptional dysregulation includes FGF/MAPK-related genes, supported by patient fibroblast profiling and NSD1 knockdown experiments; the net pathway response is context-dependent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose that altered APC2-dependent neuronal migration contributes to intellectual disability in Sotos syndrome. Rescue experiments establish the migration route in embryonic mice; the full route to human intellectual disability remains provisional.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"target\": \"Dysgyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered neuronal migration and cortical positioning are proposed to contribute to abnormal cortical folding. The imaging study discusses the NSD1\\u2013APC2 model as a possible correlate; it does not demonstrate this route in patient cortex or distinguish the mechanism of each malformation subtype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered neuronal migration and cortical positioning are proposed to contribute to abnormal cortical folding. The imaging study discusses the NSD1\\u2013APC2 model as a possible correlate; it does not demonstrate this route in patient cortex or distinguish the mechanism of each malformation subtype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mesendodermal Lineage Differentiation\", \"target\": \"Congenital Heart Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to activate cardiac lineage regulators is proposed to contribute to congenital heart defects. The mouse stem-cell study explicitly relates its differentiation defects to the clinical cardiac phenotype, but does not reproduce an anatomical human heart defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mesendodermal Lineage Differentiation\", \"target\": \"Renal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired induction of renal developmental regulators, including Lhx1, provides a provisional route from NSD1 loss to abnormal kidney development. Evidence comes from differentiating mouse stem cells; human renal tissue and anatomical mediation remain untested.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired induction of renal organogenesis regulators including Lhx1\"]}, {\"source\": \"Reduced NSD1 Tumor-Suppressor Function\", \"target\": \"Neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a context-dependent tumor-suppressor function is proposed to increase susceptibility to some tumors. Somatic cancer-cell findings do not establish all clinical tumors as NSD1-mediated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Disruption of Synaptic Development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired formation of developing neural circuits is proposed to contribute to the cognitive developmental phenotype. Human tissue and behavioral mediation remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Disruption of Synaptic Development\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired formation of developing neural circuits is proposed to contribute to the cognitive developmental phenotype. Human tissue and behavioral mediation remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated FGF-MAPK-ERK Signaling\", \"target\": \"Altered Growth-Plate Chondrocyte Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose that altered MAPK/ERK signaling changes hypertrophic chondrocyte differentiation. This extrapolation from fibroblasts and established growth-plate biology remains provisional.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Growth-Plate Chondrocyte Maturation\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation is proposed to contribute to statural overgrowth and accelerated skeletal maturation; the quantitative effect in patients is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Growth-Plate Chondrocyte Maturation\", \"target\": \"Childhood Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation is proposed to contribute to statural overgrowth and accelerated skeletal maturation; the quantitative effect in patients is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Growth-Plate Chondrocyte Maturation\", \"target\": \"Advanced Bone Age\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation is proposed to contribute to statural overgrowth and accelerated skeletal maturation; the quantitative effect in patients is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Sucking and Swallowing\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired sucking and swallowing limit effective oral intake and can necessitate assisted feeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal Hypotonia\", \"target\": \"Motor Delay\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Low muscle tone contributes to delayed motor milestones alongside large body size and poor coordination; this does not explain all developmental domains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High Arched Palate\", \"target\": \"Sleep Disturbance\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"High palatal anatomy is proposed as one contributor to the sleep-related breathing component of disturbed sleep. This does not explain early sleep timing or all sleep-transition problems; no patient-level palatal mediation was tested.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysgyria\", \"target\": \"Hippocampal Malrotation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Regional temporal cortical dysgyria may alter adjacent hippocampal folding, as proposed by the imaging study. This remains a developmental hypothesis rather than a demonstrated causal relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent Otitis Media\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Middle-ear disease impairs transmission of sound, producing conductive hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Otitis Media\", \"target\": \"Hearing Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Chronic otitis media can cause the conductive component of hearing impairment. This relation does not explain unspecified adult-onset or sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Developmental and Educational Intervention\", \"target\": \"Intellectual Disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nsd1 heterozygous mouse (CRISPR exon 3)\", \"target\": \"Dysregulated Developmental Transcriptional Program\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Halving Nsd1 dose in the mouse produces behavioural change but, on the published account, only a partial resemblance to the human phenotype. The model therefore supports the transcriptional-program node as dose-sensitive without establishing that the human syndrome follows from it in full.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The published abstract claims only \\\"behavioral characteristics reminiscent of some of the deficits\\\" and reports no overgrowth or macrocephaly, which are two of the three cardinal human features the same abstract names. The more specific negative results attributed to this model in secondary summaries - absent overgrowth and macrocephaly, absent gross cortical enlargement, reduced SATB2-positive upper-layer neurons - come from full text that is not in the reference cache, so they are deliberately not curated here and the relationship is recorded as partial rather than as an outright failure to recapitulate.\"}, {\"source\": \"NSD1\", \"target\": \"NSD1 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Advanced Bone Age\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accelerated skeletal maturation is commonly identified before puberty. GeneReviews summarizes 75\\u201380% of prepubertal children, while the Korean study found advancement of more than two years in 8/20 males and 1/13 females assessed at their last visit. Age, assessment threshold and ascertainment differ, so a single lifetime frequency band is not assigned.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005616\"}}, {\"id\": \"Altered Growth-Plate Chondrocyte Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered FGF-MAPK/ERK signaling is proposed to change hypertrophic chondrocyte differentiation in the epiphyseal growth plate. NSD1 expression was demonstrated in normal human hypertrophic chondrocytes, but altered maturation was not directly measured in Sotos growth plates.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Autism Spectrum Behaviour\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic symptoms are common. In a convenience sample of 33 children, 72.7% had mild-to-moderate ADOS-2 symptoms; this is neither a population prevalence nor the proportion meeting a clinical ASD diagnosis. A nonsignificant difference in SRS scores against an ASD comparison group does not establish equivalence.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Childhood Overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Childhood overgrowth is defined by height and/or head circumference at least two standard deviations above age- and sex-matched norms. The combined endpoint occurs in about 90% of NSD1-positive individuals; it does not establish the frequency of tall stature alone. Height may approach the normal range in adulthood, but the adult distribution is broad and macrocephaly often persists.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Intragenic NSD1 Variant\", \"5q35 Microdeletion\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001548\"}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing loss may result from recurrent or chronic otitis media.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Congenital Heart Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital septal, ductal and valvular abnormalities occur. A tertiary-center cohort found cardiac abnormalities in 27/45 patients, including congenital malformations, aortic dilation and ventricular hypertrabeculation. That broader 60% endpoint and the center\\u2019s cardiology referral profile do not establish a general frequency of congenital malformations alone. The small deletion subgroup does not establish equivalence of genotype-specific risks.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Developmental and Educational Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Referral to appropriate specialists for learning disability and speech delay is the mainstay of management. There is no disease-modifying therapy; care is supportive, multidisciplinary and organised around the affected domains. The neuropsychological profile argues for targeting language, visuospatial ability and mathematics specifically rather than delivering generic support.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Distinctive Facial Appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The characteristic facial gestalt includes a broad prominent forehead, dolichocephaly, sparse frontotemporal hair, downslanted palpebral fissures, malar flushing, a long narrow face and tall chin. The gestalt is especially recognizable in early childhood and changes with age. The reported frequency of at least 90% applies to the overall gestalt, not to each component.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Dysgyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal cortical gyration was frequent in a selected MRI cohort; the anatomical distribution varied.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032398\"}}, {\"id\": \"Dysregulated Developmental Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence point of both chromatin arms, and the node this entry shares with every other chromatinopathy. Transcriptomic profiling of Sotos patients identifies a signature that separates them from controls; most deregulated genes are underexpressed, and they are predominantly bivalent genes enriched for regulators of development and neural synapse function. The methylation signature points the same way: its CpG sites sit near genes for cellular morphogenesis, differentiation, neuronal differentiation and axonogenesis, and cell adhesion. One downstream target has been identified specifically - Nsd1 knockdown downregulates Apc2, a cytoskeletal regulator in neurons, and biallelic APC2 loss independently produces Sotos-like features in humans.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"nervous system development\"], \"animal_models\": [{\"name\": \"Nsd1 heterozygous mouse (CRISPR exon 3)\", \"species\": \"Mouse\", \"genotype\": \"Nsd1 heterozygous loss-of-function (CRISPR-targeted)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Halving Nsd1 dose in the mouse produces behavioural change but, on the published account, only a partial resemblance to the human phenotype. The model therefore supports the transcriptional-program node as dose-sensitive without establishing that the human syndrome follows from it in full.\"}]}}, {\"id\": \"Dysregulated FGF-MAPK-ERK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived fibroblasts show altered FGF-MAPK/ERK-related expression and phosphorylation. Reduced kinase activation became significant after excluding one outlier; RASIP1 overexpression in HEK293 cells instead increased a reporter response. The net effect is therefore not represented as a universal RASIP1-driven decrease across tissues.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding affects approximately 70% of neonates in the clinical synthesis. Sucking and swallowing difficulty may require feeding support; this neonatal estimate is not a lifetime feeding-disorder prevalence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Genome-Wide H3K36me2 Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NSD1 is a SET-domain methyltransferase that primarily dimethylates nucleosomal histone H3 lysine 36, and its catalytic domain carries an autoregulatory loop that normally occludes the substrate until the nucleosome stabilises the active conformation. Reduced NSD1 dosage therefore lowers H3K36me2 across the large intergenic euchromatic domains where this mark predominates. Because H3K36me2 is one arm of the permissive-repressive balance, its depletion is not simply a subtraction: at developmental enhancers the same loss permits excessive H3K27me3 and lowers H3K27ac. Catalysis depends on several NSD1 modules together (PHD1-4, PWWP2 and SET), which is why missense variants restricted to those domains behave like truncating alleles - molecular modelling of SET-domain substitutions shows loss of structural stability or steric clash near the S-adenosylmethionine binding site.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"NSD1 H3K36 dimethyltransferase activity\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early delay affects multiple developmental domains and may precede a later diagnosis of intellectual disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss can develop in childhood or adulthood. Conductive loss from chronic otitis is represented separately; broader hearing impairment is retained because adult reports do not specify the type in every affected person.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"High Arched Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A high arched palate is among the head-and-neck congenital malformations identified across the reported literature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000218\"}}, {\"id\": \"Hippocampal Malrotation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incomplete hippocampal rotation was frequent in the MRI-selected cohort and often bilateral; unilateral incomplete rotation can also be a normal variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034396\"}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital absence of teeth, particularly premolars, is reported. In a dental series, 9/13 children and adolescents lacked one or more premolars; 12/13 had an identified NSD1 mutation, including all nine with hypodontia. This small dental sample is not a population estimate. GeneReviews lists hypodontia among associated findings in the \\u22652% to \u003c15% interval; differing ascertainment and that interval\\u2019s overlap of frequency bands preclude a single category. Poor adult dentition is not evidence of congenital tooth absence.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000668\"}}, {\"id\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nsd1 knockdown in embryonic mouse cortex reduces Apc2 expression and impairs neuronal migration and laminar positioning; forced Apc2 expression rescues the migration defect. This supports an NSD1\\u2013APC2 neural pathway in a model. The reported human APC2 siblings lacked NSD1 mutations and had a distinct recessive Sotos-like disorder, so their phenotype does not directly establish this mechanism in NSD1-related Sotos syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical projection neuron\"], \"biological_processes\": [\"cerebral cortex cell migration\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Mesendodermal Lineage Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nsd1-deficient mouse embryonic stem cells fail to induce mesendodermal developmental programs normally. Human NSD1-deficient iPSCs also show impaired endodermal and mesodermal commitment. These are cellular models, not observations of malformed organs in patients; their relevance to congenital heart and renal anomalies is a developmental hypothesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mesodermal cell differentiation\", \"endodermal cell differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Sucking and Swallowing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Difficulty with sucking and swallowing compromises oral feeding in affected infants. Clinical reports support the feeding consequence but do not establish a specific NSD1-dependent neural or muscular route.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual impairment ranges widely; some individuals have average intellectual functioning. Developmental delay in young children and broader learning difficulties are assessed separately. Microdeletions are associated with greater severity at group level, but intellectual disability also occurs with intragenic variants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DNMT3A reads H3K36me2 through its PWWP domain and is thereby concentrated in intergenic euchromatin. When NSD1 dosage falls, DNMT3A redistributes to H3K36me3-marked gene bodies and intergenic CpG methylation is lost. This is the mechanistic bridge between a histone-modifier disorder and a DNA-methylation phenotype, and it is the reason Sotos syndrome and Tatton-Brown-Rahman syndrome (germline DNMT3A) overlap clinically: the two genes act in one pathway, at consecutive steps. Peripheral blood from Sotos patients shows this intergenic hypomethylation directly, and it is the substrate of the diagnostic episignature - 99.3% of the signature\u0027s CpG sites lose rather than gain methylation. In patient tissue the hypomethylation is concentrated at the promoters of the transcriptionally deregulated genes themselves. Note that dismech does not treat the blood episignature as a step in the brain\u0027s causal chain; see the knowledge-gap discussion on this entry.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"epigenetic regulation of gene expression\"], \"molecular_functions\": [\"DNMT3A de novo CpG methyltransferase activity at intergenic euchromatin\"]}}, {\"id\": \"Loss of Developmental Enhancer Priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independently of the DNA-methylation arm, NSD1 occupies the distal enhancers of lineage-specifying transcription-factor genes while cells are still pluripotent and holds them in a primed state that can respond rapidly to differentiation cues. Losing NSD1 leaves those enhancers unable to support the rapid induction of their genes, so the defect is one of responsiveness at the moment of lineage commitment rather than of steady-state expression alone. This is a distinct claim from intergenic hypomethylation and is evidenced in a different system, which is why it is a separate node.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epigenetic regulation of gene expression at developmental enhancers\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones are delayed, with large body size, hypotonia and poor coordination contributing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"NSD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"NSD1\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}], \"frequency\": \"identified in about 93% of individuals with a clinical diagnosis of Sotos syndrome\", \"association\": \"Haploinsufficiency (loss-of-function variants and whole-gene deletion)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NSD1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion in essentially all Sotos syndrome is loss of one functional copy of NSD1, reached either by an intragenic loss-of-function variant or by the 5q35 microdeletion above. NSD1 is a writer in the four-class scheme of the epigenetic machinery, so this node is the disease-specific instance of the module\u0027s dosage-sensitive component loss. Haploinsufficiency - rather than a dominant-negative or gain-of-function mechanism - is established both by the mutational spectrum (nonsense, frameshift and whole-gene deletion all producing the same syndrome) and by the near-exclusive association of NSD1 aberrations with the Sotos phenotype across a large diagnostic series.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NSD1\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline NSD1 loss of function, usually de novo. The allelic events listed span the two curated subtypes; missense variants also occur but only within the functional domains.\", \"allelic_events\": [\"PATHOGENIC_VARIANT\", \"NONSENSE_VARIANT\", \"FRAMESHIFT_VARIANT\", \"DELETION\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}]}}}, {\"id\": \"Neonatal Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia in the newborn period is one of the neonatal complications that prompts diagnostic suspicion, alongside feeding difficulty.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Neoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tumors are uncommon and heterogeneous. Historical reviews estimate a tumor frequency below 5%; contemporary GeneReviews estimates approximately 3%. Reported benign tumors and hamartomas must not be described collectively as malignancies. The germline tumor-susceptibility mechanism remains provisional.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002664\"}}, {\"id\": \"Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent Sotos deletion is generated by a structural-variant mechanism rather than by a point mutational process. Two complex mosaic low-copy repeat blocks flank NSD1 - proximal Sos-PREP (~390 kb) and distal Sos-DREP (~429 kb), each built from six subunits, most in inverted orientation. Only the C and C\u0027 subunits are directly oriented with respect to each other and they are more than 99% identical; recombination between them yields the common deletion and a patient-specific junction fragment absent from controls. This mechanism explains why the deletion recurs at the same breakpoints across unrelated individuals.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"A heterozygous contiguous deletion of the 5q35 interval containing NSD1, almost always arising de novo.\", \"allelic_events\": [\"DELETION\", \"COPY_NUMBER_LOSS\"], \"gene_terms\": [{\"label\": \"NSD1\", \"id\": \"hgnc:14234\"}]}, \"subtypes\": [\"5q35 Microdeletion\"]}}, {\"id\": \"Nsd1 heterozygous mouse (CRISPR exon 3)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only reported constitutive heterozygous mouse for the Sotos gene, made to ask whether Nsd1 haploinsufficiency reproduces the human syndrome. Nsd1 expression in the mouse brain is predominantly neuronal, and the heterozygotes show behavioural changes reminiscent of some of the human deficits. Homozygous loss is embryonic lethal, so heterozygosity is the only postnatal window on this gene.\"}, {\"id\": \"Ophthalmological Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular abnormalities include strabismus and refractive errors such as hypermetropia and astigmatism, represented separately. Broader ocular findings were reported in 29/77 individuals in a molecularly confirmed MRI-selected cohort. The selected denominator does not establish the frequency of individual eye findings. Correctable visual problems warrant specific assessment rather than being attributed to developmental disability alone.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000478\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymicrogyria was identified in 22.1% of the selected 77-person MRI cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"Proposed Disruption of Synaptic Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing of developmental genes that govern synaptic assembly is proposed to impair neural circuit development. This hypothesis arises from enrichment of downregulated synaptic genes in patient blood and remains untested in Sotos neural tissue.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent middle-ear inflammation can impair sound conduction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000403\"}}, {\"id\": \"Reduced NSD1 Tumor-Suppressor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NSD1 loss may reduce transcriptional repression of growth-promoting targets such as MEIS1. NSD1 depletion and restoration alter proliferation in neuroblastoma cells; Sotos lymphoblastoid cells also show reduced NSD1 recruitment and increased MEIS1 expression. These experiments support a proposed tumor-suppressor role, but do not establish the penetrance, second-hit requirements or tumor spectrum of germline NSD1 haploinsufficiency. The reported H3K36/H4K20 changes in this older tumor study were principally trimethylation readouts, distinct from the H3K36 dimethylation mechanism above.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Renal Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural renal anomalies include horseshoe kidney, cystic lesions and abnormal kidney size. Vesicoureteral reflux is represented separately because reflux does not necessarily imply a renal morphological abnormality.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012210\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disturbed sleep includes altered sleep timing and sleep-related breathing or transition problems. Early bed and rise times do not by themselves establish insomnia or an advanced sleep-phase disorder. In a pediatric survey, 27/38 had a positive SDSC screen, while only two had a prior sleep-disorder diagnosis. The sleep-breathing subscale was positive in 10/38 (26.3%), which does not establish polysomnography-confirmed obstructive sleep apnea. The 60% questionnaire response rate and referral ascertainment preclude treating 71.1% as population prevalence; no frequency band is assigned.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tall stature is particularly prominent during childhood. It occurred in 23/57 patients at the last visit in the Korean cohort; height can normalize in adulthood.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000098\"}}], \"edges\": [{\"source\": \"Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats\", \"target\": \"NSD1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recombination product removes one entire NSD1 allele, so the structural event and the dosage lesion are the same event viewed at two levels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NSD1 Haploinsufficiency\", \"target\": \"Genome-Wide H3K36me2 Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NSD1 loss reduces deposition of H3K36me2. This dependence is demonstrated in engineered mouse and human cells; the magnitude and tissue distribution of the change in heterozygous patients are not inferred from complete-loss experiments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NSD1 Haploinsufficiency\", \"target\": \"Reduced NSD1 Tumor-Suppressor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of NSD1 may impair repression of growth-promoting targets. Evidence from Sotos lymphoblastoid cells and transformed-cell perturbations supports this as a provisional susceptibility mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genome-Wide H3K36me2 Depletion\", \"target\": \"Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"H3K36me2 is the chromatin signal that positions DNMT3A over intergenic DNA, so depleting the mark relocates the enzyme and the methylation it deposits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide H3K36me2 Depletion\", \"target\": \"Loss of Developmental Enhancer Priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At distal enhancers of lineage transcription-factor genes, NSD1-deposited H3K36me2 holds off H3K27me3 and sustains basal H3K27ac; losing the mark collapses that primed state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment\", \"target\": \"Dysregulated Developmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proposed route links altered promoter DNA methylation to PRC2-mediated silencing of developmental genes. Patient blood profiles support the association, while functional confirmation in affected developing tissues is still required.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered PRC2 activity at bivalent developmental promoters\"]}, {\"source\": \"Loss of Developmental Enhancer Priming\", \"target\": \"Dysregulated Developmental Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The APC2 arm of the transcriptional program is the one with a demonstrated cellular readout, established by rescue rather than by correlation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Impaired Mesendodermal Lineage Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Distinctive Facial Appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deregulation of craniofacial developmental genes is proposed to contribute to the facial gestalt. The individual routes to forehead width, head shape, hair distribution and chin height remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Neonatal Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced COL6A1 expression is a proposed contributor to hypotonia or weakness; neonatal tissue specificity and the central versus peripheral contribution remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Autism Spectrum Behaviour\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulation of neurodevelopmental targets including CTTNBP2 and NEO1 is a proposed contributor to autistic features; behavioral consequences were not experimentally rescued in patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Ophthalmological Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulation of ocular-development genes including NECTIN3 and GPC4 is a proposed contributor to ocular abnormalities; the study does not resolve individual eye findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Underexpression of tooth-development genes GREM2 and TSPEAR is proposed to contribute to tooth agenesis. The patient blood study identifies this phenotype-specific candidate route, but does not test tooth germs or demonstrate mediation of premolar development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Proposed Disruption of Synaptic Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced expression of bivalent synaptic-development genes may impair assembly of developing neural circuits.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Developmental Transcriptional Program\", \"target\": \"Dysregulated FGF-MAPK-ERK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NSD1-associated transcriptional dysregulation includes FGF/MAPK-related genes, supported by patient fibroblast profiling and NSD1 knockdown experiments; the net pathway response is context-dependent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose that altered APC2-dependent neuronal migration contributes to intellectual disability in Sotos syndrome. Rescue experiments establish the migration route in embryonic mice; the full route to human intellectual disability remains provisional.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"target\": \"Dysgyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered neuronal migration and cortical positioning are proposed to contribute to abnormal cortical folding. The imaging study discusses the NSD1\\u2013APC2 model as a possible correlate; it does not demonstrate this route in patient cortex or distinguish the mechanism of each malformation subtype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Migration and Laminar Positioning\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered neuronal migration and cortical positioning are proposed to contribute to abnormal cortical folding. The imaging study discusses the NSD1\\u2013APC2 model as a possible correlate; it does not demonstrate this route in patient cortex or distinguish the mechanism of each malformation subtype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mesendodermal Lineage Differentiation\", \"target\": \"Congenital Heart Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to activate cardiac lineage regulators is proposed to contribute to congenital heart defects. The mouse stem-cell study explicitly relates its differentiation defects to the clinical cardiac phenotype, but does not reproduce an anatomical human heart defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mesendodermal Lineage Differentiation\", \"target\": \"Renal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired induction of renal developmental regulators, including Lhx1, provides a provisional route from NSD1 loss to abnormal kidney development. Evidence comes from differentiating mouse stem cells; human renal tissue and anatomical mediation remain untested.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired induction of renal organogenesis regulators including Lhx1\"]}, {\"source\": \"Reduced NSD1 Tumor-Suppressor Function\", \"target\": \"Neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a context-dependent tumor-suppressor function is proposed to increase susceptibility to some tumors. Somatic cancer-cell findings do not establish all clinical tumors as NSD1-mediated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Disruption of Synaptic Development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired formation of developing neural circuits is proposed to contribute to the cognitive developmental phenotype. Human tissue and behavioral mediation remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed Disruption of Synaptic Development\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired formation of developing neural circuits is proposed to contribute to the cognitive developmental phenotype. Human tissue and behavioral mediation remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated FGF-MAPK-ERK Signaling\", \"target\": \"Altered Growth-Plate Chondrocyte Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors propose that altered MAPK/ERK signaling changes hypertrophic chondrocyte differentiation. This extrapolation from fibroblasts and established growth-plate biology remains provisional.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Growth-Plate Chondrocyte Maturation\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation is proposed to contribute to statural overgrowth and accelerated skeletal maturation; the quantitative effect in patients is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Growth-Plate Chondrocyte Maturation\", \"target\": \"Childhood Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation is proposed to contribute to statural overgrowth and accelerated skeletal maturation; the quantitative effect in patients is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Growth-Plate Chondrocyte Maturation\", \"target\": \"Advanced Bone Age\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation is proposed to contribute to statural overgrowth and accelerated skeletal maturation; the quantitative effect in patients is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Sucking and Swallowing\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired sucking and swallowing limit effective oral intake and can necessitate assisted feeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal Hypotonia\", \"target\": \"Motor Delay\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Low muscle tone contributes to delayed motor milestones alongside large body size and poor coordination; this does not explain all developmental domains.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High Arched Palate\", \"target\": \"Sleep Disturbance\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"High palatal anatomy is proposed as one contributor to the sleep-related breathing component of disturbed sleep. This does not explain early sleep timing or all sleep-transition problems; no patient-level palatal mediation was tested.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysgyria\", \"target\": \"Hippocampal Malrotation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Regional temporal cortical dysgyria may alter adjacent hippocampal folding, as proposed by the imaging study. This remains a developmental hypothesis rather than a demonstrated causal relation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recurrent Otitis Media\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Middle-ear disease impairs transmission of sound, producing conductive hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recurrent Otitis Media\", \"target\": \"Hearing Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Chronic otitis media can cause the conductive component of hearing impairment. This relation does not explain unspecified adult-onset or sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Developmental and Educational Intervention\", \"target\": \"Intellectual Disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nsd1 heterozygous mouse (CRISPR exon 3)\", \"target\": \"Dysregulated Developmental Transcriptional Program\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Halving Nsd1 dose in the mouse produces behavioural change but, on the published account, only a partial resemblance to the human phenotype. The model therefore supports the transcriptional-program node as dose-sensitive without establishing that the human syndrome follows from it in full.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The published abstract claims only \\\"behavioral characteristics reminiscent of some of the deficits\\\" and reports no overgrowth or macrocephaly, which are two of the three cardinal human features the same abstract names. The more specific negative results attributed to this model in secondary summaries - absent overgrowth and macrocephaly, absent gross cortical enlargement, reduced SATB2-positive upper-layer neurons - come from full text that is not in the reference cache, so they are deliberately not curated here and the relationship is recorded as partial rather than as an outright failure to recapitulate.\"}, {\"source\": \"NSD1\", \"target\": \"NSD1 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NSD1\", \"target\": \"Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7753,6 +7860,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7877,6 +7987,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7946,6 +8059,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8010,6 +8126,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8095,6 +8214,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8161,6 +8283,9 @@ This clinical feature is Neonatal jaundice, annotated with Jaundice (HP:0000952)
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8235,6 +8360,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8299,6 +8427,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8384,6 +8515,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8448,6 +8582,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8531,6 +8668,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8606,6 +8746,9 @@ This clinical feature is Ophthalmological abnormality, annotated with Abnormalit
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8706,6 +8849,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8776,6 +8922,9 @@ This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8841,6 +8990,9 @@ This clinical feature is Astigmatism (HP:0000483). HP:0000483 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8927,6 +9079,9 @@ This clinical feature is Renal structural anomaly, annotated with Abnormal renal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8991,6 +9146,9 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9073,6 +9231,9 @@ This clinical feature is Characteristic Sotos facial gestalt, annotated with Abn
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9199,6 +9360,9 @@ This clinical feature is Sparse frontotemporal scalp hair, annotated with Sparse
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9270,6 +9434,9 @@ This clinical feature is Downslanting palpebral fissures, annotated with Downsla
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9336,6 +9503,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9460,6 +9630,9 @@ This clinical feature is High arched palate, annotated with High palate (HP:0000
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -9538,6 +9711,9 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9602,6 +9778,9 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9676,6 +9855,9 @@ This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9740,6 +9922,9 @@ This clinical feature is Tall chin (HP:0400000). HP:0400000 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9839,6 +10024,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9903,6 +10091,9 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10012,6 +10203,9 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10087,6 +10281,9 @@ This clinical feature is Advanced bone age, annotated with Accelerated skeletal 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10188,6 +10385,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10284,6 +10484,9 @@ This clinical feature is Joint hyperlaxity, annotated with Joint hypermobility (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10350,6 +10553,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10435,6 +10641,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10531,6 +10740,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10657,6 +10869,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10721,6 +10936,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10797,6 +11015,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10861,6 +11082,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10935,6 +11159,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10999,6 +11226,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11073,6 +11303,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11137,6 +11370,9 @@ This clinical feature is Dysgyria (HP:0032398). HP:0032398 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11218,6 +11454,9 @@ This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11282,6 +11521,9 @@ This clinical feature is Hippocampal malrotation (HP:0034396). HP:0034396 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11356,6 +11598,9 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11420,6 +11665,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11546,6 +11794,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11665,6 +11916,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11765,6 +12019,9 @@ This clinical feature is Childhood overgrowth, annotated with Overgrowth (HP:000
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11889,6 +12146,9 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11991,6 +12251,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -12134,6 +12397,9 @@ This disease-associated gene is NSD1 (hgnc:14234). hgnc:14234 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

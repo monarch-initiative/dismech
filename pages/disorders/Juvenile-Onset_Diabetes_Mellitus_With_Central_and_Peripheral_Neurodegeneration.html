@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4560,6 +4602,7 @@ The entity must be kept separate from the other ER-stress monogenic diabetes syn
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-dnajc3-loss-of-function-variants" data-dismech-node="Biallelic DNAJC3 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic DNAJC3 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous nonsense, frameshift or whole-gene deletion variants in DNAJC3 abolish the protein. Reported alleles include a homozygous stop mutation and a homozygous whole-gene deletion in the two index families, and later nonsense (p.Arg393*), frameshift and missense (p.Arg415Pro) alleles. The absence of the protein - not a retained or aggregated mutant - is the primary lesion, which is why this entry models a chaperone-capacity failure rather than an ER storage disease.</div>
 
 
@@ -4655,6 +4698,8 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4667,6 +4712,9 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic null or severely hypomorphic alleles; heterozygotes are unaffected. Compound heterozygosity is also reported, so the HOMOZYGOUS value records the commonest reported state rather than an obligatory one.</div>
 
@@ -4789,6 +4837,7 @@ This genetic context concerns DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-p58ipk-co-chaperone-function-in-the-endoplasmic-reticulum" data-dismech-node="Loss of p58IPK Co-Chaperone Function in the Endoplasmic Reticulum" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of p58IPK Co-Chaperone Function in the Endoplasmic Reticulum</div>
+
 
                 <div class="item-desc">p58IPK is an ER-lumenal DnaJ/Hsp40 co-chaperone of BiP and, in parallel, an inhibitor of the eIF2-alpha kinases PERK and PKR that acts as the negative feedback limb terminating the translational-attenuation phase of the unfolded protein response. Its loss therefore removes two things at once: productive BiP-assisted folding of nascent secretory clients, and the brake that returns the UPR to baseline. In pancreatic beta cells BiP has been shown to require p58IPK for productive proinsulin folding specifically.</div>
 
@@ -5000,6 +5049,7 @@ This pathophysiological event involves BiP (HSPA5) co-chaperone binding, annotat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-unfolded-protein-response-and-chronic-er-stress" data-dismech-node="Dysregulated Unfolded Protein Response and Chronic ER Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Unfolded Protein Response and Chronic ER Stress</div>
 
+
                 <div class="item-desc">In the absence of its feedback inhibitor, PERK-mediated UPR signalling runs unopposed and cells sit in a state of chronic, unresolved ER stress and are sensitised to any further folding load. DNAJC3 disease is grouped with the other monogenic diabetes syndromes that act through the PERK arm of the ER stress response.</div>
 
 
@@ -5181,6 +5231,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-sec61-translocon-gating-and-er-calcium-leak" data-dismech-node="Disrupted Sec61 Translocon Gating and ER Calcium Leak" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Sec61 Translocon Gating and ER Calcium Leak</div>
 
+
                 <div class="item-desc">The proposed explanation for the early hyperinsulinaemic phase of the syndrome. p58IPK, working with BiP, assists closure of the Sec61 polypeptide-conducting channel; without it, calcium leaks from the ER lumen into the cytosol of the beta cell and inappropriately drives insulin exocytosis. This is offered by its authors as the most likely mechanism rather than a demonstrated one, and is curated here as such.</div>
 
 
@@ -5329,6 +5380,7 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperinsulinaemic-hypoglycaemia-of-infancy-and-childhood" data-dismech-node="Hyperinsulinaemic Hypoglycaemia of Infancy and Childhood" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperinsulinaemic Hypoglycaemia of Infancy and Childhood</div>
 
+
                 <div class="item-desc">The first, and easily missed, endocrine phase. Affected infants and young children can present with diazoxide-responsive hyperinsulinaemic hypoglycaemia, described around two years of age in one series and persisting into adolescence in another individual, before the beta-cell mass declines and the phenotype inverts to insulin deficiency.</div>
 
 
@@ -5449,6 +5501,7 @@ This pathophysiological event involves decreased intracellular calcium ion homeo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-beta-cell-apoptosis-via-bim-and-puma" data-dismech-node="Pancreatic Beta-Cell Apoptosis via BIM and PUMA" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Beta-Cell Apoptosis via BIM and PUMA</div>
+
 
                 <div class="item-desc">The measured consequence of DNAJC3 loss in beta cells is death, not secretory failure. Silencing DNAJC3 in INS-1E cells, primary rat beta cells, human islets and iPSC-derived beta cells left insulin content and secretion intact but triggered apoptosis through the mitochondrial pathway, engaged by the BH3-only proteins BIM and PUMA. The Dnajc3-null mouse shows the corresponding in vivo phenotype: progressive islet-cell apoptosis with preserved function in the beta cells that remain.</div>
 
@@ -5685,6 +5738,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-deficiency-and-pancreatic-atrophy" data-dismech-node="Insulin Deficiency and Pancreatic Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin Deficiency and Pancreatic Atrophy</div>
 
+
                 <div class="item-desc">Progressive beta-cell loss produces non-autoimmune, insulin-requiring diabetes mellitus, characteristically in the second decade. Pancreatic imaging in at least one reported family showed a small, atrophic pancreas, suggesting the structural counterpart of the cellular loss. No edge is drawn from this node to the neurodegeneration: the neurological arm frequently precedes the diabetes diagnosis and is not modelled here as a diabetic complication but as a parallel consequence of the same upstream chaperone-capacity failure.</div>
 
 
@@ -5770,6 +5824,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-lipid-homeostasis-and-mitochondrial-dysfunction" data-dismech-node="Disturbed Lipid Homeostasis and Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Lipid Homeostasis and Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Unbiased proteomics of DNAJC3-deficient patient fibroblasts identified perturbed lipid metabolism, mitochondrial bioenergetics, ER-Golgi function and amyloid precursor protein processing. This is the best current candidate bridge from an ER co-chaperone defect to neuronal vulnerability, but it rests on fibroblast data rather than on neural tissue, and the entry treats it as a proposed rather than an established link.</div>
 
@@ -5901,6 +5956,7 @@ This pathophysiological event involves increased response to endoplasmic reticul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-central-and-peripheral-neurodegeneration" data-dismech-node="Progressive Central and Peripheral Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Central and Peripheral Neurodegeneration</div>
+
 
                 <div class="item-desc">A slowly progressive, generalised neurodegeneration affecting cerebellum, corticospinal tracts, peripheral nerve and the auditory system, with cerebral atrophy on MRI. Sensorineural hearing loss is frequently the earliest neurological sign, appearing around five to six years of age, well before the diabetes. Severity is highly variable between and within families.</div>
 
@@ -6176,6 +6232,9 @@ This clinical feature is Small atrophic pancreas, annotated with Abnormality of 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6251,6 +6310,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6354,6 +6416,9 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6473,6 +6538,9 @@ This clinical feature is Hyperinsulinemic hypoglycemia (HP:0000825), qualified a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6567,6 +6635,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6640,6 +6711,9 @@ This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6748,6 +6822,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6814,6 +6891,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6915,6 +6995,9 @@ This clinical feature is Ataxia (HP:0001251), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7009,6 +7092,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7080,6 +7166,9 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7146,6 +7235,9 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7245,6 +7337,9 @@ This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7309,6 +7404,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7408,6 +7506,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7481,6 +7582,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7599,6 +7703,9 @@ This disease-associated gene is DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7699,6 +7806,7 @@ This disease-associated gene is DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7718,11 +7826,17 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The commonest reported class. p.Arg194* was the founding allele in the index sibship and is the variant carried by one of the two patient fibroblast lines used for the proteomic work; p.Arg393* was reported in a Saudi adult. Both are predicted to truncate the protein before the C-terminal J domain, and the index alleles produce no detectable protein in patient fibroblasts.</div>
@@ -7810,6 +7924,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7829,11 +7944,17 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Two distinct frameshift alleles are reported: p.Trp186Glyfs*14, found in trans with a splice-acceptor variant, and a deletion in the final exon producing p.Lys456SerfsTer85, which elongates rather than truncates the protein and is predicted to abrogate the J domain. The latter is instructive because a last-exon frameshift escapes nonsense-mediated decay, so the mechanism is a non-functional J domain rather than absent message.</div>
@@ -7896,6 +8017,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7915,11 +8037,17 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice acceptor</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A c.83-2A&gt;G acceptor-site variant reported in trans with a frameshift allele in an individual whose dominant feature was diazoxide-responsive hyperinsulinaemic hypoglycaemia. Both were classified pathogenic by ACMG criteria. This allele class matters for test selection because splice-site variants outside the coding sequence are missed by some targeted assays.</div>
@@ -7982,6 +8110,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8001,11 +8130,17 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">copy number deletion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous deletion of about 72 kb removing DNAJC3 - and, in the family characterised in detail, the adjacent UGGT2 gene - was the second independent genotype found in the founding report. This is the allele class with the clearest practical consequence: a sequencing-only assay with no copy-number analysis will not detect it, so CNV analysis belongs in any diagnostic strategy for this disorder. The authors of the proteomic study note the UGGT2 involvement as a potential confounder but observe that all DNAJC3 patients present with very similar phenotypes.</div>
@@ -8093,6 +8228,7 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8112,11 +8248,17 @@ This variant is in DNAJC3 (hgnc:9439). hgnc:9439 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Rarer than the truncating classes. A homozygous p.Arg415Pro variant was reported in a girl presenting in diabetic ketoacidosis, and p.His238Asn is the separately proposed monoallelic dominant type 2 diabetes allele that this entry excludes from the recessive syndrome. Missense alleles are the class for which functional interpretation is least secure, since the established disease mechanism is absence of protein.</div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4387,6 +4429,7 @@ The entity most often confused with this one is the ~500-600 kb recurrent 16p11.
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-allelic-homologous-recombination-between-16p-segmental-duplications" data-dismech-node="Non-Allelic Homologous Recombination Between 16p Segmental Duplications" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Allelic Homologous Recombination Between 16p Segmental Duplications</div>
 
+
                 <div class="item-desc">The short arm of chromosome 16 is rich in segmental duplications. Complex low-copy repeats flank the 16p12.2-p11.2 interval, and misalignment between them during meiosis supports non-allelic homologous recombination, which excises the intervening segment. This is why the deletion recurs with reproducible breakpoints in unrelated individuals rather than occurring at random positions.</div>
 
 
@@ -4486,9 +4529,57 @@ The entity most often confused with this one is the ~500-600 kb recurrent 16p11.
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutional-heterozygous-loss-of-the-16p12-2-p11-2-interval" data-dismech-node="Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval</div>
 
+
                 <div class="item-desc">A heterozygous 7.1-8.7 Mb deletion present in all cells. Reported cases share a common distal breakpoint at 16p12.2 and vary in the proximal breakpoint at 16p11.2, so the deleted gene set is not identical between patients - which is one reason gene-to-feature attribution has been hard to pin down. Deletions have been recurrent and de novo in the originally reported individuals.</div>
 
 
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: deletion</span>
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>16p12.2-p11.2 deletion interval</strong>
+            <span class="tag tag-classification">16p12.2-p11.2</span>
+
+        </div>
+
+
+
+
+        <div class="item-desc">Reported 7.1-8.7 Mb deletions share a distal breakpoint at 16p12.2 and vary in their proximal breakpoint at 16p11.2. This cytoband range describes the syndrome interval without assigning a single pair of nucleotide coordinates or a fixed deleted gene set to every patient.</div>
+    </div>
+
+</div>
 
 
 
@@ -4584,6 +4675,7 @@ The entity most often confused with this one is the ~500-600 kb recurrent 16p11.
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haploinsufficiency-across-a-gene-dense-interval" data-dismech-node="Haploinsufficiency Across a Gene-Dense Interval" data-dismech-type="pathophysiology">
                 <div class="item-name">Haploinsufficiency Across a Gene-Dense Interval</div>
+
 
                 <div class="item-desc">Loss of one copy of dozens of genes simultaneously. That the phenotype follows from dosage across the interval is not in doubt; which genes carry which feature is. No gene in this interval has been shown to account for a feature of this syndrome on its own, and the gene-level candidates commonly cited for 16p come from studies of the smaller nested 16p11.2 CNVs rather than from this deletion. The node is therefore deliberately stated at the level the evidence supports.</div>
 
@@ -4777,7 +4869,7 @@ This pathophysiological event involves decreased nervous system development (GO:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Facial Shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor facial anomalies. Their presence is one of the features that distinguishes this deletion from the smaller 16p11.2 recurrent deletion, which is not associated with facial manifestations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous 7.1-8.7 Mb deletion present in all cells. Reported cases share a common distal breakpoint at 16p12.2 and vary in the proximal breakpoint at 16p11.2, so the deleted gene set is not identical between patients - which is one reason gene-to-feature attribution has been hard to pin down. Deletions have been recurrent and de novo in the originally reported individuals.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Delayed Speech Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Described as a significant delay, and one of the four features that characterise the syndrome clinically.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present across reported patients, with a wide severity range - one reported patient had severe developmental delay without autism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of one copy of dozens of genes simultaneously. That the phenotype follows from dosage across the interval is not in doubt; which genes carry which feature is. No gene in this interval has been shown to account for a feature of this syndrome on its own, and the gene-level candidates commonly cited for 16p come from studies of the smaller nested 16p11.2 CNVs rather than from this deletion. The node is therefore deliberately stated at the level the evidence supports.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Non-Allelic Homologous Recombination Between 16p Segmental Duplications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The short arm of chromosome 16 is rich in segmental duplications. Complex low-copy repeats flank the 16p12.2-p11.2 interval, and misalignment between them during meiosis supports non-allelic homologous recombination, which excises the intervening segment. This is why the deletion recurs with reproducible breakpoints in unrelated individuals rather than occurring at random positions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent ear infections. Worth noting alongside the speech delay, since conductive hearing loss from recurrent middle-ear disease plausibly contributes to it, though no source reviewed here separates the two.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000403\"}}], \"edges\": [{\"source\": \"Non-Allelic Homologous Recombination Between 16p Segmental Duplications\", \"target\": \"Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval\", \"target\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Delayed Speech Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Abnormal Facial Shape\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Recurrent Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Facial Shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor facial anomalies. Their presence is one of the features that distinguishes this deletion from the smaller 16p11.2 recurrent deletion, which is not associated with facial manifestations.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous 7.1-8.7 Mb deletion present in all cells. Reported cases share a common distal breakpoint at 16p12.2 and vary in the proximal breakpoint at 16p11.2, so the deleted gene set is not identical between patients - which is one reason gene-to-feature attribution has been hard to pin down. Deletions have been recurrent and de novo in the originally reported individuals.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_type\": \"deletion\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"affected_regions\": [{\"name\": \"16p12.2-p11.2 deletion interval\", \"chromosomal_region\": \"16p12.2-p11.2\", \"description\": \"Reported 7.1-8.7 Mb deletions share a distal breakpoint at 16p12.2 and vary in their proximal breakpoint at 16p11.2. This cytoband range describes the syndrome interval without assigning a single pair of nucleotide coordinates or a fixed deleted gene set to every patient.\"}]}}}, {\"id\": \"Delayed Speech Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Described as a significant delay, and one of the four features that characterise the syndrome clinically.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present across reported patients, with a wide severity range - one reported patient had severe developmental delay without autism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of one copy of dozens of genes simultaneously. That the phenotype follows from dosage across the interval is not in doubt; which genes carry which feature is. No gene in this interval has been shown to account for a feature of this syndrome on its own, and the gene-level candidates commonly cited for 16p come from studies of the smaller nested 16p11.2 CNVs rather than from this deletion. The node is therefore deliberately stated at the level the evidence supports.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Non-Allelic Homologous Recombination Between 16p Segmental Duplications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The short arm of chromosome 16 is rich in segmental duplications. Complex low-copy repeats flank the 16p12.2-p11.2 interval, and misalignment between them during meiosis supports non-allelic homologous recombination, which excises the intervening segment. This is why the deletion recurs with reproducible breakpoints in unrelated individuals rather than occurring at random positions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent ear infections. Worth noting alongside the speech delay, since conductive hearing loss from recurrent middle-ear disease plausibly contributes to it, though no source reviewed here separates the two.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000403\"}}], \"edges\": [{\"source\": \"Non-Allelic Homologous Recombination Between 16p Segmental Duplications\", \"target\": \"Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval\", \"target\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Delayed Speech Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Abnormal Facial Shape\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Haploinsufficiency Across a Gene-Dense Interval\", \"target\": \"Recurrent Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4840,6 +4932,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4925,6 +5020,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5005,6 +5103,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5080,6 +5181,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5183,6 +5287,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5279,12 +5386,58 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+<div class="affected-regions">
+    <div class="item-meta"><strong>Affected regions (reference genome)</strong></div>
+
+    <div class="affected-region">
+        <div class="item-meta">
+            <strong>16p12.2-p11.2 deletion interval</strong>
+            <span class="tag tag-classification">16p12.2-p11.2</span>
+
+        </div>
+
+
+
+
+        <div class="item-desc">The 7.1-8.7 Mb contiguous-gene deletion interval, with a shared distal breakpoint at 16p12.2 and variable proximal breakpoints at 16p11.2. The cytoband range does not specify patient-level nucleotide bounds.</div>
+    </div>
+
+</div>
+
+
+
+
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19676056" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19676056" target="_blank">PMID:19676056</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All reported patients so far share a common distal breakpoint at 16p12.2 but vary in the proximal breakpoint at 16p11.2."</div>
+
+
+                <div class="evidence-explanation">Supports the qualitative interval and the patient-specific variability in its proximal extent.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:24259393" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5633,6 +5786,18 @@ pathophysiology:
     explanation: Independent statement of the same architectural mechanism for this region.
 - name: Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval
   biological_scale: MOLECULAR
+  genetic_context:
+    variant_type: deletion
+    zygosity: HETEROZYGOUS
+    variant_origin: GERMLINE
+    affected_regions:
+    - name: 16p12.2-p11.2 deletion interval
+      chromosomal_region: 16p12.2-p11.2
+      description: &gt;-
+        Reported 7.1-8.7 Mb deletions share a distal breakpoint at 16p12.2
+        and vary in their proximal breakpoint at 16p11.2. This cytoband range
+        describes the syndrome interval without assigning a single pair of
+        nucleotide coordinates or a fixed deleted gene set to every patient.
   description: &gt;-
     A heterozygous 7.1-8.7 Mb deletion present in all cells. Reported cases
     share a common distal breakpoint at 16p12.2 and vary in the proximal
@@ -5814,11 +5979,24 @@ discussions:
 genetic:
 - name: 16p12.2-p11.2 interval
   relationship_type: CAUSATIVE
+  affected_regions:
+  - name: 16p12.2-p11.2 deletion interval
+    chromosomal_region: 16p12.2-p11.2
+    description: &gt;-
+      The 7.1-8.7 Mb contiguous-gene deletion interval, with a shared distal
+      breakpoint at 16p12.2 and variable proximal breakpoints at 16p11.2.
+      The cytoband range does not specify patient-level nucleotide bounds.
   notes: &gt;-
     A contiguous-gene deletion rather than a single-gene disorder, so no
     gene_term is bound. The deleted interval is 7.1-8.7 Mb with a common distal
     breakpoint at 16p12.2 and a variable proximal breakpoint at 16p11.2.
   evidence:
+  - reference: PMID:19676056
+    reference_title: &#34;Microdeletion syndrome 16p11.2-p12.2: clinical and molecular characterization.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All reported patients so far share a common distal breakpoint at 16p12.2 but vary in the proximal breakpoint at 16p11.2.&#34;
+    explanation: Supports the qualitative interval and the patient-specific variability in its proximal extent.
   - reference: PMID:24259393
     reference_title: &#34;A clinical study of patients with pericentromeric deletion and duplication within 16p12.2-p11.2.&#34;
     supports: SUPPORT
@@ -6379,7 +6557,7 @@ Not curated: obesity, congenital heart disease, short stature and vertebral anom
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chromosome 16p12.2-p11.2 Deletion Syndrome", "mondoId": "MONDO:0013320", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_16p12.2-p11.2_Deletion_Syndrome", "yamlRevision": "35eaee7f3690"};
+        const OS_CONFIG = {"diseaseName": "Chromosome 16p12.2-p11.2 Deletion Syndrome", "mondoId": "MONDO:0013320", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_16p12.2-p11.2_Deletion_Syndrome", "yamlRevision": "d4ee91bb1b10"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

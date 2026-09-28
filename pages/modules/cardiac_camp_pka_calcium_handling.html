@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2272,11 +2309,13 @@ Provenance and the AOP-Wiki caveat. This module was curated against AOP-Wiki Key
             
             <div class="item-box anchor-target" id="module-pathophysiology-cardiomyocyte-camp-raising-stimulus" data-dismech-node="Cardiomyocyte cAMP-Raising Stimulus" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte cAMP-Raising Stimulus</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Something raises the rate at which cyclic AMP accumulates in the cardiomyocyte, by making more of it or by stopping its removal. The physiologic and pathophysiologic route is catecholamine occupancy of the beta-adrenergic receptor, which couples through Gs to adenylyl cyclase; the pharmacologic route is inhibition of the phosphodiesterases that hydrolyse cAMP, principally PDE3 and PDE4 in the myocyte. Conforming disorder entries substitute the particular stimulus: exertion or acute emotional stress in the inherited catecholaminergic arrhythmia syndromes, a PDE3 inhibitor such as milrinone or enoximone in the pharmacologic case. The systemic arm that generates the catecholamine surge sits upstream of this module.</div>
                 
@@ -2391,11 +2430,13 @@ This pathophysiological event involves increased adenylate cyclase-activating ad
             
             <div class="item-box anchor-target" id="module-pathophysiology-increased-cardiomyocyte-camp" data-dismech-node="Increased Cardiomyocyte cAMP" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Cardiomyocyte cAMP</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Cyclic AMP rises in the cardiomyocyte. The rise is not uniform across the cell: cAMP is confined into subcellular microdomains by the phosphodiesterases that degrade it, so which PDE is inhibited, which compartment is measured, and whether the heart is healthy or hypertrophied all change whether a rise is seen at all.</div>
                 
@@ -2517,11 +2558,13 @@ This pathophysiological event involves decreased cAMP catabolic process (GO:0006
             
             <div class="item-box anchor-target" id="module-pathophysiology-pka-activation-and-phosphorylation-of-the-calcium-handling-apparatus" data-dismech-node="PKA Activation and Phosphorylation of the Calcium-Handling Apparatus" data-dismech-type="pathophysiology">
                 <div class="item-name">PKA Activation and Phosphorylation of the Calcium-Handling Apparatus</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Protein kinase A is activated and phosphorylates the proteins that move calcium in the cardiomyocyte: phospholamban, which restrains SERCA2a; the L-type calcium channel, which admits the trigger calcium; troponin I, which sets myofilament calcium sensitivity; and the ryanodine receptor RyR2, which releases the store. Which RyR2 site carries the effect, and what that effect is, is disputed.</div>
                 
@@ -2671,11 +2714,13 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
             
             <div class="item-box anchor-target" id="module-pathophysiology-increased-sarcoplasmic-reticulum-calcium-load" data-dismech-node="Increased Sarcoplasmic Reticulum Calcium Load" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Sarcoplasmic Reticulum Calcium Load</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The calcium content of the sarcoplasmic reticulum rises. Phospholamban, once phosphorylated, releases its grip on SERCA2a, which then pumps calcium back into the store faster; combined with greater calcium entry through the phosphorylated L-type channel, the store ends each beat holding more than it did. This is the step that makes beta-adrenergic stimulation both inotropic and arrhythmogenic by the same action.</div>
                 
@@ -2818,11 +2863,13 @@ This pathophysiological event involves sarcoplasmic reticulum (GO:0016529). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-spontaneous-diastolic-sarcoplasmic-reticulum-calcium-release" data-dismech-node="Spontaneous Diastolic Sarcoplasmic Reticulum Calcium Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Spontaneous Diastolic Sarcoplasmic Reticulum Calcium Release</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Past a critical store content the release channels open of their own accord between beats, and calcium leaves the sarcoplasmic reticulum as a propagating wave rather than as the synchronized release that follows excitation. RyR2 carries much of it, though not all.</div>
                 
@@ -2937,11 +2984,13 @@ This pathophysiological event involves sarcoplasmic reticulum membrane (GO:00330
             
             <div class="item-box anchor-target" id="module-pathophysiology-delayed-afterdepolarizations-and-triggered-activity" data-dismech-node="Delayed Afterdepolarizations and Triggered Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Afterdepolarizations and Triggered Activity</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The inward exchanger current raised by the diastolic calcium wave depolarizes the cardiomyocyte between beats. If the depolarization reaches threshold it fires a beat that no pacemaker asked for. That triggered beat is the module&#39;s endpoint.</div>
                 

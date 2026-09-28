@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4229,6 +4271,8 @@
                     <div class="item-name">
                         FRTS1 (GATM-related arginine:glycine amidinotransferase aggregation syndrome)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0024525" target="_blank">MONDO:0024525</a>
+
 
 
                     </div>
@@ -4263,7 +4307,7 @@ This subtype is caused by variation in GATM (hgnc:4175). hgnc:4175 is a gene fro
 
                     </div>
 
-                    <div class="item-desc">Autosomal dominant FRTS caused by monoallelic missense variants in GATM (glycine amidinotransferase), a proximal tubular enzyme of creatine biosynthesis. This GATM-related arginine:glycine amidinotransferase aggregation syndrome is distinct from recessive AGAT deficiency: mutant GATM forms intramitochondrial fibrillary aggregates, driving ROS production, NLRP3 inflammasome activation, and progressive renal fibrosis; FRTS1 kindreds can progress to kidney failure (OMIM  # 134600).
+                    <div class="item-desc">Autosomal dominant FRTS caused by monoallelic missense variants in GATM (glycine amidinotransferase), a proximal tubular enzyme of creatine biosynthesis. This GATM-related arginine:glycine amidinotransferase aggregation syndrome is distinct from recessive AGAT deficiency: mutant GATM forms intramitochondrial fibrillary deposits within elongated, abnormal mitochondria, which are associated with increased ROS production, NLRP3 inflammasome activation, enhanced expression of the profibrotic cytokine IL-18, and increased cell death. The reporting authors propose, rather than demonstrate, that this proximal tubular mitochondrial pathology initiates an inflammasome response with subsequent kidney fibrosis. The five kindreds in which FRTS1 was defined were ascertained through autosomal dominant renal Fanconi syndrome with kidney failure (OMIM  # 134600).
 </div>
 
 
@@ -4272,7 +4316,7 @@ This subtype is caused by variation in GATM (hgnc:4175). hgnc:4175 is a gene fro
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4296,6 +4340,33 @@ This subtype is caused by variation in GATM (hgnc:4175). hgnc:4175 is a gene fro
 
 
                 <div class="evidence-explanation">Defines FRTS1 as a dominant GATM-related proximal tubular disorder with mitochondrial aggregate pathology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29654216" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29654216" target="_blank">PMID:29654216</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GATM aggregates-containing mitochondria were elongated and associated with increased ROS production, activation of the NLRP3 inflammasome, enhanced expression of the profibrotic cytokine IL-18, and increased cell death"</div>
+
+
+                <div class="evidence-explanation">Substantiates the ROS, NLRP3 inflammasome, IL-18 and cell-death findings stated in this subtype description; the further step to kidney fibrosis is the authors&#39; proposal, not a measured outcome. Graded IN_VITRO because the abstract&#39;s Methods attribute the evaluations of mitochondrial function to renal cells (alongside knockout mice), not to patients; the sentence itself names no system, and only the abstract is cached, so the grading is the best reading of the abstract rather than a check against the full text. INDIRECT for the same reason.</div>
 
 
 
@@ -4680,6 +4751,7 @@ This subtype is caused by variation in NDUFAF6 (hgnc:28625). hgnc:28625 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-tubular-transport-and-energy-metabolism-defect" data-dismech-node="Proximal tubular transport and energy-metabolism defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal tubular transport and energy-metabolism defect</div>
+
 
                 <div class="item-desc">Each monogenic FRTS subtype introduces a distinct primary lesion in the proximal tubular epithelial cell: a transcriptional program defect (HNF4A), loss of a specific apical transporter (SLC34A1/NaPi-IIa), or a defect in mitochondrial energy provision (EHHADH mistargeting, NDUFAF6 complex I deficiency, GATM mitochondrial aggregates). Because vectorial proximal reabsorption is highly ATP-dependent, mitochondrial energy failure is a recurrent upstream theme across subtypes.
 </div>
@@ -5131,6 +5203,7 @@ This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-proximal-tubular-reabsorptive-failure" data-dismech-node="Generalized proximal tubular reabsorptive failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized proximal tubular reabsorptive failure</div>
 
+
                 <div class="item-desc">Failure of proximal reabsorption causes urinary wasting of glucose (glycosuria with normal serum glucose), phosphate (phosphaturia), amino acids (generalized aminoaciduria), bicarbonate (proximal/type 2 renal tubular acidosis), urate (hypouricemia), and low-molecular-weight proteins. The proximal bicarbonate-wasting defect overwhelms the limited distal bicarbonate-reclamation capacity, producing a normal anion-gap metabolic acidosis.
 </div>
 
@@ -5340,6 +5413,7 @@ This pathophysiological event involves decreased amino acid transmembrane transp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypophosphatemic-rickets-acidosis-and-growth-failure" data-dismech-node="Hypophosphatemic rickets, acidosis, and growth failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypophosphatemic rickets, acidosis, and growth failure</div>
 
+
                 <div class="item-desc">Chronic phosphate and bicarbonate wasting impair skeletal mineralization, producing hypophosphatemic rickets in children and osteomalacia in adults, together with normal anion-gap metabolic acidosis and impaired linear growth. In some subtypes (FRTS1, FRTS4, FRTS5) the disease additionally progresses to chronic kidney disease, whereas FRTS3 (EHHADH) characteristically preserves glomerular filtration.
 </div>
 
@@ -5447,9 +5521,11 @@ This pathophysiological event involves decreased amino acid transmembrane transp
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5485,6 +5561,9 @@ This clinical feature is Hyperinsulinemic hypoglycemia (HP:0000825). HP:0000825 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5568,6 +5647,9 @@ This clinical feature is Renal Fanconi syndrome (HP:0001994). HP:0001994 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5632,6 +5714,9 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5706,6 +5791,9 @@ This clinical feature is Generalized aminoaciduria (HP:0002909). HP:0002909 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5770,6 +5858,9 @@ This clinical feature is Low-molecular-weight proteinuria (HP:0003126). HP:00031
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5844,6 +5935,9 @@ This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5908,6 +6002,9 @@ This clinical feature is Proximal renal tubular acidosis (HP:0002049). HP:000204
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5982,6 +6079,9 @@ This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6051,6 +6151,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6098,7 +6201,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypophosphatemia" data-dismech-node="Hypophosphatemia" data-dismech-type="phenotype">
@@ -6124,6 +6227,9 @@ This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6198,6 +6304,9 @@ This clinical feature is Hypouricemia (HP:0003537). HP:0003537 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6239,6 +6348,15 @@ This clinical feature is Hypouricemia (HP:0003537). HP:0003537 is a phenotype fr
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypophosphatemic-rickets" data-dismech-node="Hypophosphatemic rickets" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypophosphatemic rickets
@@ -6262,6 +6380,9 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6310,7 +6431,7 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6340,6 +6461,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6456,6 +6580,9 @@ This disease-associated gene is GATM (hgnc:4175). hgnc:4175 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6534,6 +6661,9 @@ This disease-associated gene is EHHADH (hgnc:3247). hgnc:3247 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6554,6 +6684,12 @@ This disease-associated gene is EHHADH (hgnc:3247). hgnc:3247 is a gene from the
         EHHADH p.E3K
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A heterozygous N-terminal missense variant that creates a de novo mitochondrial targeting motif, mistargeting peroxisomal EHHADH to mitochondria. Ehhadh knockout mice are unaffected, indicating a dominant-negative rather than haploinsufficiency mechanism.
@@ -6667,6 +6803,9 @@ This disease-associated gene is HNF4A (hgnc:5024). hgnc:5024 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6687,6 +6826,12 @@ This disease-associated gene is HNF4A (hgnc:5024). hgnc:5024 is a gene from the 
         HNF4A p.R76W (p.R85W / p.R63W)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A variant-specific DNA-binding-domain missense allele that reduces DNA binding affinity and acts by a dominant-negative mechanism, causing nuclear depletion of wild-type protein and cytosolic aggregates with mitochondrial dysfunction.
@@ -6802,6 +6947,9 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6870,6 +7018,9 @@ This disease-associated gene is NDUFAF6 (hgnc:28625). hgnc:28625 is a gene from 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7533,12 +7684,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-dent-disease">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Dent disease</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Dent_Disease.html">Dent disease</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0015612" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0015612" target="_blank">
                             MONDO:0015612
                         </a>
                     </span>
@@ -7667,15 +7817,25 @@ parents:
 has_subtypes:
 - name: FRTS1
   display_name: FRTS1 (GATM-related arginine:glycine amidinotransferase aggregation syndrome)
+  subtype_term:
+    preferred_term: Fanconi renotubular syndrome 1
+    term:
+      id: MONDO:0024525
+      label: Fanconi renotubular syndrome 1
   classification: genetic
   description: &gt;
     Autosomal dominant FRTS caused by monoallelic missense variants in GATM
     (glycine amidinotransferase), a proximal tubular enzyme of creatine
     biosynthesis. This GATM-related arginine:glycine amidinotransferase
     aggregation syndrome is distinct from recessive AGAT deficiency: mutant GATM
-    forms intramitochondrial fibrillary aggregates, driving ROS production,
-    NLRP3 inflammasome activation, and progressive renal fibrosis; FRTS1
-    kindreds can progress to kidney failure (OMIM  # 134600).
+    forms intramitochondrial fibrillary deposits within elongated, abnormal
+    mitochondria, which are associated with increased ROS production, NLRP3
+    inflammasome activation, enhanced expression of the profibrotic cytokine
+    IL-18, and increased cell death. The reporting authors propose, rather than
+    demonstrate, that this proximal tubular mitochondrial pathology initiates an
+    inflammasome response with subsequent kidney fibrosis. The five kindreds in
+    which FRTS1 was defined were ascertained through autosomal dominant renal
+    Fanconi syndrome with kidney failure (OMIM  # 134600).
   genes:
   - preferred_term: GATM
     term:
@@ -7690,6 +7850,21 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;fully penetrant heterozygous missense mutations in GATM trigger intramitochondrial fibrillary deposition of GATM and lead to elongated and abnormal mitochondria&#34;
     explanation: Defines FRTS1 as a dominant GATM-related proximal tubular disorder with mitochondrial aggregate pathology.
+  - reference: PMID:29654216
+    reference_title: &#34;Glycine Amidinotransferase (GATM), Renal Fanconi Syndrome, and Kidney Failure.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: IN_VITRO
+    snippet: &#34;GATM aggregates-containing mitochondria were elongated and associated with increased ROS production, activation of the NLRP3 inflammasome, enhanced expression of the profibrotic cytokine IL-18, and increased cell death&#34;
+    explanation: &gt;-
+      Substantiates the ROS, NLRP3 inflammasome, IL-18 and cell-death findings
+      stated in this subtype description; the further step to kidney fibrosis is
+      the authors&#39; proposal, not a measured outcome. Graded IN_VITRO because the
+      abstract&#39;s Methods attribute the evaluations of mitochondrial function to
+      renal cells (alongside knockout mice), not to patients; the sentence itself
+      names no system, and only the abstract is cached, so the grading is the
+      best reading of the abstract rather than a check against the full text.
+      INDIRECT for the same reason.
 - name: FRTS2
   display_name: FRTS2 (SLC34A1)
   classification: genetic
@@ -8980,7 +9155,7 @@ In the same 2025 case report, treatment included <strong>bicarbonates</strong> a
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fanconi Renotubular Syndrome", "mondoId": "MONDO:0001083", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fanconi_Renotubular_Syndrome", "yamlRevision": "1fce70914d0c"};
+        const OS_CONFIG = {"diseaseName": "Fanconi Renotubular Syndrome", "mondoId": "MONDO:0001083", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fanconi_Renotubular_Syndrome", "yamlRevision": "6e1a57b45320"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

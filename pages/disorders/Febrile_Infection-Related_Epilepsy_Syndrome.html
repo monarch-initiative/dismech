@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4511,6 +4553,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preceding-febrile-infection-trigger" data-dismech-node="Preceding Febrile Infection Trigger" data-dismech-type="pathophysiology">
                 <div class="item-name">Preceding Febrile Infection Trigger</div>
 
+
                 <div class="item-desc">A nonspecific febrile illness (usually an upper-respiratory or gastrointestinal infection) precedes seizure onset by roughly 24 hours to two weeks in a previously healthy individual. No specific pathogen is consistently identified in the CNS, and the fever is understood as a trigger of a maladaptive immune response rather than a direct CNS infection. This node captures the single concept of the initiating febrile trigger.</div>
 
 
@@ -4629,6 +4672,7 @@ This pathophysiological event involves Leukocyte (CL:0000738). CL:0000738 is a c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-il-1ra-deficiency-permissive-host-factor" data-dismech-node="Functional IL-1RA Deficiency (Permissive Host Factor)" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional IL-1RA Deficiency (Permissive Host Factor)</div>
 
+
                 <div class="item-desc">A functional deficiency of endogenous interleukin-1 receptor antagonist (IL-1RA, encoded by IL1RN) is a candidate permissive host factor: with the natural brake on IL-1-beta signaling weakened, a common febrile trigger can drive unchecked IL-1-beta activity. This node captures the single concept of the &#34;loss of the anti-inflammatory brakes&#34; - the gene-environment convergence at the heart of the leading FIRES model - kept separate from the febrile trigger and from the downstream inflammatory activation it permits.</div>
 
 
@@ -4716,6 +4760,44 @@ This pathophysiological event involves IL1RN (hgnc:6000). hgnc:6000 is a gene fr
 
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        interleukin-1 receptor antagonist activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005152" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005152</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased interleukin-1 receptor antagonist activity (GO:0005152). GO:0005152 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4780,6 +4862,7 @@ This pathophysiological event involves IL1RN (hgnc:6000). hgnc:6000 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-neuroinflammatory-activation" data-dismech-node="Innate Neuroinflammatory Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Neuroinflammatory Activation</div>
 
+
                 <div class="item-desc">The trigger drives activation of brain-resident innate immunity - microglia and astrocytes - with inflammasome activation and production of pro-inflammatory cytokines, prominently interleukin-1-beta and interleukin-6. A genetic predisposition of the innate immune response (e.g., variation in the IL-1 pathway) is hypothesized. This node captures the single concept of the central neuroinflammatory driver.</div>
 
 
@@ -4794,11 +4877,11 @@ This pathophysiological event involves IL1RN (hgnc:6000). hgnc:6000 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4824,11 +4907,11 @@ This pathophysiological event involves Microglial cell (CL:0000129). CL:0000129 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4865,11 +4948,11 @@ This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001774</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001774</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Microglial cell activation (GO:0001774). GO:0001774 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4899,11 +4982,11 @@ This pathophysiological event involves increased Microglial cell activation (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0032611</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0032611</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Interleukin-1 beta production (GO:0032611). GO:0032611 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4933,11 +5016,11 @@ This pathophysiological event involves increased Interleukin-1 beta production (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0032635</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0032635</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Interleukin-6 production (GO:0032635). GO:0032635 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5059,6 +5142,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-driven-lowering-of-seizure-threshold" data-dismech-node="Cytokine-Driven Lowering of Seizure Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Driven Lowering of Seizure Threshold</div>
 
+
                 <div class="item-desc">Interleukin-1-beta and interleukin-6 act on neurons to lower seizure threshold - enhancing NMDA-receptor-mediated excitation, impairing GABAergic inhibition, and disrupting glutamate homeostasis. This node captures the single concept of the cytokine-to-excitability link and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5073,11 +5157,11 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5114,11 +5198,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5172,6 +5256,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blood-brain-barrier-dysfunction" data-dismech-node="Blood-Brain Barrier Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Blood-Brain Barrier Dysfunction</div>
 
+
                 <div class="item-desc">Neuroinflammation disrupts the blood-brain barrier, which amplifies central inflammation, permits peripheral immune access, and further destabilizes neuronal excitability. This node captures the single concept of the barrier-dysfunction amplifier arm.</div>
 
 
@@ -5186,11 +5271,11 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5227,11 +5312,11 @@ This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002526" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0002526</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002526" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0002526</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Acute inflammatory response (GO:0002526). GO:0002526 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5285,6 +5370,7 @@ This pathophysiological event involves increased Acute inflammatory response (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
 
+
                 <div class="item-desc">The convergent effect of cytokine action and barrier dysfunction is a shift of cortical networks toward excitation and hypersynchrony. This node captures the single concept of the network imbalance and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5299,11 +5385,11 @@ This pathophysiological event involves increased Acute inflammatory response (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5360,6 +5446,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-super-refractory-status-epilepticus" data-dismech-node="Super-Refractory Status Epilepticus" data-dismech-type="pathophysiology">
                 <div class="item-name">Super-Refractory Status Epilepticus</div>
 
+
                 <div class="item-desc">The acute phase is explosive-onset, multifocal and bilateral tonic-clonic status epilepticus that is refractory to standard antiseizure medications and frequently to anesthetic burst-suppression (super-refractory status epilepticus), often lasting weeks. This node captures the single concept of the acute catastrophic endpoint and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5374,11 +5461,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5502,6 +5589,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-injury-and-network-reorganization" data-dismech-node="Neuronal Injury and Network Reorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Injury and Network Reorganization</div>
 
+
                 <div class="item-desc">Prolonged status epilepticus and sustained neuroinflammation cause excitotoxic and inflammatory neuronal injury with mesial-temporal/hippocampal involvement and progressive atrophy, establishing an epileptogenic network. This node captures the single concept of the injury/reorganization step that bridges the acute and chronic phases.</div>
 
 
@@ -5516,11 +5604,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5577,6 +5665,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-drug-resistant-epilepsy-and-neurocognitive-sequelae" data-dismech-node="Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae</div>
 
+
                 <div class="item-desc">In survivors, the syndrome transitions to a chronic phase of drug-resistant (usually focal/multifocal) epilepsy accompanied by cognitive impairment and behavioral difficulties. This node captures the single concept of the chronic endpoint, kept distinct from the acute status-epilepticus endpoint, and conforms to the shared epilepsy final common pathway.</div>
 
 
@@ -5591,11 +5680,11 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5758,7 +5847,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anakinra (IL-1 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra, a recombinant interleukin-1 receptor antagonist, targets the IL-1-beta-driven neuroinflammation thought to underlie FIRES and is used as an early targeted immunotherapy, with reports of seizure improvement especially when started early.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Anesthetic Burst-Suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous intravenous anesthetics (e.g., midazolam, barbiturates, ketamine) are used to induce burst-suppression and control the super-refractory status epilepticus in the intensive care unit; this is supportive seizure control rather than disease-modifying.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Behavioral Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are a common part of the chronic neurodevelopmental sequelae in survivors.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Bilateral Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal seizures frequently evolve to bilateral tonic-clonic seizures during the acute phase.\", \"meta\": {\"term_id\": \"HP:0002069\"}}, {\"id\": \"Blood-Brain Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier, which amplifies central inflammation, permits peripheral immune access, and further destabilizes neuronal excitability. This node captures the single concept of the barrier-dysfunction amplifier arm.\", \"meta\": {\"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Acute inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Cannabidiol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmaceutical-grade cannabidiol has been reported to reduce seizures in FIRES and is used as an adjunct in the chronic drug-resistant phase.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cannabidiol\"]}}, {\"id\": \"Chronic Drug-Resistant Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors develop chronic drug-resistant epilepsy after the acute phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In survivors, the syndrome transitions to a chronic phase of drug-resistant (usually focal/multifocal) epilepsy accompanied by cognitive impairment and behavioral difficulties. This node captures the single concept of the chronic endpoint, kept distinct from the acute status-epilepticus endpoint, and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors are commonly left with cognitive impairment in the chronic phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent effect of cytokine action and barrier dysfunction is a shift of cortical networks toward excitation and hypersynchrony. This node captures the single concept of the network imbalance and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interleukin-1-beta and interleukin-6 act on neurons to lower seizure threshold - enhancing NMDA-receptor-mediated excitation, impairing GABAergic inhibition, and disrupting glutamate homeostasis. This node captures the single concept of the cytokine-to-excitability link and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Innate Neuroinflammatory Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"meta\": {\"term_id\": \"HP:0001298\"}}, {\"id\": \"First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immunotherapy - high-dose corticosteroids, intravenous immunoglobulin, and/or plasma exchange - is used acutely to suppress the presumed immune-mediated process, though responses are frequently incomplete.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Focal Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are typically multifocal, with focal-onset seizures that may become bilateral tonic-clonic.\", \"meta\": {\"term_id\": \"HP:0007359\"}}, {\"id\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A functional deficiency of endogenous interleukin-1 receptor antagonist (IL-1RA, encoded by IL1RN) is a candidate permissive host factor: with the natural brake on IL-1-beta signaling weakened, a common febrile trigger can drive unchecked IL-1-beta activity. This node captures the single concept of the \\\"loss of the anti-inflammatory brakes\\\" - the gene-environment convergence at the heart of the leading FIRES model - kept separate from the febrile trigger and from the downstream inflammatory activation it permits.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"role\": \"modifier\"}}, {\"id\": \"IL1RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Innate Neuroinflammatory Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger drives activation of brain-resident innate immunity - microglia and astrocytes - with inflammasome activation and production of pro-inflammatory cytokines, prominently interleukin-1-beta and interleukin-6. A genetic predisposition of the innate immune response (e.g., variation in the IL-1 pathway) is hypothesized. This node captures the single concept of the central neuroinflammatory driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\", \"Astrocyte\"], \"biological_processes\": [\"Microglial cell activation\", \"Interleukin-1 beta production\", \"Interleukin-6 production\"], \"role\": \"mediator\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe; only a small minority retain a normal cognitive level.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Ketogenic Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is a mainstay of FIRES management and can help terminate refractory status epilepticus, with anti-seizure and anti-inflammatory effects; early initiation is often recommended.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neuronal Injury and Network Reorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and sustained neuroinflammation cause excitotoxic and inflammatory neuronal injury with mesial-temporal/hippocampal involvement and progressive atrophy, establishing an epileptogenic network. This node captures the single concept of the injury/reorganization step that bridges the acute and chronic phases.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Preceding Febrile Infection Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness (usually an upper-respiratory or gastrointestinal infection) precedes seizure onset by roughly 24 hours to two weeks in a previously healthy individual. No specific pathogen is consistently identified in the CNS, and the fever is understood as a trigger of a maladaptive immune response rather than a direct CNS infection. This node captures the single concept of the initiating febrile trigger.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"role\": \"trigger\"}}, {\"id\": \"Preceding Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness precedes seizure onset by roughly 24 hours to two weeks and is a mandatory diagnostic feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Refractory Status Epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining acute feature is new-onset refractory status epilepticus, often super-refractory, with explosive multifocal and bilateral tonic-clonic seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Super-Refractory Status Epilepticus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute phase is explosive-onset, multifocal and bilateral tonic-clonic status epilepticus that is refractory to standard antiseizure medications and frequently to anesthetic burst-suppression (super-refractory status epilepticus), often lasting weeks. This node captures the single concept of the acute catastrophic endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tocilizumab, an anti-interleukin-6-receptor monoclonal antibody, targets the IL-6-driven arm of the neuroinflammation and is used as a second-line immunomodulatory option in refractory NORSE/FIRES when IL-1 blockade is insufficient.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tocilizumab\"]}}], \"edges\": [{\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile trigger initiates a maladaptive innate immune response in the CNS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Preceding Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile illness is observed clinically as the mandatory preceding fever, 24 hours to two weeks before seizure onset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient IL-1RA braking permits unchecked IL-1-beta-driven neuroinflammatory activation on exposure to the febrile trigger.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cytokine surge acts on neurons to lower seizure threshold.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Blood-Brain Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-driven changes shift the excitation-inhibition balance toward hyperexcitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier breakdown amplifies the shift toward network hyperexcitability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network hyperexcitability manifests as explosive, drug-resistant status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Neuronal Injury and Network Reorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and inflammation injure neurons and reorganize networks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute catastrophic phase presents as new-onset refractory (often super-refractory) status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Focal Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The status epilepticus is built from multifocal, focal-onset seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Bilateral Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Those focal seizures frequently propagate to bilateral tonic-clonic seizures during the acute phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Injury and Network Reorganization\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reorganized, injured network produces chronic epilepsy and cognitive impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Chronic Drug-Resistant Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Survivors are left with chronic, usually focal or multifocal, drug-resistant epilepsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic phase carries cognitive impairment in the great majority of survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Behavioral Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are part of the chronic neurodevelopmental sequelae in survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anakinra (IL-1 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Immunotherapy\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anesthetic Burst-Suppression\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cannabidiol\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"IL1RN\", \"target\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anakinra (IL-1 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra, a recombinant interleukin-1 receptor antagonist, targets the IL-1-beta-driven neuroinflammation thought to underlie FIRES and is used as an early targeted immunotherapy, with reports of seizure improvement especially when started early.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Anesthetic Burst-Suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous intravenous anesthetics (e.g., midazolam, barbiturates, ketamine) are used to induce burst-suppression and control the super-refractory status epilepticus in the intensive care unit; this is supportive seizure control rather than disease-modifying.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Behavioral Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are a common part of the chronic neurodevelopmental sequelae in survivors.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Bilateral Tonic-Clonic Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal seizures frequently evolve to bilateral tonic-clonic seizures during the acute phase.\", \"meta\": {\"term_id\": \"HP:0002069\"}}, {\"id\": \"Blood-Brain Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier, which amplifies central inflammation, permits peripheral immune access, and further destabilizes neuronal excitability. This node captures the single concept of the barrier-dysfunction amplifier arm.\", \"meta\": {\"cell_types\": [\"Astrocyte\"], \"biological_processes\": [\"Acute inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Cannabidiol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmaceutical-grade cannabidiol has been reported to reduce seizures in FIRES and is used as an adjunct in the chronic drug-resistant phase.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cannabidiol\"]}}, {\"id\": \"Chronic Drug-Resistant Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors develop chronic drug-resistant epilepsy after the acute phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In survivors, the syndrome transitions to a chronic phase of drug-resistant (usually focal/multifocal) epilepsy accompanied by cognitive impairment and behavioral difficulties. This node captures the single concept of the chronic endpoint, kept distinct from the acute status-epilepticus endpoint, and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Survivors are commonly left with cognitive impairment in the chronic phase.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Cortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent effect of cytokine action and barrier dysfunction is a shift of cortical networks toward excitation and hypersynchrony. This node captures the single concept of the network imbalance and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interleukin-1-beta and interleukin-6 act on neurons to lower seizure threshold - enhancing NMDA-receptor-mediated excitation, impairing GABAergic inhibition, and disrupting glutamate homeostasis. This node captures the single concept of the cytokine-to-excitability link and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Innate Neuroinflammatory Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"meta\": {\"term_id\": \"HP:0001298\"}}, {\"id\": \"First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line immunotherapy - high-dose corticosteroids, intravenous immunoglobulin, and/or plasma exchange - is used acutely to suppress the presumed immune-mediated process, though responses are frequently incomplete.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Focal Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are typically multifocal, with focal-onset seizures that may become bilateral tonic-clonic.\", \"meta\": {\"term_id\": \"HP:0007359\"}}, {\"id\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A functional deficiency of endogenous interleukin-1 receptor antagonist (IL-1RA, encoded by IL1RN) is a candidate permissive host factor: with the natural brake on IL-1-beta signaling weakened, a common febrile trigger can drive unchecked IL-1-beta activity. This node captures the single concept of the \\\"loss of the anti-inflammatory brakes\\\" - the gene-environment convergence at the heart of the leading FIRES model - kept separate from the febrile trigger and from the downstream inflammatory activation it permits.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"molecular_functions\": [\"interleukin-1 receptor antagonist activity\"], \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"role\": \"modifier\"}}, {\"id\": \"IL1RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL1RN\"], \"gene_terms\": [{\"label\": \"IL1RN\", \"id\": \"hgnc:6000\"}], \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Innate Neuroinflammatory Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger drives activation of brain-resident innate immunity - microglia and astrocytes - with inflammasome activation and production of pro-inflammatory cytokines, prominently interleukin-1-beta and interleukin-6. A genetic predisposition of the innate immune response (e.g., variation in the IL-1 pathway) is hypothesized. This node captures the single concept of the central neuroinflammatory driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Microglial cell\", \"Astrocyte\"], \"biological_processes\": [\"Microglial cell activation\", \"Interleukin-1 beta production\", \"Interleukin-6 production\"], \"role\": \"mediator\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe; only a small minority retain a normal cognitive level.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Ketogenic Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is a mainstay of FIRES management and can help terminate refractory status epilepticus, with anti-seizure and anti-inflammatory effects; early initiation is often recommended.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neuronal Injury and Network Reorganization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and sustained neuroinflammation cause excitotoxic and inflammatory neuronal injury with mesial-temporal/hippocampal involvement and progressive atrophy, establishing an epileptogenic network. This node captures the single concept of the injury/reorganization step that bridges the acute and chronic phases.\", \"meta\": {\"cell_types\": [\"Neuron\"], \"role\": \"mediator\"}}, {\"id\": \"Preceding Febrile Infection Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness (usually an upper-respiratory or gastrointestinal infection) precedes seizure onset by roughly 24 hours to two weeks in a previously healthy individual. No specific pathogen is consistently identified in the CNS, and the fever is understood as a trigger of a maladaptive immune response rather than a direct CNS infection. This node captures the single concept of the initiating febrile trigger.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leukocyte\"], \"role\": \"trigger\"}}, {\"id\": \"Preceding Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A nonspecific febrile illness precedes seizure onset by roughly 24 hours to two weeks and is a mandatory diagnostic feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Refractory Status Epilepticus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining acute feature is new-onset refractory status epilepticus, often super-refractory, with explosive multifocal and bilateral tonic-clonic seizures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002133\"}}, {\"id\": \"Super-Refractory Status Epilepticus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The acute phase is explosive-onset, multifocal and bilateral tonic-clonic status epilepticus that is refractory to standard antiseizure medications and frequently to anesthetic burst-suppression (super-refractory status epilepticus), often lasting weeks. This node captures the single concept of the acute catastrophic endpoint and conforms to the shared epilepsy final common pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"role\": \"consequence\"}}, {\"id\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tocilizumab, an anti-interleukin-6-receptor monoclonal antibody, targets the IL-6-driven arm of the neuroinflammation and is used as a second-line immunomodulatory option in refractory NORSE/FIRES when IL-1 blockade is insufficient.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tocilizumab\"]}}], \"edges\": [{\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile trigger initiates a maladaptive innate immune response in the CNS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preceding Febrile Infection Trigger\", \"target\": \"Preceding Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile illness is observed clinically as the mandatory preceding fever, 24 hours to two weeks before seizure onset.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient IL-1RA braking permits unchecked IL-1-beta-driven neuroinflammatory activation on exposure to the febrile trigger.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cytokine surge acts on neurons to lower seizure threshold.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Blood-Brain Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuroinflammation disrupts the blood-brain barrier.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytokine-Driven Lowering of Seizure Threshold\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-driven changes shift the excitation-inhibition balance toward hyperexcitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Cortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier breakdown amplifies the shift toward network hyperexcitability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Excitation-Inhibition Imbalance\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Network hyperexcitability manifests as explosive, drug-resistant status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Neuronal Injury and Network Reorganization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged status epilepticus and inflammation injure neurons and reorganize networks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Refractory Status Epilepticus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The acute catastrophic phase presents as new-onset refractory (often super-refractory) status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Focal Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The status epilepticus is built from multifocal, focal-onset seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Bilateral Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Those focal seizures frequently propagate to bilateral tonic-clonic seizures during the acute phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Refractory Status Epilepticus\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encephalopathy accompanies the acute status epilepticus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Injury and Network Reorganization\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reorganized, injured network produces chronic epilepsy and cognitive impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Chronic Drug-Resistant Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Survivors are left with chronic, usually focal or multifocal, drug-resistant epilepsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic phase carries cognitive impairment in the great majority of survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most survivors are left with intellectual disability, frequently severe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"target\": \"Behavioral Abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral difficulties are part of the chronic neurodevelopmental sequelae in survivors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anakinra (IL-1 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 Receptor Antagonist)\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic Diet\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Immunotherapy\", \"target\": \"Innate Neuroinflammatory Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anesthetic Burst-Suppression\", \"target\": \"Super-Refractory Status Epilepticus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cannabidiol\", \"target\": \"Chronic Drug-Resistant Epilepsy and Neurocognitive Sequelae\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Innate Neuroinflammatory Activation\", \"target\": \"Elevated CSF and Serum Pro-Inflammatory Cytokines\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF/serum cytokines report the active neuroinflammatory driver of FIRES.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"IL1RN\", \"target\": \"Functional IL-1RA Deficiency (Permissive Host Factor)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5806,15 +5895,18 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5884,10 +5976,10 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002133</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Status epilepticus (HP:0002133), qualified as temporality acute. HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5911,6 +6003,9 @@ This clinical feature is Status epilepticus (HP:0002133), qualified as temporali
 
 
                     </div>
+
+
+
 
 
 
@@ -5973,15 +6068,18 @@ This clinical feature is Status epilepticus (HP:0002133), qualified as temporali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0007359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6007,15 +6105,18 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002069</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002069</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6041,15 +6142,18 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001298</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6075,15 +6179,18 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6144,15 +6251,18 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6215,15 +6325,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6286,10 +6399,10 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250), qualified as temporality chronic. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6313,6 +6426,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality chronic.
 
 
                     </div>
+
+
+
 
 
 
@@ -6414,10 +6530,10 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality chronic.
                         Gene: IL1RN
 
 
-    <a href="https://bioregistry.io/hgnc:6000" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6000</a>
+    <a href="https://bioregistry.io/hgnc:6000" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:6000</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is IL1RN (hgnc:6000). hgnc:6000 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6429,6 +6545,9 @@ This disease-associated gene is IL1RN (hgnc:6000). hgnc:6000 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6523,7 +6642,7 @@ This disease-associated gene is IL1RN (hgnc:6000). hgnc:6000 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6564,11 +6683,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_231683" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:231683</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_231683" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-29">CHEBI:231683</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6733,7 +6852,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6774,11 +6893,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C84217</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C84217</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -6920,7 +7039,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7109,7 +7228,7 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Immunosuppressive Therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Immunosuppressive Therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7299,7 +7418,7 @@ This treatment is Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clin
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7489,7 +7608,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7530,11 +7649,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:69478</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:69478</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7826,11 +7945,11 @@ This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agen
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8317,6 +8436,12 @@ pathophysiology:
     description: &gt;-
       Deficient IL-1RA braking permits unchecked IL-1-beta-driven neuroinflammatory
       activation on exposure to the febrile trigger.
+  molecular_functions:
+  - preferred_term: interleukin-1 receptor antagonist activity
+    term:
+      id: GO:0005152
+      label: interleukin-1 receptor antagonist activity
+    modifier: DECREASED
   evidence:
   - reference: PMID:30779222
     reference_title: &#34;Functional deficiency in endogenous interleukin-1 receptor antagonist in patients with febrile infection-related epilepsy syndrome.&#34;
@@ -9594,7 +9719,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Febrile Infection-Related Epilepsy Syndrome", "mondoId": "MONDO:0015584", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Febrile_Infection-Related_Epilepsy_Syndrome", "yamlRevision": "43eec136a34a"};
+        const OS_CONFIG = {"diseaseName": "Febrile Infection-Related Epilepsy Syndrome", "mondoId": "MONDO:0015584", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Febrile_Infection-Related_Epilepsy_Syndrome", "yamlRevision": "823e7a621000"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

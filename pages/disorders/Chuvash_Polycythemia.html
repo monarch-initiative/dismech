@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4885,6 +4927,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pvhl-binding-to-hydroxylated-hif-alpha" data-dismech-node="Impaired pVHL Binding to Hydroxylated HIF-alpha" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired pVHL Binding to Hydroxylated HIF-alpha</div>
 
+
                 <div class="item-desc">pVHL is the substrate-recognition subunit of a Cullin-2 RING E3 ubiquitin ligase. Under normal oxygen tension, prolyl hydroxylases hydroxylate conserved prolines in HIF-1-alpha and HIF-2-alpha, pVHL binds the hydroxyproline, and the HIF-alpha subunit is polyubiquitinated and destroyed by the proteasome. The Arg200Trp substitution weakens that interaction. It does not abolish it, and that distinction carries the whole disease: a hypomorph produces a chronically mis-set oxygen thermostat, where a null would produce the tumor syndrome.</div>
 
 
@@ -5023,6 +5066,44 @@ This pathophysiological event involves decreased HIF-alpha ubiquitination, annot
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        E3 ligase substrate-recognition activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_1990756" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:1990756</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased E3 ligase substrate-recognition activity, annotated with ubiquitin-like ligase-substrate adaptor activity (GO:1990756). GO:1990756 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5123,6 +5204,7 @@ This pathophysiological event involves decreased HIF-alpha ubiquitination, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-normoxic-hif-alpha-stabilization" data-dismech-node="Normoxic HIF-alpha Stabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Normoxic HIF-alpha Stabilization</div>
 
+
                 <div class="item-desc">HIF-1-alpha and HIF-2-alpha accumulate and dimerize with HIF-1-beta at normal oxygen tension. The cell believes it is short of oxygen while sitting in ordinary room air, which is why the whole phenotype reads as permanent altitude acclimatization. Both isoforms are elevated in patients, but they are not interchangeable: mouse genetics show heterozygosity for Hif2a, and not Hif1a, suppresses both the polycythemia and the pulmonary hypertension, so HIF-2-alpha is the dominant effector for the erythroid and pulmonary-vascular arms.</div>
 
 
@@ -5155,11 +5237,11 @@ This pathophysiological event involves decreased HIF-alpha ubiquitination, annot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001666</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves normoxic hypoxia response, annotated with response to hypoxia (GO:0001666), qualified as gain of function. GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5323,6 +5405,7 @@ This pathophysiological event involves normoxic hypoxia response, annotated with
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hif-target-gene-program-activation" data-dismech-node="HIF Target Gene Program Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">HIF Target Gene Program Activation</div>
 
+
                 <div class="item-desc">The stabilized HIF dimers transcribe the full hypoxia-response program at normal oxygen: erythropoietin, the glucose transporter SLC2A1, transferrin and its receptor, vascular endothelial growth factor, and endothelin-1. This is the fan-out point of the disease, and it is why a single amino-acid change produces phenotypes in blood, lung, vasculature, iron handling, and muscle metabolism at once. Note that hypoxic regulation itself remains intact and correctly shaped; only the setpoint has moved.</div>
 
 
@@ -5355,11 +5438,11 @@ This pathophysiological event involves normoxic hypoxia response, annotated with
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0071456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0071456</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cellular response to hypoxia (GO:0071456). GO:0071456 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5527,6 +5610,7 @@ This pathophysiological event involves increased cellular response to hypoxia (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythropoietin-excess-and-erythroid-expansion" data-dismech-node="Erythropoietin Excess and Erythroid Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythropoietin Excess and Erythroid Expansion</div>
 
+
                 <div class="item-desc">Circulating erythropoietin is roughly tenfold higher than in matched controls after adjusting for hemoglobin, yet the response to acute hypoxia is identical to normal, so the axis is intact and merely reset. Erythroid progenitors expand in marrow and, at least in the mouse model, in spleen. Erythroid progenitors from R200W homozygotes are additionally hypersensitive to erythropoietin, an asymmetry that is not shared by the Croatian H191D genotype. Note the discriminator from polycythemia vera: white cell and platelet counts are normal, indeed often lower than controls, rather than expanded.</div>
 
 
@@ -5541,11 +5625,11 @@ This pathophysiological event involves increased cellular response to hypoxia (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000038</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5571,11 +5655,11 @@ This pathophysiological event involves erythroid progenitor cell (CL:0000038). C
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000692" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:1000692</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000692" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:1000692</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves kidney interstitial fibroblast (CL:1000692). CL:1000692 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5612,11 +5696,11 @@ This pathophysiological event involves kidney interstitial fibroblast (CL:100069
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030218</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030218</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased erythrocyte differentiation (GO:0030218). GO:0030218 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5653,11 +5737,11 @@ This pathophysiological event involves increased erythrocyte differentiation (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002371</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5670,11 +5754,11 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002113</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5825,6 +5909,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prothrombotic-state" data-dismech-node="Prothrombotic State" data-dismech-type="pathophysiology">
                 <div class="item-name">Prothrombotic State</div>
 
+
                 <div class="item-desc">Thrombosis is the leading cause of morbidity and mortality, and this node is where the disease defies the obvious intuition. The reflex reading is high hematocrit, viscous blood, clots. In Chuvash erythrocytosis that is wrong. In 155 patients followed prospectively against 154 matched controls for eleven years, thrombotic risk rose 8.9-fold, and erythropoietin elevation, not hematocrit and not ferritin, is what correlated with it. Elevated transferrin was, unexpectedly, protective. Contributory mediators include raised plasminogen activator inhibitor-1, vascular endothelial growth factor, and endothelin-1, with a broadly prothrombotic transcriptional milieu. Model the causal edge as HIF and erythropoietin signaling to the prothrombotic state, with erythrocytosis as a parallel consequence rather than the intermediate.</div>
 
 
@@ -5846,11 +5931,11 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007596</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6005,6 +6090,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vascular-tone-and-remodeling" data-dismech-node="Pulmonary Vascular Tone and Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Vascular Tone and Remodeling</div>
 
+
                 <div class="item-desc">Basal pulmonary vascular tone is elevated and the hypoxic pulmonary vasoconstrictive response is greatly exaggerated, alongside raised basal ventilation, a physiological picture indistinguishable from acclimatization to high altitude. Roughly a third of patients have mild pulmonary hypertension by echocardiography, and tricuspid regurgitation velocity remains elevated after adjusting for blood-volume surrogates, so this is not simply a volume effect. The mouse model settles the causal question: pulmonary hypertension develops independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, all suppressed by Hif2a heterozygosity. Endothelin-1 is elevated in patients and is a HIF target.</div>
 
 
@@ -6019,11 +6105,11 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002591" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002591</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002591" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002591</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves pulmonary artery smooth muscle cell, annotated with smooth muscle cell of the pulmonary artery (CL:0002591). CL:0002591 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6060,11 +6146,11 @@ This pathophysiological event involves pulmonary artery smooth muscle cell, anno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042310</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0042310</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased pulmonary vasoconstriction, annotated with vasoconstriction (GO:0042310). GO:0042310 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6101,11 +6187,11 @@ This pathophysiological event involves increased pulmonary vasoconstriction, ann
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002012</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6254,6 +6340,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepcidin-suppression-and-iron-mobilization" data-dismech-node="Hepcidin Suppression and Iron Mobilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepcidin Suppression and Iron Mobilization</div>
 
+
                 <div class="item-desc">Hepcidin, the master regulator of iron export, is suppressed roughly threefold in homozygotes, and the suppression survives adjustment for both erythropoietin and ferritin, so it is a direct consequence of the raised hypoxic response rather than a downstream effect of accelerated erythropoiesis. Transferrin and transferrin receptor are induced as HIF targets. The clinically important interaction is iatrogenic: therapeutic phlebotomy drives iron deficiency on top of this program, and lower ferritin independently predicts higher pulmonary artery pressure.</div>
 
 
@@ -6363,6 +6450,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-reprogramming-toward-glycolysis" data-dismech-node="Metabolic Reprogramming Toward Glycolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Reprogramming Toward Glycolysis</div>
 
+
                 <div class="item-desc">Raised HIF activity induces glycolytic enzymes and pyruvate dehydrogenase kinase, shifting substrate use away from oxidative phosphorylation. During exercise this shows up as early phosphocreatine depletion and acidosis in skeletal muscle, greater blood lactate accumulation, and reduced maximum exercise capacity, with elevated muscle transcripts for pyruvate dehydrogenase kinase, phosphofructokinase, and muscle pyruvate kinase. This is the physiological substrate of the fatigue and exercise limitation patients report, and it is a rare opportunity to observe HIF-driven metabolic regulation at whole-organism level in humans.</div>
 
 
@@ -6384,11 +6472,11 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006096</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6510,6 +6598,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-solid-organ-size" data-dismech-node="Increased Solid Organ Size" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Solid Organ Size</div>
 
+
                 <div class="item-desc">Liver, spleen, and kidney volumes relative to body mass are larger in homozygotes than in matched Chuvash controls. The proposed mechanism runs through the opposing effects of the two HIF isoforms on proliferation: HIF-1-alpha induces the cyclin-dependent kinase inhibitor p21, while HIF-2-alpha promotes MYC activity and proliferation, and mouse data implicate raised hepatic HIF-2-alpha with reduced p21.</div>
 
 
@@ -6534,11 +6623,11 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002106</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002106</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6654,7 +6743,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial Thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial thrombotic events are part of the vascular complication burden that dominates outcome. Risk is driven by erythropoietin elevation rather than by hematocrit.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004420\"}}, {\"id\": \"Decreased Circulating Ferritin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ferritin is reduced, driven both by HIF-mediated iron mobilization and, more consequentially, by therapeutic phlebotomy. Low ferritin independently predicts higher pulmonary artery pressure, which makes this a treatment-caused phenotype worth modeling rather than a passive laboratory finding.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012343\"}}, {\"id\": \"Elevated Circulating Erythropoietin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Erythropoietin is inappropriately high for the hemoglobin, about tenfold higher than matched controls after adjustment, though it can fall within the normal laboratory range in individual patients. A normal erythropoietin does not exclude the diagnosis. This is also the prognostic variable that tracks thrombotic risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033644\"}}, {\"id\": \"Erythropoietin Excess and Erythroid Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating erythropoietin is roughly tenfold higher than in matched controls after adjusting for hemoglobin, yet the response to acute hypoxia is identical to normal, so the axis is intact and merely reset. Erythroid progenitors expand in marrow and, at least in the mouse model, in spleen. Erythroid progenitors from R200W homozygotes are additionally hypersensitive to erythropoietin, an asymmetry that is not shared by the Croatian H191D genotype. Note the discriminator from polycythemia vera: white cell and platelet counts are normal, indeed often lower than controls, rather than expanded.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythroid progenitor cell\", \"kidney interstitial fibroblast\"], \"biological_processes\": [\"erythrocyte differentiation\"], \"locations\": [\"bone marrow\", \"kidney\"]}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced maximum exercise capacity with early muscle acidosis and phosphocreatine depletion, the objective correlate of the fatigue patients describe.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic fatigue is a persistent symptom, with both hyperviscosity and the glycolytic metabolic shift plausibly contributing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"HIF Target Gene Program Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The stabilized HIF dimers transcribe the full hypoxia-response program at normal oxygen: erythropoietin, the glucose transporter SLC2A1, transferrin and its receptor, vascular endothelial growth factor, and endothelin-1. This is the fan-out point of the disease, and it is why a single amino-acid change produces phenotypes in blood, lung, vasculature, iron handling, and muscle metabolism at once. Note that hypoxic regulation itself remains intact and correctly shaped; only the setpoint has moved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to hypoxia\"]}}, {\"id\": \"HIF-2-alpha Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mechanism-matched therapy, and the most interesting open question in the disease. The second-generation allosteric HIF-2-alpha inhibitor belzutifan decreased erythropoietin production and reversed polycythemia in three relevant mouse models, and also lowered right ventricular pressure and mitigated pulmonary hypertension to near wild-type levels. The evidence is preclinical. There is a published human case of response in congenital polycythemia, but it is a single compound heterozygote rather than an R200W homozygote, and the cached record for that report carries no abstract text, so it is recorded in notes rather than cited as evidence here.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"belzutifan\"]}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic headache is among the commonest symptoms reported by patients, attributed to hyperviscosity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hepcidin Suppression and Iron Mobilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepcidin, the master regulator of iron export, is suppressed roughly threefold in homozygotes, and the suppression survives adjustment for both erythropoietin and ferritin, so it is a direct consequence of the raised hypoxic response rather than a downstream effect of accelerated erythropoiesis. Transferrin and transferrin receptor are induced as HIF targets. The clinically important interaction is iatrogenic: therapeutic phlebotomy drives iron deficiency on top of this program, and lower ferritin independently predicts higher pulmonary artery pressure.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired pVHL Binding to Hydroxylated HIF-alpha\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"pVHL is the substrate-recognition subunit of a Cullin-2 RING E3 ubiquitin ligase. Under normal oxygen tension, prolyl hydroxylases hydroxylate conserved prolines in HIF-1-alpha and HIF-2-alpha, pVHL binds the hydroxyproline, and the HIF-alpha subunit is polyubiquitinated and destroyed by the proteasome. The Arg200Trp substitution weakens that interaction. It does not abolish it, and that distinction carries the whole disease: a hypomorph produces a chronically mis-set oxygen thermostat, where a null would produce the tumor syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proteasome-mediated degradation of HIF-alpha\", \"HIF-alpha ubiquitination\"], \"genes\": [\"VHL\"], \"gene_terms\": [{\"label\": \"VHL\", \"id\": \"hgnc:12687\"}]}}, {\"id\": \"Increased Circulating Hemoglobin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated hemoglobin present from birth or infancy, with a mean of 22.6 g/dL in six young Chuvash patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001900\"}}, {\"id\": \"Increased Hematocrit\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated hematocrit is the presenting laboratory abnormality and the reason most patients come to attention. It is notably not the driver of the thrombotic risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001899\"}}, {\"id\": \"Increased Solid Organ Size\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver, spleen, and kidney volumes relative to body mass are larger in homozygotes than in matched Chuvash controls. The proposed mechanism runs through the opposing effects of the two HIF isoforms on proliferation: HIF-1-alpha induces the cyclin-dependent kinase inhibitor p21, while HIF-2-alpha promotes MYC activity and proliferation, and mouse data implicate raised hepatic HIF-2-alpha with reduced p21.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"spleen\"]}}, {\"id\": \"Metabolic Reprogramming Toward Glycolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised HIF activity induces glycolytic enzymes and pyruvate dehydrogenase kinase, shifting substrate use away from oxidative phosphorylation. During exercise this shows up as early phosphocreatine depletion and acidosis in skeletal muscle, greater blood lactate accumulation, and reduced maximum exercise capacity, with elevated muscle transcripts for pyruvate dehydrogenase kinase, phosphofructokinase, and muscle pyruvate kinase. This is the physiological substrate of the fatigue and exercise limitation patients report, and it is a rare opportunity to observe HIF-driven metabolic regulation at whole-organism level in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Normoxic HIF-alpha Stabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIF-1-alpha and HIF-2-alpha accumulate and dimerize with HIF-1-beta at normal oxygen tension. The cell believes it is short of oxygen while sitting in ordinary room air, which is why the whole phenotype reads as permanent altitude acclimatization. Both isoforms are elevated in patients, but they are not interchangeable: mouse genetics show heterozygosity for Hif2a, and not Hif1a, suppresses both the polycythemia and the pulmonary hypertension, so HIF-2-alpha is the dominant effector for the erythroid and pulmonary-vascular arms.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"normoxic hypoxia response\"], \"animal_models\": [{\"name\": \"VhlR200W knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vhl R200W homozygous knock-in\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"description\": \"Genetic reduction of Hif2a, but not Hif1a, in this background suppresses both the polycythemia and the pulmonary hypertension, which is the experiment that assigns isoform responsibility.\"}]}}, {\"id\": \"Prothrombotic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thrombosis is the leading cause of morbidity and mortality, and this node is where the disease defies the obvious intuition. The reflex reading is high hematocrit, viscous blood, clots. In Chuvash erythrocytosis that is wrong. In 155 patients followed prospectively against 154 matched controls for eleven years, thrombotic risk rose 8.9-fold, and erythropoietin elevation, not hematocrit and not ferritin, is what correlated with it. Elevated transferrin was, unexpectedly, protective. Contributory mediators include raised plasminogen activator inhibitor-1, vascular endothelial growth factor, and endothelin-1, with a broadly prothrombotic transcriptional milieu. Model the causal edge as HIF and erythropoietin signaling to the prothrombotic state, with erythrocytosis as a parallel consequence rather than the intermediate.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Pulmonary Arterial Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild pulmonary hypertension was present in 5 of 14 patients (36%) and no controls by Doppler echocardiography, and tricuspid regurgitation velocity remains elevated after adjustment for blood-volume surrogates.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Pulmonary Vascular Tone and Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal pulmonary vascular tone is elevated and the hypoxic pulmonary vasoconstrictive response is greatly exaggerated, alongside raised basal ventilation, a physiological picture indistinguishable from acclimatization to high altitude. Roughly a third of patients have mild pulmonary hypertension by echocardiography, and tricuspid regurgitation velocity remains elevated after adjusting for blood-volume surrogates, so this is not simply a volume effect. The mouse model settles the causal question: pulmonary hypertension develops independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, all suppressed by Hif2a heterozygosity. Endothelin-1 is elevated in patients and is a HIF target.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"pulmonary artery smooth muscle cell\"], \"biological_processes\": [\"pulmonary vasoconstriction\"], \"locations\": [\"pulmonary artery\"], \"animal_models\": [{\"name\": \"VhlR200W knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vhl R200W homozygous knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse develops pulmonary hypertension independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, and Hif2a heterozygosity suppresses it. This is what establishes the pulmonary arm as a parallel branch rather than a consequence of the raised hematocrit.\"}]}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenic volume relative to body mass is increased compared with matched controls, alongside liver and kidney.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001744\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral vascular events are the leading identified contributor to premature mortality in this disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001297\"}}, {\"id\": \"Tempol (IRP1-Mediated HIF-2-alpha Repression)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mouse-only strategy that works by a different route to the same target. Dietary Tempol increases the iron-responsive-element binding activity of Irp1, which translationally represses Hif2a. In VhlR200W mice it decreased erythropoietin production, corrected splenomegaly, normalized hematocrit, and increased lifespan, and the effect was abolished when Irp1 was genetically ablated, which is a clean demonstration that the mechanism is the one proposed. No human data exist.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Therapeutic Phlebotomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The contested standard of care. Phlebotomy reliably reduces hematocrit and relieves hyperviscosity symptoms, and that is the whole of its demonstrated benefit. Against it: it causes iron deficiency, low ferritin independently predicts higher pulmonary artery pressure, and thrombotic risk is paradoxically increased by phlebotomy in this disease. Current expert opinion is that cytoreductive therapy should be avoided and phlebotomy is seldom warranted, with frequency set by symptom control rather than a hematocrit threshold. This is the rare treatment whose target node and harm node are different nodes, and the entry models it that way.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"VHL c.598C\u003eT (p.Arg200Trp) Homozygosity\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"VHL\"], \"gene_terms\": [{\"label\": \"VHL\", \"id\": \"hgnc:12687\"}], \"frequency\": \"OBLIGATE\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Venous Thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Venous thrombotic events, including deep vein thrombosis, occur alongside the arterial events. Over eleven years of prospective follow-up thrombotic risk was 8.9-fold higher in patients than matched controls.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004936\"}}, {\"id\": \"VhlR200W knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knock-in mouse homozygous for the same R200W substitution, and the workhorse of the field. It recapitulates the polycythemia, the enhanced normoxic respiration, and the pulmonary hypertension, and it has been the system in which the isoform question, the therapeutic questions, and the pulmonary-versus-erythroid independence question were all settled.\"}], \"edges\": [{\"source\": \"Impaired pVHL Binding to Hydroxylated HIF-alpha\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pVHL binding slows HIF-alpha degradation, so HIF-alpha accumulates despite normal oxygen tension.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Normoxic HIF-alpha Stabilization\", \"target\": \"HIF Target Gene Program Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilized HIF-alpha dimers drive transcription of the hypoxia-response program despite normoxia.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Normoxic HIF-alpha Stabilization\", \"target\": \"Pulmonary Vascular Tone and Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-2-alpha activity drives the pulmonary vascular phenotype, which mouse genetics show develops independently of the polycythemia.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Erythropoietin Excess and Erythroid Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional induction of EPO raises circulating erythropoietin about tenfold for the prevailing hemoglobin.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Prothrombotic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-driven signaling, indexed clinically by the erythropoietin elevation, is what tracks thrombotic risk. This edge runs in parallel with the erythroid arm rather than through it.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Hepcidin Suppression and Iron Mobilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transferrin and transferrin receptor induction together with hepcidin suppression reconfigure systemic iron handling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Metabolic Reprogramming Toward Glycolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Induction of glycolytic enzymes and pyruvate dehydrogenase kinase shifts substrate use toward glycolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Increased Solid Organ Size\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-2-alpha-driven proliferation with reduced p21 enlarges liver, spleen, and kidney relative to body mass.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Increased Circulating Hemoglobin Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythroid expansion raises hemoglobin from early life.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Increased Hematocrit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythroid expansion raises hematocrit from early life.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Elevated Circulating Erythropoietin Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythropoietin is inappropriately high or high-normal for the hemoglobin.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperviscosity from the expanded red cell mass contributes to chronic headache.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic symptom burden includes fatigue.\"}, {\"source\": \"Prothrombotic State\", \"target\": \"Arterial Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The prothrombotic state manifests as arterial thrombotic events.\"}, {\"source\": \"Prothrombotic State\", \"target\": \"Venous Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The prothrombotic state manifests as venous thrombotic events.\"}, {\"source\": \"Prothrombotic State\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral vascular events are the leading contributor to premature mortality.\"}, {\"source\": \"Pulmonary Vascular Tone and Remodeling\", \"target\": \"Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated tone and vascular remodeling raise pulmonary artery pressure.\"}, {\"source\": \"Pulmonary Vascular Tone and Remodeling\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated pulmonary vascular tone contributes to reduced exercise capacity.\"}, {\"source\": \"Hepcidin Suppression and Iron Mobilization\", \"target\": \"Decreased Circulating Ferritin Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-driven iron mobilization compounded by therapeutic phlebotomy lowers ferritin.\"}, {\"source\": \"Hepcidin Suppression and Iron Mobilization\", \"target\": \"Pulmonary Vascular Tone and Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower ferritin independently predicts higher tricuspid regurgitation velocity, so iron depletion feeds back onto the pulmonary vascular node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic Reprogramming Toward Glycolysis\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early muscle acidosis and phosphocreatine depletion reduce maximum exercise capacity.\"}, {\"source\": \"Metabolic Reprogramming Toward Glycolysis\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The metabolic shift contributes to the chronic fatigue reported by patients.\"}, {\"source\": \"Increased Solid Organ Size\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic volume is increased relative to body mass.\"}, {\"source\": \"Therapeutic Phlebotomy\", \"target\": \"Erythropoietin Excess and Erythroid Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HIF-2-alpha Inhibition\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tempol (IRP1-Mediated HIF-2-alpha Repression)\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"VhlR200W knock-in mouse\", \"target\": \"Pulmonary Vascular Tone and Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse develops pulmonary hypertension independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, and Hif2a heterozygosity suppresses it. This is what establishes the pulmonary arm as a parallel branch rather than a consequence of the raised hematocrit.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Older mice additionally develop pulmonary fibrosis, which is not a documented feature of the human disease, so the model overshoots on that axis. Mouse pulmonary vascular physiology differs from human, and the inflammatory component was not suppressed by Hif2a heterozygosity even though the vascular changes were.\"}, {\"source\": \"VhlR200W knock-in mouse\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Genetic reduction of Hif2a, but not Hif1a, in this background suppresses both the polycythemia and the pulmonary hypertension, which is the experiment that assigns isoform responsibility.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"limitations\": \"Epistasis in the mouse assigns the dominant effector isoform but does not exclude a HIF-1-alpha contribution to other arms of the human phenotype, notably the metabolic one, and human patients have both isoforms elevated.\"}, {\"source\": \"VHL c.598C\u003eT (p.Arg200Trp) Homozygosity\", \"target\": \"Impaired pVHL Binding to Hydroxylated HIF-alpha\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial Thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial thrombotic events are part of the vascular complication burden that dominates outcome. Risk is driven by erythropoietin elevation rather than by hematocrit.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004420\"}}, {\"id\": \"Decreased Circulating Ferritin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ferritin is reduced, driven both by HIF-mediated iron mobilization and, more consequentially, by therapeutic phlebotomy. Low ferritin independently predicts higher pulmonary artery pressure, which makes this a treatment-caused phenotype worth modeling rather than a passive laboratory finding.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012343\"}}, {\"id\": \"Elevated Circulating Erythropoietin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Erythropoietin is inappropriately high for the hemoglobin, about tenfold higher than matched controls after adjustment, though it can fall within the normal laboratory range in individual patients. A normal erythropoietin does not exclude the diagnosis. This is also the prognostic variable that tracks thrombotic risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033644\"}}, {\"id\": \"Erythropoietin Excess and Erythroid Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating erythropoietin is roughly tenfold higher than in matched controls after adjusting for hemoglobin, yet the response to acute hypoxia is identical to normal, so the axis is intact and merely reset. Erythroid progenitors expand in marrow and, at least in the mouse model, in spleen. Erythroid progenitors from R200W homozygotes are additionally hypersensitive to erythropoietin, an asymmetry that is not shared by the Croatian H191D genotype. Note the discriminator from polycythemia vera: white cell and platelet counts are normal, indeed often lower than controls, rather than expanded.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythroid progenitor cell\", \"kidney interstitial fibroblast\"], \"biological_processes\": [\"erythrocyte differentiation\"], \"locations\": [\"bone marrow\", \"kidney\"]}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced maximum exercise capacity with early muscle acidosis and phosphocreatine depletion, the objective correlate of the fatigue patients describe.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic fatigue is a persistent symptom, with both hyperviscosity and the glycolytic metabolic shift plausibly contributing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"HIF Target Gene Program Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The stabilized HIF dimers transcribe the full hypoxia-response program at normal oxygen: erythropoietin, the glucose transporter SLC2A1, transferrin and its receptor, vascular endothelial growth factor, and endothelin-1. This is the fan-out point of the disease, and it is why a single amino-acid change produces phenotypes in blood, lung, vasculature, iron handling, and muscle metabolism at once. Note that hypoxic regulation itself remains intact and correctly shaped; only the setpoint has moved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to hypoxia\"]}}, {\"id\": \"HIF-2-alpha Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mechanism-matched therapy, and the most interesting open question in the disease. The second-generation allosteric HIF-2-alpha inhibitor belzutifan decreased erythropoietin production and reversed polycythemia in three relevant mouse models, and also lowered right ventricular pressure and mitigated pulmonary hypertension to near wild-type levels. The evidence is preclinical. There is a published human case of response in congenital polycythemia, but it is a single compound heterozygote rather than an R200W homozygote, and the cached record for that report carries no abstract text, so it is recorded in notes rather than cited as evidence here.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"belzutifan\"]}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic headache is among the commonest symptoms reported by patients, attributed to hyperviscosity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hepcidin Suppression and Iron Mobilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepcidin, the master regulator of iron export, is suppressed roughly threefold in homozygotes, and the suppression survives adjustment for both erythropoietin and ferritin, so it is a direct consequence of the raised hypoxic response rather than a downstream effect of accelerated erythropoiesis. Transferrin and transferrin receptor are induced as HIF targets. The clinically important interaction is iatrogenic: therapeutic phlebotomy drives iron deficiency on top of this program, and lower ferritin independently predicts higher pulmonary artery pressure.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired pVHL Binding to Hydroxylated HIF-alpha\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"pVHL is the substrate-recognition subunit of a Cullin-2 RING E3 ubiquitin ligase. Under normal oxygen tension, prolyl hydroxylases hydroxylate conserved prolines in HIF-1-alpha and HIF-2-alpha, pVHL binds the hydroxyproline, and the HIF-alpha subunit is polyubiquitinated and destroyed by the proteasome. The Arg200Trp substitution weakens that interaction. It does not abolish it, and that distinction carries the whole disease: a hypomorph produces a chronically mis-set oxygen thermostat, where a null would produce the tumor syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proteasome-mediated degradation of HIF-alpha\", \"HIF-alpha ubiquitination\"], \"molecular_functions\": [\"E3 ligase substrate-recognition activity\"], \"genes\": [\"VHL\"], \"gene_terms\": [{\"label\": \"VHL\", \"id\": \"hgnc:12687\"}]}}, {\"id\": \"Increased Circulating Hemoglobin Concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated hemoglobin present from birth or infancy, with a mean of 22.6 g/dL in six young Chuvash patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001900\"}}, {\"id\": \"Increased Hematocrit\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated hematocrit is the presenting laboratory abnormality and the reason most patients come to attention. It is notably not the driver of the thrombotic risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001899\"}}, {\"id\": \"Increased Solid Organ Size\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver, spleen, and kidney volumes relative to body mass are larger in homozygotes than in matched Chuvash controls. The proposed mechanism runs through the opposing effects of the two HIF isoforms on proliferation: HIF-1-alpha induces the cyclin-dependent kinase inhibitor p21, while HIF-2-alpha promotes MYC activity and proliferation, and mouse data implicate raised hepatic HIF-2-alpha with reduced p21.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"spleen\"]}}, {\"id\": \"Metabolic Reprogramming Toward Glycolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised HIF activity induces glycolytic enzymes and pyruvate dehydrogenase kinase, shifting substrate use away from oxidative phosphorylation. During exercise this shows up as early phosphocreatine depletion and acidosis in skeletal muscle, greater blood lactate accumulation, and reduced maximum exercise capacity, with elevated muscle transcripts for pyruvate dehydrogenase kinase, phosphofructokinase, and muscle pyruvate kinase. This is the physiological substrate of the fatigue and exercise limitation patients report, and it is a rare opportunity to observe HIF-driven metabolic regulation at whole-organism level in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glycolytic process\"]}}, {\"id\": \"Normoxic HIF-alpha Stabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HIF-1-alpha and HIF-2-alpha accumulate and dimerize with HIF-1-beta at normal oxygen tension. The cell believes it is short of oxygen while sitting in ordinary room air, which is why the whole phenotype reads as permanent altitude acclimatization. Both isoforms are elevated in patients, but they are not interchangeable: mouse genetics show heterozygosity for Hif2a, and not Hif1a, suppresses both the polycythemia and the pulmonary hypertension, so HIF-2-alpha is the dominant effector for the erythroid and pulmonary-vascular arms.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"normoxic hypoxia response\"], \"animal_models\": [{\"name\": \"VhlR200W knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vhl R200W homozygous knock-in\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"description\": \"Genetic reduction of Hif2a, but not Hif1a, in this background suppresses both the polycythemia and the pulmonary hypertension, which is the experiment that assigns isoform responsibility.\"}]}}, {\"id\": \"Prothrombotic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thrombosis is the leading cause of morbidity and mortality, and this node is where the disease defies the obvious intuition. The reflex reading is high hematocrit, viscous blood, clots. In Chuvash erythrocytosis that is wrong. In 155 patients followed prospectively against 154 matched controls for eleven years, thrombotic risk rose 8.9-fold, and erythropoietin elevation, not hematocrit and not ferritin, is what correlated with it. Elevated transferrin was, unexpectedly, protective. Contributory mediators include raised plasminogen activator inhibitor-1, vascular endothelial growth factor, and endothelin-1, with a broadly prothrombotic transcriptional milieu. Model the causal edge as HIF and erythropoietin signaling to the prothrombotic state, with erythrocytosis as a parallel consequence rather than the intermediate.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Pulmonary Arterial Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild pulmonary hypertension was present in 5 of 14 patients (36%) and no controls by Doppler echocardiography, and tricuspid regurgitation velocity remains elevated after adjustment for blood-volume surrogates.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Pulmonary Vascular Tone and Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal pulmonary vascular tone is elevated and the hypoxic pulmonary vasoconstrictive response is greatly exaggerated, alongside raised basal ventilation, a physiological picture indistinguishable from acclimatization to high altitude. Roughly a third of patients have mild pulmonary hypertension by echocardiography, and tricuspid regurgitation velocity remains elevated after adjusting for blood-volume surrogates, so this is not simply a volume effect. The mouse model settles the causal question: pulmonary hypertension develops independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, all suppressed by Hif2a heterozygosity. Endothelin-1 is elevated in patients and is a HIF target.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"pulmonary artery smooth muscle cell\"], \"biological_processes\": [\"pulmonary vasoconstriction\"], \"locations\": [\"pulmonary artery\"], \"animal_models\": [{\"name\": \"VhlR200W knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Vhl R200W homozygous knock-in\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The mouse develops pulmonary hypertension independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, and Hif2a heterozygosity suppresses it. This is what establishes the pulmonary arm as a parallel branch rather than a consequence of the raised hematocrit.\"}]}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenic volume relative to body mass is increased compared with matched controls, alongside liver and kidney.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001744\"}}, {\"id\": \"Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral vascular events are the leading identified contributor to premature mortality in this disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001297\"}}, {\"id\": \"Tempol (IRP1-Mediated HIF-2-alpha Repression)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A mouse-only strategy that works by a different route to the same target. Dietary Tempol increases the iron-responsive-element binding activity of Irp1, which translationally represses Hif2a. In VhlR200W mice it decreased erythropoietin production, corrected splenomegaly, normalized hematocrit, and increased lifespan, and the effect was abolished when Irp1 was genetically ablated, which is a clean demonstration that the mechanism is the one proposed. No human data exist.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Therapeutic Phlebotomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The contested standard of care. Phlebotomy reliably reduces hematocrit and relieves hyperviscosity symptoms, and that is the whole of its demonstrated benefit. Against it: it causes iron deficiency, low ferritin independently predicts higher pulmonary artery pressure, and thrombotic risk is paradoxically increased by phlebotomy in this disease. Current expert opinion is that cytoreductive therapy should be avoided and phlebotomy is seldom warranted, with frequency set by symptom control rather than a hematocrit threshold. This is the rare treatment whose target node and harm node are different nodes, and the entry models it that way.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"VHL c.598C\u003eT (p.Arg200Trp) Homozygosity\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"VHL\"], \"gene_terms\": [{\"label\": \"VHL\", \"id\": \"hgnc:12687\"}], \"frequency\": \"OBLIGATE\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Venous Thrombosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Venous thrombotic events, including deep vein thrombosis, occur alongside the arterial events. Over eleven years of prospective follow-up thrombotic risk was 8.9-fold higher in patients than matched controls.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004936\"}}, {\"id\": \"VhlR200W knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knock-in mouse homozygous for the same R200W substitution, and the workhorse of the field. It recapitulates the polycythemia, the enhanced normoxic respiration, and the pulmonary hypertension, and it has been the system in which the isoform question, the therapeutic questions, and the pulmonary-versus-erythroid independence question were all settled.\"}], \"edges\": [{\"source\": \"Impaired pVHL Binding to Hydroxylated HIF-alpha\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pVHL binding slows HIF-alpha degradation, so HIF-alpha accumulates despite normal oxygen tension.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Normoxic HIF-alpha Stabilization\", \"target\": \"HIF Target Gene Program Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilized HIF-alpha dimers drive transcription of the hypoxia-response program despite normoxia.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Normoxic HIF-alpha Stabilization\", \"target\": \"Pulmonary Vascular Tone and Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-2-alpha activity drives the pulmonary vascular phenotype, which mouse genetics show develops independently of the polycythemia.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Erythropoietin Excess and Erythroid Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional induction of EPO raises circulating erythropoietin about tenfold for the prevailing hemoglobin.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Prothrombotic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-driven signaling, indexed clinically by the erythropoietin elevation, is what tracks thrombotic risk. This edge runs in parallel with the erythroid arm rather than through it.\", \"hypothesis_groups\": [\"canonical_hif_stabilization\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Hepcidin Suppression and Iron Mobilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transferrin and transferrin receptor induction together with hepcidin suppression reconfigure systemic iron handling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Metabolic Reprogramming Toward Glycolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Induction of glycolytic enzymes and pyruvate dehydrogenase kinase shifts substrate use toward glycolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIF Target Gene Program Activation\", \"target\": \"Increased Solid Organ Size\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-2-alpha-driven proliferation with reduced p21 enlarges liver, spleen, and kidney relative to body mass.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Increased Circulating Hemoglobin Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythroid expansion raises hemoglobin from early life.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Increased Hematocrit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythroid expansion raises hematocrit from early life.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Elevated Circulating Erythropoietin Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythropoietin is inappropriately high or high-normal for the hemoglobin.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperviscosity from the expanded red cell mass contributes to chronic headache.\"}, {\"source\": \"Erythropoietin Excess and Erythroid Expansion\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic symptom burden includes fatigue.\"}, {\"source\": \"Prothrombotic State\", \"target\": \"Arterial Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The prothrombotic state manifests as arterial thrombotic events.\"}, {\"source\": \"Prothrombotic State\", \"target\": \"Venous Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The prothrombotic state manifests as venous thrombotic events.\"}, {\"source\": \"Prothrombotic State\", \"target\": \"Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebral vascular events are the leading contributor to premature mortality.\"}, {\"source\": \"Pulmonary Vascular Tone and Remodeling\", \"target\": \"Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated tone and vascular remodeling raise pulmonary artery pressure.\"}, {\"source\": \"Pulmonary Vascular Tone and Remodeling\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated pulmonary vascular tone contributes to reduced exercise capacity.\"}, {\"source\": \"Hepcidin Suppression and Iron Mobilization\", \"target\": \"Decreased Circulating Ferritin Concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HIF-driven iron mobilization compounded by therapeutic phlebotomy lowers ferritin.\"}, {\"source\": \"Hepcidin Suppression and Iron Mobilization\", \"target\": \"Pulmonary Vascular Tone and Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower ferritin independently predicts higher tricuspid regurgitation velocity, so iron depletion feeds back onto the pulmonary vascular node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic Reprogramming Toward Glycolysis\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early muscle acidosis and phosphocreatine depletion reduce maximum exercise capacity.\"}, {\"source\": \"Metabolic Reprogramming Toward Glycolysis\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The metabolic shift contributes to the chronic fatigue reported by patients.\"}, {\"source\": \"Increased Solid Organ Size\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic volume is increased relative to body mass.\"}, {\"source\": \"Therapeutic Phlebotomy\", \"target\": \"Erythropoietin Excess and Erythroid Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HIF-2-alpha Inhibition\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tempol (IRP1-Mediated HIF-2-alpha Repression)\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"VhlR200W knock-in mouse\", \"target\": \"Pulmonary Vascular Tone and Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse develops pulmonary hypertension independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, and Hif2a heterozygosity suppresses it. This is what establishes the pulmonary arm as a parallel branch rather than a consequence of the raised hematocrit.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Older mice additionally develop pulmonary fibrosis, which is not a documented feature of the human disease, so the model overshoots on that axis. Mouse pulmonary vascular physiology differs from human, and the inflammatory component was not suppressed by Hif2a heterozygosity even though the vascular changes were.\"}, {\"source\": \"VhlR200W knock-in mouse\", \"target\": \"Normoxic HIF-alpha Stabilization\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Genetic reduction of Hif2a, but not Hif1a, in this background suppresses both the polycythemia and the pulmonary hypertension, which is the experiment that assigns isoform responsibility.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"HIGH\", \"limitations\": \"Epistasis in the mouse assigns the dominant effector isoform but does not exclude a HIF-1-alpha contribution to other arms of the human phenotype, notably the metabolic one, and human patients have both isoforms elevated.\"}, {\"source\": \"VHL c.598C\u003eT (p.Arg200Trp) Homozygosity\", \"target\": \"Impaired pVHL Binding to Hydroxylated HIF-alpha\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6710,15 +6799,18 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001900</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001900</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased circulating hemoglobin concentration (HP:0001900). HP:0001900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6779,15 +6871,18 @@ This clinical feature is Increased circulating hemoglobin concentration (HP:0001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001899" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001899</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001899" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001899</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased hematocrit (HP:0001899). HP:0001899 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6848,15 +6943,18 @@ This clinical feature is Increased hematocrit (HP:0001899). HP:0001899 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004420</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004420</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6917,15 +7015,18 @@ This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004936</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7020,15 +7121,18 @@ This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7091,15 +7195,18 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002092</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7185,15 +7292,18 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002619</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002619</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7254,15 +7364,18 @@ This clinical feature is Varicose veins (HP:0002619). HP:0002619 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vertebral hemangioma, annotated with Hemangioma (HP:0001028). HP:0001028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7323,15 +7436,18 @@ This clinical feature is Vertebral hemangioma, annotated with Hemangioma (HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002632" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002632</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002632" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002632</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Low-to-normal blood pressure (HP:0002632). HP:0002632 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7392,15 +7508,18 @@ This clinical feature is Low-to-normal blood pressure (HP:0002632). HP:0002632 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7470,15 +7589,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0033644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0033644</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating erythropoietin concentration (HP:0033644). HP:0033644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7548,15 +7670,18 @@ This clinical feature is Elevated circulating erythropoietin concentration (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012343</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating ferritin concentration (HP:0012343). HP:0012343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7651,10 +7776,10 @@ This clinical feature is Decreased circulating ferritin concentration (HP:001234
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315), qualified as temporality chronic. HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7678,6 +7803,9 @@ This clinical feature is Headache (HP:0002315), qualified as temporality chronic
 
 
                     </div>
+
+
+
 
 
 
@@ -7747,15 +7875,18 @@ This clinical feature is Headache (HP:0002315), qualified as temporality chronic
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7816,10 +7947,10 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic. HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7843,6 +7974,9 @@ This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic.
 
 
                     </div>
+
+
+
 
 
 
@@ -7944,10 +8078,10 @@ This clinical feature is Fatigue (HP:0012378), qualified as temporality chronic.
                         Gene: VHL
 
 
-    <a href="https://bioregistry.io/hgnc:12687" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:12687</a>
+    <a href="https://bioregistry.io/hgnc:12687" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:12687</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7959,6 +8093,9 @@ This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8043,10 +8180,10 @@ This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the 
                         Gene: EPO
 
 
-    <a href="https://bioregistry.io/hgnc:3415" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:3415</a>
+    <a href="https://bioregistry.io/hgnc:3415" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:3415</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is EPO (hgnc:3415). hgnc:3415 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8058,6 +8195,9 @@ This disease-associated gene is EPO (hgnc:3415). hgnc:3415 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8117,10 +8257,10 @@ This disease-associated gene is EPO (hgnc:3415). hgnc:3415 is a gene from the HU
                         Gene: TF
 
 
-    <a href="https://bioregistry.io/hgnc:11740" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:11740</a>
+    <a href="https://bioregistry.io/hgnc:11740" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:11740</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TF (hgnc:11740). hgnc:11740 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8132,6 +8272,9 @@ This disease-associated gene is TF (hgnc:11740). hgnc:11740 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8201,7 +8344,7 @@ This disease-associated gene is TF (hgnc:11740). hgnc:11740 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">phlebotomy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">phlebotomy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8382,7 +8525,7 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8423,11 +8566,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:15365</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:15365</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -8539,7 +8682,7 @@ This treatment uses acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therape
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">anticoagulation therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">anticoagulation therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8650,7 +8793,7 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8691,11 +8834,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C135627" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C135627</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C135627" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C135627</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8825,7 +8968,7 @@ This treatment uses belzutifan (NCIT:C135627). NCIT:C135627 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9418,10 +9561,10 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
                 </div>
 
-                <div class="evidence-snippet">"We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12 first-degree family members."</div>
+                <div class="evidence-snippet">"Familial and congenital polycythemia, not due to high oxygen affinity hemoglobin or reduced 2,3-diphosphoglycerate in erythrocytes, is common in the Chuvash population of the Russian Federation. Hundreds of individuals appear to be affected in an autosomal recessive pattern. We studied six..."</div>
 
 
-                <div class="evidence-explanation">Establishes that the phenotype is present and detectable in childhood and adolescence.</div>
+                <div class="evidence-explanation">Connects the six young Chuvash patients to familial congenital polycythemia. Enrollment before twenty does not itself measure onset or establish an insidious presentation.</div>
 
 
 
@@ -10265,6 +10408,12 @@ pathophysiology:
     term:
       id: hgnc:12687
       label: VHL
+  molecular_functions:
+  - preferred_term: E3 ligase substrate-recognition activity
+    term:
+      id: GO:1990756
+      label: ubiquitin-like ligase-substrate adaptor activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: proteasome-mediated degradation of HIF-alpha
     term:
@@ -11313,10 +11462,15 @@ progression:
     reference_title: Congenital polycythemia in Chuvashia.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12 first-degree family members.&#34;
+    snippet: &gt;-
+      Familial and congenital polycythemia, not due to high oxygen affinity hemoglobin or reduced
+      2,3-diphosphoglycerate in erythrocytes, is common in the Chuvash population of the Russian
+      Federation. Hundreds of individuals appear to be affected in an autosomal recessive pattern.
+      We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12
+      first-degree family members.
     explanation: &gt;-
-      Establishes that the phenotype is present and detectable in childhood and
-      adolescence.
+      Connects the six young Chuvash patients to familial congenital polycythemia. Enrollment before
+      twenty does not itself measure onset or establish an insidious presentation.
 - phase: Adult event-driven course
   notes: &gt;-
     Hematologically the disease is stable or slowly progressive; clinically it is
@@ -13647,7 +13801,7 @@ Mouse: TG101209 "reversed the disease phenotype in Vhl(R200W/R200W) knock-in mic
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chuvash Polycythemia", "mondoId": "MONDO:0009892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chuvash_Polycythemia", "yamlRevision": "0a5a0e17e5fb"};
+        const OS_CONFIG = {"diseaseName": "Chuvash Polycythemia", "mondoId": "MONDO:0009892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chuvash_Polycythemia", "yamlRevision": "f73f7ff7fb8a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

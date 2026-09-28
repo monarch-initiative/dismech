@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4074,6 +4116,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-larval-infection-of-the-nervous-system-neurocysticercosis" data-dismech-node="Larval infection of the nervous system (neurocysticercosis)" data-dismech-type="pathophysiology">
                 <div class="item-name">Larval infection of the nervous system (neurocysticercosis)</div>
 
+
                 <div class="item-desc">Larval Taenia solium infects the human nervous system.</div>
 
 
@@ -4155,6 +4198,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyst-degeneration-and-perilesional-inflammation" data-dismech-node="Cyst Degeneration and Perilesional Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyst Degeneration and Perilesional Inflammation</div>
+
 
                 <div class="item-desc">A strong host inflammatory reaction destroys the cyst, producing perilesional inflammation and granuloma formation in the brain parenchyma.</div>
 
@@ -4270,6 +4314,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-residual-parenchymal-calcification" data-dismech-node="Residual Parenchymal Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Residual Parenchymal Calcification</div>
 
+
                 <div class="item-desc">Calcified granulomas persist in the brain parenchyma for life and act as chronic epileptogenic foci, with perilesional gliosis, oedema and blood-brain barrier disruption reported on human biopsy.</div>
 
 
@@ -4361,6 +4406,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extraparenchymal-cyst-burden-with-impaired-csf-flow" data-dismech-node="Extraparenchymal Cyst Burden with Impaired CSF Flow" data-dismech-type="pathophysiology">
                 <div class="item-name">Extraparenchymal Cyst Burden with Impaired CSF Flow</div>
+
 
                 <div class="item-desc">In the ventricles and subarachnoid cisterns, two mechanisms impair CSF flow: inflammation once the immune system recognizes cyst antigens (arachnoiditis, basal fibrosis, ependymitis), and direct mechanical obstruction by the cysts themselves, which can cause hydrocephalus even without inflammation.</div>
 
@@ -4547,6 +4593,9 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4652,6 +4701,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4739,6 +4791,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4833,6 +4888,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5627,6 +5685,161 @@ This treatment is Surgical Management (NCIT:C16080). NCIT:C16080 is a clinical i
 
         <!-- Transmission -->
 
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-ingestion-of-undercooked-pork-containing-cysticerci">
+                <div class="item-name">Ingestion of undercooked pork containing cysticerci</div>
+
+                <div class="item-desc">Taeniasis, the intestinal adult-tapeworm infection, is acquired by eating undercooked pork carrying larval cysticerci. The ingested cysticercus everts, attaches to the small-intestinal wall, and matures into the adult worm, which makes the pork eater the definitive host and the source of eggs for everyone else.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12932389" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12932389" target="_blank">PMID:12932389</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Taeniasis occurs only in the human host, after ingestion of undercooked pork infected with cysticerci."</div>
+
+
+                <div class="evidence-explanation">States the route by which taeniasis specifically is acquired.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280880" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280880" target="_blank">PMID:39280880</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This infection follows the ingestion of contaminated pork containing T. solium cysticerci."</div>
+
+
+                <div class="evidence-explanation">Confirms the pork-ingestion route. The quote is this control-programme study&#39;s background statement of the life cycle rather than its own result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-faecal-oral-ingestion-of-taenia-solium-eggs">
+                <div class="item-name">Faecal-oral ingestion of Taenia solium eggs</div>
+
+                <div class="item-desc">Cysticercosis, including neurocysticercosis, is acquired by swallowing eggs shed in the faeces of a human tapeworm carrier, not by eating pork. This is why people who never eat pork can develop cysticercosis, and why the disease tracks sanitation and proximity to a carrier rather than meat consumption. The two routes are therefore distinct despite sharing one parasite.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12932389" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12932389" target="_blank">PMID:12932389</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Human beings acquire cysticercosis through faecal-oral contamination with T solium eggs from tapeworm carriers."</div>
+
+
+                <div class="evidence-explanation">States the faecal-oral egg route for cysticercosis and identifies tapeworm carriers as the source, separating it from the pork route above.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38535559" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38535559" target="_blank">PMID:38535559</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is caused by the ingestion of eggs from the adult tapeworm, Taenia solium, and is highly associated with poor sanitary conditions."</div>
+
+
+                <div class="evidence-explanation">Confirms egg ingestion as the cause of neurocysticercosis and links it to sanitation rather than to pork consumption.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Burden -->
 
@@ -5721,6 +5934,54 @@ agent_life_cycle:
       supports: SUPPORT
       snippet: &#34;This paper reviews all aspects of its life cycle (taeniasis, porcine cysticercosis, human cysticercosis)&#34;
       explanation: The life cycle includes taeniasis as the adult worm stage.
+transmission:
+- name: Ingestion of undercooked pork containing cysticerci
+  description: &gt;-
+    Taeniasis, the intestinal adult-tapeworm infection, is acquired by eating
+    undercooked pork carrying larval cysticerci. The ingested cysticercus
+    everts, attaches to the small-intestinal wall, and matures into the adult
+    worm, which makes the pork eater the definitive host and the source of eggs
+    for everyone else.
+  evidence:
+  - reference: PMID:12932389
+    reference_title: &#34;Taenia solium cysticercosis.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Taeniasis occurs only in the human host, after ingestion of undercooked pork infected with cysticerci.&#34;
+    explanation: States the route by which taeniasis specifically is acquired.
+  - reference: PMID:39280880
+    reference_title: &#34;Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;This infection follows the ingestion of contaminated pork containing T. solium cysticerci.&#34;
+    explanation: &gt;-
+      Confirms the pork-ingestion route. The quote is this control-programme
+      study&#39;s background statement of the life cycle rather than its own result.
+- name: Faecal-oral ingestion of Taenia solium eggs
+  description: &gt;-
+    Cysticercosis, including neurocysticercosis, is acquired by swallowing eggs
+    shed in the faeces of a human tapeworm carrier, not by eating pork. This is
+    why people who never eat pork can develop cysticercosis, and why the disease
+    tracks sanitation and proximity to a carrier rather than meat consumption.
+    The two routes are therefore distinct despite sharing one parasite.
+  evidence:
+  - reference: PMID:12932389
+    reference_title: &#34;Taenia solium cysticercosis.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Human beings acquire cysticercosis through faecal-oral contamination with T solium eggs from tapeworm carriers.&#34;
+    explanation: &gt;-
+      States the faecal-oral egg route for cysticercosis and identifies tapeworm
+      carriers as the source, separating it from the pork route above.
+  - reference: PMID:38535559
+    reference_title: Current Role of Surgery in the Treatment of Neurocysticercosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;It is caused by the ingestion of eggs from the adult tapeworm, Taenia solium, and is highly associated with poor sanitary conditions.&#34;
+    explanation: &gt;-
+      Confirms egg ingestion as the cause of neurocysticercosis and links it to
+      sanitation rather than to pork consumption.
 pathophysiology:
 - name: Larval infection of the nervous system (neurocysticercosis)
   description: Larval Taenia solium infects the human nervous system.
@@ -5737,28 +5998,22 @@ pathophysiology:
       reaction that arises either by natural evolution or after antiparasitic treatment.
     evidence:
     - reference: PMID:38251334
-      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-        Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Tapeworm larvae establish in the human brain initially as viable brain
-        cysts causing only minimal or no inflammation&#34;
-      explanation: Establishes the quiescent viable-cyst stage that precedes the
-        inflammatory degeneration node.
+      snippet: &#34;Tapeworm larvae establish in the human brain initially as viable brain cysts causing only minimal or no inflammation&#34;
+      explanation: Establishes the quiescent viable-cyst stage that precedes the inflammatory degeneration node.
   - target: Extraparenchymal Cyst Burden with Impaired CSF Flow
     description: &gt;-
       Cysts lodged in the ventricles and subarachnoid cisterns follow a different course
       from parenchymal cysts, remaining hidden from immune surveillance for years.
     evidence:
     - reference: PMID:38535559
-      reference_title: &#34;Current Role of Surgery in the Treatment of
-        Neurocysticercosis.&#34;
+      reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;The evolution of cysts in the CSF compartments (the brain ventricles and
-        the subarachnoid space) is different.&#34;
-      explanation: Separates the extraparenchymal compartment, whose cysts drive the
-        hydrocephalus arm, from the parenchymal calcification arm.
+      snippet: &#34;The evolution of cysts in the CSF compartments (the brain ventricles and the subarachnoid space) is different.&#34;
+      explanation: Separates the extraparenchymal compartment, whose cysts drive the hydrocephalus arm, from the parenchymal calcification arm.
 - name: Cyst Degeneration and Perilesional Inflammation
   description: &gt;-
     A strong host inflammatory reaction destroys the cyst, producing perilesional
@@ -5772,14 +6027,11 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:38251334
-    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-      Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;either by natural evolution or as a result of antiparasitic treatment, a
-      strong host inflammatory reaction leads to cyst degeneration and death&#34;
-    explanation: Names the inflammatory reaction and its two triggers, natural evolution
-      and antiparasitic treatment.
+    snippet: &#34;either by natural evolution or as a result of antiparasitic treatment, a strong host inflammatory reaction leads to cyst degeneration and death&#34;
+    explanation: Names the inflammatory reaction and its two triggers, natural evolution and antiparasitic treatment.
   downstream:
   - target: Residual Parenchymal Calcification
     description: &gt;-
@@ -5787,14 +6039,11 @@ pathophysiology:
       residual calcifications rather than resolving completely.
     evidence:
     - reference: PMID:38251334
-      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-        Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Subsequently, some cysts disappear, whereas other become residual
-        calcifications&#34;
-      explanation: Establishes residual calcification as the direct outcome of cyst
-        degeneration.
+      snippet: &#34;Subsequently, some cysts disappear, whereas other become residual calcifications&#34;
+      explanation: Establishes residual calcification as the direct outcome of cyst degeneration.
 - name: Residual Parenchymal Calcification
   description: &gt;-
     Calcified granulomas persist in the brain parenchyma for life and act as chronic
@@ -5803,25 +6052,20 @@ pathophysiology:
   biological_scale: TISSUE
   evidence:
   - reference: PMID:38251334
-    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-      Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;calcifications persist in the host brain throughout life, remain as
-      potential seizure foci, and may predispose hosts to a chronic epileptic state&#34;
+    snippet: &#34;calcifications persist in the host brain throughout life, remain as potential seizure foci, and may predispose hosts to a chronic epileptic state&#34;
     explanation: Establishes persistence and epileptogenicity of the calcified lesions.
   downstream:
   - target: Cerebral Calcification
     description: The calcified granulomas are what appears as hyperdense lesions on brain CT.
     evidence:
     - reference: PMID:38251334
-      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-        Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;On computed tomography (CT), brain calcifications appear as small
-        hyperdense lesions, with or without enhancement after the administration of
-        contrast material&#34;
+      snippet: &#34;On computed tomography (CT), brain calcifications appear as small hyperdense lesions, with or without enhancement after the administration of contrast material&#34;
       explanation: Links the pathological lesion to the radiological phenotype.
   - target: Seizures
     description: &gt;-
@@ -5829,29 +6073,21 @@ pathophysiology:
       gliosis, oedema and blood-brain barrier disruption at these sites.
     evidence:
     - reference: PMID:38251334
-      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-        Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;Pathological studies using human biopsies demonstrate perilesional
-        gliosis and edema, abnormal vascular permeability, disruption of the
-        blood-brain barrier (BBB), and axonal damage&#34;
-      explanation: Supplies the tissue-level changes at calcified lesions that underlie
-        their epileptogenicity.
+      snippet: &#34;Pathological studies using human biopsies demonstrate perilesional gliosis and edema, abnormal vascular permeability, disruption of the blood-brain barrier (BBB), and axonal damage&#34;
+      explanation: Supplies the tissue-level changes at calcified lesions that underlie their epileptogenicity.
   - target: Headache
     description: &gt;-
       Calcified NCC has been associated with headache, proposed to follow remodeling of
       the calcification and release of antigen remnants into the parenchyma.
     evidence:
     - reference: PMID:38251334
-      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-        Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+      reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;The association between the presence of calcified NCC and primary
-        headache has also been suggested, likely as a consequence of the remodeling
-        process of calcification and the release of antigen remnants in the brain
-        parenchyma&#34;
+      snippet: &#34;The association between the presence of calcified NCC and primary headache has also been suggested, likely as a consequence of the remodeling process of calcification and the release of antigen remnants in the brain parenchyma&#34;
       explanation: &gt;-
         The authors state the proposed mechanism as a suggestion, so this edge records a
         proposed rather than established causal link.
@@ -5864,34 +6100,26 @@ pathophysiology:
   biological_scale: ORGANISM
   evidence:
   - reference: PMID:38535559
-    reference_title: &#34;Current Role of Surgery in the Treatment of
-      Neurocysticercosis.&#34;
+    reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Inflammation and mechanical obstruction are the two mechanisms underlying
-      hydrocephalus in NCC. Inflammation within the basal subarachnoid space impairs the
-      normal CSF flow, resulting in the accumulation of CSF in the ventricles&#34;
+    snippet: &#34;Inflammation and mechanical obstruction are the two mechanisms underlying hydrocephalus in NCC. Inflammation within the basal subarachnoid space impairs the normal CSF flow, resulting in the accumulation of CSF in the ventricles&#34;
     explanation: States both mechanisms and spells out the inflammatory one.
   - reference: PMID:38535559
-    reference_title: &#34;Current Role of Surgery in the Treatment of
-      Neurocysticercosis.&#34;
+    reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;the cysts themselves may obstruct the CSF flow in the narrow spaces of the
-      ventricles and manifest in hydrocephalus even in the absence of inflammation&#34;
-    explanation: Establishes mechanical obstruction as sufficient on its own, which is
-      why this node carries both mechanisms rather than only the inflammatory one.
+    snippet: &#34;the cysts themselves may obstruct the CSF flow in the narrow spaces of the ventricles and manifest in hydrocephalus even in the absence of inflammation&#34;
+    explanation: Establishes mechanical obstruction as sufficient on its own, which is why this node carries both mechanisms rather than only the inflammatory one.
   downstream:
   - target: Hydrocephalus
     description: Impaired CSF flow accumulates CSF in the ventricles.
     evidence:
     - reference: PMID:38535559
-      reference_title: &#34;Current Role of Surgery in the Treatment of
-        Neurocysticercosis.&#34;
+      reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;disturb the CSF flow (either by fibrosis in the subarachnoid cisterns or
-        ependymitis within the ventricles), leading to hydrocephalus&#34;
+      snippet: &#34;disturb the CSF flow (either by fibrosis in the subarachnoid cisterns or ependymitis within the ventricles), leading to hydrocephalus&#34;
       explanation: Names the CSF-flow disturbance as the immediate cause of hydrocephalus.
 phenotypes:
 - name: Seizures
@@ -5908,11 +6136,7 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Seizures were reported in 97.7% of cases&#34;
-    explanation: Seizures are the predominant manifestation of symptomatic
-      neurocysticercosis, reported in 97.7% of a hospital-based NCC cohort. The
-      band is set to FREQUENT (rather than VERY_FREQUENT) as a conservative
-      whole-disease estimate, since this entry spans taeniasis and cysticercosis
-      and the 97.7% figure derives from a selected symptomatic-NCC population.
+    explanation: Seizures are the predominant manifestation of symptomatic neurocysticercosis, reported in 97.7% of a hospital-based NCC cohort. The band is set to FREQUENT (rather than VERY_FREQUENT) as a conservative whole-disease estimate, since this entry spans taeniasis and cysticercosis and the 97.7% figure derives from a selected symptomatic-NCC population.
   - reference: PMID:12932389
     reference_title: &#34;Taenia solium cysticercosis.&#34;
     supports: SUPPORT
@@ -5927,13 +6151,10 @@ phenotypes:
       label: Cerebral calcification
   evidence:
   - reference: PMID:38251334
-    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-      Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Calcified lesions are the most frequent finding on brain CT in NCC
-      cases from endemic areas (between 10% and 20%), although many infected
-      individuals are presumed to be asymptomatic&#34;
+    snippet: &#34;Calcified lesions are the most frequent finding on brain CT in NCC cases from endemic areas (between 10% and 20%), although many infected individuals are presumed to be asymptomatic&#34;
     explanation: &gt;-
       Establishes calcified lesions as the most frequent brain CT finding in NCC.
       `frequency` is deliberately left unset: the bracketed 10-20% is attributed to a
@@ -5941,15 +6162,11 @@ phenotypes:
       patients, and this cohort was selected for calcified NCC so it cannot supply that
       fraction either.
   - reference: PMID:38251334
-    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-      Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Patients had a median number of three calcifications (IQR: 1-7),
-      mostly located in the frontal lobes (79%)&#34;
-    explanation: Describes the radiological distribution of calcified NCC
-      lesions in a 524-patient hospital cohort, supporting the cerebral (rather
-      than extracerebral) localization of the calcification phenotype.
+    snippet: &#34;Patients had a median number of three calcifications (IQR: 1-7), mostly located in the frontal lobes (79%)&#34;
+    explanation: Describes the radiological distribution of calcified NCC lesions in a 524-patient hospital cohort, supporting the cerebral (rather than extracerebral) localization of the calcification phenotype.
 - name: Hydrocephalus
   category: Neurologic
   phenotype_term:
@@ -5959,30 +6176,17 @@ phenotypes:
       label: Hydrocephalus
   evidence:
   - reference: PMID:38535559
-    reference_title: &#34;Current Role of Surgery in the Treatment of
-      Neurocysticercosis.&#34;
+    reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Extraparenchymal NCC is commonly accompanied by raised
-      intracranial hypertension due to hydrocephalus, which is an emergency
-      requiring cyst extirpation by surgical intervention to relieve the
-      symptoms&#34;
-    explanation: Establishes hydrocephalus as a common complication of
-      extraparenchymal neurocysticercosis, distinct from the parenchymal
-      disease captured by the Seizures and Cerebral Calcification phenotypes.
-      No numeric frequency is quantified in this narrative review, so
-      `frequency` is left unset rather than assigning an unsupported band.
+    snippet: &#34;Extraparenchymal NCC is commonly accompanied by raised intracranial hypertension due to hydrocephalus, which is an emergency requiring cyst extirpation by surgical intervention to relieve the symptoms&#34;
+    explanation: Establishes hydrocephalus as a common complication of extraparenchymal neurocysticercosis, distinct from the parenchymal disease captured by the Seizures and Cerebral Calcification phenotypes. No numeric frequency is quantified in this narrative review, so `frequency` is left unset rather than assigning an unsupported band.
   - reference: PMID:38535559
-    reference_title: &#34;Current Role of Surgery in the Treatment of
-      Neurocysticercosis.&#34;
+    reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Inflammation and mechanical obstruction are the two mechanisms
-      underlying hydrocephalus in NCC&#34;
-    explanation: States the two proposed mechanisms (CSF-flow-impairing
-      inflammation and direct cyst obstruction of the ventricles) underlying
-      the hydrocephalus phenotype in neurocysticercosis. The mechanism itself is
-      modeled in `pathophysiology#Extraparenchymal Cyst Burden with Impaired CSF Flow`.
+    snippet: &#34;Inflammation and mechanical obstruction are the two mechanisms underlying hydrocephalus in NCC&#34;
+    explanation: States the two proposed mechanisms (CSF-flow-impairing inflammation and direct cyst obstruction of the ventricles) underlying the hydrocephalus phenotype in neurocysticercosis. The mechanism itself is modeled in `pathophysiology#Extraparenchymal Cyst Burden with Impaired CSF Flow`.
 - name: Headache
   category: Neurologic
   phenotype_term:
@@ -5992,26 +6196,21 @@ phenotypes:
       label: Headache
   evidence:
   - reference: PMID:38251334
-    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-      Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;When classified by the type of first symptom, most patients reported
-      headache (273, 52.1%), followed by seizures&#34;
+    snippet: &#34;When classified by the type of first symptom, most patients reported headache (273, 52.1%), followed by seizures&#34;
     explanation: &gt;-
       Headache was the presenting symptom in 52.1% of this 524-patient cohort.
       `frequency` is left unset for the same reason as Cerebral Calcification: the
       cohort is hospital-based and selected for calcified NCC, so its symptom shares
       describe that subpopulation rather than taeniasis/cysticercosis as a whole.
   - reference: PMID:38251334
-    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and
-      Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
+    reference_title: &#34;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Of the 345 patients who reported headache as the first symptom, 126
-      received medical care, 60 received emergency care, and 18 were hospitalized.&#34;
-    explanation: Records the care burden of the headache phenotype, establishing it as
-      clinically consequential rather than incidental.
+    snippet: &#34;Of the 345 patients who reported headache as the first symptom, 126 received medical care, 60 received emergency care, and 18 were hospitalized.&#34;
+    explanation: Records the care burden of the headache phenotype, establishing it as clinically consequential rather than incidental.
 treatments:
 - name: Antiparasitic therapy
   description: Antiparasitic drugs are used to kill brain parasites in neurocysticercosis.
@@ -6037,18 +6236,11 @@ treatments:
     snippet: &#34;Available therapeutic measures include steroids, treatments for symptoms, surgery, and, more controversially, antiparasitic drugs to kill brain parasites.&#34;
     explanation: The abstract lists antiparasitic drugs among available treatments.
   - reference: PMID:39149676
-    reference_title: &#34;Effectiveness of the Antiparasitic Combination of
-      Albendazole and Praziquantel As Compared With Albendazole Monotherapy in
-      the Treatment of Neurocysticercosis in Children: A Systematic Review and
-      Meta-Analysis.&#34;
+    reference_title: &#34;Effectiveness of the Antiparasitic Combination of Albendazole and Praziquantel As Compared With Albendazole Monotherapy in the Treatment of Neurocysticercosis in Children: A Systematic Review and Meta-Analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The study demonstrates that the albendazole and praziquantel
-      combination therapy is superior in lesion resolution in pediatric
-      neurocysticercosis&#34;
-    explanation: Names albendazole and praziquantel as the specific antiparasitic
-      agents used in neurocysticercosis, with a pediatric systematic review and
-      meta-analysis finding the combination superior to albendazole monotherapy.
+    snippet: &#34;The study demonstrates that the albendazole and praziquantel combination therapy is superior in lesion resolution in pediatric neurocysticercosis&#34;
+    explanation: Names albendazole and praziquantel as the specific antiparasitic agents used in neurocysticercosis, with a pediatric systematic review and meta-analysis finding the combination superior to albendazole monotherapy.
   target_mechanisms:
   - target: Extraparenchymal Cyst Burden with Impaired CSF Flow
     description: &gt;-
@@ -6056,38 +6248,27 @@ treatments:
       the extraparenchymal compartment than in parenchymal disease.
     evidence:
     - reference: PMID:38535559
-      reference_title: &#34;Current Role of Surgery in the Treatment of
-        Neurocysticercosis.&#34;
+      reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;For medical treatment, two anthelmintics have proved effective since the
-        1980s: albendazole and praziquantel. Their efficacy is similar, both being
-        significantly more active in parenchymal disease than in extraparenchymal
-        disease.&#34;
-      explanation: Establishes both agents as acting on the cyst burden while recording
-        the reduced activity against the extraparenchymal cysts this node represents.
+      snippet: &#34;For medical treatment, two anthelmintics have proved effective since the 1980s: albendazole and praziquantel. Their efficacy is similar, both being significantly more active in parenchymal disease than in extraparenchymal disease.&#34;
+      explanation: Establishes both agents as acting on the cyst burden while recording the reduced activity against the extraparenchymal cysts this node represents.
   - target: Cyst Degeneration and Perilesional Inflammation
     description: &gt;-
       Antiparasitic treatment is itself one of the two triggers of the inflammatory
       cyst-degeneration node, which is why corticosteroids are co-administered.
     evidence:
     - reference: PMID:38535559
-      reference_title: &#34;Current Role of Surgery in the Treatment of
-        Neurocysticercosis.&#34;
+      reference_title: &#34;Current Role of Surgery in the Treatment of Neurocysticercosis.&#34;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#34;The anthelminthic treatment may trigger the secretion of various
-        antigens from the cysts, eliciting inflammatory responses that determine the
-        symptoms and can be fatal&#34;
+      snippet: &#34;The anthelminthic treatment may trigger the secretion of various antigens from the cysts, eliciting inflammatory responses that determine the symptoms and can be fatal&#34;
       explanation: &gt;-
         Records the edge as treatment-induced aggravation of this node rather than
         suppression of it, which is the reason the same source requires combining
         anthelminthics with corticosteroids.
 - name: Niclosamide (Taeniasis Treatment)
-  description: Intestinal anthelminthic used to treat adult tapeworm carriage
-    (taeniasis) and interrupt Taenia solium transmission to new intermediate
-    hosts, distinct from the antiparasitic agents used against tissue
-    cysticercosis/neurocysticercosis above.
+  description: Intestinal anthelminthic used to treat adult tapeworm carriage (taeniasis) and interrupt Taenia solium transmission to new intermediate hosts, distinct from the antiparasitic agents used against tissue cysticercosis/neurocysticercosis above.
   therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: Pharmacotherapy
@@ -6101,39 +6282,26 @@ treatments:
         label: niclosamide
   evidence:
   - reference: PMID:39280880
-    reference_title: &#34;Mass chemotherapy with niclosamide for the control of
-      Taenia solium: population-based safety profile and treatment
-      effectiveness.&#34;
+    reference_title: &#34;Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Of 211 participants diagnosed with taeniasis, 188 provided a follow-up
-      stool sample 30-days after treatment and 141 were cured (treatment effectiveness
-      75.0%)&#34;
-    explanation: This study&#39;s own FINDINGS for single-dose niclosamide effectiveness
-      against taeniasis, measured by post-treatment stool sampling.
+    snippet: &#34;Of 211 participants diagnosed with taeniasis, 188 provided a follow-up stool sample 30-days after treatment and 141 were cured (treatment effectiveness 75.0%)&#34;
+    explanation: This study&#39;s own FINDINGS for single-dose niclosamide effectiveness against taeniasis, measured by post-treatment stool sampling.
   - reference: PMID:39280880
-    reference_title: &#34;Mass chemotherapy with niclosamide for the control of
-      Taenia solium: population-based safety profile and treatment
-      effectiveness.&#34;
+    reference_title: &#34;Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;MDA with NSM is safe in Taenia solium endemic settings. However, the
-      effectiveness following one dose is lower than expected, which suggests additional
-      treatment may be necessary to enhance the infection control efforts.&#34;
+    snippet: &#34;MDA with NSM is safe in Taenia solium endemic settings. However, the effectiveness following one dose is lower than expected, which suggests additional treatment may be necessary to enhance the infection control efforts.&#34;
     explanation: &gt;-
       The authors&#39; own INTERPRETATION. Recorded alongside the effectiveness figure
       because it qualifies it: niclosamide&#39;s safety in this setting is established,
       but a single dose underperforms prior selective-chemotherapy estimates.
   - reference: PMID:39280880
-    reference_title: &#34;Mass chemotherapy with niclosamide for the control of
-      Taenia solium: population-based safety profile and treatment
-      effectiveness.&#34;
+    reference_title: &#34;Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;988 (1.5%) reported experiencing at least one AE. Almost all AEs (99.2%)
-      were of mild intensity, with no severe AEs recorded.&#34;
-    explanation: Quantifies the safety profile across 65,551 treated residents,
-      supporting niclosamide&#39;s suitability where undiagnosed NCC may be present.
+    snippet: &#34;988 (1.5%) reported experiencing at least one AE. Almost all AEs (99.2%) were of mild intensity, with no severe AEs recorded.&#34;
+    explanation: Quantifies the safety profile across 65,551 treated residents, supporting niclosamide&#39;s suitability where undiagnosed NCC may be present.
 - name: Surgical management
   description: Surgical interventions may be used in selected cases.
   treatment_term:
@@ -8910,7 +9078,7 @@ These mappings require MAXO term ID validation outside the retrieved corpus.</li
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Taeniasis/cysticercosis", "mondoId": "MONDO:0015484", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Taeniasis_cysticercosis", "yamlRevision": "0c8936aed0b4"};
+        const OS_CONFIG = {"diseaseName": "Taeniasis/cysticercosis", "mondoId": "MONDO:0015484", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Taeniasis_cysticercosis", "yamlRevision": "a98789b9f629"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

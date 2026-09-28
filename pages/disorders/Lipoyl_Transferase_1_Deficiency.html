@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4222,6 +4264,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-lipoyl-relay-via-lipt1-deficiency" data-dismech-node="Defective lipoyl relay via LIPT1 deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective lipoyl relay via LIPT1 deficiency</div>
 
+
                 <div class="item-desc">LIPT1 encodes lipoyltransferase 1, which transfers lipoyl groups from lipoyl-GCSH to the E2 subunits of pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase. This is the final step in the mitochondrial lipoylation pathway. Crucially, LIPT1 is not required for lipoylation of GCSH itself, so the glycine cleavage system remains functional. This explains the distinctive biochemical signature: combined dehydrogenase deficiency with lactic acidosis but preserved glycine cleavage and normal glycine levels. The clinical consequence is a Leigh-like encephalopathy driven by energy failure rather than the combined energy failure plus glycine toxicity seen in LIPT2 and LIAS deficiency.
 </div>
 
@@ -4395,6 +4438,44 @@ This pathophysiological event involves decreased Protein lipoylation (GO:0009249
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        lipoyltransferase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0017118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0017118</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased lipoyltransferase activity (GO:0017118). GO:0017118 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4527,6 +4608,7 @@ This pathophysiological event involves decreased Protein lipoylation (GO:0009249
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-alpha-ketoacid-dehydrogenase-deficiency-with-spared-glycine-cleavage" data-dismech-node="Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage</div>
 
+
                 <div class="item-desc">Loss of LIPT1 function impairs lipoylation of the E2 subunits of PDHc, alpha-KGDHc, and BCKDHc, causing combined dehydrogenase deficiency with lactic acidosis and elevation of alpha-ketoacids. However, the glycine cleavage system H protein (GCSH) is lipoylated upstream by the LIPT2-LIAS pathway and does not require LIPT1 for its own lipoylation, so glycine cleavage is preserved and glycine levels remain normal or near-normal.
 </div>
 
@@ -4549,11 +4631,11 @@ This pathophysiological event involves decreased Protein lipoylation (GO:0009249
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006099</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006099</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Tricarboxylic acid cycle (GO:0006099). GO:0006099 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4588,11 +4670,11 @@ This pathophysiological event involves decreased Tricarboxylic acid cycle (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0004739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0004739</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased pyruvate dehydrogenase (acetyl-transferring) activity (GO:0004739). GO:0004739 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4627,11 +4709,11 @@ This pathophysiological event involves decreased pyruvate dehydrogenase (acetyl-
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045254" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045254</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045254" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0045254</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves Pyruvate dehydrogenase complex (GO:0045254). GO:0045254 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4783,6 +4865,7 @@ This pathophysiological event involves Pyruvate dehydrogenase complex (GO:004525
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-bioenergetic-failure-and-lipid-peroxidation" data-dismech-node="Mitochondrial bioenergetic failure and lipid peroxidation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial bioenergetic failure and lipid peroxidation</div>
 
+
                 <div class="item-desc">LIPT1-deficient patient-derived fibroblasts show reduced PDH and alpha-KGDH activities with cellular bioenergetic failure, iron accumulation, and lipid peroxidation. This secondary mitochondrial stress extends the enzymatic defect beyond protein lipoylation into a measurable cellular injury state.
 </div>
 
@@ -4798,11 +4881,11 @@ This pathophysiological event involves Pyruvate dehydrogenase complex (GO:004525
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4839,11 +4922,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045333" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0045333</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045333" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0045333</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cellular respiration (GO:0045333). GO:0045333 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4873,11 +4956,11 @@ This pathophysiological event involves decreased cellular respiration (GO:004533
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006119</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4982,6 +5065,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythroid-lipoylation-deficient-proliferation-defect" data-dismech-node="Erythroid lipoylation-deficient proliferation defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythroid lipoylation-deficient proliferation defect</div>
 
+
                 <div class="item-desc">The LIPT1 c.212C&gt;T sideroblastic anemia allele recapitulates a lipoylation-deficient phenotype in erythroid-lineage cells and impairs proliferation under low-glucose conditions, linking defective mitochondrial lipoylation to the hematologic presentation.
 </div>
 
@@ -4997,11 +5081,11 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000764" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000764</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000764" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000764</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythroid lineage cell (CL:0000764). CL:0000764 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5039,11 +5123,11 @@ This pathophysiological event involves erythroid lineage cell (CL:0000764). CL:0
         LIPT1
 
 
-    <a href="https://bioregistry.io/hgnc:29569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:29569</a>
+    <a href="https://bioregistry.io/hgnc:29569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:29569</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves LIPT1 (hgnc:29569). hgnc:29569 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5081,11 +5165,11 @@ This pathophysiological event involves LIPT1 (hgnc:29569). hgnc:29569 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5196,7 +5280,7 @@ This pathophysiological event involves decreased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal muscle tone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003808\"}}, {\"id\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of LIPT1 function impairs lipoylation of the E2 subunits of PDHc, alpha-KGDHc, and BCKDHc, causing combined dehydrogenase deficiency with lactic acidosis and elevation of alpha-ketoacids. However, the glycine cleavage system H protein (GCSH) is lipoylated upstream by the LIPT2-LIAS pathway and does not require LIPT1 for its own lipoylation, so glycine cleavage is preserved and glycine levels remain normal or near-normal.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Tricarboxylic acid cycle\"], \"molecular_functions\": [\"pyruvate dehydrogenase (acetyl-transferring) activity\"]}}, {\"id\": \"Defective lipoyl relay via LIPT1 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT1 encodes lipoyltransferase 1, which transfers lipoyl groups from lipoyl-GCSH to the E2 subunits of pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase. This is the final step in the mitochondrial lipoylation pathway. Crucially, LIPT1 is not required for lipoylation of GCSH itself, so the glycine cleavage system remains functional. This explains the distinctive biochemical signature: combined dehydrogenase deficiency with lactic acidosis but preserved glycine cleavage and normal glycine levels. The clinical consequence is a Leigh-like encephalopathy driven by energy failure rather than the combined energy failure plus glycine toxicity seen in LIPT2 and LIAS deficiency.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Protein lipoylation\"], \"genes\": [\"LIPT1\"], \"gene_terms\": [{\"label\": \"LIPT1\", \"id\": \"hgnc:29569\", \"modifier\": \"DECREASED\"}, {\"label\": \"LIPT1\", \"id\": \"hgnc:29569\"}]}}, {\"id\": \"Erythroid lipoylation-deficient proliferation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The LIPT1 c.212C\u003eT sideroblastic anemia allele recapitulates a lipoylation-deficient phenotype in erythroid-lineage cells and impairs proliferation under low-glucose conditions, linking defective mitochondrial lipoylation to the hematologic presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid lineage cell\"], \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"LIPT1\"], \"gene_terms\": [{\"label\": \"LIPT1\", \"id\": \"hgnc:29569\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"NORMAL\", \"readouts\": [{\"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Normal glycine reports the spared glycine-cleavage component that distinguishes LIPT1 deficiency from upstream lipoate biosynthesis defects.\"}]}}, {\"id\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urine lactate, ketoglutarate, and 2-oxoacids report the downstream metabolite accumulation caused by combined dehydrogenase deficiency.\"}]}}, {\"id\": \"LIPT1 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"LIPT1\"], \"gene_terms\": [{\"label\": \"LIPT1\", \"id\": \"hgnc:29569\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe lactic acidosis due to combined pyruvate dehydrogenase and alpha-ketoglutarate dehydrogenase deficiency.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004902\"}}, {\"id\": \"Lipoic acid supplementation (limited evidence)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lipoic acid supplementation has been tested in yeast models and patient fibroblasts, with limited biochemical improvement and review-level evidence arguing against established clinical benefit.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"alpha-lipoic acid\"]}}, {\"id\": \"Lipoylated dehydrogenase E2 subunits\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced lipoylated dehydrogenase E2 subunits directly report the proximal LIPT1 lipoyl-transfer defect.\"}]}}, {\"id\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT1-deficient patient-derived fibroblasts show reduced PDH and alpha-KGDH activities with cellular bioenergetic failure, iron accumulation, and lipid peroxidation. This secondary mitochondrial stress extends the enzymatic defect beyond protein lipoylation into a measurable cellular injury state.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cellular respiration\", \"oxidative phosphorylation\"]}}, {\"id\": \"Multi-target pharmacological cocktail (experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental multi-target pharmacological approach using pantothenate, nicotinamide, vitamin E, thiamine, biotin, and alpha-lipoic acid has shown promise in LIPT1-deficient patient-derived cellular models. The cocktail restored LIPT1 expression, lipoylation of mitochondrial proteins, and cellular bioenergetics while eliminating iron overload and lipid peroxidation. The mechanism appears mediated through SIRT3 activation. This has not yet been tested in patients.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pantothenate\", \"nicotinamide\", \"vitamin E\", \"thiamine\", \"biotin\", \"alpha-lipoic acid\"]}}, {\"id\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced PDH and alpha-KGDH activity reports the combined alpha-ketoacid dehydrogenase-deficiency branch.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sideroblastic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001924\"}}], \"edges\": [{\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of LIPT1-mediated lipoyl transfer prevents lipoylation of alpha-ketoacid dehydrogenase E2 subunits while sparing GCSH-dependent glycine cleavage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Lipoylated dehydrogenase E2 subunits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of LIPT1-mediated lipoyl transfer directly reduces lipoylated PDH E2 and alpha-KGDH E2 subunits in patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Erythroid lipoylation-deficient proliferation defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A homozygous LIPT1 sideroblastic anemia allele causes a lipoylation-deficient phenotype and impaired low-glucose proliferation in erythroid-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pyruvate dehydrogenase activity causes pyruvate accumulation and diversion to lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed lipoylation directly lowers pyruvate dehydrogenase and alpha-ketoglutarate dehydrogenase activities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Glycine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Preserved GCSH lipoylation and glycine cleavage keep glycine normal or near-normal in LIPT1 deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced 2-ketoacid dehydrogenase activity produces increased urinary lactate, ketoglutarate, and 2-oxoacid metabolites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PDH and alpha-KGDH activities impair cellular bioenergetics and are associated with iron accumulation and lipid peroxidation in LIPT1-deficient patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe mitochondrial energy failure contributes to seizures in reported LIPT1 deficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bioenergetic failure in neuronal cells contributes to early-onset epileptic encephalopathy.\"]}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LIPT1-related mitochondrial dysfunction contributes to psychomotor retardation and poor neurocognitive outcomes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired cellular respiration in developing neural tissue disrupts psychomotor development.\"]}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Abnormal muscle tone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal muscle tone is reported as part of the LIPT1 deficiency clinical spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mitochondrial energy failure in the nervous system and muscle disrupts motor tone.\"]}, {\"source\": \"Erythroid lipoylation-deficient proliferation defect\", \"target\": \"Sideroblastic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A homozygous LIPT1 variant has been reported with syndromic congenital sideroblastic anemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Erythroid lipoylation deficiency impairs mitochondrial metabolism and proliferation.\"]}, {\"source\": \"Lipoic acid supplementation (limited evidence)\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-target pharmacological cocktail (experimental)\", \"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-target pharmacological cocktail (experimental)\", \"target\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Lipoylated dehydrogenase E2 subunits\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced lipoylated dehydrogenase E2 subunits directly report the proximal LIPT1 lipoyl-transfer defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced PDH and alpha-KGDH activity reports the combined alpha-ketoacid dehydrogenase-deficiency branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Glycine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Normal glycine reports the spared glycine-cleavage component that distinguishes LIPT1 deficiency from upstream lipoate biosynthesis defects.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urine lactate, ketoglutarate, and 2-oxoacids report the downstream metabolite accumulation caused by combined dehydrogenase deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"LIPT1 loss-of-function variants\", \"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIPT1 loss-of-function variants\", \"target\": \"Erythroid lipoylation-deficient proliferation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal muscle tone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003808\"}}, {\"id\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of LIPT1 function impairs lipoylation of the E2 subunits of PDHc, alpha-KGDHc, and BCKDHc, causing combined dehydrogenase deficiency with lactic acidosis and elevation of alpha-ketoacids. However, the glycine cleavage system H protein (GCSH) is lipoylated upstream by the LIPT2-LIAS pathway and does not require LIPT1 for its own lipoylation, so glycine cleavage is preserved and glycine levels remain normal or near-normal.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Tricarboxylic acid cycle\"], \"molecular_functions\": [\"pyruvate dehydrogenase (acetyl-transferring) activity\"]}}, {\"id\": \"Defective lipoyl relay via LIPT1 deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT1 encodes lipoyltransferase 1, which transfers lipoyl groups from lipoyl-GCSH to the E2 subunits of pyruvate dehydrogenase, alpha-ketoglutarate dehydrogenase, and branched-chain ketoacid dehydrogenase. This is the final step in the mitochondrial lipoylation pathway. Crucially, LIPT1 is not required for lipoylation of GCSH itself, so the glycine cleavage system remains functional. This explains the distinctive biochemical signature: combined dehydrogenase deficiency with lactic acidosis but preserved glycine cleavage and normal glycine levels. The clinical consequence is a Leigh-like encephalopathy driven by energy failure rather than the combined energy failure plus glycine toxicity seen in LIPT2 and LIAS deficiency.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Protein lipoylation\"], \"molecular_functions\": [\"lipoyltransferase activity\"], \"genes\": [\"LIPT1\"], \"gene_terms\": [{\"label\": \"LIPT1\", \"id\": \"hgnc:29569\", \"modifier\": \"DECREASED\"}, {\"label\": \"LIPT1\", \"id\": \"hgnc:29569\"}]}}, {\"id\": \"Erythroid lipoylation-deficient proliferation defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The LIPT1 c.212C\u003eT sideroblastic anemia allele recapitulates a lipoylation-deficient phenotype in erythroid-lineage cells and impairs proliferation under low-glucose conditions, linking defective mitochondrial lipoylation to the hematologic presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid lineage cell\"], \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"LIPT1\"], \"gene_terms\": [{\"label\": \"LIPT1\", \"id\": \"hgnc:29569\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"NORMAL\", \"readouts\": [{\"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Normal glycine reports the spared glycine-cleavage component that distinguishes LIPT1 deficiency from upstream lipoate biosynthesis defects.\"}]}}, {\"id\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urine lactate, ketoglutarate, and 2-oxoacids report the downstream metabolite accumulation caused by combined dehydrogenase deficiency.\"}]}}, {\"id\": \"LIPT1 loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"LIPT1\"], \"gene_terms\": [{\"label\": \"LIPT1\", \"id\": \"hgnc:29569\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe lactic acidosis due to combined pyruvate dehydrogenase and alpha-ketoglutarate dehydrogenase deficiency.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004902\"}}, {\"id\": \"Lipoic acid supplementation (limited evidence)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lipoic acid supplementation has been tested in yeast models and patient fibroblasts, with limited biochemical improvement and review-level evidence arguing against established clinical benefit.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"alpha-lipoic acid\"]}}, {\"id\": \"Lipoylated dehydrogenase E2 subunits\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced lipoylated dehydrogenase E2 subunits directly report the proximal LIPT1 lipoyl-transfer defect.\"}]}}, {\"id\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LIPT1-deficient patient-derived fibroblasts show reduced PDH and alpha-KGDH activities with cellular bioenergetic failure, iron accumulation, and lipid peroxidation. This secondary mitochondrial stress extends the enzymatic defect beyond protein lipoylation into a measurable cellular injury state.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cellular respiration\", \"oxidative phosphorylation\"]}}, {\"id\": \"Multi-target pharmacological cocktail (experimental)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental multi-target pharmacological approach using pantothenate, nicotinamide, vitamin E, thiamine, biotin, and alpha-lipoic acid has shown promise in LIPT1-deficient patient-derived cellular models. The cocktail restored LIPT1 expression, lipoylation of mitochondrial proteins, and cellular bioenergetics while eliminating iron overload and lipid peroxidation. The mechanism appears mediated through SIRT3 activation. This has not yet been tested in patients.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pantothenate\", \"nicotinamide\", \"vitamin E\", \"thiamine\", \"biotin\", \"alpha-lipoic acid\"]}}, {\"id\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced PDH and alpha-KGDH activity reports the combined alpha-ketoacid dehydrogenase-deficiency branch.\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sideroblastic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001924\"}}], \"edges\": [{\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of LIPT1-mediated lipoyl transfer prevents lipoylation of alpha-ketoacid dehydrogenase E2 subunits while sparing GCSH-dependent glycine cleavage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Lipoylated dehydrogenase E2 subunits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of LIPT1-mediated lipoyl transfer directly reduces lipoylated PDH E2 and alpha-KGDH E2 subunits in patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Erythroid lipoylation-deficient proliferation defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A homozygous LIPT1 sideroblastic anemia allele causes a lipoylation-deficient phenotype and impaired low-glucose proliferation in erythroid-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pyruvate dehydrogenase activity causes pyruvate accumulation and diversion to lactate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed lipoylation directly lowers pyruvate dehydrogenase and alpha-ketoglutarate dehydrogenase activities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Glycine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Preserved GCSH lipoylation and glycine cleavage keep glycine normal or near-normal in LIPT1 deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced 2-ketoacid dehydrogenase activity produces increased urinary lactate, ketoglutarate, and 2-oxoacid metabolites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PDH and alpha-KGDH activities impair cellular bioenergetics and are associated with iron accumulation and lipid peroxidation in LIPT1-deficient patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe mitochondrial energy failure contributes to seizures in reported LIPT1 deficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bioenergetic failure in neuronal cells contributes to early-onset epileptic encephalopathy.\"]}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LIPT1-related mitochondrial dysfunction contributes to psychomotor retardation and poor neurocognitive outcomes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired cellular respiration in developing neural tissue disrupts psychomotor development.\"]}, {\"source\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"target\": \"Abnormal muscle tone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal muscle tone is reported as part of the LIPT1 deficiency clinical spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mitochondrial energy failure in the nervous system and muscle disrupts motor tone.\"]}, {\"source\": \"Erythroid lipoylation-deficient proliferation defect\", \"target\": \"Sideroblastic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A homozygous LIPT1 variant has been reported with syndromic congenital sideroblastic anemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Erythroid lipoylation deficiency impairs mitochondrial metabolism and proliferation.\"]}, {\"source\": \"Lipoic acid supplementation (limited evidence)\", \"target\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-target pharmacological cocktail (experimental)\", \"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multi-target pharmacological cocktail (experimental)\", \"target\": \"Mitochondrial bioenergetic failure and lipid peroxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Defective lipoyl relay via LIPT1 deficiency\", \"target\": \"Lipoylated dehydrogenase E2 subunits\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced lipoylated dehydrogenase E2 subunits directly report the proximal LIPT1 lipoyl-transfer defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Pyruvate and alpha-ketoglutarate dehydrogenase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced PDH and alpha-KGDH activity reports the combined alpha-ketoacid dehydrogenase-deficiency branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Glycine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Normal glycine reports the spared glycine-cleavage component that distinguishes LIPT1 deficiency from upstream lipoate biosynthesis defects.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined alpha-ketoacid dehydrogenase deficiency with spared glycine cleavage\", \"target\": \"Increased urine lactate, ketoglutarate, and 2-oxoacid levels\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urine lactate, ketoglutarate, and 2-oxoacids report the downstream metabolite accumulation caused by combined dehydrogenase deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"LIPT1 loss-of-function variants\", \"target\": \"Defective lipoyl relay via LIPT1 deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LIPT1 loss-of-function variants\", \"target\": \"Erythroid lipoylation-deficient proliferation defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5248,15 +5332,18 @@ This pathophysiological event involves decreased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001924</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001924</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sideroblastic anemia (HP:0001924). HP:0001924 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5330,15 +5417,18 @@ This clinical feature is Sideroblastic anemia (HP:0001924). HP:0001924 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004902</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital lactic acidosis (HP:0004902). HP:0004902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5458,15 +5548,18 @@ This clinical feature is Congenital lactic acidosis (HP:0004902). HP:0004902 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5536,15 +5629,18 @@ This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5630,15 +5726,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5767,10 +5866,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         Gene: LIPT1
 
 
-    <a href="https://bioregistry.io/hgnc:29569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:29569</a>
+    <a href="https://bioregistry.io/hgnc:29569" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:29569</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LIPT1 (hgnc:29569). hgnc:29569 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5782,6 +5881,9 @@ This disease-associated gene is LIPT1 (hgnc:29569). hgnc:29569 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -5903,7 +6005,7 @@ This disease-associated gene is LIPT1 (hgnc:29569). hgnc:29569 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5944,11 +6046,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:16494</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:16494</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses alpha-lipoic acid, annotated with lipoic acid (CHEBI:16494). CHEBI:16494 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6093,7 +6195,7 @@ This treatment uses alpha-lipoic acid, annotated with lipoic acid (CHEBI:16494).
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6134,11 +6236,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16454" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:16454</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16454" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:16454</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses pantothenate (CHEBI:16454). CHEBI:16454 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6151,11 +6253,11 @@ This treatment uses pantothenate (CHEBI:16454). CHEBI:16454 is a therapeutic age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17154" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:17154</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17154" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:17154</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses nicotinamide (CHEBI:17154). CHEBI:17154 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6168,11 +6270,11 @@ This treatment uses nicotinamide (CHEBI:17154). CHEBI:17154 is a therapeutic age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_33234" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:33234</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_33234" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:33234</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6185,11 +6287,11 @@ This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_26948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:26948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_26948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:26948</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses thiamine, annotated with vitamin B1 (CHEBI:26948). CHEBI:26948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6202,11 +6304,11 @@ This treatment uses thiamine, annotated with vitamin B1 (CHEBI:26948). CHEBI:269
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15956" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:15956</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15956" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:15956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses biotin (CHEBI:15956). CHEBI:15956 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6219,11 +6321,11 @@ This treatment uses biotin (CHEBI:15956). CHEBI:15956 is a therapeutic agent fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:16494</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-29">CHEBI:16494</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses alpha-lipoic acid, annotated with lipoic acid (CHEBI:16494). CHEBI:16494 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7222,6 +7324,12 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  molecular_functions:
+  - preferred_term: lipoyltransferase activity
+    term:
+      id: GO:0017118
+      label: lipoyltransferase activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: Protein lipoylation
     modifier: DECREASED
@@ -8341,7 +8449,7 @@ LIPT1 deficiency is a disorder of mitochondrial protein lipoylation in which fai
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Lipoyl Transferase 1 Deficiency", "mondoId": "MONDO:0014576", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lipoyl_Transferase_1_Deficiency", "yamlRevision": "ea2e80269050"};
+        const OS_CONFIG = {"diseaseName": "Lipoyl Transferase 1 Deficiency", "mondoId": "MONDO:0014576", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Lipoyl_Transferase_1_Deficiency", "yamlRevision": "78cd2b651a8e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

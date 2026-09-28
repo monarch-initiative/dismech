@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4945,6 +4987,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-antigenic-or-toxic-stimulus-in-a-susceptible-host" data-dismech-node="Chronic antigenic or toxic stimulus in a susceptible host" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic antigenic or toxic stimulus in a susceptible host</div>
 
+
                 <div class="item-desc">The initiating exposure is not established. Chronic helminth infection, malaria, cassava-based diets with protein deprivation, and geochemical exposures such as cerium in monazite-rich soils have all been proposed, and none accounts for the disease&#39;s distribution. The strongest structural observation is negative: hypotheses that explain why the disease occurs where it does fail to explain why it does not occur in other regions with the same parasite burden or the same diet. What is well supported is that exposure alone is insufficient, since only a minority of people living in identical conditions develop the disease.
 </div>
 
@@ -5076,6 +5119,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-eosinophilia-and-th2-skewed-immune-activation" data-dismech-node="Sustained eosinophilia and Th2-skewed immune activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained eosinophilia and Th2-skewed immune activation</div>
+
 
                 <div class="item-desc">Persistent eosinophilia is the pivot of the accepted model. In hypereosinophilic syndrome, where the eosinophil count is by definition high and the cardiac disease is followed prospectively, eosinophil-mediated endomyocardial damage is directly established. In tropical endomyocardial fibrosis, eosinophilia is variably present and typically absent by the time the fibrotic stage is diagnosed, so the inference runs backwards from a shared end-stage lesion. That asymmetry is real and is curated as such rather than smoothed over.
 </div>
@@ -5280,6 +5324,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophil-degranulation-and-endocardial-injury" data-dismech-node="Eosinophil degranulation and endocardial injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophil degranulation and endocardial injury</div>
+
 
                 <div class="item-desc">Degranulating eosinophils release cationic granule proteins into the subendocardium, injuring endocardial endothelium and the subendocardial layer of myocytes. This is Davies stage one, the acute necrotic phase, lasting some months. It is the stage almost never observed in tropical endomyocardial fibrosis, because patients in endemic areas do not present until they are in heart failure, and it is the single largest gap in the evidence for this disease.
 </div>
@@ -5534,6 +5579,7 @@ This pathophysiological event occurs in Endocardium (UBERON:0002165). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mural-thrombus-formation-on-the-damaged-endocardium" data-dismech-node="Mural thrombus formation on the damaged endocardium" data-dismech-type="pathophysiology">
                 <div class="item-name">Mural thrombus formation on the damaged endocardium</div>
 
+
                 <div class="item-desc">Davies stage two, beginning around ten months and running over years. Thrombus deposits on the injured endocardial surface, preferentially at the ventricular apex and beneath the posterior mitral leaflet, and is then organised rather than lysed. This is the step that converts an inflammatory injury into a structural one, and it is also the source of the systemic and pulmonary thromboembolism that complicates the disease independently.
 </div>
 
@@ -5680,6 +5726,7 @@ This pathophysiological event occurs in Endocardium (UBERON:0002165). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-myocardial-autoantibody-response" data-dismech-node="Anti-myocardial autoantibody response" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-myocardial autoantibody response</div>
 
+
                 <div class="item-desc">Circulating IgG against myocardial proteins is present in about half of patients and in a tenth of controls, and its intensity tracks disease activity. It is curated as a parallel amplifying arm rather than as a step in the main chain, because the direction of causation is not established: antibodies could sustain injury after the eosinophilic stimulus has gone, or could simply mark exposure of intracellular myocardial antigens by injury that has already occurred. The distinction matters clinically, since only the first reading would justify immunosuppression.
 </div>
 
@@ -5782,6 +5829,7 @@ This pathophysiological event occurs in Endocardium (UBERON:0002165). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-activation-and-excessive-collagen-deposition" data-dismech-node="Fibroblast activation and excessive collagen deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblast activation and excessive collagen deposition</div>
+
 
                 <div class="item-desc">Subendocardial fibroblasts are activated and deposit collagen and other matrix, the generic fibrogenic step this disease shares with organ fibrosis elsewhere. What is unusual is the trigger, an intraluminal eosinophil-driven injury with an organising thrombus rather than a parenchymal insult, and the site, a thin subendothelial layer rather than the interstitium of the organ.
 </div>
@@ -6035,6 +6083,7 @@ This pathophysiological event involves increased collagen fibril organization (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dense-endocardial-fibrous-scar" data-dismech-node="Dense endocardial fibrous scar" data-dismech-type="pathophysiology">
                 <div class="item-name">Dense endocardial fibrous scar</div>
 
+
                 <div class="item-desc">Davies stage three and the irreversible end-state. The endocardium thickens to millimetres of dense, largely acellular fibrocollagenous tissue, measured at a mean of three millimetres in an operative series, with a lymphocyte-predominant infiltrate and subendocardial neovascularisation. The myocardium beneath is comparatively spared, which is why systolic function is preserved and why surgical decortication is anatomically feasible at all.
 </div>
 
@@ -6224,6 +6273,7 @@ This pathophysiological event occurs in Endocardium (UBERON:0002165). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apical-and-inflow-tract-cavity-obliteration" data-dismech-node="Apical and inflow-tract cavity obliteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Apical and inflow-tract cavity obliteration</div>
 
+
                 <div class="item-desc">Fibrous obliteration of the apex and inflow tract removes the part of the ventricle that would otherwise accommodate diastolic filling. The apex takes on the characteristic rounded, retracted appearance on echocardiography that gives the diagnosis.
 </div>
 
@@ -6340,6 +6390,7 @@ This pathophysiological event occurs in Right ventricle, annotated with heart ri
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-papillary-muscle-and-chordal-tethering" data-dismech-node="Papillary muscle and chordal tethering" data-dismech-type="pathophysiology">
                 <div class="item-name">Papillary muscle and chordal tethering</div>
 
+
                 <div class="item-desc">The subvalvular apparatus is drawn into and immobilised by the scar, so the leaflets cannot coapt. The mitral regurgitation of this disease is therefore mechanical and subvalvular in origin, not a leaflet disease, which is why valve repair addresses the tethering rather than the leaflets and why decortication is done at the same operation.
 </div>
 
@@ -6438,6 +6489,7 @@ This pathophysiological event occurs in Papillary muscle of heart (UBERON:000249
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrioventricular-valve-regurgitation" data-dismech-node="Atrioventricular valve regurgitation" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrioventricular valve regurgitation</div>
+
 
                 <div class="item-desc">Mitral, tricuspid, or both, depending on which ventricle is involved, and typically severe by the time of presentation. It compounds the restrictive physiology by loading atria that are already facing high ventricular filling pressures.
 </div>
@@ -6555,6 +6607,7 @@ This pathophysiological event occurs in Tricuspid valve (UBERON:0002134). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-restrictive-diastolic-physiology" data-dismech-node="Restrictive diastolic physiology" data-dismech-type="pathophysiology">
                 <div class="item-name">Restrictive diastolic physiology</div>
 
+
                 <div class="item-desc">Ventricles that cannot fill, with preserved contraction of what myocardium remains. This is the haemodynamic signature of the disease and the reason it sits in the restrictive rather than the dilated or hypertrophic category, and it explains why ejection fraction is a useless measure of severity here.
 </div>
 
@@ -6632,6 +6685,7 @@ This pathophysiological event occurs in Tricuspid valve (UBERON:0002134). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-dilatation-and-atrial-fibrillation" data-dismech-node="Atrial dilatation and atrial fibrillation" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial dilatation and atrial fibrillation</div>
+
 
                 <div class="item-desc">Massive biatrial dilatation is characteristic, driven by both the restrictive ventricles and the valve regurgitation, and brings atrial fibrillation with its own thromboembolic risk on top of the intracardiac mural thrombus already present.
 </div>
@@ -6711,6 +6765,7 @@ This pathophysiological event occurs in Tricuspid valve (UBERON:0002134). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-and-pulmonary-thromboembolism" data-dismech-node="Systemic and pulmonary thromboembolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic and pulmonary thromboembolism</div>
 
+
                 <div class="item-desc">Embolisation from ventricular mural thrombus or from fibrillating dilated atria, and one of the reasons anticoagulation features in palliative management of a disease with no disease-modifying drug.
 </div>
 
@@ -6772,6 +6827,7 @@ This pathophysiological event occurs in Tricuspid valve (UBERON:0002134). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congestive-heart-failure" data-dismech-node="Congestive heart failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Congestive heart failure</div>
+
 
                 <div class="item-desc">The presenting syndrome in nearly all diagnosed cases, and typically advanced. In an operative series all but one of 55 children were in New York Heart Association class III or IV at the time of surgery, which is a statement about access to care as much as about the disease.
 </div>
@@ -7180,6 +7236,9 @@ This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7289,6 +7348,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880), qualifie
 
 
                     </div>
+
+
+
 
 
 
@@ -7419,6 +7481,9 @@ This clinical feature is Endocardial fibrosis (HP:0006685), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7485,6 +7550,9 @@ This clinical feature is Restrictive cardiomyopathy (HP:0001723). HP:0001723 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7561,6 +7629,9 @@ This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7627,6 +7698,9 @@ This clinical feature is Tricuspid regurgitation (HP:0005180). HP:0005180 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7730,6 +7804,9 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as cou
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -7809,6 +7886,9 @@ This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7910,6 +7990,9 @@ This clinical feature is Abnormal cardiac atrium morphology (HP:0005120). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7983,6 +8066,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8047,6 +8133,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8132,6 +8221,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8198,6 +8290,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8285,6 +8380,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8351,6 +8449,9 @@ This clinical feature is Orthopnea (HP:0012764). HP:0012764 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8471,6 +8572,9 @@ This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8541,6 +8645,9 @@ This disease-associated gene is HLA-A (hgnc:4931). hgnc:4931 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

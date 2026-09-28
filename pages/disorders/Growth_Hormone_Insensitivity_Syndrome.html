@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Growth%20Hormone%20Insensitivity%20Syndrome"
@@ -3990,7 +4032,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -4009,7 +4051,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4018,7 +4060,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4037,7 +4079,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4233,8 +4275,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
+
+
+
+
 
 
 
@@ -4357,7 +4403,9 @@ This subtype is caused by variation in GHR (hgnc:4263). hgnc:4263 is a gene from
                 <div class="item-box subtype-box anchor-target" id="subtype-stat5b-deficiency">
 
                     <div class="item-name">
-                        STAT5B Deficiency (post-receptor signaling defect)
+                        STAT5B Deficiency, Autosomal Recessive (post-receptor signaling defect)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0100211" target="_blank">MONDO:0100211</a>
 
 
 
@@ -4386,10 +4434,14 @@ This subtype is caused by variation in STAT5B (hgnc:11367). hgnc:11367 is a gene
 
 
 
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
 
                     </div>
 
-                    <div class="item-desc">Post-receptor GH signaling defect caused by STAT5B variants. Autosomal recessive loss of function (OMIM 245590) phenocopies classic GHI but adds a distinctive, potentially fatal primary immunodeficiency: reduced regulatory T-cell number and function, modest T-cell lymphopenia, hypergammaglobulinemia, severe eczema, and chronic pulmonary disease that can progress to lymphocytic interstitial pneumonia and fatal fibrosis. Heterozygous dominant-negative variants (OMIM 604260) cause milder GHI with eczema and elevated IgE but without the severe immune and pulmonary disease of the recessive form. This subtype - not the whole GHIS entry - is the entity IUIS lists in its 2022 inborn-errors-of-immunity classification, Table 2 section 9 (Other Defects), as two separate rows, &#34;STAT5b deficiency&#34; AR 245590 and &#34;STAT5b deficiency&#34; AD (dominant negative) 604260. A dedicated STAT5B deficiency entry (stub MONDO:0100211) is the intended future home for the immunologic detail; the content here is scoped to what a GHIS reader needs to distinguish this subtype from the GHR/IGFALS/IGF1/IGF1R arms.</div>
+                    <div class="item-desc">Post-receptor GH signaling defect caused by biallelic loss-of-function STAT5B variants (OMIM 245590; MONDO:0100211). It phenocopies classic GHI but adds a distinctive, potentially fatal primary immunodeficiency: reduced regulatory T-cell number and function, modest T-cell lymphopenia, hypergammaglobulinemia, severe eczema, and chronic pulmonary disease that can progress to lymphocytic interstitial pneumonia and fatal fibrosis. This subtype - not the whole GHIS entry - is one of the two entities IUIS lists in its 2022 inborn-errors-of-immunity classification, Table 2 section 9 (Other Defects), the other being the dominant-negative form curated as the separate STAT5B Dominant-Negative subtype below. The immunologic detail is curated in kb/disorders/STAT5B_Deficiency.yaml, which is bound to the same MONDO:0100211 concept; the content here is scoped to what a GHIS reader needs to distinguish this subtype from the GHR/IGFALS/IGF1/IGF1R arms.</div>
 
 
 
@@ -4397,7 +4449,7 @@ This subtype is caused by variation in STAT5B (hgnc:11367). hgnc:11367 is a gene
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4451,6 +4503,146 @@ This subtype is caused by variation in STAT5B (hgnc:11367). hgnc:11367 is a gene
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:26703237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26703237" target="_blank">PMID:26703237</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The critical importance of STAT5B in human IGF-I production was confirmed with the identification of the first homozygous, autosomal recessive, STAT5B mutation in a young female patient who phenotypically resembled patients with classical growth hormone insensitivity (GHI) syndrome (Laron..."</div>
+
+
+                <div class="evidence-explanation">STAT5B loss of function is an established post-receptor cause of GHIS that phenocopies Laron syndrome.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-stat5b-dominant-negative">
+
+                    <div class="item-name">
+                        STAT5B Dominant-Negative Deficiency, Autosomal Dominant
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0100219" target="_blank">MONDO:0100219</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                STAT5B
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11367</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal dominant inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Heterozygous germline STAT5B missense variants that act dominant-negatively on the wild-type protein (OMIM 604260; MONDO:0100219). Postnatal growth impairment is significant but GH insensitivity is mild, and the severe immune and pulmonary disease of the recessive form is absent - eczema and elevated IgE are the immune features. Curated as a subtype row distinct from the recessive form above because MONDO, OMIM and the IUIS 2022 classification all keep the two apart, and because the severe immunodeficiency and chronic pulmonary disease that define the recessive arm are reported absent here.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29844444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29844444" target="_blank">PMID:29844444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We now report the first germline heterozygous STAT5B variants with dominant-negative effects, identified by targeted and whole-exome sequencing (WES), in short-statured subjects from three unrelated families."</div>
+
+
+                <div class="evidence-explanation">Establishes heterozygous dominant-negative STAT5B variants as a distinct autosomal dominant cause of GH insensitivity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29844444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29844444" target="_blank">PMID:29844444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Altogether, we demonstrate that specific heterozygous STAT5B germline mutations exert dominant-negative effects resulting in STAT5B deficiency clinically characterized by significant postnatal growth impairment, mild GH insensitivity, eczema, and elevated IgE."</div>
+
+
+                <div class="evidence-explanation">Source of this subtype&#39;s clinical scope: significant postnatal growth impairment with only mild GH insensitivity, eczema and elevated IgE.</div>
+
+
+
+            </div>
+
             <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
@@ -4470,14 +4662,12 @@ This subtype is caused by variation in STAT5B (hgnc:11367). hgnc:11367 is a gene
                 <div class="evidence-snippet">"eczema (no immune defects compared to AR STAT5 deficiency)"</div>
 
 
-                <div class="evidence-explanation">The IUIS clinical column for the dominant-negative row, supporting the milder immune phenotype of the heterozygous form.</div>
+                <div class="evidence-explanation">The IUIS 2022 clinical column for the dominant-negative row, supporting the milder immune phenotype of the heterozygous form.</div>
 
 
 
             </div>
 
-
-            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -4508,11 +4698,11 @@ This subtype is caused by variation in STAT5B (hgnc:11367). hgnc:11367 is a gene
 
 
 
-    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11366</a>
+    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11366</a>
 
 
 
-                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this subtype is caused by variation in this gene
 This subtype is caused by variation in STAT5A (hgnc:11366). hgnc:11366 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
@@ -4575,6 +4765,8 @@ This subtype is caused by variation in STAT5A (hgnc:11366). hgnc:11366 is a gene
                     <div class="item-name">
                         Acid-Labile Subunit (ALS) Deficiency
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014420" target="_blank">MONDO:0014420</a>
+
 
 
                     </div>
@@ -4590,11 +4782,11 @@ This subtype is caused by variation in STAT5A (hgnc:11366). hgnc:11366 is a gene
 
 
 
-    <a href="https://bioregistry.io/hgnc:5468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:5468</a>
+    <a href="https://bioregistry.io/hgnc:5468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:5468</a>
 
 
 
-                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this subtype is caused by variation in this gene
 This subtype is caused by variation in IGFALS (hgnc:5468). hgnc:5468 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
@@ -4724,11 +4916,11 @@ This subtype is caused by variation in IGFALS (hgnc:5468). hgnc:5468 is a gene f
 
 
 
-    <a href="https://bioregistry.io/hgnc:5464" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:5464</a>
+    <a href="https://bioregistry.io/hgnc:5464" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:5464</a>
 
 
 
-                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this subtype is caused by variation in this gene
 This subtype is caused by variation in IGF1 (hgnc:5464). hgnc:5464 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
@@ -4791,6 +4983,8 @@ This subtype is caused by variation in IGF1 (hgnc:5464). hgnc:5464 is a gene fro
                     <div class="item-name">
                         IGF-1 Resistance (IGF1R defect)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010038" target="_blank">MONDO:0010038</a>
+
 
 
                     </div>
@@ -4806,11 +5000,11 @@ This subtype is caused by variation in IGF1 (hgnc:5464). hgnc:5464 is a gene fro
 
 
 
-    <a href="https://bioregistry.io/hgnc:5465" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:5465</a>
+    <a href="https://bioregistry.io/hgnc:5465" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:5465</a>
 
 
 
-                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this subtype is caused by variation in this gene
 This subtype is caused by variation in IGF1R (hgnc:5465). hgnc:5465 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
@@ -4999,6 +5193,7 @@ This subtype is caused by variation in IGF1R (hgnc:5465). hgnc:5465 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gh-igf1-axis-disruption" data-dismech-node="GH-IGF1 Axis Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">GH-IGF1 Axis Disruption</div>
 
+
                 <div class="item-desc">Growth hormone binds the homodimeric GH receptor (GHR), activating the receptor-associated kinase JAK2, which phosphorylates STAT5B; phosphorylated STAT5B dimerizes, translocates to the nucleus, and drives hepatic transcription of IGF1, IGFBP3, and IGFALS. In GHIS this cascade is interrupted at the receptor (GHR loss of function in Laron syndrome) or post-receptor (STAT5B; candidate STAT5A), producing GH insensitivity - low IGF-1 despite normal or elevated GH.</div>
 
 
@@ -5013,11 +5208,11 @@ This subtype is caused by variation in IGF1R (hgnc:5465). hgnc:5465 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Hepatocyte (principal IGF-1 source), annotated with hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5053,11 +5248,11 @@ This pathophysiological event involves Hepatocyte (principal IGF-1 source), anno
         GHR
 
 
-    <a href="https://bioregistry.io/hgnc:4263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:4263</a>
+    <a href="https://bioregistry.io/hgnc:4263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:4263</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GHR (hgnc:4263). hgnc:4263 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5096,11 +5291,11 @@ This pathophysiological event involves GHR (hgnc:4263). hgnc:4263 is a gene from
         STAT5B
 
 
-    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11367</a>
+    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11367</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5135,11 +5330,11 @@ This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene
         STAT5A
 
 
-    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11366</a>
+    <a href="https://bioregistry.io/hgnc:11366" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11366</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves STAT5A (hgnc:11366). hgnc:11366 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5177,11 +5372,11 @@ This pathophysiological event involves STAT5A (hgnc:11366). hgnc:11366 is a gene
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060396" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0060396</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060396" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0060396</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Growth hormone receptor signaling pathway (GO:0060396). GO:0060396 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5211,11 +5406,11 @@ This pathophysiological event involves decreased Growth hormone receptor signali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007259</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased GHR-JAK2-STAT5B signal transduction, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5239,6 +5434,44 @@ This pathophysiological event involves decreased GHR-JAK2-STAT5B signal transduc
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        growth hormone receptor activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004903" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0004903</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased growth hormone receptor activity (GO:0004903). GO:0004903 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -5329,6 +5562,7 @@ This pathophysiological event involves decreased GHR-JAK2-STAT5B signal transduc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-igf-1-production-and-action" data-dismech-node="Reduced IGF-1 Production and Action" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced IGF-1 Production and Action</div>
 
+
                 <div class="item-desc">Reduced GH signaling (GHR/STAT5B), reduced IGF-1 stability (IGFALS), absent ligand (IGF1), or receptor resistance (IGF1R) all converge on deficient IGF-1 action at target tissues. The ternary IGF-1/IGFBP-3/ALS complex that normally stabilizes serum IGF-1 is depleted in the production/transport defects.</div>
 
 
@@ -5351,11 +5585,11 @@ This pathophysiological event involves decreased GHR-JAK2-STAT5B signal transduc
         IGFALS
 
 
-    <a href="https://bioregistry.io/hgnc:5468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:5468</a>
+    <a href="https://bioregistry.io/hgnc:5468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:5468</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves IGFALS (hgnc:5468). hgnc:5468 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5390,11 +5624,11 @@ This pathophysiological event involves IGFALS (hgnc:5468). hgnc:5468 is a gene f
         IGF1
 
 
-    <a href="https://bioregistry.io/hgnc:5464" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:5464</a>
+    <a href="https://bioregistry.io/hgnc:5464" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:5464</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves IGF1 (hgnc:5464). hgnc:5464 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5429,11 +5663,11 @@ This pathophysiological event involves IGF1 (hgnc:5464). hgnc:5464 is a gene fro
         IGF1R
 
 
-    <a href="https://bioregistry.io/hgnc:5465" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:5465</a>
+    <a href="https://bioregistry.io/hgnc:5465" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:5465</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves IGF1R (hgnc:5465). hgnc:5465 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5471,11 +5705,11 @@ This pathophysiological event involves IGF1R (hgnc:5465). hgnc:5465 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0048009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0048009</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Insulin-like growth factor receptor signaling pathway (GO:0048009). GO:0048009 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5572,6 +5806,7 @@ This pathophysiological event involves decreased Insulin-like growth factor rece
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-linear-growth" data-dismech-node="Impaired Linear Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Linear Growth</div>
 
+
                 <div class="item-desc">Deficient IGF-1 action at the epiphyseal growth plate reduces chondrocyte proliferation and longitudinal bone growth, producing severe postnatal growth failure and short stature with delayed bone age. Birth size is near-normal because prenatal growth is only partly GH-dependent.</div>
 
 
@@ -5586,11 +5821,11 @@ This pathophysiological event involves decreased Insulin-like growth factor rece
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000138</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Growth-plate chondrocyte, annotated with chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5627,11 +5862,11 @@ This pathophysiological event involves Growth-plate chondrocyte, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0040008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0040008</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0040008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0040008</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Regulation of growth (GO:0040008). GO:0040008 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5728,6 +5963,7 @@ This pathophysiological event involves decreased Regulation of growth (GO:004000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-igf-1-negative-feedback-on-gh-secretion" data-dismech-node="Loss of IGF-1 Negative Feedback on GH Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of IGF-1 Negative Feedback on GH Secretion</div>
 
+
                 <div class="item-desc">IGF-1 normally restrains pituitary GH secretion. In the IGF-1-deficiency subtypes (GHR, STAT5B, IGF1, IGFALS) the loss of this feedback causes GH hypersecretion, generating the paradoxical &#34;high GH, low IGF-1&#34; biochemical signature. In the IGF1R-resistance subtype IGF-1 is normal or elevated instead.</div>
 
 
@@ -5749,11 +5985,11 @@ This pathophysiological event involves decreased Regulation of growth (GO:004000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030252</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0030252</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Growth hormone secretion (GO:0030252). GO:0030252 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5842,6 +6078,7 @@ This pathophysiological event involves increased Growth hormone secretion (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pro-aging-signaling-and-metabolic-protection" data-dismech-node="Reduced Pro-Aging Signaling and Metabolic Protection" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Pro-Aging Signaling and Metabolic Protection</div>
 
+
                 <div class="item-desc">A distinctive downstream consequence of lifelong severe GHR/IGF-1 deficiency (best characterized in the GHR-deficiency Ecuadorian cohort): reduced pro-aging GH-IGF-1 signaling is associated with enhanced insulin sensitivity and marked protection from cancer and type 2 diabetes. This protective metabolic phenotype is specific to the IGF-1-deficiency arm and is not a feature of IGF1R resistance.</div>
 
 
@@ -5863,11 +6100,11 @@ This pathophysiological event involves increased Growth hormone secretion (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0048009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0048009</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Reduced (pro-aging) IGF-1 receptor signaling, annotated with insulin-like growth factor receptor signaling pathway (GO:0048009). GO:0048009 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5897,11 +6134,11 @@ This pathophysiological event involves decreased Reduced (pro-aging) IGF-1 recep
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0008286</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0008286</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Enhanced insulin receptor signaling (insulin sensitivity), annotated with insulin receptor signaling pathway (GO:0008286). GO:0008286 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6000,6 +6237,7 @@ This pathophysiological event involves increased Enhanced insulin receptor signa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat5b-dependent-regulatory-t-cell-failure" data-dismech-node="STAT5B-Dependent Regulatory T-Cell Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">STAT5B-Dependent Regulatory T-Cell Failure</div>
 
+
                 <div class="item-desc">The STAT5B-specific immune arm, and the reason IUIS lists STAT5b deficiency as an inborn error of immunity. STAT5B is not confined to the GH receptor cascade: it also transduces interleukin receptor signals, including IL-2, and drives FOXP3 expression in regulatory T cells. Loss of STAT5B therefore reduces CD4+CD25high Treg number and FOXP3 expression independently of the growth axis, permitting lymphocyte accumulation in extra-lymphoid tissue and opportunistic infection. This node is parallel to, not downstream of, GH-IGF1 axis disruption - which is why the GHR, IGFALS, IGF1, and IGF1R subtypes share the growth phenotype without the immune one.</div>
 
 
@@ -6014,11 +6252,11 @@ This pathophysiological event involves increased Enhanced insulin receptor signa
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000815</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves CD4+CD25high regulatory T cell, annotated with regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6054,11 +6292,11 @@ This pathophysiological event involves CD4+CD25high regulatory T cell, annotated
         STAT5B
 
 
-    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:11367</a>
+    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11367</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -6096,11 +6334,11 @@ This pathophysiological event involves STAT5B (hgnc:11367). hgnc:11367 is a gene
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0038110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0038110</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased interleukin-2-mediated signaling pathway (GO:0038110). GO:0038110 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6130,11 +6368,11 @@ This pathophysiological event involves decreased interleukin-2-mediated signalin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0045066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0045066</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased regulatory T cell differentiation (GO:0045066). GO:0045066 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6311,7 +6549,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased Regulatory T-Cell Proportion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced CD4+CD25high regulatory T cells with diminished FOXP3 expression is the specific cellular lesion behind the STAT5B immunodeficiency, and the finding IUIS records for this row. It follows from STAT5B\u0027s position downstream of the IL-2 receptor, and is the mechanistic reason the immune phenotype tracks with STAT5B rather than with GH insensitivity as such.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0020113\"}}, {\"id\": \"Elevated circulating growth hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Normal or elevated basal GH, reflecting loss of IGF-1 negative feedback, in the face of low IGF-1 - the paradoxical signature that defines GH insensitivity and distinguishes it from GH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000845\"}}, {\"id\": \"GH-IGF1 Axis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth hormone binds the homodimeric GH receptor (GHR), activating the receptor-associated kinase JAK2, which phosphorylates STAT5B; phosphorylated STAT5B dimerizes, translocates to the nucleus, and drives hepatic transcription of IGF1, IGFBP3, and IGFALS. In GHIS this cascade is interrupted at the receptor (GHR loss of function in Laron syndrome) or post-receptor (STAT5B; candidate STAT5A), producing GH insensitivity - low IGF-1 despite normal or elevated GH.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte (principal IGF-1 source)\"], \"biological_processes\": [\"Growth hormone receptor signaling pathway\", \"GHR-JAK2-STAT5B signal transduction\"], \"genes\": [\"GHR\", \"STAT5B\", \"STAT5A\"], \"gene_terms\": [{\"label\": \"GHR\", \"id\": \"hgnc:4263\"}, {\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}, {\"label\": \"STAT5A\", \"id\": \"hgnc:11366\"}]}}, {\"id\": \"GHR pathogenic variants (Laron syndrome)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GHR\"], \"gene_terms\": [{\"label\": \"GHR\", \"id\": \"hgnc:4263\"}], \"association\": \"Causative loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypergammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum immunoglobulins with T-cell lymphopenia is the recurring laboratory pattern in recessive STAT5B deficiency - the inverse of the hypogammaglobulinemia seen in antibody-deficiency syndromes, and consistent with loss of regulatory T-cell restraint rather than a B-cell production defect. IUIS records normal B cells with hypergammaglobulinemia and increased IgE.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0010702\"}}, {\"id\": \"IGF1R pathogenic variants (IGF-1 resistance)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGF1R\"], \"gene_terms\": [{\"label\": \"IGF1R\", \"id\": \"hgnc:5465\"}], \"association\": \"Causative; heterozygous defects causing IGF-1 resistance\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"IGFALS pathogenic variants (ALS deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IGFALS\"], \"gene_terms\": [{\"label\": \"IGFALS\", \"id\": \"hgnc:5468\"}], \"association\": \"Causative biallelic loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired Linear Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient IGF-1 action at the epiphyseal growth plate reduces chondrocyte proliferation and longitudinal bone growth, producing severe postnatal growth failure and short stature with delayed bone age. Birth size is near-normal because prenatal growth is only partly GH-dependent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Growth-plate chondrocyte\"], \"biological_processes\": [\"Regulation of growth\"]}}, {\"id\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IGF-1 normally restrains pituitary GH secretion. In the IGF-1-deficiency subtypes (GHR, STAT5B, IGF1, IGFALS) the loss of this feedback causes GH hypersecretion, generating the paradoxical \\\"high GH, low IGF-1\\\" biochemical signature. In the IGF1R-resistance subtype IGF-1 is normal or elevated instead.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Growth hormone secretion\"]}}, {\"id\": \"Lymphocytic Interstitial Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pulmonary disease is the manifestation that makes recessive STAT5B deficiency potentially fatal. It can begin in the first year of life and progress to confirmed lung fibrosis or lymphocytic interstitial pneumonia; three of the ten originally reported patients died of progressive pulmonary fibrosis and respiratory failure. It is absent from the dominant-negative form.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0006527\"}}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Birth size is near-normal followed by severe postnatal growth failure - a hallmark distinguishing GHIS from primary IGF1 deficiency (which adds prenatal growth restriction).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008897\"}}, {\"id\": \"Primary Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subtype-specific to STAT5B deficiency: a primary, potentially fatal immunodeficiency with chronic pulmonary disease and autoimmunity, reflecting STAT5B\u0027s role downstream of the IL-2 receptor in regulatory T-cell homeostasis. Not a feature of the GHR/IGFALS/IGF1/IGF1R subtypes. The severity label matters here: the immunologic profile is variable even between siblings carrying the same homozygous variant, and the T-cell lymphopenia is modest rather than the profound T-cell loss of a severe combined immunodeficiency - so this is bound to the general immunodeficiency term rather than to \\\"Severe T-cell immunodeficiency\\\" (HP:0005352), which the cited sources do not support.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0002721\"}}, {\"id\": \"Recombinant Human IGF-1 (Mecasermin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human IGF-1 (rhIGF-1; mecasermin, Increlex) is the mainstay disease-specific therapy for the IGF-1-deficiency subtypes of GHIS (GHR, STAT5B, IGF1, IGFALS). By directly supplying IGF-1 it bypasses the receptor/ signaling block; GH itself is ineffective because the defect is GH resistance. The IGF1R-resistance subtype responds poorly because the defect is the receptor. Dose with meals - hypoglycemia is the principal adverse effect.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mecasermin\"]}}, {\"id\": \"Reduced IGF-1 Production and Action\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GH signaling (GHR/STAT5B), reduced IGF-1 stability (IGFALS), absent ligand (IGF1), or receptor resistance (IGF1R) all converge on deficient IGF-1 action at target tissues. The ternary IGF-1/IGFBP-3/ALS complex that normally stabilizes serum IGF-1 is depleted in the production/transport defects.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Insulin-like growth factor receptor signaling pathway\"], \"genes\": [\"IGFALS\", \"IGF1\", \"IGF1R\"], \"gene_terms\": [{\"label\": \"IGFALS\", \"id\": \"hgnc:5468\"}, {\"label\": \"IGF1\", \"id\": \"hgnc:5464\"}, {\"label\": \"IGF1R\", \"id\": \"hgnc:5465\"}]}}, {\"id\": \"STAT5B pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}], \"association\": \"Causative; recessive loss of function (GHI with immunodeficiency) and rarer dominant-negative heterozygous variants (milder GHI)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The STAT5B-specific immune arm, and the reason IUIS lists STAT5b deficiency as an inborn error of immunity. STAT5B is not confined to the GH receptor cascade: it also transduces interleukin receptor signals, including IL-2, and drives FOXP3 expression in regulatory T cells. Loss of STAT5B therefore reduces CD4+CD25high Treg number and FOXP3 expression independently of the growth axis, permitting lymphocyte accumulation in extra-lymphoid tissue and opportunistic infection. This node is parallel to, not downstream of, GH-IGF1 axis disruption - which is why the GHR, IGFALS, IGF1, and IGF1R subtypes share the growth phenotype without the immune one.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4+CD25high regulatory T cell\"], \"biological_processes\": [\"interleukin-2-mediated signaling pathway\", \"regulatory T cell differentiation\"], \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe postnatal short stature (often -4 to -10 SDS in the GHR/STAT5B/IGF1 subtypes) is the defining feature of GHIS across all molecular causes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"GH-IGF1 Axis Disruption\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interrupted GH signaling (or, in downstream subtypes, ALS/IGF1/IGF1R defects) reduces circulating IGF-1 amount, stability, or action.\"}, {\"source\": \"Reduced IGF-1 Production and Action\", \"target\": \"Impaired Linear Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient IGF-1 action impairs growth-plate chondrocyte proliferation.\"}, {\"source\": \"Reduced IGF-1 Production and Action\", \"target\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low IGF-1 removes negative feedback on pituitary GH secretion, raising GH.\"}, {\"source\": \"Impaired Linear Growth\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired linear growth manifests as severe short stature.\"}, {\"source\": \"Impaired Linear Growth\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IGF-1 action produces postnatal growth failure.\"}, {\"source\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"target\": \"Elevated circulating growth hormone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IGF-1 feedback raises circulating GH.\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Decreased Regulatory T-Cell Proportion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Primary Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Lymphocytic Interstitial Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Hypergammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recombinant Human IGF-1 (Mecasermin)\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GHR pathogenic variants (Laron syndrome)\", \"target\": \"GH-IGF1 Axis Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT5B pathogenic variants\", \"target\": \"GH-IGF1 Axis Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT5B pathogenic variants\", \"target\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGFALS pathogenic variants (ALS deficiency)\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGF1R pathogenic variants (IGF-1 resistance)\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Decreased Regulatory T-Cell Proportion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced CD4+CD25high regulatory T cells with diminished FOXP3 expression is the specific cellular lesion behind the STAT5B immunodeficiency, and the finding IUIS records for this row. It follows from STAT5B\u0027s position downstream of the IL-2 receptor, and is the mechanistic reason the immune phenotype tracks with STAT5B rather than with GH insensitivity as such.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0020113\"}}, {\"id\": \"Elevated circulating growth hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Normal or elevated basal GH, reflecting loss of IGF-1 negative feedback, in the face of low IGF-1 - the paradoxical signature that defines GH insensitivity and distinguishes it from GH deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000845\"}}, {\"id\": \"GH-IGF1 Axis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth hormone binds the homodimeric GH receptor (GHR), activating the receptor-associated kinase JAK2, which phosphorylates STAT5B; phosphorylated STAT5B dimerizes, translocates to the nucleus, and drives hepatic transcription of IGF1, IGFBP3, and IGFALS. In GHIS this cascade is interrupted at the receptor (GHR loss of function in Laron syndrome) or post-receptor (STAT5B; candidate STAT5A), producing GH insensitivity - low IGF-1 despite normal or elevated GH.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte (principal IGF-1 source)\"], \"biological_processes\": [\"Growth hormone receptor signaling pathway\", \"GHR-JAK2-STAT5B signal transduction\"], \"molecular_functions\": [\"growth hormone receptor activity\"], \"genes\": [\"GHR\", \"STAT5B\", \"STAT5A\"], \"gene_terms\": [{\"label\": \"GHR\", \"id\": \"hgnc:4263\"}, {\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}, {\"label\": \"STAT5A\", \"id\": \"hgnc:11366\"}]}}, {\"id\": \"GHR pathogenic variants (Laron syndrome)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GHR\"], \"gene_terms\": [{\"label\": \"GHR\", \"id\": \"hgnc:4263\"}], \"subtypes\": [\"Laron Syndrome\"], \"association\": \"Causative loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypergammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum immunoglobulins with T-cell lymphopenia is the recurring laboratory pattern in recessive STAT5B deficiency - the inverse of the hypogammaglobulinemia seen in antibody-deficiency syndromes, and consistent with loss of regulatory T-cell restraint rather than a B-cell production defect. IUIS records normal B cells with hypergammaglobulinemia and increased IgE.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0010702\"}}, {\"id\": \"IGF1 pathogenic variants (IGF-1 deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGF1\"], \"gene_terms\": [{\"label\": \"IGF1\", \"id\": \"hgnc:5464\"}], \"subtypes\": [\"IGF1 Deficiency\"], \"association\": \"Causative homozygous variants causing IGF-1 deficiency\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"IGF1R pathogenic variants (IGF-1 resistance)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGF1R\"], \"gene_terms\": [{\"label\": \"IGF1R\", \"id\": \"hgnc:5465\"}], \"subtypes\": [\"IGF1 Resistance\"], \"association\": \"Causative; heterozygous defects causing IGF-1 resistance\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"IGFALS pathogenic variants (ALS deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IGFALS\"], \"gene_terms\": [{\"label\": \"IGFALS\", \"id\": \"hgnc:5468\"}], \"subtypes\": [\"IGFALS Deficiency\"], \"association\": \"Causative biallelic loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Impaired Linear Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient IGF-1 action at the epiphyseal growth plate reduces chondrocyte proliferation and longitudinal bone growth, producing severe postnatal growth failure and short stature with delayed bone age. Birth size is near-normal because prenatal growth is only partly GH-dependent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Growth-plate chondrocyte\"], \"biological_processes\": [\"Regulation of growth\"]}}, {\"id\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IGF-1 normally restrains pituitary GH secretion. In the IGF-1-deficiency subtypes (GHR, STAT5B, IGF1, IGFALS) the loss of this feedback causes GH hypersecretion, generating the paradoxical \\\"high GH, low IGF-1\\\" biochemical signature. In the IGF1R-resistance subtype IGF-1 is normal or elevated instead.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Growth hormone secretion\"]}}, {\"id\": \"Lymphocytic Interstitial Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pulmonary disease is the manifestation that makes recessive STAT5B deficiency potentially fatal. It can begin in the first year of life and progress to confirmed lung fibrosis or lymphocytic interstitial pneumonia; three of the ten originally reported patients died of progressive pulmonary fibrosis and respiratory failure. It is absent from the dominant-negative form.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0006527\"}}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Birth size is near-normal followed by severe postnatal growth failure - a hallmark distinguishing GHIS from primary IGF1 deficiency (which adds prenatal growth restriction).\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008897\"}}, {\"id\": \"Primary Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subtype-specific to STAT5B deficiency: a primary, potentially fatal immunodeficiency with chronic pulmonary disease and autoimmunity, reflecting STAT5B\u0027s role downstream of the IL-2 receptor in regulatory T-cell homeostasis. Not a feature of the GHR/IGFALS/IGF1/IGF1R subtypes. The severity label matters here: the immunologic profile is variable even between siblings carrying the same homozygous variant, and the T-cell lymphopenia is modest rather than the profound T-cell loss of a severe combined immunodeficiency - so this is bound to the general immunodeficiency term rather than to \\\"Severe T-cell immunodeficiency\\\" (HP:0005352), which the cited sources do not support.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"STAT5B Deficiency\"], \"term_id\": \"HP:0002721\"}}, {\"id\": \"Recombinant Human IGF-1 (Mecasermin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human IGF-1 (rhIGF-1; mecasermin, Increlex) is the mainstay disease-specific therapy for the IGF-1-deficiency subtypes of GHIS (GHR, STAT5B, IGF1, IGFALS). By directly supplying IGF-1 it bypasses the receptor/ signaling block; GH itself is ineffective because the defect is GH resistance. The IGF1R-resistance subtype responds poorly because the defect is the receptor. Dose with meals - hypoglycemia is the principal adverse effect.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"mecasermin\"]}}, {\"id\": \"Reduced IGF-1 Production and Action\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GH signaling (GHR/STAT5B), reduced IGF-1 stability (IGFALS), absent ligand (IGF1), or receptor resistance (IGF1R) all converge on deficient IGF-1 action at target tissues. The ternary IGF-1/IGFBP-3/ALS complex that normally stabilizes serum IGF-1 is depleted in the production/transport defects.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Insulin-like growth factor receptor signaling pathway\"], \"genes\": [\"IGFALS\", \"IGF1\", \"IGF1R\"], \"gene_terms\": [{\"label\": \"IGFALS\", \"id\": \"hgnc:5468\"}, {\"label\": \"IGF1\", \"id\": \"hgnc:5464\"}, {\"label\": \"IGF1R\", \"id\": \"hgnc:5465\"}]}}, {\"id\": \"STAT5B biallelic loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}], \"subtypes\": [\"STAT5B Deficiency\"], \"association\": \"Causative biallelic loss-of-function variants (GHI with immune dysregulation)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"STAT5B dominant-negative heterozygous variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}], \"subtypes\": [\"STAT5B Dominant-Negative\"], \"association\": \"Causative heterozygous dominant-negative variants (milder GHI)\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The STAT5B-specific immune arm, and the reason IUIS lists STAT5b deficiency as an inborn error of immunity. STAT5B is not confined to the GH receptor cascade: it also transduces interleukin receptor signals, including IL-2, and drives FOXP3 expression in regulatory T cells. Loss of STAT5B therefore reduces CD4+CD25high Treg number and FOXP3 expression independently of the growth axis, permitting lymphocyte accumulation in extra-lymphoid tissue and opportunistic infection. This node is parallel to, not downstream of, GH-IGF1 axis disruption - which is why the GHR, IGFALS, IGF1, and IGF1R subtypes share the growth phenotype without the immune one.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4+CD25high regulatory T cell\"], \"biological_processes\": [\"interleukin-2-mediated signaling pathway\", \"regulatory T cell differentiation\"], \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe postnatal short stature (often -4 to -10 SDS in the GHR/STAT5B/IGF1 subtypes) is the defining feature of GHIS across all molecular causes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"GH-IGF1 Axis Disruption\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interrupted GH signaling (or, in downstream subtypes, ALS/IGF1/IGF1R defects) reduces circulating IGF-1 amount, stability, or action.\"}, {\"source\": \"Reduced IGF-1 Production and Action\", \"target\": \"Impaired Linear Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient IGF-1 action impairs growth-plate chondrocyte proliferation.\"}, {\"source\": \"Reduced IGF-1 Production and Action\", \"target\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low IGF-1 removes negative feedback on pituitary GH secretion, raising GH.\"}, {\"source\": \"Impaired Linear Growth\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired linear growth manifests as severe short stature.\"}, {\"source\": \"Impaired Linear Growth\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IGF-1 action produces postnatal growth failure.\"}, {\"source\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"target\": \"Elevated circulating growth hormone\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of IGF-1 feedback raises circulating GH.\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Decreased Regulatory T-Cell Proportion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Primary Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Lymphocytic Interstitial Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"target\": \"Hypergammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Recombinant Human IGF-1 (Mecasermin)\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GHR pathogenic variants (Laron syndrome)\", \"target\": \"GH-IGF1 Axis Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT5B biallelic loss-of-function variants\", \"target\": \"GH-IGF1 Axis Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT5B biallelic loss-of-function variants\", \"target\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT5B dominant-negative heterozygous variants\", \"target\": \"GH-IGF1 Axis Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT5B dominant-negative heterozygous variants\", \"target\": \"STAT5B-Dependent Regulatory T-Cell Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGFALS pathogenic variants (ALS deficiency)\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGF1R pathogenic variants (IGF-1 resistance)\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGF1 pathogenic variants (IGF-1 deficiency)\", \"target\": \"Reduced IGF-1 Production and Action\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6324,7 +6562,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">11</span>
             </div>
 
 
@@ -6334,7 +6572,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
@@ -6367,15 +6605,18 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0020113</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0020113</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased regulatory T cell proportion (HP:0020113). HP:0020113 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6463,15 +6704,18 @@ This clinical feature is Decreased regulatory T cell proportion (HP:0020113). HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010702</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010702</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypergammaglobulinemia, annotated with Increased circulating immunoglobulin concentration (HP:0010702). HP:0010702 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6545,15 +6789,18 @@ This clinical feature is Hypergammaglobulinemia, annotated with Increased circul
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030353</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating IGF-1 concentration, annotated with Decreased circulating serum insulin-like growth factor 1 concentration (HP:0030353). HP:0030353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6618,15 +6865,18 @@ This clinical feature is Decreased circulating IGF-1 concentration, annotated wi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000845</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6679,7 +6929,7 @@ This clinical feature is Elevated circulating growth hormone concentration (HP:0
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-primary-immunodeficiency" data-dismech-node="Primary Immunodeficiency" data-dismech-type="phenotype">
@@ -6696,15 +6946,18 @@ This clinical feature is Elevated circulating growth hormone concentration (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002721</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002721</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary immunodeficiency, annotated with Immunodeficiency (HP:0002721). HP:0002721 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6776,9 +7029,9 @@ This clinical feature is Primary immunodeficiency, annotated with Immunodeficien
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eczema" data-dismech-node="Eczema" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-eczema" data-dismech-node="Severe eczema" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Eczema
+                        Severe eczema
 
 
 
@@ -6792,15 +7045,92 @@ This clinical feature is Primary immunodeficiency, annotated with Immunodeficien
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000964</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Eczema, annotated with Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Severe eczema, annotated with Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26703237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26703237" target="_blank">PMID:26703237</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Shared symptoms in 8 of the 10 patients include severe eczema, chronic pulmonary disease manifesting as early as the first year of life"</div>
+
+
+                <div class="evidence-explanation">Documents severe eczema among the shared immune-dysfunction symptoms of the recessive STAT5B-deficient patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eczema-with-elevated-ige" data-dismech-node="Eczema with elevated IgE" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Eczema with elevated IgE
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Eczematoid dermatitis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000964</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eczema with elevated IgE, annotated with Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -6872,15 +7202,18 @@ This clinical feature is Eczema, annotated with Eczematoid dermatitis (HP:000096
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001943</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The available abstract evidence (PMID:8334752) records hypoglycemic blood-glucose values in patients who were on recombinant human IGF-1 (rhIGF-1) therapy, so it documents on-treatment hypoglycemia. Untreated, disease-intrinsic fasting/ketotic hypoglycemia is clinically recognized in the IGF-1-deficiency subtypes of GHIS but is not directly captured in the cited abstract.</div>
@@ -6952,15 +7285,18 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0006527</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0006527</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphocytic interstitial pneumonia (HP:0006527). HP:0006527 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7057,15 +7393,18 @@ This clinical feature is Lymphocytic interstitial pneumonia (HP:0006527). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7128,10 +7467,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0008897</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0008897</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Postnatal growth retardation (HP:0008897), qualified as course progressive. HP:0008897 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7155,6 +7494,9 @@ This clinical feature is Postnatal growth retardation (HP:0008897), qualified as
 
 
                     </div>
+
+
+
 
 
 
@@ -7237,7 +7579,7 @@ This clinical feature is Postnatal growth retardation (HP:0008897), qualified as
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ghr-pathogenic-variants-laron-syndrome" data-dismech-node="GHR pathogenic variants (Laron syndrome)" data-dismech-type="genetic">
@@ -7258,10 +7600,10 @@ This clinical feature is Postnatal growth retardation (HP:0008897), qualified as
                         Gene: GHR
 
 
-    <a href="https://bioregistry.io/hgnc:4263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:4263</a>
+    <a href="https://bioregistry.io/hgnc:4263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:4263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GHR (hgnc:4263). hgnc:4263 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7273,6 +7615,9 @@ This disease-associated gene is GHR (hgnc:4263). hgnc:4263 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7322,11 +7667,11 @@ This disease-associated gene is GHR (hgnc:4263). hgnc:4263 is a gene from the HU
 
             </div>
 
-            <div class="item-box genetic-box anchor-target" id="genetic-stat5b-pathogenic-variants" data-dismech-node="STAT5B pathogenic variants" data-dismech-type="genetic">
+            <div class="item-box genetic-box anchor-target" id="genetic-stat5b-biallelic-loss-of-function-variants" data-dismech-node="STAT5B biallelic loss-of-function variants" data-dismech-type="genetic">
                 <div class="item-name">
-                    STAT5B pathogenic variants
+                    STAT5B biallelic loss-of-function variants
 
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative; recessive loss of function (GHI with immunodeficiency) and rarer dominant-negative heterozygous variants (milder GHI))</span>
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative biallelic loss-of-function variants (GHI with immune dysregulation))</span>
 
                 </div>
 
@@ -7340,10 +7685,10 @@ This disease-associated gene is GHR (hgnc:4263). hgnc:4263 is a gene from the HU
                         Gene: STAT5B
 
 
-    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:11367</a>
+    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:11367</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7357,9 +7702,95 @@ This disease-associated gene is STAT5B (hgnc:11367). hgnc:11367 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26703237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26703237" target="_blank">PMID:26703237</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The critical importance of STAT5B in human IGF-I production was confirmed with the identification of the first homozygous, autosomal recessive, STAT5B mutation in a young female patient who phenotypically resembled patients with classical growth hormone insensitivity (GHI) syndrome (Laron..."</div>
+
+
+                <div class="evidence-explanation">Establishes homozygous, autosomal recessive STAT5B loss of function as a cause of GH insensitivity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-stat5b-dominant-negative-heterozygous-variants" data-dismech-node="STAT5B dominant-negative heterozygous variants" data-dismech-type="genetic">
+                <div class="item-name">
+                    STAT5B dominant-negative heterozygous variants
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative heterozygous dominant-negative variants (milder GHI))</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: STAT5B
+
+
+    <a href="https://bioregistry.io/hgnc:11367" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:11367</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAT5B (hgnc:11367). hgnc:11367 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
 
@@ -7424,10 +7855,10 @@ This disease-associated gene is STAT5B (hgnc:11367). hgnc:11367 is a gene from t
                         Gene: IGFALS
 
 
-    <a href="https://bioregistry.io/hgnc:5468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:5468</a>
+    <a href="https://bioregistry.io/hgnc:5468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:5468</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is IGFALS (hgnc:5468). hgnc:5468 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7439,6 +7870,9 @@ This disease-associated gene is IGFALS (hgnc:5468). hgnc:5468 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7531,10 +7965,10 @@ This disease-associated gene is IGFALS (hgnc:5468). hgnc:5468 is a gene from the
                         Gene: IGF1R
 
 
-    <a href="https://bioregistry.io/hgnc:5465" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:5465</a>
+    <a href="https://bioregistry.io/hgnc:5465" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:5465</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7546,6 +7980,9 @@ This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7589,6 +8026,93 @@ This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the 
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-igf1-pathogenic-variants-igf-1-deficiency" data-dismech-node="IGF1 pathogenic variants (IGF-1 deficiency)" data-dismech-type="genetic">
+                <div class="item-name">
+                    IGF1 pathogenic variants (IGF-1 deficiency)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative homozygous variants causing IGF-1 deficiency)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IGF1
+
+
+    <a href="https://bioregistry.io/hgnc:5464" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:5464</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IGF1 (hgnc:5464). hgnc:5464 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23502138" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23502138" target="_blank">PMID:23502138</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The importance of IGF-I for both in utero as well as postnatal human growth is highlighted by rare human homozygous IGF1 mutations, which are characterized by intrauterine growth retardation (IUGR), microcephaly, mental retardation and severe postnatal growth failure."</div>
+
+
+                <div class="evidence-explanation">Establishes homozygous IGF1 loss-of-function variants as a cause of intrauterine and postnatal growth failure within the GH-IGF-I axis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
@@ -7615,7 +8139,7 @@ This disease-associated gene is IGF1R (hgnc:5465). hgnc:5465 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7656,11 +8180,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2262" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C2262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2262" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C2262</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses mecasermin (NCIT:C2262). NCIT:C2262 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7825,7 +8349,7 @@ This treatment uses mecasermin (NCIT:C2262). NCIT:C2262 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">human growth hormone replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">human growth hormone replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7936,7 +8460,7 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8101,11 +8625,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0004322</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8234,29 +8758,38 @@ has_subtypes:
       Establishes GHR loss of function as the classic molecular cause of GHIS
       (Laron syndrome).
 - name: STAT5B Deficiency
-  display_name: STAT5B Deficiency (post-receptor signaling defect)
+  display_name: STAT5B Deficiency, Autosomal Recessive (post-receptor signaling defect)
   description: &gt;-
-    Post-receptor GH signaling defect caused by STAT5B variants. Autosomal
-    recessive loss of function (OMIM 245590) phenocopies classic GHI but adds
-    a distinctive, potentially fatal primary immunodeficiency: reduced
+    Post-receptor GH signaling defect caused by biallelic loss-of-function
+    STAT5B variants (OMIM 245590; MONDO:0100211). It phenocopies classic GHI but
+    adds a distinctive, potentially fatal primary immunodeficiency: reduced
     regulatory T-cell number and function, modest T-cell lymphopenia,
     hypergammaglobulinemia, severe eczema, and chronic pulmonary disease that
-    can progress to lymphocytic interstitial pneumonia and fatal fibrosis.
-    Heterozygous dominant-negative variants (OMIM 604260) cause milder GHI
-    with eczema and elevated IgE but without the severe immune and pulmonary
-    disease of the recessive form. This subtype - not the whole GHIS entry - is
-    the entity IUIS lists in its 2022 inborn-errors-of-immunity classification,
-    Table 2 section 9 (Other Defects), as two separate rows, &#34;STAT5b
-    deficiency&#34; AR 245590 and &#34;STAT5b deficiency&#34; AD (dominant negative)
-    604260. A dedicated STAT5B deficiency entry (stub MONDO:0100211) is the
-    intended future home for the immunologic detail; the content here is
-    scoped to what a GHIS reader needs to distinguish this subtype from the
-    GHR/IGFALS/IGF1/IGF1R arms.
+    can progress to lymphocytic interstitial pneumonia and fatal fibrosis. This
+    subtype - not the whole GHIS entry - is one of the two entities IUIS lists in
+    its 2022 inborn-errors-of-immunity classification, Table 2 section 9 (Other
+    Defects), the other being the dominant-negative form curated as the separate
+    STAT5B Dominant-Negative subtype below. The immunologic detail is curated in
+    kb/disorders/STAT5B_Deficiency.yaml, which is bound to the same
+    MONDO:0100211 concept; the content here is scoped to what a GHIS reader
+    needs to distinguish this subtype from the GHR/IGFALS/IGF1/IGF1R arms.
+  subtype_term:
+    preferred_term: growth hormone insensitivity with immune dysregulation 1, autosomal recessive
+    term:
+      id: MONDO:0100211
+      label: growth hormone insensitivity with immune dysregulation 1, autosomal recessive
   genes:
   - preferred_term: STAT5B
     term:
       id: hgnc:11367
       label: STAT5B
+  inheritance:
+  - name: Autosomal Recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
   evidence:
   - reference: PMID:35748970
     reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
@@ -8274,14 +8807,6 @@ has_subtypes:
     explanation: &gt;-
       The IUIS clinical column for recessive STAT5b deficiency, pairing the GH
       insensitivity with the immunologic and pulmonary manifestations.
-  - reference: PMID:35748970
-    reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
-    supports: SUPPORT
-    evidence_source: OTHER
-    snippet: &#34;eczema (no immune defects compared to AR STAT5 deficiency)&#34;
-    explanation: &gt;-
-      The IUIS clinical column for the dominant-negative row, supporting the
-      milder immune phenotype of the heterozygous form.
   - reference: PMID:26703237
     reference_title: &#34;STAT5B deficiency: Impacts on human growth and immunity.&#34;
     supports: SUPPORT
@@ -8307,6 +8832,66 @@ has_subtypes:
     explanation: &gt;-
       Distinguishes STAT5B deficiency from GHR deficiency by its associated
       immunodeficiency and lung disease.
+- name: STAT5B Dominant-Negative
+  display_name: STAT5B Dominant-Negative Deficiency, Autosomal Dominant
+  description: &gt;-
+    Heterozygous germline STAT5B missense variants that act dominant-negatively
+    on the wild-type protein (OMIM 604260; MONDO:0100219). Postnatal growth
+    impairment is significant but GH insensitivity is mild, and the severe immune
+    and pulmonary disease of the recessive form is absent - eczema and elevated
+    IgE are the immune features. Curated as a subtype row distinct from the
+    recessive form above because MONDO, OMIM and the IUIS 2022 classification all
+    keep the two apart, and because the severe immunodeficiency and chronic
+    pulmonary disease that define the recessive arm are reported absent here.
+  subtype_term:
+    preferred_term: growth hormone insensitivity syndrome with immune dysregulation 2, autosomal dominant
+    term:
+      id: MONDO:0100219
+      label: growth hormone insensitivity syndrome with immune dysregulation 2, autosomal dominant
+  genes:
+  - preferred_term: STAT5B
+    term:
+      id: hgnc:11367
+      label: STAT5B
+  inheritance:
+  - name: Autosomal Dominant
+    inheritance_term:
+      preferred_term: Autosomal dominant inheritance
+      term:
+        id: HP:0000006
+        label: Autosomal dominant inheritance
+  evidence:
+  - reference: PMID:29844444
+    reference_title: Dominant-negative STAT5B mutations cause growth hormone insensitivity with short stature and mild immune dysregulation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We now report the first germline heterozygous STAT5B variants with
+      dominant-negative effects, identified by targeted and whole-exome
+      sequencing (WES), in short-statured subjects from three unrelated families.
+    explanation: &gt;-
+      Establishes heterozygous dominant-negative STAT5B variants as a distinct
+      autosomal dominant cause of GH insensitivity.
+  - reference: PMID:29844444
+    reference_title: Dominant-negative STAT5B mutations cause growth hormone insensitivity with short stature and mild immune dysregulation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Altogether, we demonstrate that specific heterozygous STAT5B germline
+      mutations exert dominant-negative effects resulting in STAT5B deficiency
+      clinically characterized by significant postnatal growth impairment, mild
+      GH insensitivity, eczema, and elevated IgE.
+    explanation: &gt;-
+      Source of this subtype&#39;s clinical scope: significant postnatal growth
+      impairment with only mild GH insensitivity, eczema and elevated IgE.
+  - reference: PMID:35748970
+    reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;eczema (no immune defects compared to AR STAT5 deficiency)&#34;
+    explanation: &gt;-
+      The IUIS 2022 clinical column for the dominant-negative row, supporting the
+      milder immune phenotype of the heterozygous form.
 - name: STAT5A Deficiency
   display_name: STAT5A Deficiency (candidate post-receptor defect)
   description: &gt;-
@@ -8342,6 +8927,11 @@ has_subtypes:
     total IGF-1 with comparatively mild short stature (often with delayed
     puberty) and a tendency to insulin insensitivity, distinguishing it from the
     severe growth failure of GHR/STAT5B/IGF1 defects.
+  subtype_term:
+    preferred_term: acid-labile subunit deficiency
+    term:
+      id: MONDO:0014420
+      label: short stature due to primary acid-labile subunit deficiency
   genes:
   - preferred_term: IGFALS
     term:
@@ -8418,6 +9008,11 @@ has_subtypes:
     growth fails despite normal or elevated IGF-1 - the biochemical inverse of
     the IGF-1-deficiency subtypes. Because the defect is the receptor, exogenous
     IGF-1 (mecasermin) is largely ineffective.
+  subtype_term:
+    preferred_term: IGF-1 resistance
+    term:
+      id: MONDO:0010038
+      label: growth delay due to insulin-like growth factor I resistance
   genes:
   - preferred_term: IGF1R
     term:
@@ -8468,6 +9063,12 @@ pathophysiology:
     term:
       id: hgnc:4263
       label: GHR
+  molecular_functions:
+  - preferred_term: growth hormone receptor activity
+    term:
+      id: GO:0004903
+      label: growth hormone receptor activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: Growth hormone receptor signaling pathway
     term:
@@ -9054,14 +9655,38 @@ phenotypes:
       Documents hypergammaglobulinemia together with T-cell lymphopenia as the
       common laboratory pattern in STAT5B deficiency.
 - category: Phenotypic abnormality
-  name: Eczema
+  name: Severe eczema
   subtype: STAT5B Deficiency
   description: &gt;-
-    Eczema with elevated IgE is reported in STAT5B deficiency, including the
-    milder dominant-negative form, reflecting STAT5B-dependent immune
-    dysregulation.
+    Severe eczema is one of the shared immune-dysfunction features of the
+    autosomal recessive form, present in 8 of the 10 patients in the reported
+    series and distinguishing STAT5B deficiency from the GHR, IGF1, IGF1R and
+    IGFALS arms.
   phenotype_term:
-    preferred_term: Eczema
+    preferred_term: Severe eczema
+    term:
+      id: HP:0000964
+      label: Eczematoid dermatitis
+  evidence:
+  - reference: PMID:26703237
+    reference_title: &#34;STAT5B deficiency: Impacts on human growth and immunity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Shared symptoms in 8 of the 10 patients include severe eczema, chronic
+      pulmonary disease manifesting as early as the first year of life
+    explanation: &gt;-
+      Documents severe eczema among the shared immune-dysfunction symptoms of the
+      recessive STAT5B-deficient patients.
+- category: Phenotypic abnormality
+  name: Eczema with elevated IgE
+  subtype: STAT5B Dominant-Negative
+  description: &gt;-
+    Eczema with elevated IgE is the immune manifestation of the
+    dominant-negative form, which lacks the severe immune and pulmonary disease
+    of the recessive form.
+  phenotype_term:
+    preferred_term: Eczema with elevated IgE
     term:
       id: HP:0000964
       label: Eczematoid dermatitis
@@ -9078,6 +9703,7 @@ phenotypes:
       Documents eczema with elevated IgE in dominant-negative STAT5B deficiency.
 genetic:
 - name: GHR pathogenic variants (Laron syndrome)
+  subtype: Laron Syndrome
   gene_term:
     preferred_term: GHR
     term:
@@ -9105,15 +9731,52 @@ genetic:
       term:
         id: HP:0000007
         label: Autosomal recessive inheritance
-- name: STAT5B pathogenic variants
+- name: STAT5B biallelic loss-of-function variants
+  subtype: STAT5B Deficiency
   gene_term:
     preferred_term: STAT5B
     term:
       id: hgnc:11367
       label: STAT5B
-  association: &gt;-
-    Causative; recessive loss of function (GHI with immunodeficiency) and rarer
-    dominant-negative heterozygous variants (milder GHI)
+  association: Causative biallelic loss-of-function variants (GHI with immune dysregulation)
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  notes: &gt;-
+    Split from the dominant-negative heterozygous record below because the two
+    are separate MONDO concepts (MONDO:0100211 and MONDO:0100219) with different
+    inheritance and different immunologic risk, and because `subtype:` is
+    single-valued. Detailed immunologic curation of this arm lives in
+    kb/disorders/STAT5B_Deficiency.yaml.
+  evidence:
+  - reference: PMID:26703237
+    reference_title: &#34;STAT5B deficiency: Impacts on human growth and immunity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The critical importance of STAT5B in human IGF-I production was confirmed
+      with the identification of the first homozygous, autosomal recessive,
+      STAT5B mutation in a young female patient who phenotypically resembled
+      patients with classical growth hormone insensitivity (GHI) syndrome (Laron
+      syndrome) due to mutations in the GHR gene, presenting with severe
+      postnatal growth failure and marked IGF-I deficiency.
+    explanation: &gt;-
+      Establishes homozygous, autosomal recessive STAT5B loss of function as a
+      cause of GH insensitivity.
+  inheritance:
+  - name: Autosomal recessive inheritance
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+- name: STAT5B dominant-negative heterozygous variants
+  subtype: STAT5B Dominant-Negative
+  gene_term:
+    preferred_term: STAT5B
+    term:
+      id: hgnc:11367
+      label: STAT5B
+  association: Causative heterozygous dominant-negative variants (milder GHI)
   relationship_type: CAUSATIVE
   variant_origin: GERMLINE
   evidence:
@@ -9130,12 +9793,6 @@ genetic:
       Documents dominant-negative STAT5B variants as a cause of GHIS, in
       addition to the recessive form.
   inheritance:
-  - name: Autosomal recessive inheritance
-    inheritance_term:
-      preferred_term: Autosomal recessive inheritance
-      term:
-        id: HP:0000007
-        label: Autosomal recessive inheritance
   - name: Autosomal dominant inheritance
     inheritance_term:
       preferred_term: Autosomal dominant inheritance
@@ -9143,6 +9800,7 @@ genetic:
         id: HP:0000006
         label: Autosomal dominant inheritance
 - name: IGFALS pathogenic variants (ALS deficiency)
+  subtype: IGFALS Deficiency
   gene_term:
     preferred_term: IGFALS
     term:
@@ -9179,6 +9837,7 @@ genetic:
         id: HP:0000007
         label: Autosomal recessive inheritance
 - name: IGF1R pathogenic variants (IGF-1 resistance)
+  subtype: IGF1 Resistance
   gene_term:
     preferred_term: IGF1R
     term:
@@ -9200,6 +9859,42 @@ genetic:
     explanation: &gt;-
       Establishes IGF1R mutations as a genetic cause of growth retardation
       (IGF-1 resistance).
+- name: IGF1 pathogenic variants (IGF-1 deficiency)
+  subtype: IGF1 Deficiency
+  gene_term:
+    preferred_term: IGF1
+    term:
+      id: hgnc:5464
+      label: IGF1
+  association: Causative homozygous variants causing IGF-1 deficiency
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  notes: &gt;-
+    Recorded here so the IGF1 arm of this umbrella is a declared causal gene and
+    not only a gene descriptor on the IGF1 Deficiency subtype row. Detailed
+    curation of the disease itself is in kb/disorders/IGF1_Deficiency.yaml
+    (MONDO:0012110) and is not duplicated.
+  evidence:
+  - reference: PMID:23502138
+    reference_title: &#34;IGF-I in human growth: lessons from defects in the GH-IGF-I axis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      The importance of IGF-I for both in utero as well as postnatal human growth
+      is highlighted by rare human homozygous IGF1 mutations, which are
+      characterized by intrauterine growth retardation (IUGR), microcephaly,
+      mental retardation and severe postnatal growth failure.
+    explanation: &gt;-
+      Establishes homozygous IGF1 loss-of-function variants as a cause of
+      intrauterine and postnatal growth failure within the GH-IGF-I axis.
+  inheritance:
+  - name: Autosomal recessive inheritance
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
 inheritance:
 - name: Autosomal Recessive
   inheritance_term:
@@ -9403,23 +10098,64 @@ notes: &gt;-
   entry rather than duplicating its detailed content. STAT5A/STAT5B subtype
   scoping coordinated with prior project discussion in monarch-initiative/dismech
   issue 1411 / PR 1424. No GeneReviews chapter specific to &#34;growth hormone
-  insensitivity syndrome&#34; or Laron syndrome was found (PubMed searched 2026-06).
+  insensitivity syndrome&#34; or Laron syndrome was found (PubMed searched 2026-06;
+  re-confirmed against the committed index of every PubMed-indexed GeneReviews
+  chapter, snapshot 2026-09-10, which holds no chapter for either name).
   PAPPA2 (impaired IGF-1 bioavailability) and IGF2/imprinting defects are part of
   the broader GHI/IGF spectrum but are intentionally out of scope for this root
   entry&#39;s requested subtype set.
 
-  IUIS scope: the STAT5B Deficiency subtype - and only that subtype - is the
-  entity listed in the IUIS 2022 inborn errors of immunity classification,
-  Table 2 section 9 (Other Defects), as two rows: &#34;STAT5b deficiency&#34; STAT5B
-  AR 245590, and &#34;STAT5b deficiency&#34; STAT5B AD (dominant negative) 604260
-  (PMID:35748970). This entry therefore carries no entry-level iuis_category:
-  GHIS as a whole is a growth-disorder root whose GHR, IGFALS, IGF1, and IGF1R
-  arms are not inborn errors of immunity, and classifying the root would assert
-  an immunodeficiency for all of them. A dedicated STAT5B deficiency entry
-  (stub MONDO:0100211) is the intended future home for that classification and
-  for the full immunologic phenotype; when it is created, the STAT5B content
-  here should be reduced to a cross-reference in the same way the IGF1 subtype
-  already points at kb/disorders/IGF1_Deficiency.yaml.
+  IUIS scope: the two STAT5B subtypes - and only those - are the entities listed
+  in the IUIS 2022 inborn errors of immunity classification, Table 2 section 9
+  (Other Defects), as two rows: &#34;STAT5b deficiency&#34; STAT5B AR 245590, and
+  &#34;STAT5b deficiency&#34; STAT5B AD (dominant negative) 604260 (PMID:35748970). This
+  entry therefore carries no entry-level iuis_category: GHIS as a whole is a
+  growth-disorder root whose GHR, IGFALS, IGF1, and IGF1R arms are not inborn
+  errors of immunity, and classifying the root would assert an immunodeficiency
+  for all of them. The dedicated entry for the recessive arm now exists -
+  kb/disorders/STAT5B_Deficiency.yaml, bound to MONDO:0100211 - and carries the
+  immunologic detail and that classification; the STAT5B Deficiency row here is
+  scoped to what distinguishes the subtype from the other arms, as the IGF1
+  subtype is scoped against kb/disorders/IGF1_Deficiency.yaml. The
+  dominant-negative arm (MONDO:0100219) has no dedicated entry and is curated
+  here as the STAT5B Dominant-Negative subtype.
+
+  MONDO anchoring of the subtype rows. All MONDO classes bound as
+  has_subtypes[].subtype_term here are children of this entry&#39;s own
+  MONDO:0015892 anchor: MONDO:0009877 Laron syndrome, MONDO:0012110,
+  MONDO:0014420 and MONDO:0010038 directly, and MONDO:0100211 / MONDO:0100219
+  through the intermediate class MONDO:0100210 growth hormone insensitivity
+  syndrome with immune dysregulation. MONDO:0100210 is not bound separately: it
+  has three children (MONDO:0100211, MONDO:0100219 and MONDO:1060224 STAT5
+  haploinsufficiency, read from its OLS hierarchicalChildren on 2026-09-26), of
+  which the two monogenic STAT5B forms are bound as subtype rows and the third is
+  discussed below.
+
+  A tension in MONDO:0014420&#39;s own text, recorded rather than resolved. Its
+  Orphanet-derived definition describes acid-labile subunit deficiency as
+  occurring &#34;in the absence of growth hormone (GH) deficiency or GH
+  insensitivity&#34;, while MONDO classifies it as a child of MONDO:0015892 growth
+  hormone insensitivity syndrome. The endocrinology literature this entry cites
+  supports the classification rather than the definition: PMID:23502138 states
+  that defects in the GH-IGF-I axis &#34;including mutations in the GHR, STAT5B and
+  IGFALS genes, lead to postnatal IGF deficiency and GH insensitivity&#34;, and
+  PMID:39060265 describes biallelic IGFALS variants as causing &#34;growth hormone
+  resistance with or without delayed puberty&#34;. The definition appears to be using
+  &#34;GH insensitivity&#34; in the narrow receptor/post-receptor sense, in which ALS
+  deficiency indeed does not qualify. The binding is kept; the discrepancy is
+  noted so a later curator does not read it as a mis-parented term.
+
+  STAT5A has no MONDO class of its own. Searched ols:mondo (synonym-inclusive)
+  for &#34;STAT5A&#34;, &#34;STAT5&#34;, &#34;STAT5A deficiency&#34; and &#34;signal transducer and activator
+  of transcription 5A&#34; on 2026-09-26. The only hit naming STAT5A is
+  MONDO:1060224 STAT5 haploinsufficiency, defined as &#34;haploinsufficient levels of
+  STAT5 protein due to reduced copy number or expression of the STAT5A and/or
+  STAT5B genes&#34; - a joint copy-number condition with no RO:0004003 causal gene
+  asserted, rather than a STAT5A-specific monogenic disease. It therefore does not
+  anchor the candidate STAT5A subtype and is not bound. No `genetic:` record is
+  created for STAT5A either: the row remains a mechanistically motivated
+  candidate, and a causal gene-disease record would assert more than the evidence
+  supports.
 </pre>
             </div>
         </div>
@@ -9896,7 +10632,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Growth Hormone Insensitivity Syndrome", "mondoId": "MONDO:0015892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Growth_Hormone_Insensitivity_Syndrome", "yamlRevision": "1e94512424d6"};
+        const OS_CONFIG = {"diseaseName": "Growth Hormone Insensitivity Syndrome", "mondoId": "MONDO:0015892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Growth_Hormone_Insensitivity_Syndrome", "yamlRevision": "caa0d05cd8d7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

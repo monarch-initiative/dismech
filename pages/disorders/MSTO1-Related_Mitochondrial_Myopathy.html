@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5730,6 +5772,7 @@ The historically competing dominant mode is deliberately not asserted. It rested
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bi-allelic-loss-of-function-variants-in-msto1" data-dismech-node="Bi-allelic Loss-of-Function Variants in MSTO1" data-dismech-type="pathophysiology">
                 <div class="item-name">Bi-allelic Loss-of-Function Variants in MSTO1</div>
 
+
                 <div class="item-desc">The primary lesion is bi-allelic damage to MSTO1 at 1q22, reported against transcript NM_018116.3. The allelic spectrum is broad and includes missense substitutions across the length of the protein, frameshift and nonsense alleles, a start-loss allele, splice-acceptor variants and at least one multi-exon intragenic deletion, and there is no recurrent founder allele. The functional consequence converges regardless of allele class: in every patient fibroblast line assayed to date the MSTO1 protein is absent or strongly reduced, so the disease behaves as a loss of protein rather than as a set of allele-specific effects. Heterozygous parents are unaffected, so one intact allele suffices.</div>
 
 
@@ -5873,6 +5916,7 @@ This pathophysiological event involves MSTO1 (hgnc:29678). hgnc:29678 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cytosolic-msto1-protein" data-dismech-node="Loss of Cytosolic MSTO1 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cytosolic MSTO1 Protein</div>
+
 
                 <div class="item-desc">MSTO1 is a soluble cytosolic protein, not a mitochondrial matrix or inner-membrane resident, and this is the feature that makes the disorder mechanistically unusual among mitochondrial diseases. Its localisation was initially reported as the mitochondrial outer membrane, but two later groups working independently on patient material and on transfected cells placed it predominantly in the cytosol, interacting with the outer-membrane fusion machinery from the cytosolic face rather than residing in the organelle. The protein carries a region homologous to the tubulin/FtsZ GTPase superfamily, the same fold family used for chromosome segregation in eukaryotes and for organelle division in bacteria and algae, but no GTPase activity has been demonstrated for the human protein and its molecular activity remained undefined until 2026. In patient fibroblasts the protein is undetectable by western blot in every line examined in the largest series, and strongly reduced in the others, so this node is the convergence point of the whole allelic spectrum.</div>
 
@@ -6191,6 +6235,7 @@ This pathophysiological event involves abnormal mitochondrial outer membrane (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-fusion-and-network-fragmentation" data-dismech-node="Impaired Mitochondrial Fusion and Network Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Fusion and Network Fragmentation</div>
 
+
                 <div class="item-desc">Mitochondria are maintained as a dynamic, partly continuous reticulum by balanced fusion and fission. Fusion allows content mixing - complementation of damaged mtDNA and proteins between organelles - and its failure leaves a population of small, isolated, functionally isolated fragments. Every patient fibroblast line examined across four independent groups shows a fragmented mitochondrial network, and in one series the fragments coexist with abnormally enlarged structures. The effect is MSTO1-dependent in both directions: acute knockdown of MSTO1 in HeLa cells reproduces the fragmentation, over-expression of the protein drives the opposite phenotype of perinuclear mitochondrial aggregation, and re-expression of wild-type MSTO1 in patient cells restores the network. Loss of network continuity also degrades organelle distribution - the property for which the gene is named - which is expected to matter most in the long, highly polarised cells of muscle and the cerebellum.</div>
 
 
@@ -6476,6 +6521,7 @@ This pathophysiological event involves abnormal mitochondrion (GO:0005739). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-tric-chaperonin-assembly" data-dismech-node="Failure of TRiC Chaperonin Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of TRiC Chaperonin Assembly</div>
 
+
                 <div class="item-desc">An alternative account of what MSTO1 actually does, published as a preprint in July 2026 and not yet peer reviewed. Using auxin-inducible degradation to strip MSTO1 from cells within hours, the authors found that TRiC (the chaperonin-containing T-complex, CCT), the essential cytosolic ATP-dependent chaperonin that folds actin, tubulin and a large set of other substrates, falls within two days, whereas mitochondrial fragmentation does not appear until day six. Early TRiC assembly subcomplexes accumulate when MSTO1 is absent, MSTO1 co-immunoprecipitates with TRiC, and TRiC is also reduced in MSTO1 patient fibroblasts. Critically, knocking down TRiC on its own is sufficient to fragment mitochondria, and does so without measurable changes in tubulin or actin. If this holds, the ordering of the whole pathograph changes: the mitochondrial phenotype becomes a downstream consequence of a cytosolic proteostasis defect rather than the primary lesion, and MSTO1 becomes a chaperonin assembly factor that happens to have been discovered through a mitochondrial phenotype.</div>
 
 
@@ -6708,6 +6754,7 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-rad51-binding-to-mitochondrial-dna" data-dismech-node="Unrestrained RAD51 Binding to Mitochondrial DNA" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained RAD51 Binding to Mitochondrial DNA</div>
+
 
                 <div class="item-desc">A second 2026 account, this one placing MSTO1 directly at the mitochondrial genome. In cancer cell models MSTO1 interacts with the recombinase RAD51 through a conserved FxxA motif and restrains its activity specifically within mitochondria, without affecting RAD51&#39;s nuclear functions. When MSTO1 is lost, RAD51 binding to mtDNA increases, mtDNA replication is disrupted and mtDNA damage accumulates, membrane potential falls and mtDNA content drops. The same work reports that mtDNA then leaks to the cytosol through a BAX/BAK-dependent route and activates cGAS-STING signalling, which would give MSTO1 deficiency an innate-immune arm. This route would explain mtDNA depletion without requiring the fusion defect as an intermediate, and it is therefore modelled as a competing hypothesis rather than as an addition to the canonical chain.</div>
 
@@ -6958,6 +7005,7 @@ This pathophysiological event involves abnormal mitochondrial nucleoid (GO:00426
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtdna-depletion-and-nucleoid-reorganisation" data-dismech-node="mtDNA Depletion and Nucleoid Reorganisation" data-dismech-type="pathophysiology">
                 <div class="item-name">mtDNA Depletion and Nucleoid Reorganisation</div>
+
 
                 <div class="item-desc">The finding that reclassified this disorder. Mitochondrial DNA content is reduced in patient cells to roughly a third to two thirds of control, and the surviving genomes are redistributed: nucleoids become fewer and larger, and some mitochondrial fragments contain no genome at all. The depletion is reproducible across independent laboratories, appears in muscle as well as in fibroblasts, and is quantitatively in the same range as that seen in fibroblasts from patients with OPA1 or MFN2 disease and in the established mtDNA depletion syndromes, which is the basis for the proposal that MSTO1 deficiency be classified as an mtDNA depletion syndrome.</div>
 
@@ -7242,6 +7290,7 @@ This pathophysiological event involves abnormal mitochondrial nucleoid (GO:00426
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dissociation-between-mtdna-depletion-and-respiratory-chain-function" data-dismech-node="Dissociation Between mtDNA Depletion and Respiratory Chain Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Dissociation Between mtDNA Depletion and Respiratory Chain Function</div>
 
+
                 <div class="item-desc">A patient with MSTO1 disease usually does not look biochemically like a classical mitochondrial patient. Lactate is normal, respiratory chain complex activities in muscle homogenate are normal or near normal, and fibroblast respiration measured by micro-oxygraphy is normal, even though mtDNA is reduced and the network is fragmented. What is abnormal is citrate synthase activity, which is markedly low and indexes mitochondrial mass rather than mitochondrial function, so the coherent reading is that these cells have fewer, poorly distributed mitochondria carrying less mtDNA rather than mitochondria that respire badly. This matters diagnostically: a normal mitochondrial biochemical screen does not exclude the diagnosis, and it is a large part of why the disorder was reached by exome sequencing rather than by metabolic workup. The dissociation is not absolute - the 2026 adult-onset case did show reduced membrane potential and respiratory capacity - and that exception is carried here rather than hidden.</div>
 
 
@@ -7419,6 +7468,7 @@ This pathophysiological event involves skeletal muscle fibre, annotated with ske
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enlarged-lysosomal-vacuoles" data-dismech-node="Enlarged Lysosomal Vacuoles" data-dismech-type="pathophysiology">
                 <div class="item-name">Enlarged Lysosomal Vacuoles</div>
 
+
                 <div class="item-desc">Markedly enlarged lysosomal vacuoles were found across all MSTO1 patient fibroblast lines in the largest series, a finding not previously reported in the context of MSTO1 dysfunction. Mitochondrial and lysosomal compartments are functionally coupled, and lysosomal enlargement is a recurring accompaniment of mitochondrial dysfunction, but for MSTO1 the connecting steps are undetermined and the finding has not yet been replicated by another group. It is curated because it recovered on re-expression of wild-type MSTO1 on the same timescale as mitochondrial morphology, which argues it is a genuine consequence of losing the protein rather than a culture artefact.</div>
 
 
@@ -7534,6 +7584,7 @@ This pathophysiological event involves abnormal lysosome (GO:0005764). GO:000576
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dystrophic-degeneration-of-skeletal-muscle-fibres" data-dismech-node="Dystrophic Degeneration of Skeletal Muscle Fibres" data-dismech-type="pathophysiology">
                 <div class="item-name">Dystrophic Degeneration of Skeletal Muscle Fibres</div>
+
 
                 <div class="item-desc">Muscle is the tissue in which MSTO1 loss produces the most consistent structural damage. Biopsies show a dystrophic rather than a purely myopathic process: variation in fibre size, internalised nuclei, whorled fibres, and a mild degree of necrosis and regeneration, with electron microscopy in earlier reports showing increased subsarcolemmal and intermyofibrillar mitochondria with lipid and glycogen accumulation. Notably the classical oxidative histochemical stigmata of mitochondrial myopathy - ragged red fibres, cytochrome c oxidase negative fibres - were absent in the cases where they were sought, consistent with the biochemical dissociation node above. Ongoing fibre necrosis and regeneration is what produces the raised creatine kinase, which is the single most useful screening abnormality in this disorder.</div>
 
@@ -7690,6 +7741,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-hypoplasia-and-cortical-atrophy" data-dismech-node="Cerebellar Hypoplasia and Cortical Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Hypoplasia and Cortical Atrophy</div>
+
 
                 <div class="item-desc">The cerebellar lesion is the second constant of the disorder and is developmental at least in part. Brain MRI showed moderate to severe cerebellar atrophy or hypoplasia involving the vermis and both hemispheres in all twelve patients imaged in the largest cohort, four of whom were imaged before the age of two, and repeat imaging in four patients confirmed no progression. That pattern - present early, stable thereafter - is unusual among mitochondrial cerebellar syndromes and argues for a defect in cerebellar development rather than for ongoing neurodegeneration. It is not universal: an additional case with clinical and radiological evidence of progressive cerebellar involvement has been reported, and a 2026 patient presented with adult-onset progressive ataxia, so this entry records both courses. Purkinje cells are the obvious candidate substrate given their energetic demands and their sensitivity in other mitochondrial disorders, but no neuropathological material from an MSTO1 patient has been published.</div>
 
@@ -7855,6 +7907,7 @@ This pathophysiological event occurs in cerebellar vermis (UBERON:0004720). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticospinal-tract-dysfunction" data-dismech-node="Corticospinal Tract Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticospinal Tract Dysfunction</div>
 
+
                 <div class="item-desc">An upper motor neuron component sits alongside the myopathy and is easy to miss because weakness is usually attributed to the muscle disease. Increased tone, a spastic catch, clonus and brisk deep tendon reflexes were recorded in eight of fifteen patients in the largest cohort, and upper motor neuron signs are singled out in an independent report as part of the typical picture. Its presence is diagnostically useful: brisk reflexes in a child with a dystrophic myopathy and a high creatine kinase point away from a pure muscular dystrophy and towards a central component.</div>
 
 
@@ -7940,6 +7993,7 @@ This pathophysiological event occurs in cerebellar vermis (UBERON:0004720). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-degeneration-with-pigmentary-change" data-dismech-node="Retinal Degeneration with Pigmentary Change" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Degeneration with Pigmentary Change</div>
+
 
                 <div class="item-desc">The retinal component is the feature that names the MONDO and Orphanet terms and simultaneously the least consistent part of the phenotype. Where it is present it is a genuine retinal dystrophy: widespread salt-and-pepper pigmentation, macular atrophy, mottled hypoautofluorescence and loss of the ellipsoid zone on multimodal imaging in a Chinese sibling pair followed for seventeen years, and pigmentary retinopathy with pallor of the disc and concentric visual field constriction, but preserved visual acuity, in the index patient of the first recessive series (PMID:28544275). Both probands of the report that gave the syndrome its MONDO name (PMID:29339779) had pigmentary retinopathy. Yet it was reported in none of the fifteen patients of the largest cohort, where formal ophthalmological examination was not performed in every patient - so the true denominator is unknown and the discrepancy may be ascertainment rather than biology.</div>
 
@@ -8139,6 +8193,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-weakness-with-restrictive-respiratory-compromise" data-dismech-node="Proximal Weakness with Restrictive Respiratory Compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Weakness with Restrictive Respiratory Compromise</div>
 
+
                 <div class="item-desc">The organism-level expression of the muscle disease. Presentation is with hypotonia and delayed motor milestones between birth and three years, followed by independent but waddling, wide-based ambulation and predominantly proximal weakness that then remains relatively stable. Loss of respiratory muscle strength shows up as a reduced forced vital capacity before it produces symptoms, which is the argument for scheduled pulmonary function testing rather than symptom-triggered testing. A later-onset arm of the spectrum exists: a 2026 series reported diagnosis between 13 and 30 years, and a separate 2026 case had adult-onset disease.</div>
 
 
@@ -8249,6 +8304,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ataxia-dysmetria-and-dysarthria" data-dismech-node="Ataxia, Dysmetria and Dysarthria" data-dismech-type="pathophysiology">
                 <div class="item-name">Ataxia, Dysmetria and Dysarthria</div>
+
 
                 <div class="item-desc">The organism-level expression of the cerebellar lesion. In the largest cohort dysmetria was recorded in 11 of 15, gait ataxia in 9 of 15 and abnormal speech in 12 of 15, the last comprising speech delay in five and dysarthria in eight. Because the cerebellar atrophy is usually stable, these signs typically do not worsen substantially over time, and the functional trajectory of most patients is dominated by the muscle disease rather than by the cerebellar disease.</div>
 
@@ -8457,6 +8513,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in a single patient. No frequency band is asserted, and the feature is retained because its clinical consequence (aspiration risk) is high even at low frequency.</div>
 
 
@@ -8535,6 +8594,9 @@ This clinical feature is Pigmentary retinopathy (HP:0000580). HP:0000580 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No frequency band is asserted and the reason is a genuine conflict rather than missing data. Present in both probands of PMID:29339779, in patient A1 of PMID:28544275 and in both sisters of PMID:40542878; absent in 0 of 15 of PMID:31463572, where the authors note that formal ophthalmological examination was not performed in every patient. Pooling those numerators across cohorts that used different ophthalmological protocols would manufacture a precision the literature does not support. See the `msto1-retinopathy-denominator` discussion.</div>
@@ -8655,7 +8717,7 @@ This clinical feature is Pigmentary retinopathy (HP:0000580). HP:0000580 is a ph
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -8665,10 +8727,13 @@ This clinical feature is Pigmentary retinopathy (HP:0000580). HP:0000580 is a ph
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band derived directly from the quoted count of 14 of 15 patients (93%) in PMID:31463572, which falls in the VERY_FREQUENT (80-99%) band.</div>
@@ -8798,6 +8863,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701), qualified as cou
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from an explicit count: at last examination all 15 patients in PMID:31463572 had predominantly proximal weakness, and all four patients in PMID:41653646 exhibited myopathy of variable severity. VERY_FREQUENT (80-99%) rather than OBLIGATE because the total published denominator is around 30 and no systematic ascertainment has been done.</div>
 
 
@@ -8919,6 +8987,9 @@ This clinical feature is Muscular dystrophy (HP:0003560). HP:0003560 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. Muscle biopsy was performed in 10 of 15 patients in PMID:31463572 and all were dystrophic, but a 10/15 denominator reflects who was biopsied rather than who has the pathology, and biopsy in the era of first-line genome sequencing is increasingly selective.</div>
 
 
@@ -9018,6 +9089,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9107,6 +9181,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9231,6 +9308,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9333,6 +9413,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from an explicit count: 12 of 12 patients imaged in PMID:31463572. VERY_FREQUENT rather than OBLIGATE because only 12 of the 15 patients in that cohort had imaging available, and because PMID:41653646 reported MRI evidence of cerebellar atrophy in only one of four patients - a discrepancy that is itself notable and that argues against treating the cerebellar lesion as obligate.</div>
 
 
@@ -9433,6 +9516,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from the explicit count of gait ataxia in 9 of 15 patients (60%) in PMID:31463572, which falls in the FREQUENT (30-79%) band. Dysmetria at 11 of 15 is curated as a separate phenotype below.</div>
 
 
@@ -9531,6 +9617,9 @@ This clinical feature is Dysmetria (HP:0001310). HP:0001310 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from the explicit count of 11 of 15 (73%) in PMID:31463572, in the FREQUENT (30-79%) band.</div>
 
 
@@ -9604,6 +9693,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from the explicit count of 8 of 15 (53%) in PMID:31463572, in the FREQUENT (30-79%) band. The broader category of any abnormal speech (12 of 15) is not used for the band because it aggregates dysarthria with developmental speech delay, which is a different phenotype and is curated separately below.</div>
 
 
@@ -9675,6 +9767,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band derived from the explicit count of 5 of 15 (33%) in PMID:31463572, which just enters the FREQUENT (30-79%) band. This is a borderline assignment and a single reclassified patient would move it to OCCASIONAL.</div>
@@ -9775,6 +9870,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from the statement that all but five of 15 patients (10 of 15, 67%) had delayed motor milestones in PMID:31463572, which falls in the FREQUENT (30-79%) band.</div>
 
 
@@ -9871,6 +9969,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band derived from the count of corticospinal tract manifestations in 8 of 15 patients (53%) in PMID:31463572, in the FREQUENT (30-79%) band. The source counts increased tone, spastic catch, clonus and brisk reflexes together, so the band applies to the corticospinal syndrome as a whole rather than to hyperreflexia in isolation.</div>
@@ -9971,6 +10072,9 @@ This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 i
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency band derived from the count of learning difficulties in 9 of 15 patients (60%) in PMID:31463572, in the FREQUENT (30-79%) band. The severity qualifier &#34;mild&#34; comes from the same source&#39;s statement that no patient had major cognitive involvement, which is quoted below.</div>
 
 
@@ -10067,6 +10171,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted: tremor is reported in individual cases and is not among the signs counted in PMID:31463572, so there is no denominator to band.</div>
 
 
@@ -10161,6 +10268,9 @@ This clinical feature is absent Seizure (HP:0001250). HP:0001250 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10234,6 +10344,9 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10375,6 +10488,9 @@ This disease-associated gene is MSTO1 (hgnc:29678). hgnc:29678 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -13855,10 +13971,10 @@ phenotypes:
     and a wide-based gait in a child with proximal weakness, a raised creatine
     kinase is the pattern that should prompt sequencing.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   frequency: VERY_FREQUENT
   notes: &gt;-
     Frequency band derived directly from the quoted count of 14 of 15 patients
@@ -15587,7 +15703,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "MSTO1-Related Mitochondrial Myopathy", "mondoId": "MONDO:0044714", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MSTO1-Related_Mitochondrial_Myopathy", "yamlRevision": "9f243c9201c4"};
+        const OS_CONFIG = {"diseaseName": "MSTO1-Related Mitochondrial Myopathy", "mondoId": "MONDO:0044714", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MSTO1-Related_Mitochondrial_Myopathy", "yamlRevision": "82b06c7899c1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

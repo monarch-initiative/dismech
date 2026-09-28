@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4425,6 +4467,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp24a1-vitamin-d-catabolism-defect" data-dismech-node="CYP24A1 vitamin D catabolism defect" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP24A1 vitamin D catabolism defect</div>
 
+
                 <div class="item-desc">CYP24A1 encodes 25-hydroxyvitamin D 24-hydroxylase, the enzyme responsible for catabolism of active vitamin D metabolites. Loss-of-function variants reduce degradation of 1,25-dihydroxyvitamin D3, increasing sensitivity to vitamin D and predisposing to PTH-independent hypercalcemia.
 </div>
 
@@ -4514,6 +4557,44 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        25-hydroxycholecalciferol-24-hydroxylase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008403" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008403</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 25-hydroxycholecalciferol-24-hydroxylase activity (GO:0008403). GO:0008403 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4627,6 +4708,7 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc34a1-renal-phosphate-transport-defect" data-dismech-node="SLC34A1 renal phosphate transport defect" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC34A1 renal phosphate transport defect</div>
 
+
                 <div class="item-desc">SLC34A1 encodes the renal sodium-phosphate cotransporter NaPi-IIa. Defective NaPi-IIa trafficking or transport causes proximal-tubule phosphate wasting and hypophosphatemia, which promotes inappropriate production of 1,25-dihydroxyvitamin D3 and symptomatic hypercalcemia.
 </div>
 
@@ -4642,11 +4724,11 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002306</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4684,11 +4766,11 @@ This pathophysiological event involves epithelial cell of proximal tubule (CL:00
         SLC34A1
 
 
-    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11019</a>
+    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11019</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SLC34A1 (hgnc:11019). hgnc:11019 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4726,11 +4808,11 @@ This pathophysiological event involves SLC34A1 (hgnc:11019). hgnc:11019 is a gen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006817</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006817</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves phosphate ion transport (GO:0006817). GO:0006817 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4756,11 +4838,11 @@ This pathophysiological event involves phosphate ion transport (GO:0006817). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0055062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0055062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves phosphate ion homeostasis (GO:0055062). GO:0055062 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4793,11 +4875,11 @@ This pathophysiological event involves phosphate ion homeostasis (GO:0055062). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002113</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4932,6 +5014,7 @@ suppression on the development"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-active-vitamin-d-excess-and-pth-independent-hypercalcemia" data-dismech-node="Active vitamin D excess and PTH-independent hypercalcemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Active vitamin D excess and PTH-independent hypercalcemia</div>
 
+
                 <div class="item-desc">CYP24A1-associated impaired catabolism or SLC34A1-associated excessive generation of active vitamin D metabolites increases active vitamin D signaling. The resulting PTH-independent hypercalcemia includes hypercalciuria, suppressed intact PTH, hypophosphatemia in phosphate-wasting cases, and nephrocalcinosis.
 </div>
 
@@ -4954,11 +5037,11 @@ suppression on the development"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042359" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042359</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042359" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0042359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves vitamin D metabolic process (GO:0042359). GO:0042359 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4984,11 +5067,11 @@ This pathophysiological event involves vitamin D metabolic process (GO:0042359).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0055074</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5203,6 +5286,7 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephrocalcinosis-and-chronic-kidney-injury" data-dismech-node="Nephrocalcinosis and chronic kidney injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephrocalcinosis and chronic kidney injury</div>
 
+
                 <div class="item-desc">Hypercalcemia and hypercalciuria drive renal calcium deposition, medullary nephrocalcinosis, and tubulointerstitial injury. Long-term survivors can have persistent nephrocalcinosis, reduced GFR, CKD, and rarely ESRD.
 </div>
 
@@ -5228,11 +5312,11 @@ This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002113</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5372,7 +5456,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Vitamin D Metabolite Suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacologic inhibition of active vitamin D metabolite synthesis or induction of metabolite degradation has been proposed for survivors with ongoing metabolic risk, but long-term safety data remain limited.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ketoconazole\", \"rifampicin\"]}}, {\"id\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP24A1-associated impaired catabolism or SLC34A1-associated excessive generation of active vitamin D metabolites increases active vitamin D signaling. The resulting PTH-independent hypercalcemia includes hypercalciuria, suppressed intact PTH, hypophosphatemia in phosphate-wasting cases, and nephrocalcinosis.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"vitamin D metabolic process\", \"calcium ion homeostasis\"]}}, {\"id\": \"Acute hypercalcemia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute symptomatic hypercalcemia can require intensive hydration, loop diuretic therapy, and phosphate replacement to lower calcium and stabilize the infant during the hypercalcemic episode.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CYP24A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CYP24A1\"], \"gene_terms\": [{\"label\": \"CYP24A1\", \"id\": \"hgnc:2602\"}], \"variant_count\": 1}}, {\"id\": \"CYP24A1 vitamin D catabolism defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP24A1 encodes 25-hydroxyvitamin D 24-hydroxylase, the enzyme responsible for catabolism of active vitamin D metabolites. Loss-of-function variants reduce degradation of 1,25-dihydroxyvitamin D3, increasing sensitivity to vitamin D and predisposing to PTH-independent hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"vitamin D metabolic process\"], \"genes\": [\"CYP24A1\"], \"gene_terms\": [{\"label\": \"CYP24A1\", \"id\": \"hgnc:2602\"}]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-term survivors may develop reduced GFR and chronic kidney disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012622\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a gastrointestinal manifestation of symptomatic hypercalcemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Decreased circulating parathyroid hormone level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intact PTH is suppressed in the PTH-independent hypercalcemia state.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031817\"}}, {\"id\": \"Decreased serum phosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:26020\", \"term_label\": \"phosphate\", \"readouts\": [{\"target\": \"SLC34A1 renal phosphate transport defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low serum phosphate is a diagnostic readout of renal phosphate wasting in SLC34A1-associated disease.\"}]}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dehydration is part of the acute symptomatic hypercalcemia presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001944\"}}, {\"id\": \"Elevated serum calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated serum calcium is the central diagnostic readout of vitamin D-driven PTH-independent hypercalcemia.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is a typical infant presentation of symptomatic hypercalcemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hypercalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset PTH-independent hypercalcemia is the defining clinical feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003072\"}}, {\"id\": \"Hypercalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypercalciuria accompanies the hypercalcemic phenotype and contributes to renal calcification risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002150\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension has been reported in later-presenting patients and in symptomatic hypercalcemia descriptions.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hypophosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypophosphatemia is especially prominent in SLC34A1-associated renal phosphate wasting.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002148\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia may occur during symptomatic infantile hypercalcemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased 25(OH)D3 to 24,25(OH)2D3 ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"CYP24A1 vitamin D catabolism defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A high 25(OH)D3/24,25(OH)2D3 ratio reports impaired CYP24A1-dependent 24-hydroxylation.\"}]}}, {\"id\": \"Increased active vitamin D exposure\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17823\", \"term_label\": \"calcitriol\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated or inappropriately high active vitamin D metabolites read out the convergent biochemical mechanism.\"}]}}, {\"id\": \"Increased urinary calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary calcium reports downstream calcium excess and renal calcium wasting.\"}]}}, {\"id\": \"Loss-of-function CYP24A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"CYP24A1 variants impair or abolish 24-hydroxylase function, reducing degradation of active vitamin D metabolites and causing vitamin D hypersensitivity.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss-of-function SLC34A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SLC34A1 variants impair NaPi-IIa phosphate transport, causing renal phosphate wasting and inappropriate active vitamin D generation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Medullary nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Medullary nephrocalcinosis is part of the characteristic renal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012408\"}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Medullary nephrocalcinosis is a frequent renal manifestation and can persist into long-term follow-up.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000121\"}}, {\"id\": \"Nephrocalcinosis and chronic kidney injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypercalcemia and hypercalciuria drive renal calcium deposition, medullary nephrocalcinosis, and tubulointerstitial injury. Long-term survivors can have persistent nephrocalcinosis, reduced GFR, CKD, and rarely ESRD.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephrolithiasis can occur in older children, adults, and monoallelic carriers with the infantile hypercalcemia biochemical spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000787\"}}, {\"id\": \"Phosphate supplementation for SLC34A1-associated disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphate supplementation targets the SLC34A1 mechanism by correcting renal phosphate wasting, which can rapidly reduce inappropriate active vitamin D production and hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Polyuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polyuria is a urinary manifestation of hypercalcemia in infancy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000103\"}}, {\"id\": \"Renal monitoring and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Survivors require ongoing nephrology follow-up, renal imaging, calcium and vitamin D metabolite monitoring, hydration counseling, and early preventive measures because CKD and nephrocalcinosis may progress after the acute infantile episode.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Renal phosphate wasting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SLC34A1-associated disease can present with renal phosphate wasting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000117\"}}, {\"id\": \"SLC34A1 renal phosphate transport defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLC34A1 encodes the renal sodium-phosphate cotransporter NaPi-IIa. Defective NaPi-IIa trafficking or transport causes proximal-tubule phosphate wasting and hypophosphatemia, which promotes inappropriate production of 1,25-dihydroxyvitamin D3 and symptomatic hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"phosphate ion transport\", \"phosphate ion homeostasis\"], \"genes\": [\"SLC34A1\"], \"gene_terms\": [{\"label\": \"SLC34A1\", \"id\": \"hgnc:11019\"}], \"locations\": [\"kidney\"]}}, {\"id\": \"SLC34A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC34A1\"], \"gene_terms\": [{\"label\": \"SLC34A1\", \"id\": \"hgnc:11019\"}], \"variant_count\": 1}}, {\"id\": \"Suppressed intact parathyroid hormone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Suppressed intact PTH distinguishes the vitamin D-driven hypercalcemia from PTH-mediated hypercalcemia.\"}]}}, {\"id\": \"Vitamin D and calcium exposure reduction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Avoiding vitamin D supplements, high calcium intake, and excessive sun exposure reduces the metabolic trigger for CYP24A1-associated disease and helps prevent recurrent hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting reflects symptomatic hypercalcemia in affected infants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"CYP24A1 vitamin D catabolism defect\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired vitamin D catabolism increases active vitamin D exposure and calcium absorption/signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal phosphate wasting stimulates inappropriate 1,25-dihydroxyvitamin D3 generation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Proximal tubular phosphate wasting.\", \"Increased 1,25-dihydroxyvitamin D3 generation.\"]}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Renal phosphate wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective NaPi-IIa function causes primary renal phosphate wasting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Hypophosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SLC34A1 loss reduces renal phosphate reabsorption, producing serum phosphate depletion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Nephrocalcinosis and chronic kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent calcium and vitamin D abnormalities promote renal calcium deposition and kidney injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PTH-independent hypercalcemia.\", \"Hypercalciuria and renal calcium deposition.\"]}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active vitamin D excess drives the defining PTH-independent hypercalcemia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypercalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vitamin D-driven calcium excess is accompanied by urinary calcium wasting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Decreased circulating parathyroid hormone level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PTH is suppressed in the PTH-independent hypercalcemia state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic infantile hypercalcemia manifests with failure to thrive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypercalcemia causes gastrointestinal symptoms including vomiting or emesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vomiting and polyuria during symptomatic hypercalcemia contribute to dehydration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Emesis.\", \"Polyuria from calcium-mediated renal concentrating impairment.\"]}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic hypercalcemia includes gastrointestinal dysmotility with constipation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Polyuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypercalcemia can impair renal concentrating function and produce polyuria.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile symptomatic hypercalcemia may include generalized hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic hypercalcemia descriptions include arterial hypertension in the IIH spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal calcium deposition manifests as nephrocalcinosis on ultrasound.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Medullary nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcium deposition in infantile hypercalcemia often affects the renal medulla.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent nephrocalcinosis and tubulointerstitial injury can progress to chronic kidney disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nephrocalcinosis.\", \"Tubulointerstitial inflammation and fibrosis.\"]}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same calcium/vitamin D metabolism disturbance can produce nephrolithiasis as well as nephrocalcinosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypercalcemia and hypercalciuria.\", \"Renal calcium crystal deposition.\"]}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"CYP24A1 vitamin D catabolism defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Hypercalciuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"SLC34A1 renal phosphate transport defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"Hypophosphatemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"SLC34A1 renal phosphate transport defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Dehydration\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Nephrocalcinosis and chronic kidney injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Nephrocalcinosis and chronic kidney injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Hypercalciuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Elevated serum calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated serum calcium is the central diagnostic readout of vitamin D-driven PTH-independent hypercalcemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Increased urinary calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary calcium reports downstream calcium excess and renal calcium wasting.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Decreased serum phosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low serum phosphate is a diagnostic readout of renal phosphate wasting in SLC34A1-associated disease.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Suppressed intact parathyroid hormone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Suppressed intact PTH distinguishes the vitamin D-driven hypercalcemia from PTH-mediated hypercalcemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Increased active vitamin D exposure\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated or inappropriately high active vitamin D metabolites read out the convergent biochemical mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CYP24A1 vitamin D catabolism defect\", \"target\": \"Increased 25(OH)D3 to 24,25(OH)2D3 ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A high 25(OH)D3/24,25(OH)2D3 ratio reports impaired CYP24A1-dependent 24-hydroxylation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CYP24A1 variants\", \"target\": \"CYP24A1 vitamin D catabolism defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC34A1 variants\", \"target\": \"SLC34A1 renal phosphate transport defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Loss-of-function CYP24A1 variants\", \"target\": \"CYP24A1 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Loss-of-function SLC34A1 variants\", \"target\": \"SLC34A1 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Vitamin D Metabolite Suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacologic inhibition of active vitamin D metabolite synthesis or induction of metabolite degradation has been proposed for survivors with ongoing metabolic risk, but long-term safety data remain limited.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ketoconazole\", \"rifampicin\"]}}, {\"id\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP24A1-associated impaired catabolism or SLC34A1-associated excessive generation of active vitamin D metabolites increases active vitamin D signaling. The resulting PTH-independent hypercalcemia includes hypercalciuria, suppressed intact PTH, hypophosphatemia in phosphate-wasting cases, and nephrocalcinosis.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"vitamin D metabolic process\", \"calcium ion homeostasis\"]}}, {\"id\": \"Acute hypercalcemia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute symptomatic hypercalcemia can require intensive hydration, loop diuretic therapy, and phosphate replacement to lower calcium and stabilize the infant during the hypercalcemic episode.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CYP24A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CYP24A1\"], \"gene_terms\": [{\"label\": \"CYP24A1\", \"id\": \"hgnc:2602\"}], \"variant_count\": 1}}, {\"id\": \"CYP24A1 vitamin D catabolism defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CYP24A1 encodes 25-hydroxyvitamin D 24-hydroxylase, the enzyme responsible for catabolism of active vitamin D metabolites. Loss-of-function variants reduce degradation of 1,25-dihydroxyvitamin D3, increasing sensitivity to vitamin D and predisposing to PTH-independent hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"vitamin D metabolic process\"], \"molecular_functions\": [\"25-hydroxycholecalciferol-24-hydroxylase activity\"], \"genes\": [\"CYP24A1\"], \"gene_terms\": [{\"label\": \"CYP24A1\", \"id\": \"hgnc:2602\"}]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-term survivors may develop reduced GFR and chronic kidney disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012622\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a gastrointestinal manifestation of symptomatic hypercalcemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002019\"}}, {\"id\": \"Decreased circulating parathyroid hormone level\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intact PTH is suppressed in the PTH-independent hypercalcemia state.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031817\"}}, {\"id\": \"Decreased serum phosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:26020\", \"term_label\": \"phosphate\", \"readouts\": [{\"target\": \"SLC34A1 renal phosphate transport defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low serum phosphate is a diagnostic readout of renal phosphate wasting in SLC34A1-associated disease.\"}]}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dehydration is part of the acute symptomatic hypercalcemia presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001944\"}}, {\"id\": \"Elevated serum calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated serum calcium is the central diagnostic readout of vitamin D-driven PTH-independent hypercalcemia.\"}]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is a typical infant presentation of symptomatic hypercalcemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Hypercalcemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset PTH-independent hypercalcemia is the defining clinical feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003072\"}}, {\"id\": \"Hypercalciuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypercalciuria accompanies the hypercalcemic phenotype and contributes to renal calcification risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002150\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arterial hypertension has been reported in later-presenting patients and in symptomatic hypercalcemia descriptions.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hypophosphatemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypophosphatemia is especially prominent in SLC34A1-associated renal phosphate wasting.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002148\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia may occur during symptomatic infantile hypercalcemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased 25(OH)D3 to 24,25(OH)2D3 ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"CYP24A1 vitamin D catabolism defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A high 25(OH)D3/24,25(OH)2D3 ratio reports impaired CYP24A1-dependent 24-hydroxylation.\"}]}}, {\"id\": \"Increased active vitamin D exposure\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17823\", \"term_label\": \"calcitriol\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated or inappropriately high active vitamin D metabolites read out the convergent biochemical mechanism.\"}]}}, {\"id\": \"Increased urinary calcium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:29108\", \"term_label\": \"calcium(2+)\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary calcium reports downstream calcium excess and renal calcium wasting.\"}]}}, {\"id\": \"Loss-of-function CYP24A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"CYP24A1 variants impair or abolish 24-hydroxylase function, reducing degradation of active vitamin D metabolites and causing vitamin D hypersensitivity.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss-of-function SLC34A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SLC34A1 variants impair NaPi-IIa phosphate transport, causing renal phosphate wasting and inappropriate active vitamin D generation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Medullary nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Medullary nephrocalcinosis is part of the characteristic renal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012408\"}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Medullary nephrocalcinosis is a frequent renal manifestation and can persist into long-term follow-up.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000121\"}}, {\"id\": \"Nephrocalcinosis and chronic kidney injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypercalcemia and hypercalciuria drive renal calcium deposition, medullary nephrocalcinosis, and tubulointerstitial injury. Long-term survivors can have persistent nephrocalcinosis, reduced GFR, CKD, and rarely ESRD.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nephrolithiasis can occur in older children, adults, and monoallelic carriers with the infantile hypercalcemia biochemical spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000787\"}}, {\"id\": \"Phosphate supplementation for SLC34A1-associated disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphate supplementation targets the SLC34A1 mechanism by correcting renal phosphate wasting, which can rapidly reduce inappropriate active vitamin D production and hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Polyuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polyuria is a urinary manifestation of hypercalcemia in infancy.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000103\"}}, {\"id\": \"Renal monitoring and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Survivors require ongoing nephrology follow-up, renal imaging, calcium and vitamin D metabolite monitoring, hydration counseling, and early preventive measures because CKD and nephrocalcinosis may progress after the acute infantile episode.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Renal phosphate wasting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SLC34A1-associated disease can present with renal phosphate wasting.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000117\"}}, {\"id\": \"SLC34A1 renal phosphate transport defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLC34A1 encodes the renal sodium-phosphate cotransporter NaPi-IIa. Defective NaPi-IIa trafficking or transport causes proximal-tubule phosphate wasting and hypophosphatemia, which promotes inappropriate production of 1,25-dihydroxyvitamin D3 and symptomatic hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"phosphate ion transport\", \"phosphate ion homeostasis\"], \"genes\": [\"SLC34A1\"], \"gene_terms\": [{\"label\": \"SLC34A1\", \"id\": \"hgnc:11019\"}], \"locations\": [\"kidney\"]}}, {\"id\": \"SLC34A1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC34A1\"], \"gene_terms\": [{\"label\": \"SLC34A1\", \"id\": \"hgnc:11019\"}], \"variant_count\": 1}}, {\"id\": \"Suppressed intact parathyroid hormone\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Suppressed intact PTH distinguishes the vitamin D-driven hypercalcemia from PTH-mediated hypercalcemia.\"}]}}, {\"id\": \"Vitamin D and calcium exposure reduction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Avoiding vitamin D supplements, high calcium intake, and excessive sun exposure reduces the metabolic trigger for CYP24A1-associated disease and helps prevent recurrent hypercalcemia.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting reflects symptomatic hypercalcemia in affected infants.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"CYP24A1 vitamin D catabolism defect\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired vitamin D catabolism increases active vitamin D exposure and calcium absorption/signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal phosphate wasting stimulates inappropriate 1,25-dihydroxyvitamin D3 generation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Proximal tubular phosphate wasting.\", \"Increased 1,25-dihydroxyvitamin D3 generation.\"]}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Renal phosphate wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective NaPi-IIa function causes primary renal phosphate wasting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Hypophosphatemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SLC34A1 loss reduces renal phosphate reabsorption, producing serum phosphate depletion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Nephrocalcinosis and chronic kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent calcium and vitamin D abnormalities promote renal calcium deposition and kidney injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PTH-independent hypercalcemia.\", \"Hypercalciuria and renal calcium deposition.\"]}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypercalcemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active vitamin D excess drives the defining PTH-independent hypercalcemia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypercalciuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vitamin D-driven calcium excess is accompanied by urinary calcium wasting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Decreased circulating parathyroid hormone level\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PTH is suppressed in the PTH-independent hypercalcemia state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic infantile hypercalcemia manifests with failure to thrive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypercalcemia causes gastrointestinal symptoms including vomiting or emesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vomiting and polyuria during symptomatic hypercalcemia contribute to dehydration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Emesis.\", \"Polyuria from calcium-mediated renal concentrating impairment.\"]}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic hypercalcemia includes gastrointestinal dysmotility with constipation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Polyuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypercalcemia can impair renal concentrating function and produce polyuria.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile symptomatic hypercalcemia may include generalized hypotonia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic hypercalcemia descriptions include arterial hypertension in the IIH spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal calcium deposition manifests as nephrocalcinosis on ultrasound.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Medullary nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcium deposition in infantile hypercalcemia often affects the renal medulla.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent nephrocalcinosis and tubulointerstitial injury can progress to chronic kidney disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nephrocalcinosis.\", \"Tubulointerstitial inflammation and fibrosis.\"]}, {\"source\": \"Nephrocalcinosis and chronic kidney injury\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same calcium/vitamin D metabolism disturbance can produce nephrolithiasis as well as nephrocalcinosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypercalcemia and hypercalciuria.\", \"Renal calcium crystal deposition.\"]}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"CYP24A1 vitamin D catabolism defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Hypercalciuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vitamin D and calcium exposure reduction\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"SLC34A1 renal phosphate transport defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"Hypophosphatemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Phosphate supplementation for SLC34A1-associated disease\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"SLC34A1 renal phosphate transport defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Dehydration\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute hypercalcemia management\", \"target\": \"Vomiting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Nephrocalcinosis and chronic kidney injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Renal monitoring and supportive care\", \"target\": \"Nephrolithiasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Nephrocalcinosis and chronic kidney injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Hypercalcemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Hypercalciuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Metabolite Suppression\", \"target\": \"Chronic kidney disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Elevated serum calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated serum calcium is the central diagnostic readout of vitamin D-driven PTH-independent hypercalcemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Increased urinary calcium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary calcium reports downstream calcium excess and renal calcium wasting.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SLC34A1 renal phosphate transport defect\", \"target\": \"Decreased serum phosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low serum phosphate is a diagnostic readout of renal phosphate wasting in SLC34A1-associated disease.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Suppressed intact parathyroid hormone\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Suppressed intact PTH distinguishes the vitamin D-driven hypercalcemia from PTH-mediated hypercalcemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Active vitamin D excess and PTH-independent hypercalcemia\", \"target\": \"Increased active vitamin D exposure\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated or inappropriately high active vitamin D metabolites read out the convergent biochemical mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CYP24A1 vitamin D catabolism defect\", \"target\": \"Increased 25(OH)D3 to 24,25(OH)2D3 ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A high 25(OH)D3/24,25(OH)2D3 ratio reports impaired CYP24A1-dependent 24-hydroxylation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CYP24A1 variants\", \"target\": \"CYP24A1 vitamin D catabolism defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC34A1 variants\", \"target\": \"SLC34A1 renal phosphate transport defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Loss-of-function CYP24A1 variants\", \"target\": \"CYP24A1 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Loss-of-function SLC34A1 variants\", \"target\": \"SLC34A1 variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5430,15 +5514,18 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000822</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5508,15 +5595,18 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002013</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5600,15 +5690,18 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5701,15 +5794,18 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0031817</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0031817</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating parathyroid hormone level (HP:0031817). HP:0031817 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5777,15 +5873,18 @@ This clinical feature is Decreased circulating parathyroid hormone level (HP:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002150</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002150</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5869,15 +5968,18 @@ This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000117</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000117" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000117</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5940,15 +6042,18 @@ This clinical feature is Renal phosphate wasting (HP:0000117). HP:0000117 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000121</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6033,15 +6138,18 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012408</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012408" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012408</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Medullary nephrocalcinosis (HP:0012408). HP:0012408 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6100,15 +6208,18 @@ This clinical feature is Medullary nephrocalcinosis (HP:0012408). HP:0012408 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000103</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000103</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6192,15 +6303,18 @@ This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012622</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6286,15 +6400,18 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000787</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6389,15 +6506,18 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003072</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6481,15 +6601,18 @@ This clinical feature is Hypercalcemia (HP:0003072). HP:0003072 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002148</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002148</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6573,15 +6696,18 @@ This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001944</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6676,15 +6802,18 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6777,15 +6906,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6910,10 +7042,10 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         Gene: CYP24A1
 
 
-    <a href="https://bioregistry.io/hgnc:2602" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:2602</a>
+    <a href="https://bioregistry.io/hgnc:2602" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:2602</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6921,6 +7053,9 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6999,6 +7134,12 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
         Loss-of-function CYP24A1 variants
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">CYP24A1 variants impair or abolish 24-hydroxylase function, reducing degradation of active vitamin D metabolites and causing vitamin D hypersensitivity.
@@ -7097,10 +7238,10 @@ This disease-associated gene is CYP24A1 (hgnc:2602). hgnc:2602 is a gene from th
                         Gene: SLC34A1
 
 
-    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11019</a>
+    <a href="https://bioregistry.io/hgnc:11019" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:11019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7108,6 +7249,9 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7163,6 +7307,12 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
         Loss-of-function SLC34A1 variants
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">SLC34A1 variants impair NaPi-IIa phosphate transport, causing renal phosphate wasting and inappropriate active vitamin D generation.
@@ -7271,7 +7421,7 @@ This disease-associated gene is SLC34A1 (hgnc:11019). hgnc:11019 is a gene from 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7376,11 +7526,11 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003072</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7393,11 +7543,11 @@ This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002150</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002150</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7410,11 +7560,11 @@ This treatment targets Hypercalciuria (HP:0002150). HP:0002150 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000121</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7495,7 +7645,7 @@ This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7589,11 +7739,11 @@ This treatment is nutritional supplementation, annotated with Nutritional Suppor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002148</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002148</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7606,11 +7756,11 @@ This treatment targets Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003072</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7693,7 +7843,7 @@ SLC34A1 defect (which impairs renal phosphate transport)."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7787,11 +7937,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003072</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7804,11 +7954,11 @@ This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001944</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7821,11 +7971,11 @@ This treatment targets Dehydration (HP:0001944). HP:0001944 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002013</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002013</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7882,7 +8032,7 @@ treatment were given."</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7963,11 +8113,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000121</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7980,11 +8130,11 @@ This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012622</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7997,11 +8147,11 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000787</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8082,7 +8232,7 @@ This treatment targets Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8123,11 +8273,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_47519" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:47519</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_47519" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:47519</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses ketoconazole (CHEBI:47519). CHEBI:47519 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -8140,11 +8290,11 @@ This treatment uses ketoconazole (CHEBI:47519). CHEBI:47519 is a therapeutic age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:28077</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:28077</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -8214,11 +8364,11 @@ This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0003072</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8231,11 +8381,11 @@ This treatment targets Hypercalcemia (HP:0003072). HP:0003072 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002150</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002150</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8248,11 +8398,11 @@ This treatment targets Hypercalciuria (HP:0002150). HP:0002150 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000121</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8265,11 +8415,11 @@ This treatment targets Nephrocalcinosis (HP:0000121). HP:0000121 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0012622</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9158,11 +9308,11 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
         diagnostic procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C18020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C18020</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9272,11 +9422,11 @@ This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phen
         diagnostic procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C18020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C18020</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9387,11 +9537,11 @@ nephrocalcinosis in 16 of 18 (88%) patients"</div>
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-54">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -10033,6 +10183,12 @@ pathophysiology:
     term:
       id: hgnc:2602
       label: CYP24A1
+  molecular_functions:
+  - preferred_term: 25-hydroxycholecalciferol-24-hydroxylase activity
+    term:
+      id: GO:0008403
+      label: 25-hydroxycholecalciferol-24-hydroxylase activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: vitamin D metabolic process
     term:
@@ -11972,7 +12128,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Infantile Hypercalcemia", "mondoId": "MONDO:0000212", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infantile_Hypercalcemia", "yamlRevision": "1edcf143ed06"};
+        const OS_CONFIG = {"diseaseName": "Infantile Hypercalcemia", "mondoId": "MONDO:0000212", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infantile_Hypercalcemia", "yamlRevision": "d2ae51a73757"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

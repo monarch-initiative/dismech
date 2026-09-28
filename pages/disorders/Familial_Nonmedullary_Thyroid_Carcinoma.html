@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -6336,6 +6378,13 @@ This subtype is caused by variation in ACD (hgnc:25070). hgnc:25070 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inherited-non-syndromic-susceptibility-in-thyroid-follicular-cells" data-dismech-node="Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The upstream lesion in non-syndromic FNMTC is a constitutional (germline) susceptibility state in the thyroid follicular cell lineage, carried by a family-specific combination of common risk alleles and rare candidate variants rather than by one recurrent high-penetrance driver. Reported contributors include common risk variants near FOXE1 (9q22.33) and NKX2-1 (14q13.3), rare segregating variants in SRGAP1, NKX2-1, FOXE1, SRRM2 and DUOX2, and susceptibility intervals mapped by linkage (TCO/19p13.2, fPTC-PRN/1q21, NMTC1/2q21, MNG1/14q32, FTEN/8p23.1-p22, 6q22, 8q24). Because each family tends to carry its own candidate lesion, this node is defined by the shared consequence - an inherited increase in follicular-cell cancer risk - rather than by a shared gene.</div>
 
 
@@ -6735,6 +6784,13 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perturbed-thyroid-transcription-factor-and-growth-regulatory-signaling" data-dismech-node="Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Functionally characterized FNMTC candidate variants converge on loss of normal restraint over follicular-cell proliferation and differentiation. The germline NKX2-1/TITF-1 A339V variant increases proliferation and thyrotropin-independent growth while impairing transcription of the thyroid-differentiation genes Tg, TSH-R and Pax-8; a germline FOXE1 p.A248G variant promotes proliferation and migration; SRGAP1 variants abolish the protein&#39;s ability to inactivate CDC42, a Rho-family GTPase controlling cytoskeletal and growth signaling; and an SRRM2 splicing-factor variant shifts alternative splicing of downstream targets. Individually these are low-penetrance or family-specific effects, but they share the outcome of a follicular cell that is more permissive to transformation.</div>
 
 
@@ -7090,6 +7146,13 @@ This pathophysiological event involves increased Ras protein signal transduction
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-telomere-telomerase-imbalance-and-chromosome-fragility" data-dismech-node="Telomere-Telomerase Imbalance and Chromosome Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Telomere-Telomerase Imbalance and Chromosome Fragility</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Patients with familial papillary thyroid carcinoma show a constitutional imbalance of the telomere-telomerase complex in peripheral blood - shorter relative telomere length than sporadic cases, unaffected siblings and healthy controls, together with hTERT/TERT gene amplification and increased telomerase activity. The same familial cohorts show a significant excess of spontaneous telomeric associations and telomeric fusions, i.e. measurable constitutional chromosome instability. This arm is a candidate constitutional mechanism of predisposition, distinct from the tumor-intrinsic telomere-maintenance reactivation (TERT promoter mutation) seen in advanced sporadic thyroid cancer.</div>
 
 
@@ -7353,6 +7416,13 @@ This pathophysiological event involves increased telomere maintenance via telome
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquisition-of-somatic-mapk-activating-driver-alterations" data-dismech-node="Acquisition of Somatic MAPK-Activating Driver Alterations" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquisition of Somatic MAPK-Activating Driver Alterations</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Familial and sporadic non-medullary thyroid carcinoma share the same morphology and the same somatic driver landscape - BRAF V600E, RAS-family mutations, RET/PTC and NTRK fusions - so the germline susceptibility layer does not create a distinct tumor genotype; it raises the probability that a follicular cell acquires one of the ordinary MAPK-activating drivers, and it does so in many cells at once, which is the mechanistic basis for the excess multifocality and bilaterality of familial tumors. Somatic BRAF V600E has been documented in the tumors of family members carrying a segregating germline FOXE1 variant, directly illustrating the germline-plus-somatic two-layer model. The somatic driver biology itself is curated in the sporadic entries (Papillary Thyroid Carcinoma, Thyroid Follicular Carcinoma, BRAF Mutant Thyroid Cancer, RET Fusion Thyroid Cancer) and is not duplicated here.</div>
 
 
@@ -7587,6 +7657,13 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multifocal-follicular-cell-transformation" data-dismech-node="Multifocal Follicular Cell Transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Multifocal Follicular Cell Transformation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Transformation occurs against a field of inherited susceptibility, so it is characteristically multicentric and bilateral, frequently accompanied by benign follicular adenoma and multinodular goiter in the same gland and in unaffected relatives. Tumors then follow the ordinary differentiated thyroid-cancer natural history - intrathyroidal growth, extrathyroidal extension, cervical nodal spread and, less often, distant metastasis - with familial series showing a more aggressive presentation at diagnosis but not a worse outcome after appropriate treatment.</div>
 
 
@@ -7820,6 +7897,13 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-habp2-g534e-loss-of-tumor-suppressor-function" data-dismech-node="HABP2 G534E Loss of Tumor-Suppressor Function" data-dismech-type="pathophysiology">
                 <div class="item-name">HABP2 G534E Loss of Tumor-Suppressor Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">CONTESTED - retained as a modelled but refuted branch, not part of the canonical FNMTC mechanism. In 2015 a germline HABP2 c.1601G&gt;A (p.G534E) variant was reported to segregate with disease in all seven affected members of one FNMTC kindred, to be present in 4.7% of 423 TCGA papillary thyroid cancers, and to behave as a dominant-negative loss of a tumor-suppressive function in colony-formation, foci and migration assays performed in NIH-3T3 fibroblasts rather than in thyroid cells. One independent kindred series supported a susceptibility role in a subgroup. Multiple independent replication studies then contradicted causality on three separate grounds: failure of cosegregation within carrier families, population carrier frequencies of 7.6-9.3% that are incompatible with a highly penetrant dominant allele, and absence of HABP2 expression in thyroid tissue. This node exists so that the DEPRECATED habp2_g534e_susceptibility hypothesis group is wired to real causal edges and the controversy stays auditable rather than being silently deleted.</div>
 
@@ -8177,7 +8261,7 @@ This pathophysiological event involves HABP2 (hgnc:4798). hgnc:4798 is a gene fr
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Familial and sporadic non-medullary thyroid carcinoma share the same morphology and the same somatic driver landscape - BRAF V600E, RAS-family mutations, RET/PTC and NTRK fusions - so the germline susceptibility layer does not create a distinct tumor genotype; it raises the probability that a follicular cell acquires one of the ordinary MAPK-activating drivers, and it does so in many cells at once, which is the mechanistic basis for the excess multifocality and bilaterality of familial tumors. Somatic BRAF V600E has been documented in the tumors of family members carrying a segregating germline FOXE1 variant, directly illustrating the germline-plus-somatic two-layer model. The somatic driver biology itself is curated in the sporadic entries (Papillary Thyroid Carcinoma, Thyroid Follicular Carcinoma, BRAF Mutant Thyroid Cancer, RET Fusion Thyroid Cancer) and is not duplicated here.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"], \"role\": \"Intermediate\"}}, {\"id\": \"Benign Thyroid Nodules and Multinodular Goiter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Benign follicular adenoma and multinodular goiter frequently accompany the malignant tumor in the same gland and are also enriched among unaffected relatives, which is why nodule detection - rather than a symptom - is the usual presentation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005987\"}}, {\"id\": \"Cervical Lymph Node Dissection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic compartment-oriented neck dissection is performed for proven nodal metastasis, following standard differentiated thyroid-cancer indications. Familial series report higher nodal metastasis rates than sporadic disease, but screen-detected familial cancers have a substantially lower central-node metastasis rate (17.6% versus 51.1%), so nodal management should be driven by imaging and cytology findings rather than by familial status.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cervical Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional cervical nodal metastasis is common at presentation and is reported more often in second-generation than first-generation affected family members.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025289\"}}, {\"id\": \"DUOX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DUOX2\"], \"gene_terms\": [{\"label\": \"DUOX2\", \"id\": \"hgnc:13273\"}], \"association\": \"Disputed - single-family candidate variant absent from an independent validation series\", \"relationship_type\": \"DISPUTED\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Earlier Age at Onset in Successive Generations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Second-generation affected family members present at an earlier age and with more advanced disease than the first generation, a pattern described as clinical anticipation. Whether this reflects a biological anticipation mechanism or ascertainment plus intensified surveillance of known families is unresolved; no repeat-expansion mechanism has been demonstrated. The interpretation is tracked as the ALTERNATIVE `clinical_anticipation` hypothesis group, never as a canonical mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Extrathyroidal Extension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Locally invasive growth beyond the thyroid capsule is part of the more aggressive presentation reported for familial tumors at diagnosis; it does not translate into worse disease-specific outcome once treated appropriately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100031\"}}, {\"id\": \"FOXE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FOXE1\"], \"gene_terms\": [{\"label\": \"FOXE1\", \"id\": \"hgnc:3806\"}], \"association\": \"Susceptibility - best-replicated locus (9q22.33), common risk allele plus rare segregating variants\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"Follicular Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of familial non-medullary tumors are follicular carcinoma; oncocytic (Hurthle cell) carcinoma is rarer still and defines the TCO branch of the linkage literature, in which thyroid tumors show cell oxyphilia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006731\"}}, {\"id\": \"HABP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 10, \"genes\": [\"HABP2\"], \"gene_terms\": [{\"label\": \"HABP2\", \"id\": \"hgnc:4798\"}], \"association\": \"Disputed - the p.G534E variant was proposed as a dominant susceptibility allele but failed replication and is common in the general population\", \"relationship_type\": \"DISPUTED\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"HABP2 G534E Loss of Tumor-Suppressor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CONTESTED - retained as a modelled but refuted branch, not part of the canonical FNMTC mechanism. In 2015 a germline HABP2 c.1601G\u003eA (p.G534E) variant was reported to segregate with disease in all seven affected members of one FNMTC kindred, to be present in 4.7% of 423 TCGA papillary thyroid cancers, and to behave as a dominant-negative loss of a tumor-suppressive function in colony-formation, foci and migration assays performed in NIH-3T3 fibroblasts rather than in thyroid cells. One independent kindred series supported a susceptibility role in a subgroup. Multiple independent replication studies then contradicted causality on three separate grounds: failure of cosegregation within carrier families, population carrier frequencies of 7.6-9.3% that are incompatible with a highly penetrant dominant allele, and absence of HABP2 expression in thyroid tissue. This node exists so that the DEPRECATED habp2_g534e_susceptibility hypothesis group is wired to real causal edges and the controversy stays auditable rather than being silently deleted.\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"thyroid follicular cell\"], \"genes\": [\"HABP2\"], \"gene_terms\": [{\"label\": \"HABP2\", \"id\": \"hgnc:4798\"}], \"role\": \"Disputed Branch\"}}, {\"id\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The upstream lesion in non-syndromic FNMTC is a constitutional (germline) susceptibility state in the thyroid follicular cell lineage, carried by a family-specific combination of common risk alleles and rare candidate variants rather than by one recurrent high-penetrance driver. Reported contributors include common risk variants near FOXE1 (9q22.33) and NKX2-1 (14q13.3), rare segregating variants in SRGAP1, NKX2-1, FOXE1, SRRM2 and DUOX2, and susceptibility intervals mapped by linkage (TCO/19p13.2, fPTC-PRN/1q21, NMTC1/2q21, MNG1/14q32, FTEN/8p23.1-p22, 6q22, 8q24). Because each family tends to carry its own candidate lesion, this node is defined by the shared consequence - an inherited increase in follicular-cell cancer risk - rather than by a shared gene.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"thyroid follicular cell\"], \"genes\": [\"FOXE1\", \"NKX2-1\", \"SRGAP1\", \"SRRM2\"], \"gene_terms\": [{\"label\": \"FOXE1\", \"id\": \"hgnc:3806\"}, {\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}, {\"label\": \"SRGAP1\", \"id\": \"hgnc:17382\"}, {\"label\": \"SRRM2\", \"id\": \"hgnc:16639\"}], \"role\": \"Trigger\", \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Kinase Inhibitor Therapy for Radioiodine-Refractory Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Advanced radioiodine-refractory familial tumors are treated with molecularly selected kinase inhibition on the same rules as sporadic differentiated thyroid cancer - RET or NTRK inhibitors for the corresponding fusions, BRAF/MEK-directed therapy for BRAF-altered disease, and multikinase inhibitors otherwise - because the somatic driver landscape is shared.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"selpercatinib\", \"dabrafenib\", \"lenvatinib\"]}}, {\"id\": \"Multifocal Follicular Cell Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transformation occurs against a field of inherited susceptibility, so it is characteristically multicentric and bilateral, frequently accompanied by benign follicular adenoma and multinodular goiter in the same gland and in unaffected relatives. Tumors then follow the ordinary differentiated thyroid-cancer natural history - intrathyroidal growth, extrathyroidal extension, cervical nodal spread and, less often, distant metastasis - with familial series showing a more aggressive presentation at diagnosis but not a worse outcome after appropriate treatment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"role\": \"Consequence\", \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Multifocal and Bilateral Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Familial tumors are more often multicentric and bilateral than matched sporadic papillary carcinoma, consistent with transformation arising in a field of inherited susceptibility rather than from a single clone.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002890\"}}, {\"id\": \"NID1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NID1\"], \"gene_terms\": [{\"label\": \"NID1\", \"id\": \"hgnc:7821\"}], \"association\": \"Candidate only - single-family whole-exome finding awaiting replication\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"NKX2-1 (TITF-1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NKX2-1\"], \"gene_terms\": [{\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}], \"association\": \"Susceptibility - 14q13.3 common risk allele plus the germline A339V variant in MNG/PTC families\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"Papillary Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Papillary carcinoma is the dominant histology in familial kindreds, in classic and follicular-variant forms, and is morphologically indistinguishable from sporadic papillary thyroid carcinoma.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002895\"}}, {\"id\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functionally characterized FNMTC candidate variants converge on loss of normal restraint over follicular-cell proliferation and differentiation. The germline NKX2-1/TITF-1 A339V variant increases proliferation and thyrotropin-independent growth while impairing transcription of the thyroid-differentiation genes Tg, TSH-R and Pax-8; a germline FOXE1 p.A248G variant promotes proliferation and migration; SRGAP1 variants abolish the protein\u0027s ability to inactivate CDC42, a Rho-family GTPase controlling cytoskeletal and growth signaling; and an SRRM2 splicing-factor variant shifts alternative splicing of downstream targets. Individually these are low-penetrance or family-specific effects, but they share the outcome of a follicular cell that is more permissive to transformation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"cell population proliferation\", \"Ras protein signal transduction\"], \"genes\": [\"NKX2-1\", \"FOXE1\", \"SRGAP1\"], \"gene_terms\": [{\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}, {\"label\": \"FOXE1\", \"id\": \"hgnc:3806\"}, {\"label\": \"SRGAP1\", \"id\": \"hgnc:17382\"}], \"role\": \"Intermediate\"}}, {\"id\": \"Pulmonary Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distant metastasis, most often pulmonary, occurs in a minority of familial cases and follows the ordinary differentiated thyroid-cancer pattern. It is uncommon in absolute terms but carries the largest familial-versus-sporadic effect size of any feature in FNMTC, and - unlike tumour size or nodal status - is the least plausible product of earlier detection, so it is the strongest single argument that some of the familial aggressiveness signal is real biology rather than surveillance artefact.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100526\"}}, {\"id\": \"SRGAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SRGAP1\"], \"gene_terms\": [{\"label\": \"SRGAP1\", \"id\": \"hgnc:17382\"}], \"association\": \"Susceptibility - low-penetrance / possible modifier gene at 12q14\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"SRRM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SRRM2\"], \"gene_terms\": [{\"label\": \"SRRM2\", \"id\": \"hgnc:16639\"}], \"association\": \"Susceptibility - single-family splicing-factor candidate, not replicated in other kindreds\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Telomere-Telomerase Imbalance and Chromosome Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patients with familial papillary thyroid carcinoma show a constitutional imbalance of the telomere-telomerase complex in peripheral blood - shorter relative telomere length than sporadic cases, unaffected siblings and healthy controls, together with hTERT/TERT gene amplification and increased telomerase activity. The same familial cohorts show a significant excess of spontaneous telomeric associations and telomeric fusions, i.e. measurable constitutional chromosome instability. This arm is a candidate constitutional mechanism of predisposition, distinct from the tumor-intrinsic telomere-maintenance reactivation (TERT promoter mutation) seen in advanced sporadic thyroid cancer.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"telomere maintenance\", \"telomere maintenance via telomerase\"], \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"role\": \"Intermediate\"}}, {\"id\": \"Thyroidectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery is the definitive treatment and follows standard differentiated thyroid-cancer risk stratification - lobectomy or total thyroidectomy according to tumor size, multifocality and bilaterality, nodal disease and patient preference. Because familial tumors are more often multicentric and bilateral, total thyroidectomy is used frequently in referral series, but current guidance does not mandate a more aggressive operation on the basis of family history alone.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"p.A248G\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Rare germline FOXE1 missense variant (c.743C\u003eG) segregating with disease in one FNMTC family.\"}, {\"id\": \"p.A275T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family.\"}, {\"id\": \"p.A339V\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Germline NKX2-1/TITF-1 missense variant (c.1016C\u003eT) found in 4 of 20 patients with multinodular goiter plus papillary thyroid carcinoma.\"}, {\"id\": \"p.G534E\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"HABP2 c.1601G\u003eA (p.G534E, rs7080536) at 10q25.3, within the serine protease trypsin domain, originally proposed as an FNMTC susceptibility allele; present in 7-9% of unselected populations and failing cosegregation in independent kindreds.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HABP2\"], \"gene_terms\": [{\"label\": \"HABP2\", \"id\": \"hgnc:4798\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"BENIGN\"}}, {\"id\": \"p.Ile657Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"NID1 c.1971T\u003eG (p.Ile657Met), the only variant cosegregating with papillary thyroid carcinoma across three generations of a Brazilian family; very rare in population databases.\"}, {\"id\": \"p.Q149H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family; severely impairs CDC42 inactivation.\"}, {\"id\": \"p.R617C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRGAP1 RhoGAP domain missense variant; severely impairs CDC42 inactivation.\"}, {\"id\": \"p.S346F\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRRM2 missense variant (c.1037C\u003eT, rs149019598) cosegregating with papillary thyroid carcinoma in a single six-case family.\"}, {\"id\": \"p.Y1203H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"DUOX2 missense variant (c.3607A\u003eG) reported to cosegregate in one FNMTC family; absent from 86 members of 33 independent Italian families.\"}, {\"id\": \"rs944289\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common 14q13.3 risk allele near NKX2-1.\"}, {\"id\": \"rs965513\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common 9q22.33 risk allele nearest to FOXE1, the most consistently replicated thyroid cancer GWAS signal.\"}], \"edges\": [{\"source\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rare segregating variants in thyroid developmental transcription factors and growth regulators act directly in the follicular cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"target\": \"Telomere-Telomerase Imbalance and Chromosome Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Familial cases show a constitutional telomere-telomerase imbalance whose causal genes are not identified, so the link is indirect.\", \"hypothesis_groups\": [\"telomere_length_predisposition\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"target\": \"HABP2 G534E Loss of Tumor-Suppressor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contested branch - proposed as the germline lesion in one kindred but not replicated. Modelled only under the DEPRECATED habp2_g534e_susceptibility hypothesis group.\", \"hypothesis_groups\": [\"habp2_g534e_susceptibility\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"target\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proliferation-permissive, less-differentiated follicular cell is more likely to fix and expand a somatic MAPK-activating driver.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Telomere-Telomerase Imbalance and Chromosome Fragility\", \"target\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutional telomeric instability plausibly raises the rate at which follicular cells acquire and fix oncogenic somatic alterations.\", \"hypothesis_groups\": [\"telomere_length_predisposition\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive mitogenic signaling drives clonal expansion and transformation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Papillary Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dominant malignant histology in familial kindreds.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Follicular Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of familial tumors are follicular-patterned carcinoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Multifocal and Bilateral Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Field predisposition produces multicentric and bilateral disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Benign Thyroid Nodules and Multinodular Goiter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Benign follicular neoplasia accompanies the malignant field.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Cervical Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional nodal spread from the primary tumor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Extrathyroidal Extension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Locally invasive growth beyond the thyroid capsule.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Pulmonary Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distant haematogenous spread in a minority of familial cases.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Earlier Age at Onset in Successive Generations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Observed clinical anticipation, at least partly confounded by ascertainment and surveillance intensity.\", \"hypothesis_groups\": [\"clinical_anticipation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"HABP2 G534E Loss of Tumor-Suppressor Function\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed but unreplicated route from HABP2 loss of function to malignant transformation of the follicular epithelium.\", \"hypothesis_groups\": [\"habp2_g534e_susceptibility\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Thyroidectomy\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cervical Lymph Node Dissection\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kinase Inhibitor Therapy for Radioiodine-Refractory Disease\", \"target\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXE1\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXE1\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NKX2-1 (TITF-1)\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NKX2-1 (TITF-1)\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRGAP1\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRGAP1\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRRM2\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"rs965513\", \"target\": \"FOXE1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A248G\", \"target\": \"FOXE1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A339V\", \"target\": \"NKX2-1 (TITF-1)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"rs944289\", \"target\": \"NKX2-1 (TITF-1)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Q149H\", \"target\": \"SRGAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A275T\", \"target\": \"SRGAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.R617C\", \"target\": \"SRGAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.S346F\", \"target\": \"SRRM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.G534E\", \"target\": \"HABP2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ile657Met\", \"target\": \"NID1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Y1203H\", \"target\": \"DUOX2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Familial and sporadic non-medullary thyroid carcinoma share the same morphology and the same somatic driver landscape - BRAF V600E, RAS-family mutations, RET/PTC and NTRK fusions - so the germline susceptibility layer does not create a distinct tumor genotype; it raises the probability that a follicular cell acquires one of the ordinary MAPK-activating drivers, and it does so in many cells at once, which is the mechanistic basis for the excess multifocality and bilaterality of familial tumors. Somatic BRAF V600E has been documented in the tumors of family members carrying a segregating germline FOXE1 variant, directly illustrating the germline-plus-somatic two-layer model. The somatic driver biology itself is curated in the sporadic entries (Papillary Thyroid Carcinoma, Thyroid Follicular Carcinoma, BRAF Mutant Thyroid Cancer, RET Fusion Thyroid Cancer) and is not duplicated here.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"], \"role\": \"Intermediate\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Benign Thyroid Nodules and Multinodular Goiter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Benign follicular adenoma and multinodular goiter frequently accompany the malignant tumor in the same gland and are also enriched among unaffected relatives, which is why nodule detection - rather than a symptom - is the usual presentation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005987\"}}, {\"id\": \"Cervical Lymph Node Dissection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic compartment-oriented neck dissection is performed for proven nodal metastasis, following standard differentiated thyroid-cancer indications. Familial series report higher nodal metastasis rates than sporadic disease, but screen-detected familial cancers have a substantially lower central-node metastasis rate (17.6% versus 51.1%), so nodal management should be driven by imaging and cytology findings rather than by familial status.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cervical Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional cervical nodal metastasis is common at presentation and is reported more often in second-generation than first-generation affected family members.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025289\"}}, {\"id\": \"DUOX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DUOX2\"], \"gene_terms\": [{\"label\": \"DUOX2\", \"id\": \"hgnc:13273\"}], \"association\": \"Disputed - single-family candidate variant absent from an independent validation series\", \"relationship_type\": \"DISPUTED\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Earlier Age at Onset in Successive Generations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Second-generation affected family members present at an earlier age and with more advanced disease than the first generation, a pattern described as clinical anticipation. Whether this reflects a biological anticipation mechanism or ascertainment plus intensified surveillance of known families is unresolved; no repeat-expansion mechanism has been demonstrated. The interpretation is tracked as the ALTERNATIVE `clinical_anticipation` hypothesis group, never as a canonical mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Extrathyroidal Extension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Locally invasive growth beyond the thyroid capsule is part of the more aggressive presentation reported for familial tumors at diagnosis; it does not translate into worse disease-specific outcome once treated appropriately.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100031\"}}, {\"id\": \"FOXE1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FOXE1\"], \"gene_terms\": [{\"label\": \"FOXE1\", \"id\": \"hgnc:3806\"}], \"association\": \"Susceptibility - best-replicated locus (9q22.33), common risk allele plus rare segregating variants\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"Follicular Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of familial non-medullary tumors are follicular carcinoma; oncocytic (Hurthle cell) carcinoma is rarer still and defines the TCO branch of the linkage literature, in which thyroid tumors show cell oxyphilia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006731\"}}, {\"id\": \"HABP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 10, \"genes\": [\"HABP2\"], \"gene_terms\": [{\"label\": \"HABP2\", \"id\": \"hgnc:4798\"}], \"association\": \"Disputed - the p.G534E variant was proposed as a dominant susceptibility allele but failed replication and is common in the general population\", \"relationship_type\": \"DISPUTED\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"HABP2 G534E Loss of Tumor-Suppressor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CONTESTED - retained as a modelled but refuted branch, not part of the canonical FNMTC mechanism. In 2015 a germline HABP2 c.1601G\u003eA (p.G534E) variant was reported to segregate with disease in all seven affected members of one FNMTC kindred, to be present in 4.7% of 423 TCGA papillary thyroid cancers, and to behave as a dominant-negative loss of a tumor-suppressive function in colony-formation, foci and migration assays performed in NIH-3T3 fibroblasts rather than in thyroid cells. One independent kindred series supported a susceptibility role in a subgroup. Multiple independent replication studies then contradicted causality on three separate grounds: failure of cosegregation within carrier families, population carrier frequencies of 7.6-9.3% that are incompatible with a highly penetrant dominant allele, and absence of HABP2 expression in thyroid tissue. This node exists so that the DEPRECATED habp2_g534e_susceptibility hypothesis group is wired to real causal edges and the controversy stays auditable rather than being silently deleted.\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"thyroid follicular cell\"], \"genes\": [\"HABP2\"], \"gene_terms\": [{\"label\": \"HABP2\", \"id\": \"hgnc:4798\"}], \"role\": \"Disputed Branch\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The upstream lesion in non-syndromic FNMTC is a constitutional (germline) susceptibility state in the thyroid follicular cell lineage, carried by a family-specific combination of common risk alleles and rare candidate variants rather than by one recurrent high-penetrance driver. Reported contributors include common risk variants near FOXE1 (9q22.33) and NKX2-1 (14q13.3), rare segregating variants in SRGAP1, NKX2-1, FOXE1, SRRM2 and DUOX2, and susceptibility intervals mapped by linkage (TCO/19p13.2, fPTC-PRN/1q21, NMTC1/2q21, MNG1/14q32, FTEN/8p23.1-p22, 6q22, 8q24). Because each family tends to carry its own candidate lesion, this node is defined by the shared consequence - an inherited increase in follicular-cell cancer risk - rather than by a shared gene.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"thyroid follicular cell\"], \"genes\": [\"FOXE1\", \"NKX2-1\", \"SRGAP1\", \"SRRM2\"], \"gene_terms\": [{\"label\": \"FOXE1\", \"id\": \"hgnc:3806\"}, {\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}, {\"label\": \"SRGAP1\", \"id\": \"hgnc:17382\"}, {\"label\": \"SRRM2\", \"id\": \"hgnc:16639\"}], \"role\": \"Trigger\", \"locations\": [\"thyroid gland\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Kinase Inhibitor Therapy for Radioiodine-Refractory Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Advanced radioiodine-refractory familial tumors are treated with molecularly selected kinase inhibition on the same rules as sporadic differentiated thyroid cancer - RET or NTRK inhibitors for the corresponding fusions, BRAF/MEK-directed therapy for BRAF-altered disease, and multikinase inhibitors otherwise - because the somatic driver landscape is shared.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"selpercatinib\", \"dabrafenib\", \"lenvatinib\"]}}, {\"id\": \"Multifocal Follicular Cell Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transformation occurs against a field of inherited susceptibility, so it is characteristically multicentric and bilateral, frequently accompanied by benign follicular adenoma and multinodular goiter in the same gland and in unaffected relatives. Tumors then follow the ordinary differentiated thyroid-cancer natural history - intrathyroidal growth, extrathyroidal extension, cervical nodal spread and, less often, distant metastasis - with familial series showing a more aggressive presentation at diagnosis but not a worse outcome after appropriate treatment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"role\": \"Consequence\", \"locations\": [\"thyroid gland\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Multifocal and Bilateral Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Familial tumors are more often multicentric and bilateral than matched sporadic papillary carcinoma, consistent with transformation arising in a field of inherited susceptibility rather than from a single clone.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002890\"}}, {\"id\": \"NID1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NID1\"], \"gene_terms\": [{\"label\": \"NID1\", \"id\": \"hgnc:7821\"}], \"association\": \"Candidate only - single-family whole-exome finding awaiting replication\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"NKX2-1 (TITF-1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NKX2-1\"], \"gene_terms\": [{\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}], \"association\": \"Susceptibility - 14q13.3 common risk allele plus the germline A339V variant in MNG/PTC families\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"Papillary Thyroid Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Papillary carcinoma is the dominant histology in familial kindreds, in classic and follicular-variant forms, and is morphologically indistinguishable from sporadic papillary thyroid carcinoma.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002895\"}}, {\"id\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functionally characterized FNMTC candidate variants converge on loss of normal restraint over follicular-cell proliferation and differentiation. The germline NKX2-1/TITF-1 A339V variant increases proliferation and thyrotropin-independent growth while impairing transcription of the thyroid-differentiation genes Tg, TSH-R and Pax-8; a germline FOXE1 p.A248G variant promotes proliferation and migration; SRGAP1 variants abolish the protein\u0027s ability to inactivate CDC42, a Rho-family GTPase controlling cytoskeletal and growth signaling; and an SRRM2 splicing-factor variant shifts alternative splicing of downstream targets. Individually these are low-penetrance or family-specific effects, but they share the outcome of a follicular cell that is more permissive to transformation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"thyroid follicular cell\"], \"biological_processes\": [\"cell population proliferation\", \"Ras protein signal transduction\"], \"genes\": [\"NKX2-1\", \"FOXE1\", \"SRGAP1\"], \"gene_terms\": [{\"label\": \"NKX2-1\", \"id\": \"hgnc:11825\"}, {\"label\": \"FOXE1\", \"id\": \"hgnc:3806\"}, {\"label\": \"SRGAP1\", \"id\": \"hgnc:17382\"}], \"role\": \"Intermediate\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Pulmonary Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distant metastasis, most often pulmonary, occurs in a minority of familial cases and follows the ordinary differentiated thyroid-cancer pattern. It is uncommon in absolute terms but carries the largest familial-versus-sporadic effect size of any feature in FNMTC, and - unlike tumour size or nodal status - is the least plausible product of earlier detection, so it is the strongest single argument that some of the familial aggressiveness signal is real biology rather than surveillance artefact.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100526\"}}, {\"id\": \"SRGAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SRGAP1\"], \"gene_terms\": [{\"label\": \"SRGAP1\", \"id\": \"hgnc:17382\"}], \"association\": \"Susceptibility - low-penetrance / possible modifier gene at 12q14\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"SRRM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SRRM2\"], \"gene_terms\": [{\"label\": \"SRRM2\", \"id\": \"hgnc:16639\"}], \"association\": \"Susceptibility - single-family splicing-factor candidate, not replicated in other kindreds\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Telomere-Telomerase Imbalance and Chromosome Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patients with familial papillary thyroid carcinoma show a constitutional imbalance of the telomere-telomerase complex in peripheral blood - shorter relative telomere length than sporadic cases, unaffected siblings and healthy controls, together with hTERT/TERT gene amplification and increased telomerase activity. The same familial cohorts show a significant excess of spontaneous telomeric associations and telomeric fusions, i.e. measurable constitutional chromosome instability. This arm is a candidate constitutional mechanism of predisposition, distinct from the tumor-intrinsic telomere-maintenance reactivation (TERT promoter mutation) seen in advanced sporadic thyroid cancer.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"telomere maintenance\", \"telomere maintenance via telomerase\"], \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"role\": \"Intermediate\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Thyroidectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery is the definitive treatment and follows standard differentiated thyroid-cancer risk stratification - lobectomy or total thyroidectomy according to tumor size, multifocality and bilaterality, nodal disease and patient preference. Because familial tumors are more often multicentric and bilateral, total thyroidectomy is used frequently in referral series, but current guidance does not mandate a more aggressive operation on the basis of family history alone.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"p.A248G\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Rare germline FOXE1 missense variant (c.743C\u003eG) segregating with disease in one FNMTC family.\"}, {\"id\": \"p.A275T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family.\"}, {\"id\": \"p.A339V\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Germline NKX2-1/TITF-1 missense variant (c.1016C\u003eT) found in 4 of 20 patients with multinodular goiter plus papillary thyroid carcinoma.\"}, {\"id\": \"p.G534E\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"HABP2 c.1601G\u003eA (p.G534E, rs7080536) at 10q25.3, within the serine protease trypsin domain, originally proposed as an FNMTC susceptibility allele; present in 7-9% of unselected populations and failing cosegregation in independent kindreds.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"HABP2\"], \"gene_terms\": [{\"label\": \"HABP2\", \"id\": \"hgnc:4798\"}], \"variant_type\": \"MISSENSE\", \"clinical_significance\": \"BENIGN\"}}, {\"id\": \"p.Ile657Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"NID1 c.1971T\u003eG (p.Ile657Met), the only variant cosegregating with papillary thyroid carcinoma across three generations of a Brazilian family; very rare in population databases.\"}, {\"id\": \"p.Q149H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family; severely impairs CDC42 inactivation.\"}, {\"id\": \"p.R617C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRGAP1 RhoGAP domain missense variant; severely impairs CDC42 inactivation.\"}, {\"id\": \"p.S346F\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"SRRM2 missense variant (c.1037C\u003eT, rs149019598) cosegregating with papillary thyroid carcinoma in a single six-case family.\"}, {\"id\": \"p.Y1203H\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"DUOX2 missense variant (c.3607A\u003eG) reported to cosegregate in one FNMTC family; absent from 86 members of 33 independent Italian families.\"}, {\"id\": \"rs944289\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common 14q13.3 risk allele near NKX2-1.\"}, {\"id\": \"rs965513\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common 9q22.33 risk allele nearest to FOXE1, the most consistently replicated thyroid cancer GWAS signal.\"}], \"edges\": [{\"source\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rare segregating variants in thyroid developmental transcription factors and growth regulators act directly in the follicular cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"target\": \"Telomere-Telomerase Imbalance and Chromosome Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Familial cases show a constitutional telomere-telomerase imbalance whose causal genes are not identified, so the link is indirect.\", \"hypothesis_groups\": [\"telomere_length_predisposition\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"target\": \"HABP2 G534E Loss of Tumor-Suppressor Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contested branch - proposed as the germline lesion in one kindred but not replicated. Modelled only under the DEPRECATED habp2_g534e_susceptibility hypothesis group.\", \"hypothesis_groups\": [\"habp2_g534e_susceptibility\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"target\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proliferation-permissive, less-differentiated follicular cell is more likely to fix and expand a somatic MAPK-activating driver.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Telomere-Telomerase Imbalance and Chromosome Fragility\", \"target\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutional telomeric instability plausibly raises the rate at which follicular cells acquire and fix oncogenic somatic alterations.\", \"hypothesis_groups\": [\"telomere_length_predisposition\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive mitogenic signaling drives clonal expansion and transformation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Papillary Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dominant malignant histology in familial kindreds.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Follicular Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of familial tumors are follicular-patterned carcinoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Multifocal and Bilateral Thyroid Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Field predisposition produces multicentric and bilateral disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Benign Thyroid Nodules and Multinodular Goiter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Benign follicular neoplasia accompanies the malignant field.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Cervical Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional nodal spread from the primary tumor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Extrathyroidal Extension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Locally invasive growth beyond the thyroid capsule.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Pulmonary Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distant haematogenous spread in a minority of familial cases.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Multifocal Follicular Cell Transformation\", \"target\": \"Earlier Age at Onset in Successive Generations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Observed clinical anticipation, at least partly confounded by ascertainment and surveillance intensity.\", \"hypothesis_groups\": [\"clinical_anticipation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"HABP2 G534E Loss of Tumor-Suppressor Function\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed but unreplicated route from HABP2 loss of function to malignant transformation of the follicular epithelium.\", \"hypothesis_groups\": [\"habp2_g534e_susceptibility\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Thyroidectomy\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cervical Lymph Node Dissection\", \"target\": \"Multifocal Follicular Cell Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kinase Inhibitor Therapy for Radioiodine-Refractory Disease\", \"target\": \"Acquisition of Somatic MAPK-Activating Driver Alterations\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXE1\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXE1\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NKX2-1 (TITF-1)\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NKX2-1 (TITF-1)\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRGAP1\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRGAP1\", \"target\": \"Perturbed Thyroid Transcription Factor and Growth-Regulatory Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SRRM2\", \"target\": \"Inherited Non-Syndromic Susceptibility in Thyroid Follicular Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"rs965513\", \"target\": \"FOXE1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A248G\", \"target\": \"FOXE1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A339V\", \"target\": \"NKX2-1 (TITF-1)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"rs944289\", \"target\": \"NKX2-1 (TITF-1)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Q149H\", \"target\": \"SRGAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.A275T\", \"target\": \"SRGAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.R617C\", \"target\": \"SRGAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.S346F\", \"target\": \"SRRM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.G534E\", \"target\": \"HABP2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ile657Met\", \"target\": \"NID1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Y1203H\", \"target\": \"DUOX2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8240,6 +8324,9 @@ This clinical feature is Cervical lymphadenopathy (HP:0025289). HP:0025289 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8320,6 +8407,9 @@ This clinical feature is Non-medullary thyroid carcinoma (HP:0040198). HP:004019
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8421,6 +8511,9 @@ This clinical feature is Papillary thyroid carcinoma (HP:0002895). HP:0002895 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8517,6 +8610,9 @@ This clinical feature is Follicular thyroid carcinoma (HP:0006731). HP:0006731 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8583,6 +8679,9 @@ This clinical feature is Multifocal thyroid carcinoma, annotated with Thyroid ca
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8709,6 +8808,9 @@ This clinical feature is Multinodular goiter (HP:0005987). HP:0005987 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8803,6 +8905,9 @@ This clinical feature is Thyroid nodule (HP:0025388). HP:0025388 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8869,6 +8974,9 @@ This clinical feature is Neoplasm of the thyroid gland (HP:0100031). HP:0100031 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">HPO has no term for extrathyroidal extension specifically, so the descriptor is bound to the nearest available thyroid-neoplasm parent and the invasive behaviour is carried by preferred_term and description.</div>
@@ -8945,6 +9053,9 @@ This clinical feature is Hurthle cell thyroid adenoma (HP:0006781). HP:0006781 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9009,6 +9120,9 @@ This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9094,6 +9208,9 @@ This clinical feature is Papillary renal cell carcinoma (HP:0006766). HP:0006766
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9169,6 +9286,9 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No `frequency:` band is asserted. The available quantitative source (PMID:40908394) reports a relative measure - pooled odds ratios versus sporadic disease - not an absolute rate, and no cached abstract gives a per-patient distant-metastasis frequency in familial cohorts. A band was previously asserted here on a methods sentence that carried no frequency information; that is corrected rather than re-sourced.</div>
@@ -9257,6 +9377,9 @@ This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phen
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately left without a `phenotype_term`. HPO&#39;s only anticipation concept, HP:0003743 &#34;Genetic anticipation&#34;, is NOT a phenotypic abnormality: `runoak -i sqlite:obo:hp ancestors -p i HP:0003743` returns only HP:0000001, HP:0000005 (Mode of inheritance) and HP:0034335 (Inheritance qualifier), so it is not reachable from HP:0000118 and cannot validate against the PhenotypeTerm dynamic enum, whose source nodes are HP:0000118 and MONDO:0000001. Its definition (&#34;A type of autosomal dominant inheritance involving a gene that exhibits anticipation...&#34;) also asserts an inheritance mechanism, which would over-commit this entry to the ALTERNATIVE anticipation hypothesis rather than merely recording the observation. The previous binding to HP:0100031 &#34;Neoplasm of the thyroid gland&#34; was a genuine term-claim mismatch and has been removed rather than replaced. An NTR for a phenotypic-abnormality term expressing &#34;earlier age at onset in successive generations&#34; would be the clean resolution.</div>
@@ -9406,6 +9529,9 @@ This disease-associated gene is FOXE1 (hgnc:3806). hgnc:3806 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9505,6 +9631,12 @@ This disease-associated gene is FOXE1 (hgnc:3806). hgnc:3806 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Common 9q22.33 risk allele nearest to FOXE1, the most consistently replicated thyroid cancer GWAS signal.</div>
 
 
@@ -9527,6 +9659,12 @@ This disease-associated gene is FOXE1 (hgnc:3806). hgnc:3806 is a gene from the 
         p.A248G
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Rare germline FOXE1 missense variant (c.743C&gt;G) segregating with disease in one FNMTC family.</div>
@@ -9581,6 +9719,9 @@ This disease-associated gene is NKX2-1 (hgnc:11825). hgnc:11825 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9659,6 +9800,12 @@ This disease-associated gene is NKX2-1 (hgnc:11825). hgnc:11825 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Germline NKX2-1/TITF-1 missense variant (c.1016C&gt;T) found in 4 of 20 patients with multinodular goiter plus papillary thyroid carcinoma.</div>
 
 
@@ -9681,6 +9828,12 @@ This disease-associated gene is NKX2-1 (hgnc:11825). hgnc:11825 is a gene from t
         rs944289
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Common 14q13.3 risk allele near NKX2-1.</div>
@@ -9735,6 +9888,9 @@ This disease-associated gene is SRGAP1 (hgnc:17382). hgnc:17382 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9838,6 +9994,12 @@ This disease-associated gene is SRGAP1 (hgnc:17382). hgnc:17382 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family; severely impairs CDC42 inactivation.</div>
 
 
@@ -9862,6 +10024,12 @@ This disease-associated gene is SRGAP1 (hgnc:17382). hgnc:17382 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family.</div>
 
 
@@ -9884,6 +10052,12 @@ This disease-associated gene is SRGAP1 (hgnc:17382). hgnc:17382 is a gene from t
         p.R617C
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">SRGAP1 RhoGAP domain missense variant; severely impairs CDC42 inactivation.</div>
@@ -9942,6 +10116,9 @@ This disease-associated gene is SRRM2 (hgnc:16639). hgnc:16639 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9989,6 +10166,12 @@ This disease-associated gene is SRRM2 (hgnc:16639). hgnc:16639 is a gene from th
         p.S346F
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">SRRM2 missense variant (c.1037C&gt;T, rs149019598) cosegregating with papillary thyroid carcinoma in a single six-case family.</div>
@@ -10043,6 +10226,9 @@ This disease-associated gene is HABP2 (hgnc:4798). hgnc:4798 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10149,6 +10335,7 @@ This disease-associated gene is HABP2 (hgnc:4798). hgnc:4798 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10168,11 +10355,17 @@ This variant is in HABP2 (hgnc:4798). hgnc:4798 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">HABP2 c.1601G&gt;A (p.G534E, rs7080536) at 10q25.3, within the serine protease trypsin domain, originally proposed as an FNMTC susceptibility allele; present in 7-9% of unselected populations and failing cosegregation in independent kindreds.</div>
@@ -10291,6 +10484,9 @@ This disease-associated gene is NID1 (hgnc:7821). hgnc:7821 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10338,6 +10534,12 @@ This disease-associated gene is NID1 (hgnc:7821). hgnc:7821 is a gene from the H
         p.Ile657Met
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">NID1 c.1971T&gt;G (p.Ile657Met), the only variant cosegregating with papillary thyroid carcinoma across three generations of a Brazilian family; very rare in population databases.</div>
@@ -10392,6 +10594,9 @@ This disease-associated gene is MAP2K5 (hgnc:6845). hgnc:6845 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10497,6 +10702,9 @@ This disease-associated gene is DUOX2 (hgnc:13273). hgnc:13273 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10544,6 +10752,12 @@ This disease-associated gene is DUOX2 (hgnc:13273). hgnc:13273 is a gene from th
         p.Y1203H
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">DUOX2 missense variant (c.3607A&gt;G) reported to cosegregate in one FNMTC family; absent from 86 members of 33 independent Italian families.</div>
@@ -10598,6 +10812,9 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10730,6 +10947,9 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10852,6 +11072,9 @@ This disease-associated gene is PRKAR1A (hgnc:9388). hgnc:9388 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10982,6 +11205,9 @@ This disease-associated gene is WRN (hgnc:12791). hgnc:12791 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11104,6 +11330,9 @@ This disease-associated gene is DICER1 (hgnc:17098). hgnc:17098 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11234,6 +11463,9 @@ This disease-associated gene is POT1 (hgnc:17284). hgnc:17284 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11335,6 +11567,9 @@ This disease-associated gene is TINF2 (hgnc:11824). hgnc:11824 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11407,6 +11642,9 @@ This disease-associated gene is ACD (hgnc:25070). hgnc:25070 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

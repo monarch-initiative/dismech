@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4723,6 +4765,13 @@ This experiment is of type observational human tissue study.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zic1-zic4-haploinsufficiency" data-dismech-node="ZIC1/ZIC4 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ZIC1/ZIC4 Haploinsufficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Heterozygous interstitial deletion of chromosome 3q removes the two adjacent zinc-finger transcription-factor genes ZIC1 and ZIC4 together. Sources place the interval differently (Grinberg 2004 reports &#34;3q2&#34; deletions; Watts 2026 writes 3q25.1, while HGNC assigns ZIC1 to 3q24), so no single sub-band is asserted here. This was the first critical region mapped for DWM, and the loss is of both linked genes rather than either alone — a contiguous-gene effect, not a single-gene one. It is mechanistically distinct from the intragenic final-exon ZIC1 variants that act by gain of function and produce craniosynostosis rather than DWM.</div>
 
 
@@ -4913,6 +4962,13 @@ This pathophysiological event involves ZIC4 (hgnc:20393). hgnc:20393 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxc1-dependent-posterior-fossa-mesenchymal-signalling-failure" data-dismech-node="FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Deletions or duplications of chromosome 6p25.3 encompassing FOXC1, and intragenic FOXC1 variants, alter forkhead-box C1 dosage in the posterior-fossa mesenchyme and its meningeal derivatives. The measured consequence is on mesenchyme-expressed secreted signals (Tgfb1, SDF1a, Bmp2, Bmp4) and not on neural-tube gene expression, so the lesion acts on the cerebellum non-cell-autonomously, by changing the signalling environment the meninges present to it. This is the second causal locus for DWM and reaches the same downstream node as ZIC1/ZIC4 from the opposite side of the neuroepithelial-mesenchymal interface.</div>
 
@@ -5138,6 +5194,13 @@ This pathophysiological event involves FOXC1 (hgnc:3800). hgnc:3800 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rhombic-lip-and-roof-plate-patterning-failure" data-dismech-node="Rhombic Lip and Roof Plate Patterning Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Rhombic Lip and Roof Plate Patterning Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Convergent node. Disrupted specification and maintenance of the cerebellar rhombic lip and the fourth-ventricular roof plate, reached either from ZIC1/ZIC4 haploinsufficiency within the neuroepithelium or from failed FOXC1-dependent mesenchymal signalling outside it. In humans the rhombic lip is the progenitor source for the posterior vermis specifically, which is why a patterning failure here produces a posterior-predominant vermian defect rather than global cerebellar hypoplasia.</div>
 
@@ -5375,6 +5438,13 @@ This pathophysiological event involves abnormal hindbrain development (GO:003090
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-granule-cell-progenitor-proliferation" data-dismech-node="Reduced Granule Cell Progenitor Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Granule Cell Progenitor Proliferation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Decreased proliferation of cerebellar granule cell progenitors, demonstrated in Zic1/Zic4 mutant mice and mediated in part through reduced Sonic hedgehog pathway output (downregulated Ptch1, Gli1 and Mycn) despite normal Shh production. This is the cell-level deficit that translates the patterning failure into a smaller cerebellum. In Foxc1 mutants the granule-cell abnormality is one of migration and position as well as number.</div>
 
 
@@ -5577,6 +5647,13 @@ This pathophysiological event involves decreased smoothened signaling pathway (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-vermis-hypoplasia-with-upward-rotation" data-dismech-node="Cerebellar Vermis Hypoplasia with Upward Rotation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar Vermis Hypoplasia with Upward Rotation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Complete or partial agenesis of the cerebellar vermis, predominantly its posterior segment, with the residual vermis rotated upward over the posterior-fossa cyst. The associated dysplastic, extended posterior vermis with an indistinct choroid plexus is the DWM &#34;tail sign&#34;, and a hypomorphic Foxc1 mouse reproduces it as a partially formed posterior lobule.</div>
 
 
@@ -5740,6 +5817,13 @@ This pathophysiological event occurs in cerebellar vermis (UBERON:0004720). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cystic-dilatation-of-the-fourth-ventricle-and-posterior-fossa-enlargement" data-dismech-node="Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The fourth ventricle expands into a cyst continuous with the posterior fossa, which enlarges with upward displacement of the torcula and tentorium and thinning of the overlying occipital bone. Together with the vermian defect this completes the imaging triad that defines the malformation.</div>
 
 
@@ -5831,6 +5915,13 @@ This pathophysiological event occurs in cerebellar vermis (UBERON:0004720). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obstruction-of-fourth-ventricular-csf-outflow" data-dismech-node="Obstruction of Fourth Ventricular CSF Outflow" data-dismech-type="pathophysiology">
                 <div class="item-name">Obstruction of Fourth Ventricular CSF Outflow</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Impaired egress of cerebrospinal fluid from the fourth ventricle. Because the block is distal — at the fourth ventricle and its outlets rather than at the aqueduct — the supratentorial ventricles and the posterior-fossa cyst behave largely as one compartment, which is why a single shunt can control both. Decompensation of this node is what separates the with-hydrocephalus from the without-hydrocephalus subtype.</div>
 
@@ -5990,7 +6081,7 @@ This pathophysiological event involves decreased cerebrospinal fluid circulation
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complete or partial agenesis of the cerebellar vermis, predominantly its posterior segment, with the residual vermis rotated upward over the posterior-fossa cyst. The associated dysplastic, extended posterior vermis with an indistinct choroid plexus is the DWM \\\"tail sign\\\", and a hypomorphic Foxc1 mouse reproduces it as a partially formed posterior lobule.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebellar vermis\"], \"animal_models\": [{\"name\": \"Zic1/Zic4 heterozygous deletion mouse\", \"species\": \"Mouse\", \"genotype\": \"Zic1/Zic4 heterozygous deletion (Zic1+/-;Zic4+/-) and Zic1-/-;Zic4-/-\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous double-deletion mice show a cerebellar phenotype closely resembling DWM, covering the size and foliation components.\"}, {\"name\": \"Foxc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Foxc1 hypomorphic homozygote (Foxc1hith/hith), retaining ~5% Foxc1 activity; also Foxc1-/-\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the posterior-vermis component of the human phenotype, including a mouse correlate of the DWM tail sign.\"}]}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete or partial agenesis of the cerebellar vermis, one of the three defining imaging features. Grading of vermian involvement is what most strongly tracks neurodevelopmental outcome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The fourth ventricle expands into a cyst continuous with the posterior fossa, which enlarges with upward displacement of the torcula and tentorium and thinning of the overlying occipital bone. Together with the vermian defect this completes the imaging triad that defines the malformation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dilated fourth ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic dilatation of the fourth ventricle continuous with the posterior fossa. The preferred term keeps the cystic character, which the HPO label does not carry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002198\"}}, {\"id\": \"Endoscopic Third Ventriculostomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endoscopic creation of a stoma in the floor of the third ventricle, increasingly used as primary treatment of DWM hydrocephalus in place of a shunt. In a 30-child series the overall success rate was about two thirds, with most failures inside four months; supratentorial ventricular volume fell reliably, whereas posterior-fossa cyst volume reduction was inconsistent and did not predict clinical improvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Enlarged posterior fossa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the posterior fossa with upward displacement of the torcular herophili and tentorium, the third defining feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0005445\"}}, {\"id\": \"FOXC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FOXC1\"], \"gene_terms\": [{\"label\": \"FOXC1\", \"id\": \"hgnc:3800\"}], \"association\": \"6p25.3 deletions and duplications encompassing FOXC1, and intragenic FOXC1 variants, are associated with DWM. Reducing Foxc1 lowers mesenchyme-expressed secreted signals while leaving neural-tube gene expression intact, so the route to the cerebellar defect is non-cell-autonomous. FOXC1 haploinsufficiency also causes Axenfeld-Rieger syndrome, so an individual with a 6p25.3 lesion may present through ophthalmology rather than neurology.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deletions or duplications of chromosome 6p25.3 encompassing FOXC1, and intragenic FOXC1 variants, alter forkhead-box C1 dosage in the posterior-fossa mesenchyme and its meningeal derivatives. The measured consequence is on mesenchyme-expressed secreted signals (Tgfb1, SDF1a, Bmp2, Bmp4) and not on neural-tube gene expression, so the lesion acts on the cerebellum non-cell-autonomously, by changing the signalling environment the meninges present to it. This is the second causal locus for DWM and reaches the same downstream node as ZIC1/ZIC4 from the opposite side of the neuroepithelial-mesenchymal interface.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"posterior fossa meningeal (meningothelial) cell\"], \"genes\": [\"FOXC1\"], \"gene_terms\": [{\"label\": \"FOXC1\", \"id\": \"hgnc:3800\"}], \"animal_models\": [{\"name\": \"Foxc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Foxc1 hypomorphic homozygote (Foxc1hith/hith), retaining ~5% Foxc1 activity; also Foxc1-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The model directly demonstrates the non-cell-autonomous mesenchymal mechanism this node asserts.\"}]}}, {\"id\": \"Foxc1 hypomorphic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Foxc1 hypomorphic mice are viable as adults and show a partially formed posterior lobule that exposes the internal granule layer to the fourth ventricle, echoing the human DWM posterior-vermis \\\"tail sign\\\". Lineage tracing attributes it to premature and ectopic migration of rhombic-lip-derived cells fated for the posterior vermis, and qRT-PCR shows the primary effect is on mesenchyme-expressed rather than neural-tube-expressed genes.\"}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay was the single most common clinical feature in a single-centre paediatric series, at 19/28 (67%). As with epilepsy, that series pooled DWM with Dandy-Walker variant, and it reports that isolated DWV carries the better developmental outcome of the two.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ventricular enlargement from fourth-ventricular outflow obstruction, reported at approximately 80% in DWM. Its presence or absence is the axis on which the two isolated subtypes are split. Published figures diverge with case mix: a single-centre series that pooled DWM with the milder Dandy-Walker variant, and in which DWV predominated, found only 13/28 (48%). The band recorded here follows the DWM-specific figure.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Isl1-Cre G9a conditional mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional G9a inactivation in Isl1-expressing progenitors produces hydrocephalus with an underdeveloped cerebellum, which the authors describe as modelling aspects of the Dandy-Walker complex. This is a phenocopy in a gene with no established human DWM association, so it is recorded as a mechanistic lead about progenitor-derived multicomponent malformation rather than as a model of a known DWM locus.\"}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive head enlargement, the usual postnatal presenting sign of the hydrocephalus rather than an independent feature. In older children whose sutures have closed it gives way to signs of intracranial hypertension. No frequency is asserted: the sources describe it as the commonest sign of raised pressure, which is a statement about presentation among symptomatic children, not a proportion of all affected individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000256\"}}, {\"id\": \"Multidisciplinary Neurological Follow-Up and Management of Associated Anomalies\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Beyond CSF diversion there is no disease-modifying therapy, and management is structural and supportive: treat the hydrocephalus, identify and treat the associated anomalies, and follow the child neurologically. Because half to two thirds of cases are non-isolated and comorbidity is what drives outcome, the coordinating work is itself the intervention. Symptomatic treatment of the seizures and the developmental delay curated above follows ordinary paediatric practice; see this entry\u0027s notes for why no drug-specific or therapy-specific treatment is asserted here.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired egress of cerebrospinal fluid from the fourth ventricle. Because the block is distal \\u2014 at the fourth ventricle and its outlets rather than at the aqueduct \\u2014 the supratentorial ventricles and the posterior-fossa cyst behave largely as one compartment, which is why a single shunt can control both. Decompensation of this node is what separates the with-hydrocephalus from the without-hydrocephalus subtype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cerebrospinal fluid circulation\"], \"animal_models\": [{\"name\": \"Isl1-Cre G9a conditional mouse\", \"species\": \"Mouse\", \"genotype\": \"Isl1-Cre-driven G9a (Ehmt2) inactivation in a subset of Isl1-expressing progenitors\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces hydrocephalus alongside an underdeveloped cerebellum, but via a thinned and disorganized lateral-ventricle neuroepithelium rather than the fourth-ventricular outflow block that operates in human DWM.\"}]}}, {\"id\": \"Reduced Granule Cell Progenitor Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased proliferation of cerebellar granule cell progenitors, demonstrated in Zic1/Zic4 mutant mice and mediated in part through reduced Sonic hedgehog pathway output (downregulated Ptch1, Gli1 and Mycn) despite normal Shh production. This is the cell-level deficit that translates the patterning failure into a smaller cerebellum. In Foxc1 mutants the granule-cell abnormality is one of migration and position as well as number.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar granule cell precursor\"], \"biological_processes\": [\"cerebellar granule cell precursor proliferation\", \"smoothened signaling pathway\"], \"animal_models\": [{\"name\": \"Zic1/Zic4 heterozygous deletion mouse\", \"species\": \"Mouse\", \"genotype\": \"Zic1/Zic4 heterozygous deletion (Zic1+/-;Zic4+/-) and Zic1-/-;Zic4-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The proliferation deficit was demonstrated in this model and is the mechanism by which cerebellar size is reduced.\"}]}}, {\"id\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent node. Disrupted specification and maintenance of the cerebellar rhombic lip and the fourth-ventricular roof plate, reached either from ZIC1/ZIC4 haploinsufficiency within the neuroepithelium or from failed FOXC1-dependent mesenchymal signalling outside it. In humans the rhombic lip is the progenitor source for the posterior vermis specifically, which is why a patterning failure here produces a posterior-predominant vermian defect rather than global cerebellar hypoplasia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"rhombic lip neuroepithelial progenitor\"], \"biological_processes\": [\"roof plate formation\", \"hindbrain development\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy was one of the two most common clinical features in a single-centre paediatric series, at 9/28 (32%). Note that series pooled DWM with Dandy-Walker variant, so the figure is not specific to full DWM.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Ventriculoperitoneal Shunting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CSF diversion from the lateral ventricle to the peritoneum. Because the supratentorial ventricles and the posterior-fossa cyst behave as one compartment in a distal outflow block, a single shunt generally controls both. In a small single-centre comparison, VPS outperformed posterior-fossa cystoperitoneal shunting on clinical outcome, postoperative frontal-occipital horn ratio and adaptive behaviour scores.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ZIC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZIC1\"], \"gene_terms\": [{\"label\": \"ZIC1\", \"id\": \"hgnc:12872\"}], \"association\": \"Lost as part of a heterozygous proximal-3q interstitial deletion that also removes the adjacent ZIC4. The DWM mechanism is deletion of the linked pair, so ZIC1 should not be reported as a single-gene DWM cause on its own.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ZIC1/ZIC4 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous interstitial deletion of chromosome 3q removes the two adjacent zinc-finger transcription-factor genes ZIC1 and ZIC4 together. Sources place the interval differently (Grinberg 2004 reports \\\"3q2\\\" deletions; Watts 2026 writes 3q25.1, while HGNC assigns ZIC1 to 3q24), so no single sub-band is asserted here. This was the first critical region mapped for DWM, and the loss is of both linked genes rather than either alone \\u2014 a contiguous-gene effect, not a single-gene one. It is mechanistically distinct from the intragenic final-exon ZIC1 variants that act by gain of function and produce craniosynostosis rather than DWM.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZIC1\", \"ZIC4\"], \"gene_terms\": [{\"label\": \"ZIC1\", \"id\": \"hgnc:12872\"}, {\"label\": \"ZIC4\", \"id\": \"hgnc:20393\"}]}}, {\"id\": \"ZIC4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZIC4\"], \"gene_terms\": [{\"label\": \"ZIC4\", \"id\": \"hgnc:20393\"}], \"association\": \"Co-deleted with ZIC1 in the proximal-3q DWM critical region. Mice heterozygous for deletion of both linked genes reproduce a DWM-like phenotype.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Zic1/Zic4 heterozygous deletion mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice carrying a heterozygous deletion of the linked Zic1 and Zic4 genes develop cerebellar size and foliation defects resembling human DWM. The model was the basis for showing that the size reduction comes from decreased postnatal granule cell progenitor proliferation, and that Zic1/Zic4 have both Shh-dependent (proliferation) and Shh-independent (anterior vermis foliation) roles.\"}], \"edges\": [{\"source\": \"ZIC1/ZIC4 Haploinsufficiency\", \"target\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ZIC1/ZIC4 dosage is required in the developing cerebellar anlage; halving it disrupts the dorsal patterning programme that specifies the rhombic lip and the fourth-ventricular roof plate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ZIC1/ZIC4 Haploinsufficiency\", \"target\": \"Reduced Granule Cell Progenitor Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zic1/Zic4 act partly through Sonic hedgehog output to drive granule cell progenitor proliferation, so haploinsufficiency reduces that proliferation directly rather than only via the patterning defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"target\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced FOXC1 activity lowers expression of mesenchyme-derived secreted signals that the cerebellar rhombic lip and roof plate depend on, so the patterning failure follows from a defect outside the neuroepithelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rhombic lip disruption maps onto the posterior vermis, which is the segment hypoplastic in DWM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Granule Cell Progenitor Proliferation\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced granule cell progenitor proliferation is the demonstrated cause of the reduced cerebellar size in the Zic1/Zic4 model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"target\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of the vermian floor leaves the fourth ventricle open dorsally and continuous with the retrocerebellar space, which is what allows it to balloon into a posterior-fossa cyst.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"target\": \"Cerebellar vermis hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging and clinical expression of this mechanism node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cyst and the maldeveloped fourth-ventricular roof obstruct outflow at the level of the fourth ventricle and its outlets rather than at the aqueduct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"target\": \"Enlarged posterior fossa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging expression of this mechanism node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"target\": \"Dilated fourth ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging expression of this mechanism node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of fourth-ventricular outflow produces progressive ventricular enlargement in roughly 80% of affected children.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hydrocephalus\", \"target\": \"Macrocephaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Before the sutures fuse, rising intracranial pressure is absorbed by cranial expansion, so a progressively crossing head circumference is the clinical readout of the hydrocephalus rather than a separate lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ventriculoperitoneal Shunting\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Endoscopic Third Ventriculostomy\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Neurological Follow-Up and Management of Associated Anomalies\", \"target\": \"Global developmental delay\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Neurological Follow-Up and Management of Associated Anomalies\", \"target\": \"Seizure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Zic1/Zic4 heterozygous deletion mouse\", \"target\": \"Reduced Granule Cell Progenitor Proliferation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The proliferation deficit was demonstrated in this model and is the mechanism by which cerebellar size is reduced.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cerebellar foliation is largely a postnatal process in mouse, so the timing of the proliferative window is not directly transferable to the human prenatal course.\"}, {\"source\": \"Zic1/Zic4 heterozygous deletion mouse\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous double-deletion mice show a cerebellar phenotype closely resembling DWM, covering the size and foliation components.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The source describes resemblance to DWM at the level of cerebellar size and foliation; it does not report the upward vermian rotation over a posterior-fossa cyst that names this node in humans.\"}, {\"source\": \"Foxc1 hypomorphic mouse\", \"target\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model directly demonstrates the non-cell-autonomous mesenchymal mechanism this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The hypomorph retains about 5% activity, whereas human del 6p25.3 patients retain one functional FOXC1 allele; the mouse null is more severe than the human phenotype and is neonatally lethal.\"}, {\"source\": \"Foxc1 hypomorphic mouse\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the posterior-vermis component of the human phenotype, including a mouse correlate of the DWM tail sign.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse reproduces the posterior folial abnormality but not the upward rotation of the vermis over a posterior-fossa cyst, and mouse cerebellar foliation is postnatal whereas the human defect is established prenatally.\"}, {\"source\": \"Isl1-Cre G9a conditional mouse\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces hydrocephalus alongside an underdeveloped cerebellum, but via a thinned and disorganized lateral-ventricle neuroepithelium rather than the fourth-ventricular outflow block that operates in human DWM.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"G9a/EHMT2 is not an established human DWM gene; the Cre driver had reduced recombinase activity so the affected progenitor population is a subset; and the CSF compartment implicated is the lateral ventricle, not the fourth-ventricular outflow this node names. The correspondence to human DWM is at the level of the phenotype constellation, not the mechanism.\"}, {\"source\": \"ZIC1\", \"target\": \"ZIC1/ZIC4 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZIC4\", \"target\": \"ZIC1/ZIC4 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXC1\", \"target\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complete or partial agenesis of the cerebellar vermis, predominantly its posterior segment, with the residual vermis rotated upward over the posterior-fossa cyst. The associated dysplastic, extended posterior vermis with an indistinct choroid plexus is the DWM \\\"tail sign\\\", and a hypomorphic Foxc1 mouse reproduces it as a partially formed posterior lobule.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cerebellar vermis\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Zic1/Zic4 heterozygous deletion mouse\", \"species\": \"Mouse\", \"genotype\": \"Zic1/Zic4 heterozygous deletion (Zic1+/-;Zic4+/-) and Zic1-/-;Zic4-/-\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Heterozygous double-deletion mice show a cerebellar phenotype closely resembling DWM, covering the size and foliation components.\"}, {\"name\": \"Foxc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Foxc1 hypomorphic homozygote (Foxc1hith/hith), retaining ~5% Foxc1 activity; also Foxc1-/-\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the posterior-vermis component of the human phenotype, including a mouse correlate of the DWM tail sign.\"}]}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete or partial agenesis of the cerebellar vermis, one of the three defining imaging features. Grading of vermian involvement is what most strongly tracks neurodevelopmental outcome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001320\"}}, {\"id\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The fourth ventricle expands into a cyst continuous with the posterior fossa, which enlarges with upward displacement of the torcula and tentorium and thinning of the overlying occipital bone. Together with the vermian defect this completes the imaging triad that defines the malformation.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dilated fourth ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic dilatation of the fourth ventricle continuous with the posterior fossa. The preferred term keeps the cystic character, which the HPO label does not carry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002198\"}}, {\"id\": \"Endoscopic Third Ventriculostomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endoscopic creation of a stoma in the floor of the third ventricle, increasingly used as primary treatment of DWM hydrocephalus in place of a shunt. In a 30-child series the overall success rate was about two thirds, with most failures inside four months; supratentorial ventricular volume fell reliably, whereas posterior-fossa cyst volume reduction was inconsistent and did not predict clinical improvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Enlarged posterior fossa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the posterior fossa with upward displacement of the torcular herophili and tentorium, the third defining feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0005445\"}}, {\"id\": \"FOXC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FOXC1\"], \"gene_terms\": [{\"label\": \"FOXC1\", \"id\": \"hgnc:3800\"}], \"association\": \"6p25.3 deletions and duplications encompassing FOXC1, and intragenic FOXC1 variants, are associated with DWM. Reducing Foxc1 lowers mesenchyme-expressed secreted signals while leaving neural-tube gene expression intact, so the route to the cerebellar defect is non-cell-autonomous. FOXC1 haploinsufficiency also causes Axenfeld-Rieger syndrome, so an individual with a 6p25.3 lesion may present through ophthalmology rather than neurology.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deletions or duplications of chromosome 6p25.3 encompassing FOXC1, and intragenic FOXC1 variants, alter forkhead-box C1 dosage in the posterior-fossa mesenchyme and its meningeal derivatives. The measured consequence is on mesenchyme-expressed secreted signals (Tgfb1, SDF1a, Bmp2, Bmp4) and not on neural-tube gene expression, so the lesion acts on the cerebellum non-cell-autonomously, by changing the signalling environment the meninges present to it. This is the second causal locus for DWM and reaches the same downstream node as ZIC1/ZIC4 from the opposite side of the neuroepithelial-mesenchymal interface.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"posterior fossa meningeal (meningothelial) cell\"], \"genes\": [\"FOXC1\"], \"gene_terms\": [{\"label\": \"FOXC1\", \"id\": \"hgnc:3800\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Foxc1 hypomorphic mouse\", \"species\": \"Mouse\", \"genotype\": \"Foxc1 hypomorphic homozygote (Foxc1hith/hith), retaining ~5% Foxc1 activity; also Foxc1-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The model directly demonstrates the non-cell-autonomous mesenchymal mechanism this node asserts.\"}]}}, {\"id\": \"Foxc1 hypomorphic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Foxc1 hypomorphic mice are viable as adults and show a partially formed posterior lobule that exposes the internal granule layer to the fourth ventricle, echoing the human DWM posterior-vermis \\\"tail sign\\\". Lineage tracing attributes it to premature and ectopic migration of rhombic-lip-derived cells fated for the posterior vermis, and qRT-PCR shows the primary effect is on mesenchyme-expressed rather than neural-tube-expressed genes.\"}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay was the single most common clinical feature in a single-centre paediatric series, at 19/28 (67%). As with epilepsy, that series pooled DWM with Dandy-Walker variant, and it reports that isolated DWV carries the better developmental outcome of the two.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive ventricular enlargement from fourth-ventricular outflow obstruction, reported at approximately 80% in DWM. Its presence or absence is the axis on which the two isolated subtypes are split. Published figures diverge with case mix: a single-centre series that pooled DWM with the milder Dandy-Walker variant, and in which DWV predominated, found only 13/28 (48%). The band recorded here follows the DWM-specific figure.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Isl1-Cre G9a conditional mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional G9a inactivation in Isl1-expressing progenitors produces hydrocephalus with an underdeveloped cerebellum, which the authors describe as modelling aspects of the Dandy-Walker complex. This is a phenocopy in a gene with no established human DWM association, so it is recorded as a mechanistic lead about progenitor-derived multicomponent malformation rather than as a model of a known DWM locus.\"}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive head enlargement, the usual postnatal presenting sign of the hydrocephalus rather than an independent feature. In older children whose sutures have closed it gives way to signs of intracranial hypertension. No frequency is asserted: the sources describe it as the commonest sign of raised pressure, which is a statement about presentation among symptomatic children, not a proportion of all affected individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000256\"}}, {\"id\": \"Multidisciplinary Neurological Follow-Up and Management of Associated Anomalies\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Beyond CSF diversion there is no disease-modifying therapy, and management is structural and supportive: treat the hydrocephalus, identify and treat the associated anomalies, and follow the child neurologically. Because half to two thirds of cases are non-isolated and comorbidity is what drives outcome, the coordinating work is itself the intervention. Symptomatic treatment of the seizures and the developmental delay curated above follows ordinary paediatric practice; see this entry\u0027s notes for why no drug-specific or therapy-specific treatment is asserted here.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired egress of cerebrospinal fluid from the fourth ventricle. Because the block is distal \\u2014 at the fourth ventricle and its outlets rather than at the aqueduct \\u2014 the supratentorial ventricles and the posterior-fossa cyst behave largely as one compartment, which is why a single shunt can control both. Decompensation of this node is what separates the with-hydrocephalus from the without-hydrocephalus subtype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cerebrospinal fluid circulation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Isl1-Cre G9a conditional mouse\", \"species\": \"Mouse\", \"genotype\": \"Isl1-Cre-driven G9a (Ehmt2) inactivation in a subset of Isl1-expressing progenitors\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Reproduces hydrocephalus alongside an underdeveloped cerebellum, but via a thinned and disorganized lateral-ventricle neuroepithelium rather than the fourth-ventricular outflow block that operates in human DWM.\"}]}}, {\"id\": \"Reduced Granule Cell Progenitor Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased proliferation of cerebellar granule cell progenitors, demonstrated in Zic1/Zic4 mutant mice and mediated in part through reduced Sonic hedgehog pathway output (downregulated Ptch1, Gli1 and Mycn) despite normal Shh production. This is the cell-level deficit that translates the patterning failure into a smaller cerebellum. In Foxc1 mutants the granule-cell abnormality is one of migration and position as well as number.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebellar granule cell precursor\"], \"biological_processes\": [\"cerebellar granule cell precursor proliferation\", \"smoothened signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Zic1/Zic4 heterozygous deletion mouse\", \"species\": \"Mouse\", \"genotype\": \"Zic1/Zic4 heterozygous deletion (Zic1+/-;Zic4+/-) and Zic1-/-;Zic4-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The proliferation deficit was demonstrated in this model and is the mechanism by which cerebellar size is reduced.\"}]}}, {\"id\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent node. Disrupted specification and maintenance of the cerebellar rhombic lip and the fourth-ventricular roof plate, reached either from ZIC1/ZIC4 haploinsufficiency within the neuroepithelium or from failed FOXC1-dependent mesenchymal signalling outside it. In humans the rhombic lip is the progenitor source for the posterior vermis specifically, which is why a patterning failure here produces a posterior-predominant vermian defect rather than global cerebellar hypoplasia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"rhombic lip neuroepithelial progenitor\"], \"biological_processes\": [\"roof plate formation\", \"hindbrain development\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy was one of the two most common clinical features in a single-centre paediatric series, at 9/28 (32%). Note that series pooled DWM with Dandy-Walker variant, so the figure is not specific to full DWM.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Ventriculoperitoneal Shunting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CSF diversion from the lateral ventricle to the peritoneum. Because the supratentorial ventricles and the posterior-fossa cyst behave as one compartment in a distal outflow block, a single shunt generally controls both. In a small single-centre comparison, VPS outperformed posterior-fossa cystoperitoneal shunting on clinical outcome, postoperative frontal-occipital horn ratio and adaptive behaviour scores.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ZIC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZIC1\"], \"gene_terms\": [{\"label\": \"ZIC1\", \"id\": \"hgnc:12872\"}], \"association\": \"Lost as part of a heterozygous proximal-3q interstitial deletion that also removes the adjacent ZIC4. The DWM mechanism is deletion of the linked pair, so ZIC1 should not be reported as a single-gene DWM cause on its own.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ZIC1/ZIC4 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous interstitial deletion of chromosome 3q removes the two adjacent zinc-finger transcription-factor genes ZIC1 and ZIC4 together. Sources place the interval differently (Grinberg 2004 reports \\\"3q2\\\" deletions; Watts 2026 writes 3q25.1, while HGNC assigns ZIC1 to 3q24), so no single sub-band is asserted here. This was the first critical region mapped for DWM, and the loss is of both linked genes rather than either alone \\u2014 a contiguous-gene effect, not a single-gene one. It is mechanistically distinct from the intragenic final-exon ZIC1 variants that act by gain of function and produce craniosynostosis rather than DWM.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZIC1\", \"ZIC4\"], \"gene_terms\": [{\"label\": \"ZIC1\", \"id\": \"hgnc:12872\"}, {\"label\": \"ZIC4\", \"id\": \"hgnc:20393\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ZIC4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZIC4\"], \"gene_terms\": [{\"label\": \"ZIC4\", \"id\": \"hgnc:20393\"}], \"association\": \"Co-deleted with ZIC1 in the proximal-3q DWM critical region. Mice heterozygous for deletion of both linked genes reproduce a DWM-like phenotype.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Zic1/Zic4 heterozygous deletion mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice carrying a heterozygous deletion of the linked Zic1 and Zic4 genes develop cerebellar size and foliation defects resembling human DWM. The model was the basis for showing that the size reduction comes from decreased postnatal granule cell progenitor proliferation, and that Zic1/Zic4 have both Shh-dependent (proliferation) and Shh-independent (anterior vermis foliation) roles.\"}], \"edges\": [{\"source\": \"ZIC1/ZIC4 Haploinsufficiency\", \"target\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ZIC1/ZIC4 dosage is required in the developing cerebellar anlage; halving it disrupts the dorsal patterning programme that specifies the rhombic lip and the fourth-ventricular roof plate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ZIC1/ZIC4 Haploinsufficiency\", \"target\": \"Reduced Granule Cell Progenitor Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Zic1/Zic4 act partly through Sonic hedgehog output to drive granule cell progenitor proliferation, so haploinsufficiency reduces that proliferation directly rather than only via the patterning defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"target\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced FOXC1 activity lowers expression of mesenchyme-derived secreted signals that the cerebellar rhombic lip and roof plate depend on, so the patterning failure follows from a defect outside the neuroepithelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rhombic Lip and Roof Plate Patterning Failure\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rhombic lip disruption maps onto the posterior vermis, which is the segment hypoplastic in DWM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Granule Cell Progenitor Proliferation\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced granule cell progenitor proliferation is the demonstrated cause of the reduced cerebellar size in the Zic1/Zic4 model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"target\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of the vermian floor leaves the fourth ventricle open dorsally and continuous with the retrocerebellar space, which is what allows it to balloon into a posterior-fossa cyst.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"target\": \"Cerebellar vermis hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging and clinical expression of this mechanism node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cyst and the maldeveloped fourth-ventricular roof obstruct outflow at the level of the fourth ventricle and its outlets rather than at the aqueduct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"target\": \"Enlarged posterior fossa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging expression of this mechanism node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cystic Dilatation of the Fourth Ventricle and Posterior Fossa Enlargement\", \"target\": \"Dilated fourth ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging expression of this mechanism node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of fourth-ventricular outflow produces progressive ventricular enlargement in roughly 80% of affected children.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hydrocephalus\", \"target\": \"Macrocephaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Before the sutures fuse, rising intracranial pressure is absorbed by cranial expansion, so a progressively crossing head circumference is the clinical readout of the hydrocephalus rather than a separate lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ventriculoperitoneal Shunting\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Endoscopic Third Ventriculostomy\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Neurological Follow-Up and Management of Associated Anomalies\", \"target\": \"Global developmental delay\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Neurological Follow-Up and Management of Associated Anomalies\", \"target\": \"Seizure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Zic1/Zic4 heterozygous deletion mouse\", \"target\": \"Reduced Granule Cell Progenitor Proliferation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The proliferation deficit was demonstrated in this model and is the mechanism by which cerebellar size is reduced.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Cerebellar foliation is largely a postnatal process in mouse, so the timing of the proliferative window is not directly transferable to the human prenatal course.\"}, {\"source\": \"Zic1/Zic4 heterozygous deletion mouse\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Heterozygous double-deletion mice show a cerebellar phenotype closely resembling DWM, covering the size and foliation components.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The source describes resemblance to DWM at the level of cerebellar size and foliation; it does not report the upward vermian rotation over a posterior-fossa cyst that names this node in humans.\"}, {\"source\": \"Foxc1 hypomorphic mouse\", \"target\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model directly demonstrates the non-cell-autonomous mesenchymal mechanism this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The hypomorph retains about 5% activity, whereas human del 6p25.3 patients retain one functional FOXC1 allele; the mouse null is more severe than the human phenotype and is neonatally lethal.\"}, {\"source\": \"Foxc1 hypomorphic mouse\", \"target\": \"Cerebellar Vermis Hypoplasia with Upward Rotation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the posterior-vermis component of the human phenotype, including a mouse correlate of the DWM tail sign.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse reproduces the posterior folial abnormality but not the upward rotation of the vermis over a posterior-fossa cyst, and mouse cerebellar foliation is postnatal whereas the human defect is established prenatally.\"}, {\"source\": \"Isl1-Cre G9a conditional mouse\", \"target\": \"Obstruction of Fourth Ventricular CSF Outflow\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces hydrocephalus alongside an underdeveloped cerebellum, but via a thinned and disorganized lateral-ventricle neuroepithelium rather than the fourth-ventricular outflow block that operates in human DWM.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"G9a/EHMT2 is not an established human DWM gene; the Cre driver had reduced recombinase activity so the affected progenitor population is a subset; and the CSF compartment implicated is the lateral ventricle, not the fourth-ventricular outflow this node names. The correspondence to human DWM is at the level of the phenotype constellation, not the mechanism.\"}, {\"source\": \"ZIC1\", \"target\": \"ZIC1/ZIC4 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZIC4\", \"target\": \"ZIC1/ZIC4 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXC1\", \"target\": \"FOXC1-Dependent Posterior Fossa Mesenchymal Signalling Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6053,6 +6144,9 @@ This clinical feature is Enlarged posterior fossa with elevated torcula, annotat
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6122,6 +6216,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6230,6 +6327,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6310,6 +6410,9 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6381,6 +6484,9 @@ This clinical feature is Cystic dilatation of the fourth ventricle, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6447,6 +6553,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6582,6 +6691,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6673,6 +6785,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6776,6 +6891,9 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6842,6 +6960,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6945,6 +7066,9 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7067,6 +7191,9 @@ This disease-associated gene is ZIC1 (hgnc:12872). hgnc:12872 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7168,6 +7295,9 @@ This disease-associated gene is ZIC4 (hgnc:20393). hgnc:20393 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7240,6 +7370,9 @@ This disease-associated gene is FOXC1 (hgnc:3800). hgnc:3800 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

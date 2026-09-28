@@ -26,12 +26,23 @@ remain authoritative for day-to-day curation mechanics.
 Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
+- **[mapping-analysis](.claude/skills/mapping-analysis/SKILL.md)**: Use for mapping
+  scope and alignment investigations, Boomer results, proxy merges, and source
+  correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[evidence-claim-mismatch](.claude/skills/evidence-claim-mismatch/SKILL.md)**:
+  Use when reviewing an existing disease for mismatches between its claims and
+  supporting snippets, including issues from the evaluation queue.
+- **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
+  Use when curating noncoding variant effects, including regulatory structural
+  variants, expression changes, and target-gene relationships.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
   class, slot, or enum in `src/dismech/schema/`, or when deciding whether a
   curation need warrants a schema change at all.
+- **coarse-phenotype-bindings**: Use when choosing, reviewing, or repairing a
+  `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -185,6 +196,19 @@ explicit `DISMECH_KB_CACHE` still wins.
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Models Directory (`models/`)
+One folder per model, `models/<model_id>/`, with fixed file names:
+`config.yaml` + `model.xml` (+ `model.ant`, `extension.ant`) for a model
+`dismech-perturb` runs, or `spec.yaml` + `run.py` + `results.json` for a model
+authored in this repository with its own runner (the rosacea Boolean network,
+the neuronal-migration agent-based model). A folder holds exactly one of
+`config.yaml` or `spec.yaml`, and the folder name is the `model_id` the KB
+record points at. `src/dismech/model_registry.py` is the only place that
+resolves these paths; route a new consumer through it rather than globbing.
+`tests/test_model_registry.py` gates the layout, so a branch still adding a
+flat `models/<id>.config.yaml` fails with a message. `just
+check-authored-models` runs every `run.py --check`. See `models/README.md`.
+
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
@@ -198,17 +222,24 @@ config instead. Page/build crons are intentionally unmanaged. See
 
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
-discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
+discussion-scanner, claude-dedupe-issues, knowledge-gap-scan, literature-scan, preprint-scan,
 post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
 is centralized in `.github/agent-config.yaml` — one source of truth instead of a
-`--model` hardcoded per workflow. At run time each workflow's `Resolve agent
+`--model` hardcoded per workflow. For single-model workflows, the `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
 the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
 env.AGENT_MODEL }}`. Resolution order: a `workflow_dispatch` `model:` override >
 the per-workflow `model:` > `default_model`. To bump a model for scheduled runs,
 edit `agent-config.yaml` — do NOT re-add a hardcoded `--model` to a workflow (a
 test enforces this). `curation-scanner`'s per-effort-tier models live in the same
-file as a `matrix:` and drive its strategy matrix via a `setup` job. This
+file as a `matrix:` and drive its strategy matrix via a `setup` job, which calls
+the resolver's `--matrix` mode directly. Each row requires its own `model:`;
+there is no `default_model` fallback or manual model override for the scanner.
+Use the `opus`, `sonnet`, and `haiku` family aliases to follow new releases
+without model-bump PRs. Every managed workflow installs the latest CLI via
+`.github/actions/setup-claude-code` and passes its executable explicitly to the
+upstream action; the action's SDK bundle does not select the CLI version.
+Exact model IDs are for temporary rollbacks. This
 complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
 the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
 
@@ -387,6 +418,19 @@ Rules:
   `docs/reports/` for analysis reports, `docs/research/` for research provenance,
   `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
   should also be surfaced in the `mkdocs.yml` nav.
+- **Everything under `docs/` is written for a human reader, never for another
+  agent or a future session of yourself.** This holds even in
+  `docs/superpowers/`, whose *subject* is agent investigations — the audience
+  is still a person deciding whether to act on one, not the agent that wrote
+  it. Denser, technical language than a PR body is fine (see the
+  `github-communication` skill's scope note), but density is not license for a
+  diary entry: a title built as a metaphor, a sentence reminding your future
+  self of a rule you already broke once, or a section narrating your own
+  review-round count is process narration, not documentation, and does not
+  belong here even when every fact in it is correct. If a draft report turns
+  out to be mostly that, close the PR rather than merge it, and move anything
+  genuinely reusable into this file or a tracked issue instead. See #12535 and
+  #8908.
 - **Exception — deterministic script outputs may live in `research/`.** A handful
   of scripts write generated data here by design (e.g.
   `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
@@ -414,6 +458,39 @@ report predating a prompt edit is superseded by construction, so a gate would go
 red for the whole corpus on every edit. See
 [`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
 and issue #10183.
+
+### `docs/` and `notes:` Are Written For a Human Reader, Not the Agent That Wrote Them
+
+The denser register `docs/` and `notes:` are allowed (see the
+`github-communication` skill's scope note) is a licence for domain vocabulary,
+not a licence to skip having a reader in mind. A `docs/` file (outside
+`docs/superpowers/`, which is explicitly an agent-facing investigation/plan/spec
+log) or a `notes:` field should tell a curator something about the disease,
+the schema, the corpus, or a decision — not narrate the writing agent's own
+compliance with its own process rules.
+
+PR #12535 is the worked example. It added a "curation retrospective" to
+`docs/reports/` — dense, well-sourced, every figure independently
+re-verified by review — whose actual content was three sections of first-person
+reflection on the writing agent's own workflow ("Everything I intend to change
+has to go in one push, including the things I find on my own after the verdict
+lands") under a title, "Custody of a Claim", that told a reader nothing about
+what was inside. A maintainer closed it, reading it correctly as an agent
+writing itself a note that happened to be committed to the repository rather
+than kept in its own context. The one piece of the document with lasting value
+— a table of ontology identifiers written from memory and what they actually
+resolve to — was exactly the kind of fact this rule asks for, and belongs next
+to the *Every CURIE is read from a source in the same step it is written* rule
+above rather than buried in a retrospective essay.
+
+The test before committing prose to `docs/` or `notes:`: if a passage were
+deleted, would a curator who has never seen this session lose a fact about the
+subject matter — or only lose a reflection on how the writing agent did its
+job? The latter belongs in the PR or issue thread that already carries that
+conversation, under the `github-communication` skill's plain-language rules,
+where a human reviewer will actually see it once and it will not persist as
+permanent content. See issue #8908 for the related, broader problem of
+elliptical AI prose in PR/issue bodies themselves.
 
 ### Hypothesis Provider Data and Analysis Artifacts
 
@@ -555,13 +632,15 @@ always *was* a reference slot, and `geo:` is now treated as one end to end:
   `REFERENCE_CACHED_PREFIXES` in `scripts/verify_dataset_accessions.py`,
   backfilling the cache, and fixing what the newly-enabled checks surface.
 
-**`cache/dataset_accessions.json` is frozen. Never read, write, or edit it.**
+**`cache/dataset_accessions.json` is retired and deleted. Never recreate it.**
 It was a single shared JSON blob rewritten in full by every verifier run — so
 every curation PR touching a `datasets:` block churned the same 1.8 MB file, and
 PRs adding neighbouring `geo:` keys collided. Nothing reads or writes it any
-more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this). It
-stays in git only until the open PRs carrying edits to it have drained; do not
-add it to a commit, and do not "helpfully" regenerate it.
+more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this and
+checks that the path stays untracked on every CI run). It was frozen temporarily
+to let old PRs drain; that transition is over. If an old PR still carries it,
+keep its deletion when resolving conflicts without reading or merging its
+contents. Do not restore or regenerate it.
 
 **The check that tooling cannot do for you:** verification proves a dataset
 *exists*, never that it is about the right disease. Searching a causal gene
@@ -1171,7 +1250,26 @@ sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just grouping-nesting-audit          # declared tree + undeclared containments
+just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+**Check a MONDO mapping by walking members up, not the class down.** A grouping
+mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
+sit inside that class. Verifying that by expanding the class's descendant
+closure is the expensive direction — it scales with the ontology, and the
+configured `ols:mondo` adapter cannot do it at all. Inverted, it is cheap:
+resolve each member's own MONDO term to its ancestors and look the mapped class
+up in that set, one bounded walk per member, no 588 MB build. `broadMatch`,
+`closeMatch` and `relatedMatch` assert no subsumption, so members outside the
+class are expected there and are not reported.
+
+**A member outside the mapped class is a lead, not a defect.** It is either a
+genuine scope difference — the dismech concept is broader than the MONDO class,
+so the *predicate* is wrong — or MONDO classifying that disease by clinical
+presentation rather than mechanism, which is a candidate MONDO term request and
+not a membership error. Both occur in the current corpus, which is why the
+recipe is report-only and `--strict` gates on the predicate rather than on any
+individual member.
 
 **Nesting is declared, never inferred.** A grouping sits below another only
 when the parent lists it as a `member_type: GROUPING` member, and that is the
@@ -1550,7 +1648,7 @@ epistasis sentence), separate from the general disease evidence.
 models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
 top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
 double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
-entries: `Alport_Syndrome`, `Usher_Syndrome`,
+entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
 `MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
@@ -1756,6 +1854,20 @@ For structured curation, review, and audit provenance, add append-only history
 records under `history/`, not inside the KB YAML and not beside KB files as
 `kb/**/*.history.yaml`.
 
+**"Not inside the KB YAML" means `notes:` is not a session log.** A recurring
+drift is writing the *curation session's own narrative* into an entry's
+`notes:` field instead: "Review round 1. The screening-yield rate is deleted,
+as above", "`just preflight-dr` returned SKIP", "Correction, review round 1.
+The first version of this entry said…". That content presumes a reader who
+already has the review thread open, describes what an agent did rather than a
+fact about the disease, and duplicates the `history/` record's job in a
+denser, more elliptical register — see #8908 and the discussion on #12535.
+`notes:` should read as a caveat or fact the entry's own claims need,
+checkable independent of who wrote it or when: why a term is bound this way,
+why a source is thin, what a search returned. If a sentence stops making
+sense once the review thread or PR it refers to is gone, it belongs in the
+`details` field of a `history/` record below — not in `notes:`.
+
 Path pattern:
 
 ```text
@@ -1856,6 +1968,20 @@ ontology bindings. Keep these session-wide invariants in mind:
   consistently; it does not say the term is right for your claim, and it does
   not check dynamic-enum membership. See
   [`docs/deep-research-term-validation.md`](docs/deep-research-term-validation.md).
+- A CURIE offered in a **review comment** is a lead on exactly the same footing,
+  and for the reason design decision §7 (`docs/explanation/design-decisions.md`)
+  records: PR comments are AI-generated by default here, so a reviewer's CURIE is
+  another agent's suggestion rather than a checked binding. Look it up, and check
+  what relation it stands in to the term
+  you meant. On #12297 a reviewer supplied `HP:0003324`; it verified clean — the
+  CURIE exists and `Generalized muscle weakness` is its canonical label — and it
+  was still wrong, because the descriptor's `preferred_term`, description,
+  snippet and explanation all said *limb*. `HP:0003324` and `HP:0003690` Limb
+  muscle weakness are **siblings** under `HP:0001324` Muscle weakness, not a
+  general and a specific form of one thing, so the binding asserted a
+  distribution of weakness its own source did not. That is the
+  self-consistent-but-wrong shape *A Gene Binding Only Has To Be
+  Self-Consistent* documents, landing on a phenotype instead of a gene.
 
 ```yaml
 cell_types:
@@ -1912,6 +2038,31 @@ an unexplained over-broad binding is a smaller defect than one carrying a false
 justification. Step 3a of the `dismech-terms` skill has the rule and the worked
 examples.
 
+**Naming the query does not make the note true; re-running it does.** The rule
+above is satisfied on its face by a note that cites a re-runnable query and then
+misreports what came back, and that is the form the failure has since taken.
+`Digitalis_Poisoning` reached review carrying a note that named five ECTO
+searches — `l~digitalis`, `l~digoxin`, `l~glycoside`, `l~oleander`, `l~foxglove`
+— and concluded that ECTO had no cardiac-glycoside, digitalis or oleander
+exposure class. Re-run, `l~glycoside` returns `ECTO:9000436 exposure to
+glycoside`, so the note was refuted by one of the queries it cited; one further
+word, `l~digitalin`, returns `ECTO:9000003 exposure to digitalin`. Both terms
+were then rejected on stated positive grounds and the note rewritten, so the
+binding (`ECTO:0000537`) never moved — only its justification did, from false to
+true. Two more of the same shape came out of the same run of entries.
+`ECTO:9001524 exposure to Ricin` was called absent because nothing in the KB had
+bound it yet and so `cache/ecto/terms.csv` had no row for it: the cache-first
+contract read backwards, since an empty cache is silence rather than a negative
+answer. `ECTO:9001759 exposure to local anaesthetic` was missed by searching only
+the American spelling — `l~anesthetic` returns `ECTO:2000059 exposure to
+anesthetics` and stops there, where `l~anaesthetic` returns five terms.
+
+So **re-run every search a note claims, against the source the note names, and
+read the output rather than your expectation of it, immediately before you commit
+the note.** Step 3a leaves that re-run to a reviewer because a reviewer is
+currently the only one who performs it. The searches cost seconds, and a
+negative-existence claim is the one assertion in an entry that no gate can reach.
+
 **The same rule governs citation strings**, which have the same failure shape:
 `reference_title` is copied from the `title:` frontmatter of the
 `references_cache/` file, never written from having read the abstract. A title
@@ -1926,6 +2077,33 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
+
+### Coarse Phenotype Bindings Must Say Why
+
+A phenotype bound to a **coarse HPO term** — `HP:0000478` *Abnormality of the
+eye*, `HP:0002664` *Neoplasm*, `HP:0000077` *Abnormality of the kidney* — passes
+every other gate while saying almost nothing. Such a binding is not forbidden,
+but it must **say why**, via `coarse_binding_basis` on the descriptor:
+`VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`, `NO_HPO_TERM`, or `PATHOGRAPH_HUB`.
+
+```bash
+just check-coarse-phenotypes                    # gate (offline, in `just qc`)
+just list-coarse-phenotypes                     # census by term and file
+just update-coarse-phenotype-baseline           # only ever to SHRINK
+```
+
+**This is not a rule to prefer narrow terms.** Manufacturing a specificity the
+source does not support is a worse defect than a coarse binding, and the
+[Ontology Term Contract](#ontology-term-contract) forbids it. The coarse set is
+56 hand-reviewed terms across two `meaning:`-bound schema enums, not a depth or
+information-content metric.
+
+Use the **`coarse-phenotype-bindings` skill** when choosing, reviewing, or
+repairing a basis — it covers picking between the four values, the
+spectrum-vs-unspecified line, why a hub is defined by its incoming edges and how
+to tell convergence from fan-out, and the baseline's shrink-only rule. See also
+[`docs/coarse-phenotype-bindings.md`](docs/coarse-phenotype-bindings.md).
+
 
 ### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
 
@@ -2291,8 +2469,20 @@ or NCIT (for drug classes).
 
 **Ontology selection:**
 - **CHEBI**: preferred for specific small-molecule drugs (`CHEBI:36796` duloxetine, `CHEBI:46345` 5-fluorouracil)
+  and for chemical classes (`CHEBI:50858` corticosteroid)
 - **NCIT**: use for drug classes, or for biologics/newer drugs that lack a CHEBI term
-  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C2322` Corticosteroid, `NCIT:C65216` Adalimumab)
+  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C65216` Adalimumab)
+- **Not every NCIT drug class is admissible.** `therapeutic_agent` binds to the
+  `ChemicalEntityTerm` dynamic enum, whose NCIT root is `NCIT:C1909` (Pharmacologic
+  Substance). NCIT files some classes elsewhere, so they fail validation even though the
+  CURIE and label are correct: `NCIT:C2322` Corticosteroid sits under Hormone, and
+  `NCIT:C572` Immunoglobulin is outside the enum too (use `CHEBI:50858` and
+  `NCIT:C80829` Human Immunoglobulin G). A quick positive check is
+  `grep -qx "NCIT:C2322" <(cut -d, -f1 cache/enums/chemicalentityterm_*.csv)`, but the
+  enum cache only holds terms something in `kb/` has already bound, so a hit means
+  admissible and a miss means *unknown*, not excluded. The authoritative answer is
+  `just validate-terms <file>` after binding the term, which expands the enum from the
+  ontology (issue #10978; the wider reachability question is #7355).
 - Leave `therapeutic_agent` absent when the treatment is non-pharmacological
   (surgery, physical therapy, counseling, dietary intervention — use `dietary_modifications` for the latter)
 
@@ -2458,7 +2648,7 @@ with no per-disease research needed, when that action term's own definition
 |---|---|
 | `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `NCIT:C15289` (surgical procedure / resection / transplantation) | `SURGERY` |
 | `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
-| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
+| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech language therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
 | `NCIT:C15238` (gene therapy) | `GENE_THERAPY` |
 | `NCIT:C15431` (hematopoietic cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
 | `NCIT:C15346` (vaccination) | `VACCINE` |
@@ -3020,6 +3210,24 @@ cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
 *descriptions* in the schema render as "Phase III - Efficacy confirmation…", which is what
 makes the free-text form look plausible; the permissible value is the upper-snake-case key.
 
+**Status/phase go stale — audit, don't assume.** `status:` and `phase:` are a
+snapshot taken at curation time. ClinicalTrials.gov is the one live-API source in
+the repo with no `*-refresh` recipe, and the cached trial records carry no
+retrieval timestamp, so drift is invisible offline. Before trusting or reusing a
+curated status, re-check it:
+
+```bash
+just clinicaltrials-status-audit                            # whole KB
+just clinicaltrials-status-audit kb/disorders/Asthma.yaml   # one file
+just clinicaltrials-status-audit --only-drift               # just the worklist
+```
+
+The audit reports; it never rewrites the KB, because a trial moving to
+`COMPLETED`/`TERMINATED` usually wants its `description`/`evidence` revisited too,
+and some drift is a curation-time error rather than staleness. Network-dependent
+and therefore advisory — not part of `just qc`. See
+[`docs/clinical-trial-status.md`](docs/clinical-trial-status.md).
+
 ### MorPhiC Cellular Phenotypes
 
 The MorPhiC Consortium (Molecular Phenotypes of Null Alleles in Cells) creates null alleles of human genes in iPSC-derived multicellular systems and measures their molecular and cellular phenotypes. MorPhiC data can enrich dismech entries with `category: Cellular` phenotypes.
@@ -3084,7 +3292,7 @@ Non-negotiable rules:
 
 - A `snippet` must be an exact source substring that substantively supports the
   precise claim. Never fabricate or paraphrase it; a title is usually not a
-  finding.
+  finding. "Exact" means exact *after normalization, on both sides* — see below.
 - `evidence_source` classifies the cited study, not the curator or claim.
 - Treat deep-research reports as leads. Read their reference-validation results
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
@@ -3098,6 +3306,21 @@ Non-negotiable rules:
   it out. Re-run `just count-verified-snippets` on the pushed tree afterwards,
   and re-read `notes:` for any sentence that called a pruned reference "cached" —
   prose describing repository state is content, and it rots.
+
+**Publisher typography folds — a snippet need not be byte-identical.** Both
+sides of the comparison are normalized (`normalize_text` maps every non-word
+non-space character to a space, then collapses whitespace with `\s+`, which in
+Python matches Unicode whitespace). So an ordinary space matches the U+2009 thin
+spaces Nature journals put around `=`, and a hyphen matches an en dash or
+unicode minus in a range: `"AUC = 0.933"` typed normally matches the source. In
+the #9308 tranche 8 of 15 snippets were not byte-exact and all 15 verified.
+
+Prefer plain ASCII in new snippets anyway — an invisible character in a quote is
+a trap for the next curator, and it buys nothing. Existing snippets that copied
+the source's thin spaces and en dashes verbatim are equally valid and need no
+repair. The characters that do **not** fold are `x` typed for `×`, mid-word soft
+hyphens and zero-width spaces, `ﬁ`-style ligatures, and the U+00B5 micro sign.
+Full detail, including why this matters, in `.claude/skills/dismech-references`.
 
 Example:
 
@@ -3140,12 +3363,25 @@ paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. The first four use baselines, as
-does `check-causal-targets`; do not update a baseline to admit a
-defect introduced by the current change. `check-environmental-evidence` had one
-too, until the #8296 backlog reached zero and it became a hard gate -- an
-exposure that genuinely cannot be cited now carries a `review_notes:` waiver
-instead of a baseline row (see below).
+defective sources that the cache contradicts. Four of them carry a committed
+baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
+`check-title-snippets`, `check-snippet-grading` and `check-causal-targets`. Two
+further gates that are in `just qc` but not in the list above do too:
+`check-reference-titles` and `check-coarse-phenotypes`. Those six are the whole
+set, and it is checkable rather than remembered -- `tests/*_baseline.txt` and the
+`just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
+to admit a defect introduced by the current change.
+
+Two of these gates used to have a baseline and no longer do, by the same route:
+the backlog was repaired, then the mechanism was removed, so there is now no way
+to grandfather a finding. `check-environmental-evidence` got there first (#8296),
+and an exposure that genuinely cannot be cited now carries a `review_notes:`
+waiver instead of a baseline row (see below). `check-folded-hyphens` followed
+once #11760 had repaired its 293-split backlog, which was #4800's stated
+endpoint. Where that check flags a line that is genuinely correct, the fix is to
+teach the detector the shape and pin it with a test -- as `COORD_RE` does for
+suspended hyphens and `is_status_marker` for clinical negativity markers
+(`ER+/HER2-`, `T-B-NK-`) -- rather than to record an exception.
 
 **When an exposure genuinely cannot be cited, say so in `review_notes:`.**
 `check-environmental-evidence` treats an `environmental[]` entry whose
@@ -3341,6 +3577,19 @@ is the answer to "can this be served without a download". They have in common
 that the ontology is incidental to what they are doing, and each already had a
 degradation path to take.
 
+**Inverting a closure question can remove the build dependency entirely, but
+only for the questions that are actually per-member.** `ols:mondo` raises
+`NotImplementedError` for `descendants` *and* `ancestors`, so the OAK wrapper
+looks like a dead end — but the OLS REST `hierarchicalAncestors` endpoint
+underneath serves ancestors fine, and "is this member under that class" only
+ever needed ancestors. That is what `just grouping-mondo-consistency` does.
+What it cannot do is replace `render`'s grouping coverage table or
+`scripts/grouping_mondo_gaps.py`: both enumerate MONDO descendants that have
+**no** dismech entry, and you cannot discover terms you do not hold by walking
+up from ones you do. That half is irreducibly a descendant query and still
+needs the local build. Before reaching for the build, ask which direction the
+question actually runs in.
+
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
 download it on purpose — that is a CLI whose job is to export MONDO, and its own
@@ -3348,6 +3597,13 @@ docstring says so. And `groupings.py` only *looks* like another bypass: it
 resolves its adapter through `conf/oak_config.yaml`, so HP there is `ols:hp` and
 no build is involved. The test is whether the caller can do its job without the
 ontology.
+
+**When it cannot, the guard fails instead of degrading.**
+`preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
+`RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
+degradation path: an empty record would read as "MONDO records no causal gene"
+and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
+`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
@@ -3435,10 +3691,13 @@ just check-case-collisions      # whole repo, <1s, offline
 
 It runs in `just qc` and as an ungated CI step. The usual source was a DOI
 fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
-filename copies the DOI as written. The patched fetcher now reuses an existing
-`DOI_*.md` file whose name differs only in case, on both read and write
-(`src/dismech/doi_cache_case.py`, #9112), so a second spelling no longer writes a
-second file; a DOI with no cache file yet is still saved as written. To fix a
+filename copies the DOI as written. `linkml-reference-validator` now reuses an
+existing `DOI_*.md` file whose name differs only in case, on both read and write
+(upstream LRV #87, for dismech#9112), so a second spelling no longer writes a
+second file; a DOI with no cache file yet is still saved as written. That
+behaviour used to live here as a runtime patch over the validator's internals
+and no longer does — see the `dismech-references` skill on why a patch like that
+is always temporary. To fix a
 collision that gets past it, keep the path matching the publisher's
 capitalization and remove the other from the index with `git rm --cached <path>`,
 which works on a case-insensitive disk because it never touches the file itself.
@@ -3781,13 +4040,14 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 
 | Path | Commit? | Reason |
 |------|---------|--------|
+| `analysis/classification/**` | NO | Corpus evaluation history belongs in `monarch-initiative/dismech-evals`; local `just jev-audit` checkpoints default to ignored `build/jev-assessments/` |
 | `pages/disorders/*.html` | NO | Derived — regenerated by downstream CI after merge |
 | `dashboard/*.html` | NO | Derived — generated by `just gen-dashboard` |
 | `docs/` HTML output | NO | Derived — regenerated by CI |
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 | `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
-| `cache/dataset_accessions.json` | **NEVER** | Frozen. Superseded by `references_cache/GEO_*.md`; nothing reads or writes it. Never stage it, in any change |
+| `cache/dataset_accessions.json` | **NEVER** | Deleted and ignored. Superseded by `references_cache/GEO_*.md`; keep it deleted when resolving old PRs |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
@@ -3937,11 +4197,45 @@ before retrying. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
+### Inactive PR assignments
+
+Assignment is an active-work hold, not a permanent reservation. The independent
+`assignment-inactivity` shepherd job considers every open assigned PR, regardless
+of author, draft status, or checks. After seven days without activity from any
+current assignee, it posts one reminder tagging the author and assignees. At
+fourteen days **since the last assignee activity**, it removes the assignment
+if the reminder is still unanswered. An assignee's PR comment, review, inline
+review comment, or authored or committed GitHub-linked commit resets the clock.
+Assignment changes also restart it. Other users' comments and the reminder
+itself do not count.
+
+Any current assignee can keep a jointly assigned PR active. After a response,
+a later week of inactivity gets a new reminder; the fourteen-day threshold also
+starts from that new activity. Old PRs always receive a reminder first, but if
+already inactive for fourteen days they can be unassigned on the next sweep,
+currently about an hour later. There is no separate reminder grace period.
+The job rereads activity and assignment immediately before a write, and leaves
+assignments alone when history is incomplete or unavailable. Manual inputs
+`dry_run`, `pr_number`, and `max_assignment_actions` (default 10; 0 disables) apply.
+
+Unassignment clears only the assignment hold. Review requirements, conflict and
+CI checks, and the repair jobs' remaining lifecycle and branch-ownership guards
+still apply. Otherwise eligible PRs can be repaired regardless of author. See
+[assignment inactivity](docs/explanation/automation-and-agents.md#inactive-pr-assignments).
+
 ### Shepherd repair scope and generated-cache conflicts
 
 The shepherd tends eligible abandoned code, tests, schema, workflow, and
-documentation PRs as well as curation. Python is in scope. Unresolved review
-feedback comes first; an approved clean branch is the merge controller's work,
+documentation PRs as well as curation, regardless of whether a human or bot
+authored them. Repair eligibility requires an open PR targeting `main`, no
+assignees, and a head in this repository outside the separately managed `auto/`
+lanes. `isCrossRepository` must be explicitly false; fork heads and missing or
+unknown head-repository metadata are excluded. Reconfirm this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent checks recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Python is in scope. Unresolved review feedback comes first;
+an approved clean branch is the merge controller's work,
 even when it is behind main. Do not refresh a branch merely for freshness.
 
 The separate `repair-caches` job handles additive conflicts in term and enum
@@ -3954,8 +4248,10 @@ Reference markdown and other generated formats remain shepherd work; never
 resolve a generated directory wholesale by taking one side. A deterministic
 refusal does not authorize abandoning the PR.
 
-The job uses the agent's existing author/assignment guards. Manual inputs
-`max_cache_repairs` (default 3; 0 disables), `dry_run`, and `pr_number` control it.
+The job uses the agent's assignment, lifecycle, and head-repository guards
+regardless of author; `isCrossRepository` must be explicitly false.
+Manual inputs `max_cache_repairs` (default 3; 0 disables), `dry_run`, and
+`pr_number` control it.
 See [the repair contract](docs/explanation/automation-and-agents.md#tending-abandoned-prs-and-repairing-cache-conflicts).
 
 ### Deterministic auto-merge of ready PRs
@@ -3979,11 +4275,11 @@ author, human or agent** — once it is simultaneously:
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
-LLM agent job in the same workflow, whose guardrails still forbid it from
-*editing* human-authored PRs. The jobs never share a runner, and the controller
-mints a separate write token that is not exposed to the LLM runner. The LLM's
-own App token still has contents-write capability for branch repair, so its
-no-merge rule is prompt-enforced rather than a GitHub permission boundary;
+LLM agent job in the same workflow, which repairs eligible unassigned PRs from
+any author but cannot merge or approve them. The jobs never share a runner, and
+the controller mints a separate write token that is not exposed to the LLM
+runner. The LLM's own App token still has contents-write capability for branch
+repair, so its no-merge rule is prompt-enforced rather than a GitHub permission boundary;
 enforcing that boundary requires a separate identity, broker, or ruleset. The
 sweep itself only merges already-approved work.
 
@@ -4002,10 +4298,11 @@ review. If that protection setting is ever turned off, the sweep needs an explic
 
 **To stop a PR being auto-merged, assign it to a human or leave a
 CHANGES_REQUESTED review.** A human-assigned PR is treated as somebody's active
-work and is never swept; bot or agent assignment is not a hold. Draft status is
-not a hold: anything opened as a PR is in the review queue. The controller marks
-an eligible draft ready, re-reads every guard, and restores draft state if that
-merge attempt aborts.
+work and is never swept while assigned; maintain that hold by responding to
+inactivity reminders as described above. Bot or agent assignment is not a hold.
+Draft status is not a hold: anything opened as a PR is in the review queue. The
+controller marks an eligible draft ready, re-reads every guard, and restores
+draft state if that merge attempt aborts.
 
 **A third hold exists and is not visible from the PR page.** The controller
 also holds a PR back once it has failed the merge queue
@@ -4025,6 +4322,17 @@ Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
 review, or assignee: its only trace is a `SKIP` line in the run summary naming
 the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
 and this paragraph are the only places it is recorded.
+
+**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
+added by a PR enqueued earlier in the *same* sweep is skipped, because the two
+would conflict in the queue and the second would be ejected. Only multi-field
+rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
+bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
+only, clears itself on the next sweep, and is disabled by
+`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
+line in the run summary, which names the PR holding the contended row;
+`just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins
 the merge request to that verified head SHA. When a required merge queue is

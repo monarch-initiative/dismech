@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Myoclonus-Dystonia%20Syndrome"
@@ -3984,7 +4026,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4005,7 +4047,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">25</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4111,6 +4153,8 @@
 
     </div>
 
+
+    <div class="item-desc"><strong>Parent-of-origin effect:</strong> Maternal imprinting of SGCE. A pathogenic variant on the paternally derived (expressed) allele generally causes disease; the same variant on the maternally derived (silenced) allele typically does not.</div>
 
 
 
@@ -4220,6 +4264,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                SGCE
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10808</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SGCE (hgnc:10808). hgnc:10808 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">SGCE-related myoclonus-dystonia is the major genetically defined form and is caused by pathogenic variants in SGCE.</div>
@@ -4285,11 +4348,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epsilon-sarcoglycan-trafficking-and-membrane-loss" data-dismech-node="Epsilon-sarcoglycan trafficking and membrane loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Epsilon-sarcoglycan trafficking and membrane loss</div>
+
 
                 <div class="item-desc">SGCE pathogenic variants reduce functional epsilon-sarcoglycan at the plasma membrane through intracellular retention, polyubiquitination, and proteasomal degradation of mutant protein.</div>
 
@@ -4313,11 +4377,11 @@
         SGCE
 
 
-    <a href="https://bioregistry.io/hgnc:10808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10808</a>
+    <a href="https://bioregistry.io/hgnc:10808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10808</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SGCE (hgnc:10808). hgnc:10808 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4355,11 +4419,11 @@ This pathophysiological event involves SGCE (hgnc:10808). hgnc:10808 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0072659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0072659</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased protein localization to plasma membrane (GO:0072659). GO:0072659 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4389,11 +4453,11 @@ This pathophysiological event involves decreased protein localization to plasma 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016567" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0016567</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016567" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0016567</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased protein ubiquitination (GO:0016567). GO:0016567 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4505,6 +4569,7 @@ This pathophysiological event involves increased protein ubiquitination (GO:0016
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gabaergic-purkinje-cell-dysfunction" data-dismech-node="GABAergic/Purkinje cell dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">GABAergic/Purkinje cell dysfunction</div>
 
+
                 <div class="item-desc">Myoclonus-dystonia motor-network dysfunction may involve a GABAergic deficit reflecting Purkinje-cell dysfunction.</div>
 
 
@@ -4519,11 +4584,11 @@ This pathophysiological event involves increased protein ubiquitination (GO:0016
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000121</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4560,11 +4625,11 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0051932</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4648,8 +4713,274 @@ This pathophysiological event involves decreased synaptic transmission, GABAergi
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-kctd17-putaminal-network-and-er-calcium-signaling-disturbance" data-dismech-node="KCTD17 putaminal network and ER calcium-signaling disturbance" data-dismech-type="pathophysiology">
+                <div class="item-name">KCTD17 putaminal network and ER calcium-signaling disturbance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
+                <div class="item-desc">KCTD17 is most highly expressed in the putamen and sits in a putaminal co-expression network enriched for dystonia genes whose functional annotation is over-represented for post-synaptic dopaminergic transmission. Fibroblasts from carriers of the p.(Arg145His) variant show abnormal endoplasmic-reticulum-dependent calcium signaling. These are the observed correlates rather than an established causal chain: the founding report states explicitly that further work is needed to characterise how KCTD17 contributes to myoclonus-dystonia, so this node is recorded as a hypothetical upstream input to the striatal mechanism rather than as a settled route.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KCTD17
+
+
+    <a href="https://bioregistry.io/hgnc:25705" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:25705</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCTD17 (hgnc:25705). hgnc:25705 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Endoplasmic reticulum calcium ion homeostasis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0032469" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0032469</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Endoplasmic reticulum calcium ion homeostasis (GO:0032469). GO:0032469 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Post-synaptic dopaminergic transmission
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0001963" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001963</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Post-synaptic dopaminergic transmission, annotated with synaptic transmission, dopaminergic (GO:0001963). GO:0001963 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        Putamen
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001874" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001874</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Putamen (UBERON:0001874). UBERON:0001874 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired striatal plasticity</span>
+
+	                            <span class="crosslink-desc">A putaminal expression network annotated for post-synaptic dopaminergic transmission is the proposed point at which KCTD17 variants would reach the striatal mechanism shared with SGCE-related disease. The link is inferred from expression and network data, not demonstrated.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25983243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25983243" target="_blank">PMID:25983243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"KCTD17 is abundantly expressed in all brain regions with the highest expression in the putamen. Weighted gene co-expression network analysis, based on mRNA expression profile of brain samples from neuropathologically healthy individuals, showed that KCTD17 is part of a putamen gene network,..."</div>
+
+
+                <div class="evidence-explanation">Supports the putaminal localisation and network membership this node asserts.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25983243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25983243" target="_blank">PMID:25983243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Functional studies in mutation bearing fibroblasts demonstrated abnormalities in endoplasmic reticulum-dependent calcium signaling."</div>
+
+
+                <div class="evidence-explanation">Supports the calcium-signaling claim, and fixes its evidence level: a patient fibroblast assay, not a neuronal or in vivo result.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25983243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25983243" target="_blank">PMID:25983243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Further functional studies are warranted to further characterize the nature of KCTD17 contribution to the molecular pathogenesis of M-D."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own statement that the mechanism is unsettled, which is why this node is marked HYPOTHETICAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-striatal-plasticity" data-dismech-node="Impaired striatal plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired striatal plasticity</div>
+
 
                 <div class="item-desc">Impaired striatal plasticity is implicated as a basal-ganglia circuit mechanism contributing to the myoclonus-dystonia motor phenotype.</div>
 
@@ -4672,11 +5003,11 @@ This pathophysiological event involves decreased synaptic transmission, GABAergi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0048167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048167</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased regulation of synaptic plasticity (GO:0048167). GO:0048167 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4781,6 +5112,7 @@ This pathophysiological event involves decreased regulation of synaptic plastici
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-serotonin-homeostasis" data-dismech-node="Disturbed serotonin homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed serotonin homeostasis</div>
 
+
                 <div class="item-desc">Disturbed serotonin homeostasis is implicated as another neurotransmitter mechanism in the myoclonus-dystonia motor circuit.</div>
 
 
@@ -4861,6 +5193,7 @@ This pathophysiological event involves decreased regulation of synaptic plastici
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-calcium-homeostasis-disturbance" data-dismech-node="Calcium homeostasis disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Calcium homeostasis disturbance</div>
 
+
                 <div class="item-desc">Epsilon-sarcoglycan dysfunction may alter calcium homeostasis and dopaminergic membrane stabilization, contributing to abnormal cerebello-thalamo-pallido-cortical network development and function.</div>
 
 
@@ -4882,11 +5215,11 @@ This pathophysiological event involves decreased regulation of synaptic plastici
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0055074</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4972,6 +5305,7 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cerebello-thalamic-pathway-function" data-dismech-node="Altered cerebello-thalamic pathway function" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered cerebello-thalamic pathway function</div>
+
 
                 <div class="item-desc">Altered cerebello-thalamic pathway function is the central motor-network event linking upstream SGCE mechanisms to myoclonus and dystonia.</div>
 
@@ -5102,6 +5436,7 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sgce-associated-psychiatric-vulnerability" data-dismech-node="SGCE-associated psychiatric vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">SGCE-associated psychiatric vulnerability</div>
 
+
                 <div class="item-desc">SGCE pathogenic variants have pleiotropic neuropsychiatric effects that increase compulsivity, anxiety, alcohol dependence, and other psychiatric symptoms in addition to the motor phenotype.</div>
 
 
@@ -5124,11 +5459,11 @@ This pathophysiological event involves abnormal calcium ion homeostasis (GO:0055
         SGCE
 
 
-    <a href="https://bioregistry.io/hgnc:10808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:10808</a>
+    <a href="https://bioregistry.io/hgnc:10808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:10808</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves SGCE (hgnc:10808). hgnc:10808 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5275,7 +5610,7 @@ This pathophysiological event involves SGCE (hgnc:10808). hgnc:10808 is a gene f
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Addictive alcohol use\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Alcohol dependence and alcohol abuse are distinctive non-motor features in SGCE-related myoclonus-dystonia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030955\"}}, {\"id\": \"Altered cerebello-thalamic pathway function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered cerebello-thalamic pathway function is the central motor-network event linking upstream SGCE mechanisms to myoclonus and dystonia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Anticholinergic medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticholinergic pharmacotherapy may improve dystonia in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Anticholinergic Agent\"]}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety disorders are common non-motor manifestations in SGCE-related myoclonus-dystonia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Botulinum toxin injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin injection is a focal treatment option for cervical dystonia in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Calcium homeostasis disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epsilon-sarcoglycan dysfunction may alter calcium homeostasis and dopaminergic membrane stabilization, contributing to abnormal cerebello-thalamo-pallido-cortical network development and function.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"calcium ion homeostasis\"]}}, {\"id\": \"Cervical dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical dystonia or torticollis is a common focal dystonia manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000473\"}}, {\"id\": \"Clonazepam and benzodiazepine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Benzodiazepines, particularly clonazepam, may improve myoclonus symptoms in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"clonazepam\"]}}, {\"id\": \"Compulsive behaviors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obsessive-compulsive symptoms and compulsivity are frequent non-motor manifestations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000722\"}}, {\"id\": \"Deep brain stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pallidal deep brain stimulation is a refractory treatment option for medically refractory myoclonus-dystonia, with long-term evidence favoring GPi stimulation for sustained motor and disability improvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is included among frequent psychiatric manifestations in the Orphanet phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disturbed serotonin homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disturbed serotonin homeostasis is implicated as another neurotransmitter mechanism in the myoclonus-dystonia motor circuit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia accompanies myoclonus and may be focal or segmental.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epsilon-sarcoglycan trafficking and membrane loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SGCE pathogenic variants reduce functional epsilon-sarcoglycan at the plasma membrane through intracellular retention, polyubiquitination, and proteasomal degradation of mutant protein.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein localization to plasma membrane\", \"protein ubiquitination\"], \"genes\": [\"SGCE\"], \"gene_terms\": [{\"label\": \"SGCE\", \"id\": \"hgnc:10808\"}]}}, {\"id\": \"GABAergic/Purkinje cell dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myoclonus-dystonia motor-network dysfunction may involve a GABAergic deficit reflecting Purkinje-cell dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"synaptic transmission, GABAergic\"]}}, {\"id\": \"Impaired striatal plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired striatal plasticity is implicated as a basal-ganglia circuit mechanism contributing to the myoclonus-dystonia motor phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of synaptic plasticity\"]}}, {\"id\": \"Limb myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-limb and other limb myoclonic jerks are characteristic, supporting the prominent upper-body phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0045084\"}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid brief myoclonic jerks are a defining and often predominant motor manifestation of myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Panic attack\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Panic attacks are included among frequent psychiatric manifestations in the Orphanet phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025269\"}}, {\"id\": \"Personality disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Personality disorder is included among frequent psychiatric manifestations in the Orphanet phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012075\"}}, {\"id\": \"SGCE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SGCE\"], \"gene_terms\": [{\"label\": \"SGCE\", \"id\": \"hgnc:10808\"}], \"presence\": \"Positive\", \"association\": \"Causative\"}}, {\"id\": \"SGCE-associated psychiatric vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SGCE pathogenic variants have pleiotropic neuropsychiatric effects that increase compulsivity, anxiety, alcohol dependence, and other psychiatric symptoms in addition to the motor phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SGCE\"], \"gene_terms\": [{\"label\": \"SGCE\", \"id\": \"hgnc:10808\"}]}}, {\"id\": \"Spinal myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orphanet lists spinal myoclonus as a very frequent myoclonus subtype in the syndrome phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010531\"}}, {\"id\": \"Writer\u0027s cramp\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Writer\u0027s cramp is a frequent focal hand dystonia presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002356\"}}, {\"id\": \"Zonisamide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Zonisamide has randomized controlled trial evidence for improving myoclonus, myoclonus-related disability, and dystonia in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"zonisamide\"]}}], \"edges\": [{\"source\": \"Epsilon-sarcoglycan trafficking and membrane loss\", \"target\": \"Altered cerebello-thalamic pathway function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"GABAergic/Purkinje cell dysfunction\", \"target\": \"Altered cerebello-thalamic pathway function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Limb myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Spinal myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed serotonin homeostasis\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed serotonin homeostasis\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Calcium homeostasis disturbance\", \"target\": \"Altered cerebello-thalamic pathway function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Limb myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Spinal myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Cervical dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Writer\u0027s cramp\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Compulsive behaviors\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Panic attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Personality disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SGCE-associated psychiatric vulnerability includes broader psychiatric manifestations captured by the personality disorder phenotype annotation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Addictive alcohol use\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SGCE mutation-positive cohorts show alcohol dependence as part of the syndrome\u0027s psychiatric phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"SGCE-associated psychiatric phenotype\", \"alcohol dependence vulnerability\"]}, {\"source\": \"Zonisamide\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Zonisamide\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum toxin injection\", \"target\": \"Cervical dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Clonazepam and benzodiazepine pharmacotherapy\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticholinergic medication\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SGCE\", \"target\": \"Epsilon-sarcoglycan trafficking and membrane loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SGCE\", \"target\": \"SGCE-associated psychiatric vulnerability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Addictive alcohol use\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Alcohol dependence and alcohol abuse are distinctive non-motor features in SGCE-related myoclonus-dystonia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030955\"}}, {\"id\": \"Altered cerebello-thalamic pathway function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered cerebello-thalamic pathway function is the central motor-network event linking upstream SGCE mechanisms to myoclonus and dystonia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Anticholinergic medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticholinergic pharmacotherapy may improve dystonia in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Anticholinergic Agent\"]}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety disorders are common non-motor manifestations in SGCE-related myoclonus-dystonia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Botulinum toxin injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin injection is a focal treatment option for cervical dystonia in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Calcium homeostasis disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epsilon-sarcoglycan dysfunction may alter calcium homeostasis and dopaminergic membrane stabilization, contributing to abnormal cerebello-thalamo-pallido-cortical network development and function.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"calcium ion homeostasis\"]}}, {\"id\": \"Cervical dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical dystonia or torticollis is a common focal dystonia manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000473\"}}, {\"id\": \"Clonazepam and benzodiazepine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Benzodiazepines, particularly clonazepam, may improve myoclonus symptoms in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"clonazepam\"]}}, {\"id\": \"Compulsive behaviors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obsessive-compulsive symptoms and compulsivity are frequent non-motor manifestations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000722\"}}, {\"id\": \"Deep brain stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pallidal deep brain stimulation is a refractory treatment option for medically refractory myoclonus-dystonia, with long-term evidence favoring GPi stimulation for sustained motor and disability improvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is included among frequent psychiatric manifestations in the Orphanet phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disturbed serotonin homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disturbed serotonin homeostasis is implicated as another neurotransmitter mechanism in the myoclonus-dystonia motor circuit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystonia accompanies myoclonus and may be focal or segmental.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epsilon-sarcoglycan trafficking and membrane loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SGCE pathogenic variants reduce functional epsilon-sarcoglycan at the plasma membrane through intracellular retention, polyubiquitination, and proteasomal degradation of mutant protein.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein localization to plasma membrane\", \"protein ubiquitination\"], \"genes\": [\"SGCE\"], \"gene_terms\": [{\"label\": \"SGCE\", \"id\": \"hgnc:10808\"}]}}, {\"id\": \"GABAergic/Purkinje cell dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myoclonus-dystonia motor-network dysfunction may involve a GABAergic deficit reflecting Purkinje-cell dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\"], \"biological_processes\": [\"synaptic transmission, GABAergic\"]}}, {\"id\": \"Impaired striatal plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired striatal plasticity is implicated as a basal-ganglia circuit mechanism contributing to the myoclonus-dystonia motor phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of synaptic plasticity\"]}}, {\"id\": \"KCTD17\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"KCTD17\"], \"gene_terms\": [{\"label\": \"KCTD17\", \"id\": \"hgnc:25705\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"KCTD17 putaminal network and ER calcium-signaling disturbance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KCTD17 is most highly expressed in the putamen and sits in a putaminal co-expression network enriched for dystonia genes whose functional annotation is over-represented for post-synaptic dopaminergic transmission. Fibroblasts from carriers of the p.(Arg145His) variant show abnormal endoplasmic-reticulum-dependent calcium signaling. These are the observed correlates rather than an established causal chain: the founding report states explicitly that further work is needed to characterise how KCTD17 contributes to myoclonus-dystonia, so this node is recorded as a hypothetical upstream input to the striatal mechanism rather than as a settled route.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Endoplasmic reticulum calcium ion homeostasis\", \"Post-synaptic dopaminergic transmission\"], \"genes\": [\"KCTD17\"], \"gene_terms\": [{\"label\": \"KCTD17\", \"id\": \"hgnc:25705\"}], \"locations\": [\"Putamen\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Limb myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-limb and other limb myoclonic jerks are characteristic, supporting the prominent upper-body phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0045084\"}}, {\"id\": \"Myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid brief myoclonic jerks are a defining and often predominant motor manifestation of myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001336\"}}, {\"id\": \"Panic attack\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Panic attacks are included among frequent psychiatric manifestations in the Orphanet phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025269\"}}, {\"id\": \"Personality disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Personality disorder is included among frequent psychiatric manifestations in the Orphanet phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012075\"}}, {\"id\": \"SGCE\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SGCE\"], \"gene_terms\": [{\"label\": \"SGCE\", \"id\": \"hgnc:10808\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SGCE-associated psychiatric vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SGCE pathogenic variants have pleiotropic neuropsychiatric effects that increase compulsivity, anxiety, alcohol dependence, and other psychiatric symptoms in addition to the motor phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SGCE\"], \"gene_terms\": [{\"label\": \"SGCE\", \"id\": \"hgnc:10808\"}]}}, {\"id\": \"Spinal myoclonus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orphanet lists spinal myoclonus as a very frequent myoclonus subtype in the syndrome phenotype profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010531\"}}, {\"id\": \"Writer\u0027s cramp\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Writer\u0027s cramp is a frequent focal hand dystonia presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002356\"}}, {\"id\": \"Zonisamide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Zonisamide has randomized controlled trial evidence for improving myoclonus, myoclonus-related disability, and dystonia in myoclonus-dystonia syndrome.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"zonisamide\"]}}], \"edges\": [{\"source\": \"Epsilon-sarcoglycan trafficking and membrane loss\", \"target\": \"Altered cerebello-thalamic pathway function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"GABAergic/Purkinje cell dysfunction\", \"target\": \"Altered cerebello-thalamic pathway function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"KCTD17 putaminal network and ER calcium-signaling disturbance\", \"target\": \"Impaired striatal plasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A putaminal expression network annotated for post-synaptic dopaminergic transmission is the proposed point at which KCTD17 variants would reach the striatal mechanism shared with SGCE-related disease. The link is inferred from expression and network data, not demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Limb myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Spinal myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired striatal plasticity\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed serotonin homeostasis\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disturbed serotonin homeostasis\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Calcium homeostasis disturbance\", \"target\": \"Altered cerebello-thalamic pathway function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Limb myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Spinal myoclonus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Cervical dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Altered cerebello-thalamic pathway function\", \"target\": \"Writer\u0027s cramp\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Compulsive behaviors\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Panic attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Personality disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SGCE-associated psychiatric vulnerability includes broader psychiatric manifestations captured by the personality disorder phenotype annotation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SGCE-associated psychiatric vulnerability\", \"target\": \"Addictive alcohol use\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SGCE mutation-positive cohorts show alcohol dependence as part of the syndrome\u0027s psychiatric phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"SGCE-associated psychiatric phenotype\", \"alcohol dependence vulnerability\"]}, {\"source\": \"Zonisamide\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Zonisamide\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum toxin injection\", \"target\": \"Cervical dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Clonazepam and benzodiazepine pharmacotherapy\", \"target\": \"Myoclonus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anticholinergic medication\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SGCE\", \"target\": \"Epsilon-sarcoglycan trafficking and membrane loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SGCE\", \"target\": \"SGCE-associated psychiatric vulnerability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCTD17\", \"target\": \"KCTD17 putaminal network and ER calcium-signaling disturbance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5327,15 +5662,18 @@ This pathophysiological event involves SGCE (hgnc:10808). hgnc:10808 is a gene f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000473</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cervical dystonia, annotated with Torticollis (HP:0000473). HP:0000473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5432,15 +5770,18 @@ This clinical feature is Cervical dystonia, annotated with Torticollis (HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001336</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5528,15 +5869,18 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0045084</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0045084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0045084</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Limb myoclonus (HP:0045084). HP:0045084 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5599,15 +5943,18 @@ This clinical feature is Limb myoclonus (HP:0045084). HP:0045084 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010531</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spinal myoclonus (HP:0010531). HP:0010531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5670,15 +6017,18 @@ This clinical feature is Spinal myoclonus (HP:0010531). HP:0010531 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5766,15 +6116,18 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002356" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002356</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002356" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002356</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Writer&#39;s cramp (HP:0002356). HP:0002356 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5837,15 +6190,18 @@ This clinical feature is Writer&#39;s cramp (HP:0002356). HP:0002356 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000722</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5933,15 +6289,18 @@ This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6029,15 +6388,18 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6100,15 +6462,18 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0025269</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0025269</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Panic attack (HP:0025269). HP:0025269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6171,15 +6536,18 @@ This clinical feature is Panic attack (HP:0025269). HP:0025269 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012075</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012075</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Personality disorder (HP:0012075). HP:0012075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6240,15 +6608,18 @@ This clinical feature is Personality disorder (HP:0012075). HP:0012075 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0030955</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030955</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Addictive alcohol use (HP:0030955). HP:0030955 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6377,17 +6748,22 @@ This clinical feature is Addictive alcohol use (HP:0030955). HP:0030955 is a phe
                         Gene: SGCE
 
 
-    <a href="https://bioregistry.io/hgnc:10808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:10808</a>
+    <a href="https://bioregistry.io/hgnc:10808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:10808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SGCE (hgnc:10808). hgnc:10808 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6474,14 +6850,16 @@ This disease-associated gene is SGCE (hgnc:10808). hgnc:10808 is a gene from the
                         Gene: KCTD17
 
 
-    <a href="https://bioregistry.io/hgnc:25705" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:25705</a>
+    <a href="https://bioregistry.io/hgnc:25705" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:25705</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is KCTD17 (hgnc:25705). hgnc:25705 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
 
 
                 </div>
@@ -6489,9 +6867,12 @@ This disease-associated gene is KCTD17 (hgnc:25705). hgnc:25705 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -6515,6 +6896,56 @@ This disease-associated gene is KCTD17 (hgnc:25705). hgnc:25705 is a gene from t
 
 
                 <div class="evidence-explanation">Orphanet lists KCTD17 as disease-causing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25983243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25983243" target="_blank">PMID:25983243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In conclusion, we demonstrate that the KCTD17 c.434 G&gt;A p.(Arg145His) mutation causes autosomal dominant M-D."</div>
+
+
+                <div class="evidence-explanation">Primary-literature support for the gene-disease relationship that Orphanet records, naming the specific segregating allele.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25983243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25983243" target="_blank">PMID:25983243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical presentation of the KCTD17-mutated cases was distinct from the phenotype usually observed in M-D due to SGCE mutations. All cases initially presented with mild myoclonus affecting the upper limbs. Dystonia showed a progressive course, with increasing severity of symptoms and..."</div>
+
+
+                <div class="evidence-explanation">Supports the clinical distinction this note draws between KCTD17-related and SGCE-related myoclonus-dystonia.</div>
 
 
 
@@ -6554,7 +6985,7 @@ This disease-associated gene is KCTD17 (hgnc:25705). hgnc:25705 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6595,11 +7026,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_10127" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:10127</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_10127" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-29">CHEBI:10127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses zonisamide (CHEBI:10127). CHEBI:10127 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6637,11 +7068,11 @@ This treatment uses zonisamide (CHEBI:10127). CHEBI:10127 is a therapeutic agent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001336</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6654,11 +7085,11 @@ This treatment targets Myoclonus (HP:0001336). HP:0001336 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001332</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6739,7 +7170,7 @@ This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">deep brain stimulation<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">deep brain stimulation<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6801,11 +7232,11 @@ This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001336</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6818,11 +7249,11 @@ This treatment targets Myoclonus (HP:0001336). HP:0001336 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001332</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6878,7 +7309,7 @@ This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">botulinum toxin type A therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">botulinum toxin type A therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is botulinum toxin type A therapy, annotated with Botulinum Toxin Therapy (NCIT:C157775). NCIT:C157775 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6940,11 +7371,11 @@ This treatment is botulinum toxin type A therapy, annotated with Botulinum Toxin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000473</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cervical dystonia, annotated with Torticollis (HP:0000473). HP:0000473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7000,7 +7431,7 @@ This treatment targets Cervical dystonia, annotated with Torticollis (HP:0000473
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7041,11 +7472,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3756" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:3756</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3756" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:3756</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7083,11 +7514,11 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001336</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7143,7 +7574,7 @@ This treatment targets Myoclonus (HP:0001336). HP:0001336 is a phenotype from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7184,11 +7615,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66880" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C66880</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66880" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C66880</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses Anticholinergic Agent (NCIT:C66880). NCIT:C66880 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7226,11 +7657,11 @@ This treatment uses Anticholinergic Agent (NCIT:C66880). NCIT:C66880 is a therap
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001332</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7286,7 +7717,7 @@ This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7417,11 +7848,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7683,6 +8114,10 @@ inheritance:
     SGCE-related myoclonus-dystonia is autosomal dominant, but penetrance depends
     on parental origin because maternally inherited SGCE alleles are usually
     silenced.
+  parent_of_origin_effect: &gt;-
+    Maternal imprinting of SGCE. A pathogenic variant on the paternally derived
+    (expressed) allele generally causes disease; the same variant on the
+    maternally derived (silenced) allele typically does not.
   evidence:
   - reference: ORPHA:36899
     reference_title: Myoclonus-dystonia syndrome
@@ -7709,6 +8144,11 @@ has_subtypes:
     term:
       id: MONDO:0008044
       label: myoclonic dystonia 11
+  genes:
+  - preferred_term: SGCE
+    term:
+      id: hgnc:10808
+      label: SGCE
   description: &gt;-
     SGCE-related myoclonus-dystonia is the major genetically defined form and is
     caused by pathogenic variants in SGCE.
@@ -7795,6 +8235,81 @@ pathophysiology:
       pathway function may play a prominent role and that this is possibly
       related to a GABAergic deficit reflecting Purkinje cell dysfunction.
     explanation: This review supports GABAergic/Purkinje-cell dysfunction as an intermediate mechanism.
+- name: KCTD17 putaminal network and ER calcium-signaling disturbance
+  description: &gt;-
+    KCTD17 is most highly expressed in the putamen and sits in a putaminal
+    co-expression network enriched for dystonia genes whose functional
+    annotation is over-represented for post-synaptic dopaminergic transmission.
+    Fibroblasts from carriers of the p.(Arg145His) variant show abnormal
+    endoplasmic-reticulum-dependent calcium signaling. These are the observed
+    correlates rather than an established causal chain: the founding report
+    states explicitly that further work is needed to characterise how KCTD17
+    contributes to myoclonus-dystonia, so this node is recorded as a
+    hypothetical upstream input to the striatal mechanism rather than as a
+    settled route.
+  genes:
+  - preferred_term: KCTD17
+    term:
+      id: hgnc:25705
+      label: KCTD17
+  biological_processes:
+  - preferred_term: Endoplasmic reticulum calcium ion homeostasis
+    term:
+      id: GO:0032469
+      label: endoplasmic reticulum calcium ion homeostasis
+    modifier: ABNORMAL
+  - preferred_term: Post-synaptic dopaminergic transmission
+    term:
+      id: GO:0001963
+      label: synaptic transmission, dopaminergic
+  locations:
+  - preferred_term: Putamen
+    term:
+      id: UBERON:0001874
+      label: putamen
+  mechanism_confidence: HYPOTHETICAL
+  evidence:
+  - reference: PMID:25983243
+    reference_title: &#34;A missense mutation in KCTD17 causes autosomal dominant myoclonus-dystonia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      KCTD17 is abundantly expressed in all brain regions with the highest
+      expression in the putamen. Weighted gene co-expression network analysis,
+      based on mRNA expression profile of brain samples from neuropathologically
+      healthy individuals, showed that KCTD17 is part of a putamen gene network,
+      which is significantly enriched for dystonia genes.
+    explanation: &gt;-
+      Supports the putaminal localisation and network membership this node
+      asserts.
+  - reference: PMID:25983243
+    reference_title: &#34;A missense mutation in KCTD17 causes autosomal dominant myoclonus-dystonia.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Functional studies in mutation bearing fibroblasts demonstrated
+      abnormalities in endoplasmic reticulum-dependent calcium signaling.
+    explanation: &gt;-
+      Supports the calcium-signaling claim, and fixes its evidence level: a
+      patient fibroblast assay, not a neuronal or in vivo result.
+  - reference: PMID:25983243
+    reference_title: &#34;A missense mutation in KCTD17 causes autosomal dominant myoclonus-dystonia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Further functional studies are warranted to further characterize the
+      nature of KCTD17 contribution to the molecular pathogenesis of M-D.
+    explanation: &gt;-
+      The authors&#39; own statement that the mechanism is unsettled, which is why
+      this node is marked HYPOTHETICAL.
+  downstream:
+  - target: Impaired striatal plasticity
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      A putaminal expression network annotated for post-synaptic dopaminergic
+      transmission is the proposed point at which KCTD17 variants would reach
+      the striatal mechanism shared with SGCE-related disease. The link is
+      inferred from expression and network data, not demonstrated.
 - name: Impaired striatal plasticity
   description: &gt;-
     Impaired striatal plasticity is implicated as a basal-ganglia circuit
@@ -8229,6 +8744,7 @@ phenotypes:
 genetic:
 - name: SGCE
   association: Causative
+  relationship_type: CAUSATIVE
   presence: Positive
   gene_term:
     preferred_term: SGCE
@@ -8256,6 +8772,7 @@ genetic:
     explanation: This supports brain expression and imprinting-dependent penetrance of SGCE.
 - name: KCTD17
   association: Causative
+  relationship_type: CAUSATIVE
   presence: Positive
   gene_term:
     preferred_term: KCTD17
@@ -8264,7 +8781,13 @@ genetic:
       label: KCTD17
   notes: &gt;-
     KCTD17 is a rarer disease-causing gene in the broader Orphanet
-    myoclonus-dystonia syndrome record.
+    myoclonus-dystonia syndrome record. It was identified through the recurrent
+    c.434G&gt;A p.(Arg145His) variant segregating in a British and a German
+    SGCE-negative pedigree, and the reported phenotype differs from
+    SGCE-related disease: myoclonus begins mildly in the upper limbs while the
+    dystonia is progressive and spreads from the cranio-cervical region. KCTD17
+    is not imprinted in the way SGCE is; no parent-of-origin effect is reported
+    for it in the cited sources.
   evidence:
   - reference: ORPHA:36899
     reference_title: Myoclonus-dystonia syndrome
@@ -8272,6 +8795,29 @@ genetic:
     evidence_source: OTHER
     snippet: &#34;KCTD17 | potassium channel tetramerization domain containing 17 | hgnc:25705 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists KCTD17 as disease-causing.
+  - reference: PMID:25983243
+    reference_title: &#34;A missense mutation in KCTD17 causes autosomal dominant myoclonus-dystonia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In conclusion, we demonstrate that the KCTD17 c.434 G&gt;A p.(Arg145His)
+      mutation causes autosomal dominant M-D.
+    explanation: &gt;-
+      Primary-literature support for the gene-disease relationship that
+      Orphanet records, naming the specific segregating allele.
+  - reference: PMID:25983243
+    reference_title: &#34;A missense mutation in KCTD17 causes autosomal dominant myoclonus-dystonia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The clinical presentation of the KCTD17-mutated cases was distinct from
+      the phenotype usually observed in M-D due to SGCE mutations. All cases
+      initially presented with mild myoclonus affecting the upper limbs.
+      Dystonia showed a progressive course, with increasing severity of symptoms
+      and spreading from the cranio-cervical region to other sites.
+    explanation: &gt;-
+      Supports the clinical distinction this note draws between KCTD17-related
+      and SGCE-related myoclonus-dystonia.
 diagnosis:
 - name: SGCE and movement-disorder gene testing
   description: &gt;-
@@ -8489,6 +9035,8 @@ references:
       myoclonic jerks.
 - reference: PMID:20301587
   title: SGCE Myoclonus-Dystonia.
+  tags:
+  - GeneReviews
   found_in:
   - Myoclonus_Dystonia_Syndrome-deep-research-fallback.md
   findings:
@@ -9130,7 +9678,7 @@ use only exact snippets from cache-backed Orphanet and PubMed references.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Myoclonus-Dystonia Syndrome", "mondoId": "MONDO:0000903", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myoclonus-Dystonia_Syndrome", "yamlRevision": "8a85fe0651e6"};
+        const OS_CONFIG = {"diseaseName": "Myoclonus-Dystonia Syndrome", "mondoId": "MONDO:0000903", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myoclonus-Dystonia_Syndrome", "yamlRevision": "5b3876387353"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

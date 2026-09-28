@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Harderoporphyria"
@@ -4011,7 +4053,7 @@ So the split is not a severity band on one mechanism. The same enzyme fails in t
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -5021,6 +5063,13 @@ With around eight reported cases the question cannot be settled by counting. It 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cpox-variant-in-the-substrate-retention-region" data-dismech-node="Biallelic CPOX Variant in the Substrate-Retention Region" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CPOX Variant in the Substrate-Retention Region</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A variant affecting the residues that hold the reaction intermediate in the active site between the two decarboxylation cycles. Most reported patients carry p.Lys404Glu on at least one allele; p.His327Arg has also been reported in homozygous form, and a four-amino-acid deletion in the same region in a compound heterozygote. The clustering is the point - this is a position-specific lesion in a region distinct from where ordinary HCP variants fall.</div>
 
 
@@ -5112,9 +5161,14 @@ This genetic context concerns CPOX (hgnc:2321). hgnc:2321 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5344,6 +5398,13 @@ This pathophysiological event involves decreased coproporphyrinogen oxidase acti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrest-after-the-first-decarboxylation" data-dismech-node="Arrest After the First Decarboxylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrest After the First Decarboxylation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The enzyme removes the first propionate and then fails to retain harderoporphyrinogen for the second cycle, so the intermediate is released rather than carried through to protoporphyrinogen. The structural account is specific: the K404E substitution disrupts a type I beta-turn whose job is substrate retention between cycles.
 The normal reaction is ordered and processive, which is what makes a cycle-specific failure possible at all. Isotope labelling in rat liver showed that the 4-propionate cannot be attacked until the 2-propionate has been decarboxylated, that harderoporphyrinogen forms about twice as fast as protoporphyrinogen, and - the load-bearing part - that the harderoporphyrinogen destined to become protoporphyrinogen does not equilibrate with added harderoporphyrinogen. The intermediate on its way through is a kinetically distinct pool from free intermediate in solution. That is what &#34;retention&#34; names: not a metaphor but a measurable compartment.
 The claim is that the reaction is redirected, not that throughput is normal. The enzyme is also slower - the 1983 kinetics give a Michaelis constant 15-20-fold above normal and a maximal velocity half of normal, and lymphocyte activity in the affected siblings was 10% of control. What distinguishes this disease from a straightforwardly less active enzyme is that the deficit is not uniform across the two cycles, so the accumulating species is an intermediate that barely appears in other porphyrias rather than the substrate upstream of the block.
@@ -5511,6 +5572,13 @@ This pathophysiological event involves decreased second decarboxylation of harde
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-harderoporphyrin-accumulation" data-dismech-node="Harderoporphyrin Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Harderoporphyrin Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The released intermediate accumulates and is excreted, dominating the faecal porphyrin profile. This is the diagnostic signature and it is quantitative: harderoporphyrin normally makes up under a fifth of faecal porphyrin and here exceeds three fifths. Unlike most porphyrias, the accumulating species in this disease is not a pathway substrate but a reaction intermediate.</div>
 
@@ -5733,6 +5801,13 @@ This pathophysiological event involves abnormal heme biosynthetic process (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythroid-compartment-injury" data-dismech-node="Erythroid Compartment Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythroid Compartment Injury</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Red cell destruction with a compensatory marrow response, giving the haemolytic anaemia, jaundice and hepatosplenomegaly that define the neonatal presentation. PROVISIONAL deliberately: that this disease is erythropoietic rather than hepatic is well established from the presentation and from the porphyrin content of erythrocytes, but no reference reviewed here demonstrates the step by which accumulated harderoporphyrin destroys the red cell. Naming it as established would overstate what the literature supports.</div>
 
 
@@ -5871,6 +5946,13 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-haemolytic-anaemia-and-jaundice" data-dismech-node="Neonatal Haemolytic Anaemia and Jaundice" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Haemolytic Anaemia and Jaundice</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The presenting syndrome: haemolysis with jaundice and hepatosplenomegaly from birth or the first days of life. It is the feature that most separates this disease clinically from HCP, where nothing happens until after puberty and the presentation is neurovisceral.</div>
 
 
@@ -5956,6 +6038,13 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-porphyrin-phototoxicity" data-dismech-node="Cutaneous Porphyrin Phototoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Porphyrin Phototoxicity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Circulating photoreactive porphyrins absorb visible light and damage skin. The reported course is variable in a way worth recording: skin lesions on UV exposure in infancy in some patients, and in at least one case lifelong photosensitivity persisting into the eighth decade, in whom the diagnosis was not made until then.</div>
 
@@ -6133,6 +6222,13 @@ This pathophysiological event involves increased response to oxidative stress (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-photosensitivity" data-dismech-node="Cutaneous Photosensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous Photosensitivity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Skin lesions on light exposure. Non-blistering in the reported cases, in keeping with a porphyrin-mediated phototoxicity rather than the bullous photodermatitis of the uroporphyrin-accumulating porphyrias.</div>
 
 
@@ -6216,7 +6312,7 @@ This pathophysiological event involves increased response to oxidative stress (G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arrest After the First Decarboxylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The enzyme removes the first propionate and then fails to retain harderoporphyrinogen for the second cycle, so the intermediate is released rather than carried through to protoporphyrinogen. The structural account is specific: the K404E substitution disrupts a type I beta-turn whose job is substrate retention between cycles.\\nThe normal reaction is ordered and processive, which is what makes a cycle-specific failure possible at all. Isotope labelling in rat liver showed that the 4-propionate cannot be attacked until the 2-propionate has been decarboxylated, that harderoporphyrinogen forms about twice as fast as protoporphyrinogen, and - the load-bearing part - that the harderoporphyrinogen destined to become protoporphyrinogen does not equilibrate with added harderoporphyrinogen. The intermediate on its way through is a kinetically distinct pool from free intermediate in solution. That is what \\\"retention\\\" names: not a metaphor but a measurable compartment.\\nThe claim is that the reaction is redirected, not that throughput is normal. The enzyme is also slower - the 1983 kinetics give a Michaelis constant 15-20-fold above normal and a maximal velocity half of normal, and lymphocyte activity in the affected siblings was 10% of control. What distinguishes this disease from a straightforwardly less active enzyme is that the deficit is not uniform across the two cycles, so the accumulating species is an intermediate that barely appears in other porphyrias rather than the substrate upstream of the block.\\nThat distinction was contested, and by the same paper. The 1983 authors explicitly ruled out an active-site lesion specific to the second decarboxylation, on the grounds that rat liver metabolises coproporphyrinogen and harderoporphyrinogen at the same active centre. They were right about the active centre and it does not settle the question: the 2005 crystal structure locates the harderoporphyria lesion not in a second catalytic site but in a beta-turn that retains the substrate between cycles at the one shared site. A single active centre and a cycle-specific failure are compatible, and this was not only shown later by the structure - it was proposed in the same rat-liver system the objection rests on, five years before the disease was named. The 1978 account has both decarboxylations at one active centre which becomes temporarily inaccessible, with the molecule rotating between cycles. A shared centre that sequesters its substrate between turns is precisely the thing a retention-region variant can break.\\nSeparately, CPOX is an obligate homodimer whose monomer has no activity, so what a given genotype does depends on which dimers can form.\", \"meta\": {\"evidence_count\": 7, \"molecular_functions\": [\"second decarboxylation of harderoporphyrinogen to protoporphyrinogen\"]}}, {\"id\": \"BALB.NCT-Cpox nct mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A hypomorphic Cpox allele retaining about 15% of wild-type activity. It is the best-characterised murine CPOX model and it models hereditary coproporphyria, not this disease.\"}, {\"id\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A variant affecting the residues that hold the reaction intermediate in the active site between the two decarboxylation cycles. Most reported patients carry p.Lys404Glu on at least one allele; p.His327Arg has also been reported in homozygous form, and a four-amino-acid deletion in the same region in a compound heterozygote. The clustering is the point - this is a position-specific lesion in a region distinct from where ordinary HCP variants fall.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"heme biosynthetic process\", \"porphyrin-containing compound metabolic process\"], \"molecular_functions\": [\"coproporphyrinogen oxidase activity\"], \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CPOX\", \"id\": \"hgnc:2321\"}]}}}, {\"id\": \"Cutaneous Photosensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin lesions on light exposure. Reported both as a neonatal feature and, in one patient, as a lifelong complaint that was the reason the diagnosis was eventually made at 78.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000992\"}}, {\"id\": \"Cutaneous Porphyrin Phototoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating photoreactive porphyrins absorb visible light and damage skin. The reported course is variable in a way worth recording: skin lesions on UV exposure in infancy in some patients, and in at least one case lifelong photosensitivity persisting into the eighth decade, in whom the diagnosis was not made until then.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Erythrocyte harderoporphyrin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:169840\", \"term_label\": \"Harderoporphyrin\", \"readouts\": [{\"target\": \"Erythroid Compartment Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Locates the accumulating intermediate inside the cell type that is being destroyed. It does not establish that the porphyrin causes the destruction, which is exactly the gap recorded below.\"}]}}, {\"id\": \"Erythroid Compartment Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Red cell destruction with a compensatory marrow response, giving the haemolytic anaemia, jaundice and hepatosplenomegaly that define the neonatal presentation. PROVISIONAL deliberately: that this disease is erythropoietic rather than hepatic is well established from the presentation and from the porphyrin content of erythrocytes, but no reference reviewed here demonstrates the step by which accumulated harderoporphyrin destroys the red cell. Naming it as established would overstate what the literature supports.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\", \"erythrocyte\"]}}, {\"id\": \"Faecal harderoporphyrin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:169840\", \"term_label\": \"Harderoporphyrin\", \"readouts\": [{\"target\": \"Harderoporphyrin Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports release of the reaction intermediate, and therefore reports the specific enzymatic lesion rather than heme-pathway disturbance in general.\"}]}}, {\"id\": \"Harderoporphyrin Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The released intermediate accumulates and is excreted, dominating the faecal porphyrin profile. This is the diagnostic signature and it is quantitative: harderoporphyrin normally makes up under a fifth of faecal porphyrin and here exceeds three fifths. Unlike most porphyrias, the accumulating species in this disease is not a pathway substrate but a reaction intermediate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"porphyrin-containing compound metabolic process\", \"heme biosynthetic process\"], \"animal_models\": [{\"name\": \"BALB.NCT-Cpox nct mouse\", \"species\": \"Mouse\", \"genotype\": \"Cpox p.Arg380Leu homozygous, hypomorphic\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse accumulates and excretes coproporphyrin, which is the HCP signature, and shows the neuromuscular manifestations of HCP. It reports no harderoporphyrin excess, but it was never tested for one: the measured panel was uroporphyrin, coproporphyrin, protoporphyrin, porphobilinogen and delta-aminolevulinic acid, and harderoporphyrin was not among the analytes.\"}, {\"name\": \"RBC16 ENU mouse\", \"species\": \"Mouse\", \"genotype\": \"Cpox premature stop codon at Trp373, heterozygous\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The elevated species reported is coproporphyrinogen III, the HCP one. Harderoporphyrin is not reported either way - the abstract names only coproporphyrinogen III, and no harderoporphyrin assay is described.\"}]}}, {\"id\": \"Lymphocyte coproporphyrinogen oxidase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"GO:0004109\", \"term_label\": \"coproporphyrinogen oxidase activity\", \"readouts\": [{\"target\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the enzymatic deficit and, through the parent-child contrast, the mode of inheritance.\"}]}}, {\"id\": \"Neonatal Haemolytic Anaemia and Jaundice\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The presenting syndrome: haemolysis with jaundice and hepatosplenomegaly from birth or the first days of life. It is the feature that most separates this disease clinically from HCP, where nothing happens until after puberty and the presentation is neurovisceral.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"RBC16 ENU mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A dominantly inherited nonsense allele recovered from an ENU screen for regulators of erythropoiesis. Heterozygotes have microcytic red cells and elevated coproporphyrin, with a sex difference.\"}, {\"id\": \"Supportive Management of Haemolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the enzymatic lesion. Management is supportive: transfusion where the anaemia requires it, management of neonatal hyperbilirubinaemia, and light protection for the photosensitivity. This entry records no disease-modifying therapy because none was found in the literature reviewed, not because the search was incomplete - the reported literature is a handful of cases and none reports an intervention trial.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"target\": \"Arrest After the First Decarboxylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest After the First Decarboxylation\", \"target\": \"Harderoporphyrin Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Harderoporphyrin Accumulation\", \"target\": \"Erythroid Compartment Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The accumulation is erythropoietic rather than hepatic in this disease and the haemolysis follows it, but the step from the accumulated intermediate to red cell destruction is not established at the level of a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Harderoporphyrin Accumulation\", \"target\": \"Cutaneous Porphyrin Phototoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Erythroid Compartment Injury\", \"target\": \"Neonatal Haemolytic Anaemia and Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Porphyrin Phototoxicity\", \"target\": \"Cutaneous Photosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive Management of Haemolysis\", \"target\": \"Neonatal Haemolytic Anaemia and Jaundice\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BALB.NCT-Cpox nct mouse\", \"target\": \"Harderoporphyrin Accumulation\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse accumulates and excretes coproporphyrin, which is the HCP signature, and shows the neuromuscular manifestations of HCP. It reports no harderoporphyrin excess, but it was never tested for one: the measured panel was uroporphyrin, coproporphyrin, protoporphyrin, porphobilinogen and delta-aminolevulinic acid, and harderoporphyrin was not among the analytes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The allele is the reason, and the allele is what this claim rests on, not a harderoporphyrin measurement. p.Arg380Leu lies outside the D400-K404 retention region in which every reported harderoporphyria variant falls, so it reduces enzyme activity without disturbing the step between the two decarboxylations. Mouse residue 380 is homologous to human residue 391, and the human variant at that position, p.Arg391Trp at 22% residual activity, causes ordinary hereditary coproporphyria - so the same position gives the same phenotype in both species. What the mouse reports is a coproporphyrin-dominant profile at HCP severity; whether any harderoporphyrin is present in it is simply unknown. It is a quantitative deficiency where harderoporphyria is a positional one - which is the distinction this entry is built on, arriving from the model side.\"}, {\"source\": \"RBC16 ENU mouse\", \"target\": \"Harderoporphyrin Accumulation\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The elevated species reported is coproporphyrinogen III, the HCP one. Harderoporphyrin is not reported either way - the abstract names only coproporphyrinogen III, and no harderoporphyrin assay is described.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A heterozygous null - the classic HCP genotype - rather than a biallelic retention-region lesion, so it cannot in principle produce the harderoporphyria phenotype. It also shows a sex difference in the biochemistry that human harderoporphyria is not reported to have.\"}, {\"source\": \"Harderoporphyrin Accumulation\", \"target\": \"Faecal harderoporphyrin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports release of the reaction intermediate, and therefore reports the specific enzymatic lesion rather than heme-pathway disturbance in general.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Erythroid Compartment Injury\", \"target\": \"Erythrocyte harderoporphyrin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Locates the accumulating intermediate inside the cell type that is being destroyed. It does not establish that the porphyrin causes the destruction, which is exactly the gap recorded below.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"target\": \"Lymphocyte coproporphyrinogen oxidase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the enzymatic deficit and, through the parent-child contrast, the mode of inheritance.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arrest After the First Decarboxylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The enzyme removes the first propionate and then fails to retain harderoporphyrinogen for the second cycle, so the intermediate is released rather than carried through to protoporphyrinogen. The structural account is specific: the K404E substitution disrupts a type I beta-turn whose job is substrate retention between cycles.\\nThe normal reaction is ordered and processive, which is what makes a cycle-specific failure possible at all. Isotope labelling in rat liver showed that the 4-propionate cannot be attacked until the 2-propionate has been decarboxylated, that harderoporphyrinogen forms about twice as fast as protoporphyrinogen, and - the load-bearing part - that the harderoporphyrinogen destined to become protoporphyrinogen does not equilibrate with added harderoporphyrinogen. The intermediate on its way through is a kinetically distinct pool from free intermediate in solution. That is what \\\"retention\\\" names: not a metaphor but a measurable compartment.\\nThe claim is that the reaction is redirected, not that throughput is normal. The enzyme is also slower - the 1983 kinetics give a Michaelis constant 15-20-fold above normal and a maximal velocity half of normal, and lymphocyte activity in the affected siblings was 10% of control. What distinguishes this disease from a straightforwardly less active enzyme is that the deficit is not uniform across the two cycles, so the accumulating species is an intermediate that barely appears in other porphyrias rather than the substrate upstream of the block.\\nThat distinction was contested, and by the same paper. The 1983 authors explicitly ruled out an active-site lesion specific to the second decarboxylation, on the grounds that rat liver metabolises coproporphyrinogen and harderoporphyrinogen at the same active centre. They were right about the active centre and it does not settle the question: the 2005 crystal structure locates the harderoporphyria lesion not in a second catalytic site but in a beta-turn that retains the substrate between cycles at the one shared site. A single active centre and a cycle-specific failure are compatible, and this was not only shown later by the structure - it was proposed in the same rat-liver system the objection rests on, five years before the disease was named. The 1978 account has both decarboxylations at one active centre which becomes temporarily inaccessible, with the molecule rotating between cycles. A shared centre that sequesters its substrate between turns is precisely the thing a retention-region variant can break.\\nSeparately, CPOX is an obligate homodimer whose monomer has no activity, so what a given genotype does depends on which dimers can form.\", \"meta\": {\"evidence_count\": 7, \"molecular_functions\": [\"second decarboxylation of harderoporphyrinogen to protoporphyrinogen\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"BALB.NCT-Cpox nct mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A hypomorphic Cpox allele retaining about 15% of wild-type activity. It is the best-characterised murine CPOX model and it models hereditary coproporphyria, not this disease.\"}, {\"id\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A variant affecting the residues that hold the reaction intermediate in the active site between the two decarboxylation cycles. Most reported patients carry p.Lys404Glu on at least one allele; p.His327Arg has also been reported in homozygous form, and a four-amino-acid deletion in the same region in a compound heterozygote. The clustering is the point - this is a position-specific lesion in a region distinct from where ordinary HCP variants fall.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"heme biosynthetic process\", \"porphyrin-containing compound metabolic process\"], \"molecular_functions\": [\"coproporphyrinogen oxidase activity\"], \"genetic_context\": {\"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"CPOX\", \"id\": \"hgnc:2321\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CPOX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CPOX\"], \"gene_terms\": [{\"label\": \"CPOX\", \"id\": \"hgnc:2321\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cutaneous Photosensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin lesions on light exposure. Reported both as a neonatal feature and, in one patient, as a lifelong complaint that was the reason the diagnosis was eventually made at 78.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000992\"}}, {\"id\": \"Cutaneous Porphyrin Phototoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating photoreactive porphyrins absorb visible light and damage skin. The reported course is variable in a way worth recording: skin lesions on UV exposure in infancy in some patients, and in at least one case lifelong photosensitivity persisting into the eighth decade, in whom the diagnosis was not made until then.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Erythrocyte harderoporphyrin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:169840\", \"term_label\": \"Harderoporphyrin\", \"readouts\": [{\"target\": \"Erythroid Compartment Injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Locates the accumulating intermediate inside the cell type that is being destroyed. It does not establish that the porphyrin causes the destruction, which is exactly the gap recorded below.\"}]}}, {\"id\": \"Erythroid Compartment Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Red cell destruction with a compensatory marrow response, giving the haemolytic anaemia, jaundice and hepatosplenomegaly that define the neonatal presentation. PROVISIONAL deliberately: that this disease is erythropoietic rather than hepatic is well established from the presentation and from the porphyrin content of erythrocytes, but no reference reviewed here demonstrates the step by which accumulated harderoporphyrin destroys the red cell. Naming it as established would overstate what the literature supports.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\", \"erythrocyte\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Faecal harderoporphyrin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Increased\", \"term_id\": \"CHEBI:169840\", \"term_label\": \"Harderoporphyrin\", \"readouts\": [{\"target\": \"Harderoporphyrin Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports release of the reaction intermediate, and therefore reports the specific enzymatic lesion rather than heme-pathway disturbance in general.\"}]}}, {\"id\": \"Harderoporphyrin Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The released intermediate accumulates and is excreted, dominating the faecal porphyrin profile. This is the diagnostic signature and it is quantitative: harderoporphyrin normally makes up under a fifth of faecal porphyrin and here exceeds three fifths. Unlike most porphyrias, the accumulating species in this disease is not a pathway substrate but a reaction intermediate.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"porphyrin-containing compound metabolic process\", \"heme biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"BALB.NCT-Cpox nct mouse\", \"species\": \"Mouse\", \"genotype\": \"Cpox p.Arg380Leu homozygous, hypomorphic\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse accumulates and excretes coproporphyrin, which is the HCP signature, and shows the neuromuscular manifestations of HCP. It reports no harderoporphyrin excess, but it was never tested for one: the measured panel was uroporphyrin, coproporphyrin, protoporphyrin, porphobilinogen and delta-aminolevulinic acid, and harderoporphyrin was not among the analytes.\"}, {\"name\": \"RBC16 ENU mouse\", \"species\": \"Mouse\", \"genotype\": \"Cpox premature stop codon at Trp373, heterozygous\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The elevated species reported is coproporphyrinogen III, the HCP one. Harderoporphyrin is not reported either way - the abstract names only coproporphyrinogen III, and no harderoporphyrin assay is described.\"}]}}, {\"id\": \"Lymphocyte coproporphyrinogen oxidase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\", \"term_id\": \"GO:0004109\", \"term_label\": \"coproporphyrinogen oxidase activity\", \"readouts\": [{\"target\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reports the enzymatic deficit and, through the parent-child contrast, the mode of inheritance.\"}]}}, {\"id\": \"Neonatal Haemolytic Anaemia and Jaundice\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The presenting syndrome: haemolysis with jaundice and hepatosplenomegaly from birth or the first days of life. It is the feature that most separates this disease clinically from HCP, where nothing happens until after puberty and the presentation is neurovisceral.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"RBC16 ENU mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A dominantly inherited nonsense allele recovered from an ENU screen for regulators of erythropoiesis. Heterozygotes have microcytic red cells and elevated coproporphyrin, with a sex difference.\"}, {\"id\": \"Supportive Management of Haemolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment directed at the enzymatic lesion. Management is supportive: transfusion where the anaemia requires it, management of neonatal hyperbilirubinaemia, and light protection for the photosensitivity. This entry records no disease-modifying therapy because none was found in the literature reviewed, not because the search was incomplete - the reported literature is a handful of cases and none reports an intervention trial.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"target\": \"Arrest After the First Decarboxylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrest After the First Decarboxylation\", \"target\": \"Harderoporphyrin Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Harderoporphyrin Accumulation\", \"target\": \"Erythroid Compartment Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The accumulation is erythropoietic rather than hepatic in this disease and the haemolysis follows it, but the step from the accumulated intermediate to red cell destruction is not established at the level of a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Harderoporphyrin Accumulation\", \"target\": \"Cutaneous Porphyrin Phototoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Erythroid Compartment Injury\", \"target\": \"Neonatal Haemolytic Anaemia and Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cutaneous Porphyrin Phototoxicity\", \"target\": \"Cutaneous Photosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive Management of Haemolysis\", \"target\": \"Neonatal Haemolytic Anaemia and Jaundice\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BALB.NCT-Cpox nct mouse\", \"target\": \"Harderoporphyrin Accumulation\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse accumulates and excretes coproporphyrin, which is the HCP signature, and shows the neuromuscular manifestations of HCP. It reports no harderoporphyrin excess, but it was never tested for one: the measured panel was uroporphyrin, coproporphyrin, protoporphyrin, porphobilinogen and delta-aminolevulinic acid, and harderoporphyrin was not among the analytes.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The allele is the reason, and the allele is what this claim rests on, not a harderoporphyrin measurement. p.Arg380Leu lies outside the D400-K404 retention region in which every reported harderoporphyria variant falls, so it reduces enzyme activity without disturbing the step between the two decarboxylations. Mouse residue 380 is homologous to human residue 391, and the human variant at that position, p.Arg391Trp at 22% residual activity, causes ordinary hereditary coproporphyria - so the same position gives the same phenotype in both species. What the mouse reports is a coproporphyrin-dominant profile at HCP severity; whether any harderoporphyrin is present in it is simply unknown. It is a quantitative deficiency where harderoporphyria is a positional one - which is the distinction this entry is built on, arriving from the model side.\"}, {\"source\": \"RBC16 ENU mouse\", \"target\": \"Harderoporphyrin Accumulation\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The elevated species reported is coproporphyrinogen III, the HCP one. Harderoporphyrin is not reported either way - the abstract names only coproporphyrinogen III, and no harderoporphyrin assay is described.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A heterozygous null - the classic HCP genotype - rather than a biallelic retention-region lesion, so it cannot in principle produce the harderoporphyria phenotype. It also shows a sex difference in the biochemistry that human harderoporphyria is not reported to have.\"}, {\"source\": \"Harderoporphyrin Accumulation\", \"target\": \"Faecal harderoporphyrin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports release of the reaction intermediate, and therefore reports the specific enzymatic lesion rather than heme-pathway disturbance in general.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Erythroid Compartment Injury\", \"target\": \"Erythrocyte harderoporphyrin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Locates the accumulating intermediate inside the cell type that is being destroyed. It does not establish that the porphyrin causes the destruction, which is exactly the gap recorded below.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"target\": \"Lymphocyte coproporphyrinogen oxidase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reports the enzymatic deficit and, through the parent-child contrast, the mode of inheritance.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CPOX\", \"target\": \"Biallelic CPOX Variant in the Substrate-Retention Region\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6304,6 +6400,9 @@ This clinical feature is Hemolytic anemia (HP:0001878), qualified as temporality
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6384,6 +6483,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6459,6 +6561,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6557,6 +6662,9 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992), qualified as t
 
 
                     </div>
+
+
+
 
 
 
@@ -6671,6 +6779,9 @@ This disease-associated gene is CPOX (hgnc:2321). hgnc:2321 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

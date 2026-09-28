@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4275,6 +4317,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucosal-b-cell-hyper-responsiveness" data-dismech-node="Mucosal B-cell hyper-responsiveness" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucosal B-cell hyper-responsiveness</div>
 
+
                 <div class="item-desc">Mucosal immune hyper-responsiveness in the upper airway and gut creates an exaggerated B-cell response to antigenic stimulation in susceptible hosts, establishing the upstream context for pathogenic IgA generation.</div>
 
 
@@ -4490,6 +4533,7 @@ This pathophysiological event occurs in palatine tonsil (UBERON:0002373). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-baff-april-driven-b-cell-activation-and-iga-class-switching" data-dismech-node="BAFF/APRIL-driven B-cell activation and IgA class switching" data-dismech-type="pathophysiology">
                 <div class="item-name">BAFF/APRIL-driven B-cell activation and IgA class switching</div>
+
 
                 <div class="item-desc">BAFF and APRIL signaling sustain B-cell activation, plasma-cell survival, and IgA class switching, biasing the mucosal response toward pathogenic IgA production.</div>
 
@@ -4802,6 +4846,7 @@ This pathophysiological event involves isotype switching (GO:0045190). GO:004519
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-galactose-deficient-iga1-overproduction" data-dismech-node="Galactose-deficient IgA1 overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Galactose-deficient IgA1 overproduction</div>
 
+
                 <div class="item-desc">IgA1-secreting cells produce hinge-region O-glycoforms lacking normal galactose residues, generating galactose-deficient IgA1 (Gd-IgA1), the key autoantigen in IgAN.</div>
 
 
@@ -5082,6 +5127,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-gd-iga1-autoantibody-production" data-dismech-node="Anti-Gd-IgA1 autoantibody production" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-Gd-IgA1 autoantibody production</div>
 
+
                 <div class="item-desc">Anti-glycan IgG and IgA autoantibodies are produced against circulating Gd-IgA1, establishing the second immunologic hit in the four-hit model.</div>
 
 
@@ -5222,6 +5268,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephritogenic-immune-complex-assembly" data-dismech-node="Nephritogenic immune complex assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephritogenic immune complex assembly</div>
 
+
                 <div class="item-desc">Circulating Gd-IgA1 is bound by anti-glycan autoantibodies to form nephritogenic immune complexes that may also incorporate complement components.</div>
 
 
@@ -5297,6 +5344,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesangial-immune-complex-deposition-and-complement-activation" data-dismech-node="Mesangial immune complex deposition and complement activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mesangial immune complex deposition and complement activation</div>
+
 
                 <div class="item-desc">Pathogenic immune complexes lodge in the glomerular mesangium, where they activate resident mesangial cells and engage alternative and lectin pathway complement cascades.</div>
 
@@ -5603,6 +5651,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesangial-proliferation-and-inflammatory-amplification" data-dismech-node="Mesangial proliferation and inflammatory amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Mesangial proliferation and inflammatory amplification</div>
 
+
                 <div class="item-desc">Activated mesangial cells proliferate and amplify local inflammation through inflammatory cell recruitment and matrix-active injury programs, extending the initial immune-complex lesion.</div>
 
 
@@ -5870,6 +5919,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-damage-and-filtration-barrier-failure" data-dismech-node="Podocyte damage and filtration barrier failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte damage and filtration barrier failure</div>
 
+
                 <div class="item-desc">Mesangial-centered immune injury extends to podocytes and the glomerular filtration barrier, producing the clinically dominant combination of hematuria and proteinuria.</div>
 
 
@@ -6079,6 +6129,7 @@ This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-complement-linked-progression-and-kidney-failure-risk" data-dismech-node="Chronic complement-linked progression and kidney failure risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic complement-linked progression and kidney failure risk</div>
+
 
                 <div class="item-desc">Persistent complement-associated glomerular injury is linked to segmental sclerosis, interstitial inflammation, lower eGFR, and progression to kidney failure in a substantial subset of patients.</div>
 
@@ -6657,6 +6708,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                     </div>
 
 
+
+
+
                     <div class="item-desc">Hypertension is an adverse clinical feature associated with disease progression and worse kidney outcomes.</div>
 
 
@@ -6762,6 +6816,9 @@ This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phe
                     </div>
 
 
+
+
+
                     <div class="item-desc">Persistent microscopic hematuria is the most common presentation of IgAN, often detected incidentally on urinalysis.</div>
 
 
@@ -6856,6 +6913,9 @@ This clinical feature is Macroscopic hematuria (HP:0012587). HP:0012587 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Episodic gross hematuria is often synpharyngitic, occurring within 1-2 days of upper respiratory tract infection. This distinguishes IgAN from post-infectious glomerulonephritis where hematuria is delayed weeks.</div>
@@ -6986,6 +7046,9 @@ This clinical feature is Mild proteinuria (HP:0012595). HP:0012595 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Mild proteinuria is the most common proteinuric presentation. Persistent proteinuria is a major progression biomarker and treatment target.</div>
 
 
@@ -7089,6 +7152,9 @@ This clinical feature is Nephrotic range proteinuria (HP:0012593). HP:0012593 is
                     </div>
 
 
+
+
+
                     <div class="item-desc">Nephrotic-range proteinuria is uncommon in IgAN and when present may indicate severe podocyte injury or overlap with minimal change disease.</div>
 
 
@@ -7185,6 +7251,9 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive loss of kidney function leads to kidney failure in 20-50% of patients over 20-30 years.</div>
 
 
@@ -7279,6 +7348,9 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Acute kidney injury commonly accompanies episodes of macroscopic hematuria, mediated by tubular obstruction from red blood cell casts and acute tubular necrosis. AKI risk during macroscopic hematuria episodes is particularly elevated in older patients (≥50 years).</div>
@@ -7402,6 +7474,9 @@ This clinical feature is Foamy urine (HP:0031504). HP:0031504 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Foamy urine reflects significant proteinuria and may be the presenting complaint that leads to initial workup.</div>
 
 
@@ -7471,6 +7546,9 @@ This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Occasional patients present with overt active glomerulonephritis syndrome (nephritic syndrome: gross hematuria, edema, hypertension, acutely declining GFR), distinct from the more common asymptomatic microscopic hematuria or proteinuria.</div>
@@ -7551,6 +7629,9 @@ This clinical feature is Facial edema (HP:0000282). HP:0000282 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Periorbital and facial puffiness may occur in patients with significant proteinuria or nephrotic-range disease.</div>
@@ -7671,6 +7752,9 @@ This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7745,6 +7829,9 @@ This disease-associated gene is CFH (hgnc:4883). hgnc:4883 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7815,6 +7902,9 @@ This disease-associated gene is C1GALT1 (hgnc:24337). hgnc:24337 is a gene from 
 
 
                 </div>
+
+
+
 
 
 

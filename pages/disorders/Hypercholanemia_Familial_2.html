@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4475,6 +4517,7 @@ What the larger series add is a set of age-dependent associations rather than a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ntcp-loss-from-the-hepatocyte-basolateral-membrane" data-dismech-node="NTCP Loss from the Hepatocyte Basolateral Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">NTCP Loss from the Hepatocyte Basolateral Membrane</div>
 
+
                 <div class="item-desc">Biallelic SLC10A1 variants remove functional NTCP from the hepatocyte basolateral membrane. The mechanism is not only reduced catalysis: for p.R252H, functional studies showed markedly reduced taurocholic acid uptake and the mutant protein was virtually absent from the plasma membrane, so this is a trafficking or stability defect as well as a transport one.</div>
 
 
@@ -4569,6 +4612,8 @@ This pathophysiological event involves SLC10A1 (hgnc:10905). hgnc:10905 is a gen
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4581,6 +4626,9 @@ This pathophysiological event involves SLC10A1 (hgnc:10905). hgnc:10905 is a gen
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4710,6 +4758,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-hepatic-conjugated-bile-salt-uptake" data-dismech-node="Failure of Hepatic Conjugated Bile Salt Uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Hepatic Conjugated Bile Salt Uptake</div>
+
 
                 <div class="item-desc">The sodium-dependent uptake arm of the enterohepatic circulation is lost. It is not the only arm: sodium-independent uptake by the organic anion transporting polypeptides remains, which is why the cycle continues at all.</div>
 
@@ -4868,6 +4917,7 @@ This pathophysiological event involves decreased bile acid and bile salt transpo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-residual-enterohepatic-cycling-via-auxiliary-transporters" data-dismech-node="Residual Enterohepatic Cycling via Auxiliary Transporters" data-dismech-type="pathophysiology">
                 <div class="item-name">Residual Enterohepatic Cycling via Auxiliary Transporters</div>
+
 
                 <div class="item-desc">Secondary bile salts require intestinal bacterial modification and then return to the liver, so their presence in the circulation of an NTCP-deficient patient demonstrates that the enterohepatic cycle is still turning. Sodium-independent uptake by the organic anion transporting polypeptides is the presumed route. This node is why the disease has a laboratory signature out of all proportion to its clinical consequences, and it is the compensation that has to be invoked to explain the absence of cholestatic liver injury.</div>
 
@@ -5063,6 +5113,7 @@ This pathophysiological event involves SLCO1B3 (hgnc:10961). hgnc:10961 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-conjugated-bile-salt-accumulation" data-dismech-node="Plasma Conjugated Bile Salt Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasma Conjugated Bile Salt Accumulation</div>
+
 
                 <div class="item-desc">The defining abnormality. Plasma total bile salts reached 1,500 micromolar against a reference of under 16.3 in the first patient, and in adults the serum bile acid profile is altered in composition as well as concentration, with both the proportion and the concentration of primary and conjugated species raised. Bile salt synthesis is not the problem: plasma C4 and FGF19 are normal, so production and intestinal feedback signalling are intact.</div>
 
@@ -5281,6 +5332,9 @@ This clinical feature is Transient cholestatic jaundice of infancy, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5377,6 +5431,9 @@ This clinical feature is Gallbladder abnormalities, annotated with Abnormal gall
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5452,6 +5509,9 @@ This clinical feature is Hypercholanemia, annotated with Increased serum bile ac
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5548,6 +5608,9 @@ This clinical feature is Neonatal indirect hyperbilirubinemia, annotated with Ne
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5651,6 +5714,9 @@ This clinical feature is Elevated liver enzymes, annotated with Elevated circula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5717,6 +5783,9 @@ This clinical feature is 25-hydroxyvitamin D deficiency, annotated with Decrease
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5832,6 +5901,9 @@ This clinical feature is Bone loss, annotated with Reduced bone mineral density 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5896,6 +5968,9 @@ This clinical feature is Mild hypotonia, annotated with Hypotonia (HP:0001252). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6014,6 +6089,9 @@ This disease-associated gene is SLC10A1 (hgnc:10905). hgnc:10905 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6090,6 +6168,12 @@ This disease-associated gene is SLC10A1 (hgnc:10905). hgnc:10905 is a gene from 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The prevalent variant, common enough in some East Asian populations to be screened for directly; homozygous in most reported patients including the ten-adult follow-up cohort. A characterised loss-of-function allele.</div>
 
 
@@ -6112,6 +6196,12 @@ This disease-associated gene is SLC10A1 (hgnc:10905). hgnc:10905 is a gene from 
         c.755G&gt;A (p.R252H)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in the first reported patient. Functional studies showed markedly reduced taurocholic acid uptake, and the mutant protein was virtually absent from the plasma membrane.</div>
@@ -6138,6 +6228,12 @@ This disease-associated gene is SLC10A1 (hgnc:10905). hgnc:10905 is a gene from 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Novel at the time of report, found in trans with p.S267F in a neonate, with an allele frequency of 0.67% (1/150) in healthy controls.</div>
 
 
@@ -6160,6 +6256,12 @@ This disease-associated gene is SLC10A1 (hgnc:10905). hgnc:10905 is a gene from 
         c.374dupG and c.682_683delCT
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Two further pathogenic variants detected in the 113-patient paediatric series.</div>
