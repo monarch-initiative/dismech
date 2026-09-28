@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT05096403
+extractor_version: 1
 title: "A Phase 3, Randomized, Double-blind, Placebo-controlled Multicenter Study to Evaluate the Efficacy and Safety of Pegcetacoplan in Patients With Cold Agglutinin Disease (CAD)"
 content_type: summary
 full_text_attempted: true

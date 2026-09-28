@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhinoscleroma · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Rhinoscleroma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Rhinoscleroma</h1>
+                
+                <p class="report-subtitle">Rhinoscleroma (MONDO:0005945): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005945" target="_blank" rel="noopener noreferrer">MONDO:0005945</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">21 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Rhinoscleroma (<a href="http://purl.obolibrary.org/obo/MONDO_0005945" target="_blank" rel="noopener noreferrer">MONDO:0005945</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Rhinoscleroma (RS)</strong> is a rare, chronic, progressive granulomatous infection of the upper respiratory tract caused by the Gram-negative bacterium <strong><em>Klebsiella pneumoniae</em> subsp. *rhinoscleromatis</strong><em> (also written </em>Klebsiella rhinoscleromatis<em>), a human-specific pathogen uniformly bearing the </em><em>K3 capsular serotype</em><em>. The disease begins in and predominantly affects the nasal cavity (95–100% of cases) but descends to involve the nasopharynx, larynx, trachea, and bronchi, producing progressive fibrosis and airway stenosis. It is endemic to resource-poor, rural regions of Africa, Central/South America, the Middle East, South and Southeast Asia, and Central/Eastern Europe, and is strongly associated with poor socioeconomic conditions, crowding, and malnutrition. Its defining, pathognomonic histopathology is the presence of </em><em>Mikulicz cells</em><em> (large foamy vacuolated macrophages harboring intracellular bacilli) and </em><em>Russell-body-laden plasma cells</em>*.</p>
+<p>Mechanistically, RS is now understood as a disorder of aberrant, IL-10-skewed host innate immunity. The bacterium is phagocytosed but survives intracellularly within macrophage vacuoles. Landmark murine work established that Mikulicz cells are <strong>atypical inflammatory monocytes recruited from the bone marrow</strong> (in a CCR2-independent manner) whose maturation into the foamy disease-signature cell is <strong>causally dependent on IL-10</strong>. This immunosuppressive milieu permits persistent intracellular bacterial survival, chronic granulomatous inflammation with a dense plasmacytic infiltrate, and ultimately fibrosis and cicatricial airway stenosis. The K3 capsule is a virulence factor required for full bacterial fitness but is dispensable for Mikulicz-cell formation.</p>
+<p>Diagnosis rests on <strong>deep-biopsy histopathology</strong> because culture is positive in only 50–60% of cases. Treatment requires <strong>prolonged (weeks-to-months) courses of macrophage-penetrating antibiotics</strong> — principally fluoroquinolones such as ciprofloxacin, sometimes with rifampicin — with surgical intervention reserved for advanced stenosis or deformity. Because the organism is intracellular, recurrence is common and residual structural airway sequelae are frequent even after microbiological cure. This report synthesizes 10 confirmed findings across 28 reviewed papers, organized against the 15-section disease-characteristics template.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Rhinoscleroma is a chronic, slowly progressive granulomatous infection of the nose and upper airways. As stated in <a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a>: <em>"Rhinoscleroma is a human specific chronic granulomatous infection of the nose and upper airways caused by the Gram-negative bacterium Klebsiella pneumoniae subsp. rhinoscleromatis."</em> The disease is human-specific, meaning no natural animal reservoir has been identified. It follows an insidious clinical course over months to years.</p>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005945" target="_blank" rel="noopener noreferrer">MONDO:0005945</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A48.8 / J31.0 (associated); classically coded under specific bacterial diseases</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>1C1G (or equivalent scleroma code)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Rhinoscleroma (D012225)</td>
+</tr>
+<tr>
+<td>Causative organism (NCBI Taxonomy)</td>
+<td><em>Klebsiella pneumoniae</em> subsp. <em>rhinoscleromatis</em></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>No Mendelian OMIM entry (infectious disease, not a monogenic disorder)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Scleroma / rhinoscleroma (rare infectious disease)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> Scleroma; respiratory scleroma; nasal scleroma; scleroma respiratorium; Mikulicz disease (historical, in reference to the characteristic cell — not to be confused with Mikulicz syndrome/IgG4 disease); von Frisch disease (after Anton von Frisch, who identified the bacillus in 1882).</p>
+<p><strong>Data provenance.</strong> Information on RS is derived almost exclusively from <strong>aggregated disease-level resources</strong> — case reports, small retrospective clinical series (typically n = 6–88), histopathological/ultrastructural studies, and one well-characterized murine model. There is no large EHR-derived or registry cohort; the disease's rarity in high-income countries means most literature is case-based.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> RS is an infectious disease. The sole established causal agent is <strong><em>Klebsiella pneumoniae</em> subsp. *rhinoscleromatis</strong><em>, a Gram-negative, encapsulated, facultatively anaerobic bacillus. All disease-associated strains carry the </em><em>K3 capsular serotype</em><em>: <a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a> reports </em>"All K. rhinoscleromatis strains are of K3 serotype, suggesting that CPS can be an important driver of rhinoscleroma disease."* One recent case report (<a href="https://pubmed.ncbi.nlm.nih.gov/42698439/">PMID: 42698439</a>) raises the possibility of microbial complexity/co-isolation in some cases, but the pathogenic contribution of co-isolated organisms remains unproven.</p>
+<p><strong>Environmental risk factors.</strong> The dominant risk factors are environmental and socioeconomic:
+- Poor socioeconomic conditions, crowding, and poor hygiene: <a href="https://pubmed.ncbi.nlm.nih.gov/29578083/">PMID: 29578083</a> — <em>"Rhinoscleroma is predominantly reported in rural areas, in the presence of poor socio-economic conditions."</em>
+- Rural residence and malnutrition (supported across multiple case series, e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/35183701/">PMID: 35183701</a>, which describes a patient "living in crowded conditions with malnutrition and poor hygiene").
+- Prolonged close contact is thought necessary given the low communicability.</p>
+<p><strong>Immunodeficiency as a risk factor.</strong> Immunocompromise (notably HIV, diabetes) is associated with disease and with unusually extensive/atypical presentations. In the French national series (<a href="https://pubmed.ncbi.nlm.nih.gov/18947330/">PMID: 18947330</a>): <em>"Two patients with sporadic disease were positive for HIV infection."</em> An extensive nasopharyngeal case with bone lysis occurred in a diabetic, hypertensive patient (<a href="https://pubmed.ncbi.nlm.nih.gov/33643651/">PMID: 33643651</a>).</p>
+<p><strong>Genetic susceptibility.</strong> Familial clustering and consanguinity suggest a host genetic-susceptibility component overlaid on the infectious etiology. The French series (<a href="https://pubmed.ncbi.nlm.nih.gov/18947330/">PMID: 18947330</a>) reported: <em>"The 3 patients with a familial history of RS presented with early-onset forms of RS"</em> and <em>"Two unrelated consanguineous families were identified, 1 of which included 2 affected siblings."</em> This pattern is consistent with an autosomal-recessive susceptibility trait, though no causal gene has been identified. RS is additionally linked to <em>"qualitatively and quantitatively abnormal cell-mediated immunity"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29578083/">PMID: 29578083</a>).</p>
+<p><strong>Protective factors.</strong> No genetic protective variants have been identified. The principal protective factors are environmental — improved sanitation, hygiene, nutrition, and housing — as inferred from the disease's disappearance from high-income regions.</p>
+<p><strong>Gene–environment interaction.</strong> The most plausible model is that the poorly-communicable pathogen produces overt disease only when host factors (genetic susceptibility affecting cell-mediated immunity and/or acquired immunodeficiency) combine with heavy/prolonged environmental exposure under conditions of crowding and malnutrition. Direct GxE data are lacking.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The clinical phenotype evolves through the disease stages (see §8). Core manifestations and suggested HPO terms:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency / notes</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nasal obstruction</td>
+<td>Symptom / sign</td>
+<td>Most common presenting complaint</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" rel="noopener noreferrer">HP:0001742</a> (Nasal obstruction)</td>
+</tr>
+<tr>
+<td>Rhinorrhea</td>
+<td>Symptom</td>
+<td>Common, often purulent/foul (catarrhal stage)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031417" target="_blank" rel="noopener noreferrer">HP:0031417</a> (Rhinorrhea)</td>
+</tr>
+<tr>
+<td>Epistaxis</td>
+<td>Sign</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" rel="noopener noreferrer">HP:0000421</a> (Epistaxis)</td>
+</tr>
+<tr>
+<td>Nasal crusting / atrophic rhinitis</td>
+<td>Sign</td>
+<td>Catarrhal-atrophic stage</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025095" target="_blank" rel="noopener noreferrer">HP:0025095</a> (Nasal crusting)</td>
+</tr>
+<tr>
+<td>Nasal/facial mass, deformity ("Hebra nose")</td>
+<td>Physical manifestation</td>
+<td>Granulomatous/sclerotic stages</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000366" target="_blank" rel="noopener noreferrer">HP:0000366</a> (Abnormality of the nose)</td>
+</tr>
+<tr>
+<td>Dysphonia / hoarseness</td>
+<td>Symptom</td>
+<td>Laryngeal involvement</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" rel="noopener noreferrer">HP:0001609</a> (Hoarse voice)</td>
+</tr>
+<tr>
+<td>Stridor</td>
+<td>Sign</td>
+<td>Laryngotracheal stenosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010307" target="_blank" rel="noopener noreferrer">HP:0010307</a> (Stridor)</td>
+</tr>
+<tr>
+<td>Dysphagia</td>
+<td>Symptom</td>
+<td>Pharyngeal involvement</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a> (Dysphagia)</td>
+</tr>
+<tr>
+<td>Anosmia / cacosmia</td>
+<td>Symptom</td>
+<td>Reported (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/33643651/" target="_blank" rel="noopener noreferrer">PMID 33643651</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" rel="noopener noreferrer">HP:0000458</a> (Anosmia)</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td>With extensive/nasopharyngeal disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache)</td>
+</tr>
+<tr>
+<td>Nasal septal perforation</td>
+<td>Sign</td>
+<td>Advanced disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009928" target="_blank" rel="noopener noreferrer">HP:0009928</a> (Nasal septal perforation)</td>
+</tr>
+<tr>
+<td>Upper airway stenosis</td>
+<td>Physical manifestation</td>
+<td>Sclerotic sequela; residual even after cure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012781" target="_blank" rel="noopener noreferrer">HP:0012781</a> (Upper airway obstruction)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting evidence — <a href="https://pubmed.ncbi.nlm.nih.gov/21410904/">PMID: 21410904</a>: <em>"The most common complaint is nasal obstruction, other symptoms include; rhinorrhea, epistaxis, dysphagia, stridor, and dysphonia."</em> In this 88-case endemic series, ~18% presented atypically. Residual airway stenosis is near-universal even after microbiological cure — <a href="https://pubmed.ncbi.nlm.nih.gov/17086321/">PMID: 17086321</a>: <em>"all of them presented some degree of upper airway stenosis."</em></p>
+<p><strong>Onset, severity, progression, frequency.</strong> Onset is typically in young to middle adulthood (early onset in familial cases). Severity ranges from mild (early catarrhal) to severe (obstructive/disfiguring). The course is chronic and progressive over years. The nose is affected in essentially all cases (see §7).</p>
+<p><strong>Quality-of-life impact.</strong> No formal EQ-5D/SF-36 studies exist. Inferred impact is substantial: chronic nasal obstruction, disfiguring facial deformity (social stigma), voice change, and potentially life-threatening airway compromise. <a href="https://pubmed.ncbi.nlm.nih.gov/30168726/">PMID: 30168726</a> notes symptoms "can be devastating and in some cases fatal."</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Not a Mendelian disorder.</strong> RS is an infectious disease with no causal human gene, no pathogenic germline/somatic variants, no ClinVar/OMIM disease-variant entries, no relevant allele-frequency data, and no chromosomal abnormalities. Genetic testing has no diagnostic role.</p>
+<p><strong>Host susceptibility (candidate/inferred).</strong> Familial and consanguineous clustering with early onset (<a href="https://pubmed.ncbi.nlm.nih.gov/18947330/">PMID: 18947330</a>) suggests an autosomal-recessive host-susceptibility locus affecting cell-mediated immunity, but no gene has been mapped. This is the single most notable knowledge gap on the human-genetics side.</p>
+<p><strong>Pathogen genetics (the relevant "molecular" axis).</strong> The disease-relevant genetics reside in the bacterium:
+- <strong>K3 capsular polysaccharide (CPS) locus</strong> — uniform across strains; encodes the K3 capsule that is an established virulence factor. A capsule-export mutant (KR <em>cps-</em>) is strongly attenuated (<a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a>): <em>"a K. rhinoscleromatis CPS mutant (KR cps-) is strongly attenuated and that mice infected with a high dose of KR cps- are still able to induce Mikulicz cells formation, unlike a K. pneumoniae capsule mutant, and to partially recapitulate the characteristic strong production of IL-10."</em> Complementary <em>K. pneumoniae</em> CPS work (<a href="https://pubmed.ncbi.nlm.nih.gov/39980691/">PMID: 39980691</a>) confirms CPS is <em>"a critical virulence factor, often evading phagocytosis"</em> while modulating host-cell internalization.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> Poor sanitation, crowded/unhygienic living conditions, and rural environments are the dominant drivers (<a href="https://pubmed.ncbi.nlm.nih.gov/29578083/">PMID: 29578083</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25933455/">PMID: 25933455</a>). No chemical toxin or occupational exposure is implicated.</li>
+<li><strong>Lifestyle factors:</strong> Malnutrition and poor personal hygiene are recurrent themes in case reports (<a href="https://pubmed.ncbi.nlm.nih.gov/35183701/">PMID: 35183701</a>). No association with smoking/alcohol has been established.</li>
+<li><strong>Infectious agent:</strong> <strong><em>Klebsiella pneumoniae</em> subsp. *rhinoscleromatis</strong>* (Gram-negative bacillus, K3 serotype). CHEBI-relevant entity: the K3 capsular polysaccharide. The organism is of low communicability, requiring prolonged close contact; humans are the only known host.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Exposure/inoculation:</strong> Prolonged close contact under crowded, unhygienic conditions <strong>leads to</strong> colonization of the nasal mucosa by K3-encapsulated <em>K. pneumoniae</em> subsp. <em>rhinoscleromatis</em>.</li>
+<li><strong>Phagocytosis and intracellular survival:</strong> The bacterium is phagocytosed by monocytes/macrophages but <strong>survives intracellularly</strong> within cytoplasmic vacuoles rather than being cleared (viable bacilli demonstrated in Mikulicz-cell vacuoles by electron microscopy; <a href="https://pubmed.ncbi.nlm.nih.gov/333340/">PMID: 333340</a>).</li>
+<li><strong>Inflammatory-monocyte recruitment:</strong> Infection <strong>results in</strong> recruitment of atypical inflammatory monocytes from the bone marrow, in a <strong>CCR2-independent</strong> manner (<a href="https://pubmed.ncbi.nlm.nih.gov/23554169/">PMID: 23554169</a>).</li>
+<li><strong>IL-10 induction (branch point / key driver):</strong> <em>K. rhinoscleromatis</em> (unlike <em>K. pneumoniae</em>) <strong>induces strong IL-10 production</strong>, creating an immunosuppressive milieu (<a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23554169/">PMID: 23554169</a>).</li>
+<li><strong>Mikulicz-cell maturation:</strong> Under this IL-10-dominated environment, the recruited inflammatory monocytes <strong>mature into foamy, vacuolated Mikulicz macrophages</strong> laden with intracellular bacilli. IL-10 is <strong>causally required</strong> — in IL-10-deficient mice, very few Mikulicz cells form (<a href="https://pubmed.ncbi.nlm.nih.gov/23554169/">PMID: 23554169</a>).</li>
+<li><strong>Plasmacytic response / Russell bodies:</strong> Concurrently, a <strong>dense plasma-cell infiltrate</strong> develops; overproduction of immunoglobulin distends the plasma-cell rough ER into <strong>Russell bodies</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/333340/">PMID: 333340</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/8784898/">PMID: 8784898</a>). This defines the <strong>granulomatous (hypertrophic) stage</strong>.</li>
+<li><strong>Persistence:</strong> The immunosuppressive/IL-10 milieu <strong>permits ongoing bacterial persistence</strong> and lesion growth (granulomatous mass).</li>
+<li><strong>Fibrosis/sclerosis:</strong> Chronic granulomatous inflammation <strong>leads to</strong> fibrosis and scarring — the <strong>sclerotic stage</strong> — producing cicatricial <strong>airway stenosis</strong> and deformity, which persist even after the bacteria are cleared.</li>
+</ol>
+<pre><code>Exposure ──► Intracellular Klebsiella (K3+) survival in macrophages
+          │
+          ▼
+CCR2-INDEPENDENT recruitment of bone-marrow inflammatory monocytes
+          │
+     strong IL-10 induction  ◄── (K. rhinoscleromatis-specific)
+          │  (causally required — KO mice: few Mikulicz cells)
+          ▼
+     Maturation into foamy MIKULICZ CELLS (intracellular bacilli persist)
+          │
+     + dense plasma-cell infiltrate ──► RUSSELL BODIES (distended rough ER)
+          │  = GRANULOMATOUS STAGE
+          ▼
+Chronic inflammation ──► FIBROSIS/SCLEROSIS ──► airway stenosis
+                   = SCLEROTIC STAGE (irreversible sequela)
+</code></pre>
+<h3>Category detail</h3>
+<ul>
+<li><strong>Immune involvement (central):</strong> IL-10-driven immunosuppression is the linchpin. RS represents a failure of Th1/macrophage clearance with an M2-like, IL-10-skewed macrophage phenotype; abnormal cell-mediated immunity is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/29578083/">PMID: 29578083</a>). Suggested GO: <strong><a href="http://purl.obolibrary.org/obo/GO_0032613" target="_blank" rel="noopener noreferrer">GO:0032613</a> (interleukin-10 production)</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0002444" target="_blank" rel="noopener noreferrer">GO:0002444</a> (myeloid leukocyte mediated immunity)</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response)</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0071216" target="_blank" rel="noopener noreferrer">GO:0071216</a> (cellular response to biotic stimulus)</strong>.</li>
+<li><strong>Cellular processes:</strong> Granulomatous inflammation; monocyte-to-macrophage differentiation; intracellular bacterial persistence; plasma-cell hyperactivity. Suggested CL: <strong><a href="http://purl.obolibrary.org/obo/CL_0000860" target="_blank" rel="noopener noreferrer">CL:0000860</a> (classical/inflammatory monocyte)</strong>, <strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage)</strong> — the Mikulicz cell, <strong><a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a> (plasma cell)</strong>.</li>
+<li><strong>Protein dysfunction / biochemistry:</strong> Distension of plasma-cell rough ER by immunoglobulin aggregation forms Russell bodies. Mikulicz-cell vacuoles are phagolysosomal compartments harboring bacilli.</li>
+<li><strong>Molecular pathways:</strong> IL-10 → JAK1/TYK2 → STAT3 signaling is the presumed axis (inferred from IL-10 biology, not directly demonstrated in RS tissue). The K3 CPS mediates immune evasion/anti-phagocytic virulence.</li>
+<li><strong>Tissue-damage mechanism:</strong> Fibrosis/scarring secondary to chronic granulomatous inflammation (not oxidative-stress or ischemia driven).</li>
+<li><strong>Molecular profiling:</strong> No human transcriptomic/proteomic/metabolomic datasets exist. Mechanistic data derive from the murine model and ultrastructural pathology.</li>
+</ul>
+<p><strong>Upstream vs downstream:</strong> Bacterial intracellular persistence and IL-10 induction are <strong>upstream</strong>; Mikulicz-cell maturation and plasmacytosis are <strong>midstream</strong>; fibrosis/stenosis is the <strong>downstream</strong> irreversible endpoint.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong> Primary organ: the <strong>nose/nasal cavity</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001707" target="_blank" rel="noopener noreferrer">UBERON:0001707</a>, nasal cavity), affected in <strong>95–100%</strong> of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/17359555/">PMID: 17359555</a>: <em>"The nose is involved in 95-100 per cent of cases."</em>). Descending respiratory-tract spread with quantified frequencies (<a href="https://pubmed.ncbi.nlm.nih.gov/19146007/">PMID: 19146007</a>): <em>"Rhinoscleroma primarily affects the nasal cavity but the nasopharynx (18%-43%), larynx (15%-40%), trachea (12%) and bronchi (2% to 7%) can also be involved. However, the paranasal sinuses are usually free of disease."</em></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Site</th>
+<th>UBERON</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nasal cavity</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001707" target="_blank" rel="noopener noreferrer">UBERON:0001707</a></td>
+<td>95–100%</td>
+</tr>
+<tr>
+<td>Nasopharynx</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001728" target="_blank" rel="noopener noreferrer">UBERON:0001728</a></td>
+<td>18–43%</td>
+</tr>
+<tr>
+<td>Larynx</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001737" target="_blank" rel="noopener noreferrer">UBERON:0001737</a></td>
+<td>15–40%</td>
+</tr>
+<tr>
+<td>Trachea</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" rel="noopener noreferrer">UBERON:0003126</a></td>
+<td>~12%</td>
+</tr>
+<tr>
+<td>Bronchi</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a></td>
+<td>2–7%</td>
+</tr>
+<tr>
+<td>Paranasal sinuses</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002110" target="_blank" rel="noopener noreferrer">UBERON:0002110</a></td>
+<td>Usually spared</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Body system:</strong> Respiratory system (<a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" rel="noopener noreferrer">UBERON:0001004</a>). <strong>Secondary/rare involvement:</strong> oral cavity/lip (extra-respiratory; <a href="https://pubmed.ncbi.nlm.nih.gov/35183701/">PMID: 35183701</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25933455/">PMID: 25933455</a>); rare regional cervical lymph node spread (<a href="https://pubmed.ncbi.nlm.nih.gov/30364372/">PMID: 30364372</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/572955/">PMID: 572955</a>); rare skull-base/clivus bone lysis in extensive disease (<a href="https://pubmed.ncbi.nlm.nih.gov/33643651/">PMID: 33643651</a>).</p>
+<p><strong>Tissue/cell level.</strong> Respiratory mucosa (epithelium) and lamina propria (connective tissue). Targeted/involved cells: <strong>macrophages</strong> (Mikulicz cells, <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), <strong>inflammatory monocytes</strong> (bone-marrow-derived), and <strong>plasma cells</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a>, with Russell bodies).</p>
+<p><strong>Subcellular level.</strong> Bacilli reside in macrophage <strong>cytoplasmic vacuoles/phagolysosomes</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a> lysosome; <a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a> phagocytic vesicle). Russell bodies form in the plasma-cell <strong>rough endoplasmic reticulum</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005791" target="_blank" rel="noopener noreferrer">GO:0005791</a>) — <a href="https://pubmed.ncbi.nlm.nih.gov/333340/">PMID: 333340</a>: <em>"The rough endoplasmic reticulum of plasma cells in scleroma displayed cisternal dilatations forming Russell bodies and cytoplasmic vacuolations containing viable and degenerated bacilli forming Mikulicz cells."</em></p>
+<p><strong>Localization/lateralization:</strong> Midline nasal/upper-airway; typically bilateral with midline mass effect; can be asymmetric.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Chronic and insidious. Typically young-to-middle adulthood; earlier onset in familial cases (<a href="https://pubmed.ncbi.nlm.nih.gov/18947330/">PMID: 18947330</a>). Pediatric cases occur (<a href="https://pubmed.ncbi.nlm.nih.gov/40158349/">PMID: 40158349</a>).</p>
+<p><strong>Staging.</strong> The classical three-stage model (<a href="https://pubmed.ncbi.nlm.nih.gov/17359555/">PMID: 17359555</a>): <em>"There are three stages of the disease: catarrhal-atrophic, granulomatous (also known as hypertrophic) and sclerotic."</em> An expanded four-stage description (<a href="https://pubmed.ncbi.nlm.nih.gov/40158349/">PMID: 40158349</a>): <em>"The disease progresses through four stages: catarrhal, crusty atrophic, proliferative, and sclerotic."</em></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Hallmarks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Catarrhal / atrophic</td>
+<td>Nonspecific chronic rhinitis, purulent rhinorrhea, crusting, foul odor</td>
+</tr>
+<tr>
+<td>Granulomatous / hypertrophic (proliferative)</td>
+<td>Rubbery nodular masses; Mikulicz cells + Russell-body plasma cells; nasal enlargement/deformity</td>
+</tr>
+<tr>
+<td>Sclerotic</td>
+<td>Fibrosis, scarring, cicatricial stenosis, disfigurement</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Progression.</strong> Slow, progressive over months to years if untreated; chronic and lifelong without therapy. Disease course is progressive rather than relapsing-remitting, but <strong>recurrence after treatment is common</strong> due to intracellular persistence (<a href="https://pubmed.ncbi.nlm.nih.gov/40158349/">PMID: 40158349</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30168726/">PMID: 30168726</a>).</p>
+<p><strong>Patterns / critical periods.</strong> Treatment-induced regression can be dramatic — an extensive lesion regressed within the first month of ciprofloxacin (<a href="https://pubmed.ncbi.nlm.nih.gov/33643651/">PMID: 33643651</a>) and a granulomatous mass reached the cicatricial stage after six weeks of therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/35183701/">PMID: 35183701</a>). The therapeutic window is best <strong>before</strong> the sclerotic stage, since fibrotic stenosis is irreversible.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> RS is rare overall and endemic in specific low-income regions. No precise global prevalence/incidence figures are established. Endemic areas: Central/North Africa (esp. Egypt), Central and South America, the Middle East, India, Indonesia/Southeast Asia, and Central/Eastern Europe (<a href="https://pubmed.ncbi.nlm.nih.gov/25933455/">PMID: 25933455</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29578083/">PMID: 29578083</a>). In non-endemic (high-income) regions it is <em>"extremely rare"</em> and rising with travel/immigration (<a href="https://pubmed.ncbi.nlm.nih.gov/30168726/">PMID: 30168726</a>).</p>
+<p><strong>Inheritance (of susceptibility).</strong> Not a Mendelian disease, but familial/consanguineous clustering with early onset suggests recessive host susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/18947330/">PMID: 18947330</a>: <em>"Two unrelated consanguineous families were identified, 1 of which included 2 affected siblings."</em>). Penetrance, expressivity, anticipation, mosaicism, founder effects, and carrier frequency are <strong>not defined</strong> — no gene identified.</p>
+<p><strong>Demographics.</strong> Associated with poor, rural populations. Age: predominantly young adults (French series median 35.7 y, range 5–72; <a href="https://pubmed.ncbi.nlm.nih.gov/18947330/">PMID: 18947330</a>). Sex ratio is variably reported with a modest female predominance in several series, but not firmly established. No specific ethnic predisposition beyond geographic/socioeconomic distribution.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Mainstay — histopathology of deep biopsy.</strong> Because culture sensitivity is limited, diagnosis relies primarily on histology. <a href="https://pubmed.ncbi.nlm.nih.gov/17359555/">PMID: 17359555</a>: <em>"The diagnosis is made either by positive Klebsiella rhinoscleromatis culture or from the classic histological findings of Mikulicz cells and transformed plasma cells with Russell bodies."</em> Histology shows <em>"a dense plasmacytic infiltrate, Mikulicz histiocytes, and Russell bodies within the plasma cells"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/8784898/">PMID: 8784898</a>). Special stains (Warthin-Starry, Giemsa, PAS, Grocott methenamine silver, Steiner) highlight intracellular bacilli within macrophages (<a href="https://pubmed.ncbi.nlm.nih.gov/38974602/">PMID: 38974602</a>).</p>
+<p><strong>Culture (supportive, insensitive).</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/17359555/">PMID: 17359555</a>: <em>"only 50-60 per cent of cultures are positive for K rhinoscleromatis."</em> Modern identification uses VITEK 2 and MALDI-TOF MS with EUCAST susceptibility interpretation (<a href="https://pubmed.ncbi.nlm.nih.gov/42698439/">PMID: 42698439</a>).</p>
+<p><strong>Imaging.</strong> CT and MRI define disease extent, stenosis, bone involvement, and guide biopsy/surgery. <a href="https://pubmed.ncbi.nlm.nih.gov/19146007/">PMID: 19146007</a>: <em>"CT scan and MRI are useful for diagnosis."</em></p>
+<p><strong>Differential diagnosis (biopsy essential to avoid misdiagnosis).</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/17086321/">PMID: 17086321</a>: <em>"rhinoscleroma may be erroneously diagnosed as mucocutaneos leishmaniasis, leprosy, paracoccidioidomycosis, rhinosporidiasis, late syphilis, neoplasic diseases or other upper airway diseases."</em> Also consider granulomatosis with polyangiitis, relapsing polychondritis, amyloidosis, sarcoidosis, and Rosai-Dorfman disease (which can coexist; <a href="https://pubmed.ncbi.nlm.nih.gov/22643208/">PMID: 22643208</a>). Malignancy is a key mimic — lesions can appear carcinoma-like (<a href="https://pubmed.ncbi.nlm.nih.gov/35183701/">PMID: 35183701</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33643651/">PMID: 33643651</a>).</p>
+<p><strong>Genetic/omics testing:</strong> No role (not a genetic disease; no validated omics diagnostics). <strong>Screening:</strong> No population screening exists; prevention is via public-health/hygiene measures.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival/mortality.</strong> RS is rarely directly fatal but can be lethal when airway obstruction is severe or disease is extensive (<a href="https://pubmed.ncbi.nlm.nih.gov/30168726/">PMID: 30168726</a>: symptoms "in some cases fatal"). No formal survival statistics are published.</p>
+<p><strong>Morbidity/function.</strong> The principal burden is chronic morbidity: nasal obstruction, disfigurement, voice change, and airway stenosis. Residual structural sequelae are near-universal even after cure — <a href="https://pubmed.ncbi.nlm.nih.gov/17086321/">PMID: 17086321</a>: <em>"all of them presented some degree of upper airway stenosis."</em></p>
+<p><strong>Disease course/recovery.</strong> With prolonged antibiotics, active infection can resolve (a Peruvian series achieved no relapse over 6–12 months in treated patients; <a href="https://pubmed.ncbi.nlm.nih.gov/17086321/">PMID: 17086321</a>), but recurrence is common — <a href="https://pubmed.ncbi.nlm.nih.gov/40158349/">PMID: 40158349</a>: <em>"Due to the intracellular nature of the bacteria, recurrence is common."</em> Fibrotic/sclerotic sequelae do not reverse.</p>
+<p><strong>Prognostic factors.</strong> Earlier stage at treatment (pre-sclerotic), adequate treatment duration, and immune competence favor better outcomes. Immunodeficiency (HIV, diabetes) and advanced fibrosis worsen prognosis. No molecular prognostic biomarkers exist.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy (first-line).</strong> Prolonged courses of antibiotics that penetrate and concentrate in macrophages — the intracellular niche. <strong>Fluoroquinolones (ciprofloxacin)</strong> are the mainstay:
+- Rationale (<a href="https://pubmed.ncbi.nlm.nih.gov/11244532/">PMID: 11244532</a>): <em>"It achieves good tissue penetration, is concentrated in macrophages and may prove to be useful in the therapy of rhinoscleroma."</em>
+- Dosing/duration (<a href="https://pubmed.ncbi.nlm.nih.gov/17086321/">PMID: 17086321</a>): <em>"Ciprofloxacin 500 mg bid for four to 12 weeks was used in seven patients,"</em> with no relapse over 6–12 months' follow-up. Other reports used 3–4 months (<a href="https://pubmed.ncbi.nlm.nih.gov/33643651/">PMID: 33643651</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30364372/">PMID: 30364372</a>).
+- <strong>Rifampicin</strong> and other macrophage-penetrating agents are alternatives/adjuncts (<a href="https://pubmed.ncbi.nlm.nih.gov/33643651/">PMID: 33643651</a>: <em>"high concentration in macrophages such as rifampicin and fluoroquinolone"</em>). Historically tetracyclines, streptomycin, and trimethoprim-sulfamethoxazole were used.
+- <strong>Prolonged therapy is required</strong> because the organism is intracellular (<a href="https://pubmed.ncbi.nlm.nih.gov/40158349/">PMID: 40158349</a>). Suggested NCIT: Ciprofloxacin (NCIT:C376), Rifampin (NCIT:C608), Antibiotic Therapy (NCIT:C15844).</p>
+<p><strong>Surgical/interventional.</strong> Reserved for advanced disease: debridement of granulomatous masses, and relief of cicatricial airway stenosis/deformity (dilation, laser, tracheostomy, reconstructive repair). <a href="https://pubmed.ncbi.nlm.nih.gov/30168726/">PMID: 30168726</a>: <em>"managed effectively with a combination of antibiotics and surgical debridement and repair; however, recurrence rates do remain high."</em> NCIT: Surgical Procedure (NCIT:C15329), Debridement (NCIT:C15788).</p>
+<p><strong>Supportive care.</strong> Saline nasal irrigation and crust removal are useful adjuncts (<a href="https://pubmed.ncbi.nlm.nih.gov/30364372/">PMID: 30364372</a>).</p>
+<p><strong>Advanced/experimental therapeutics.</strong> No gene, cell, RNA, targeted, or immunotherapy approaches are established. Given the IL-10-driven mechanism, <strong>host-directed immunomodulation (e.g., IL-10 blockade)</strong> is a plausible but entirely investigational avenue. Bacteriophage/CPS-depolymerase strategies against <em>Klebsiella</em> capsule are being explored for <em>K. pneumoniae</em> broadly (<a href="https://pubmed.ncbi.nlm.nih.gov/35130876/">PMID: 35130876</a>) but not yet for RS. No RS-specific NCT trials were identified.</p>
+<p><strong>Pharmacogenomics / personalized medicine:</strong> Not applicable.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Improvement of socioeconomic conditions — sanitation, hygiene, nutrition, reduced crowding — is the principal preventive strategy, inferred from the disease's disappearance from high-income regions (<a href="https://pubmed.ncbi.nlm.nih.gov/29578083/">PMID: 29578083</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25933455/">PMID: 25933455</a>). No vaccine exists.</li>
+<li><strong>Secondary prevention:</strong> Early recognition and biopsy of chronic nasal lesions in endemic areas to enable treatment before the irreversible sclerotic stage.</li>
+<li><strong>Tertiary prevention:</strong> Adequate-duration antibiotic therapy and follow-up to prevent recurrence and manage airway complications; surgical relief of stenosis.</li>
+<li><strong>Public health:</strong> Health education, improved housing/sanitation, and case detection in endemic communities.</li>
+<li><strong>Immunization / genetic counseling / prophylaxis:</strong> No vaccine, no established chemoprophylaxis. Genetic counseling is not standard, though familial clustering may warrant heightened clinical vigilance in affected families.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>RS is <strong>human-specific</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a>: <em>"Rhinoscleroma is a human specific chronic granulomatous infection."</em> Species affected: <em>Homo sapiens</em> (NCBI:txid9606). No natural animal reservoir, no naturally occurring veterinary equivalent, no breed predisposition, and no documented zoonotic transmission. The causative organism belongs to the <em>Klebsiella pneumoniae</em> species complex (NCBI:txid573), within which the subspecies <em>rhinoscleromatis</em> is human-restricted. No orthologous "disease gene" applies, as this is an infectious rather than genetic disease.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Murine model (the key experimental system).</strong> A novel mouse model established RS pathogenesis mechanistically:
+- <a href="https://pubmed.ncbi.nlm.nih.gov/23554169/">PMID: 23554169</a> (<em>A novel murine model of rhinoscleroma identifies Mikulicz cells, the disease signature, as IL-10 dependent derivatives of inflammatory monocytes</em>) — identified Mikulicz cells <em>"as atypical inflammatory monocytes specifically recruited from the bone marrow upon K. rhinoscleromatis infection in a CCR2-independent manner"</em> and showed <em>"in the absence of IL-10, very few Mikulicz cells were observed, confirming a crucial role of IL-10 in the establishment of a proper environment leading to the maturation of these atypical monocytes."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a> — a lung-infection murine model <em>"recapitulating the formation of Mikulicz cells in lungs"</em> and <em>"partially recapitulate[s] the characteristic strong production of IL-10,"</em> used to dissect the role of the K3 capsule via the KR <em>cps-</em> mutant.</p>
+<p><strong>Model type:</strong> Mammalian (mouse), induced via bacterial lung/airway inoculation, including genetic variants (IL-10-deficient mice, CCR2-deficient mice) and bacterial mutants (KR <em>cps-</em>).</p>
+<p><strong>Phenotype recapitulation:</strong> Strong — the model reproduces the disease-signature Mikulicz cells and the characteristic IL-10-dominated response, enabling causal dissection of monocyte recruitment, IL-10 dependence, and capsule virulence.</p>
+<p><strong>Limitations:</strong> The model uses lung rather than nasal inoculation; it does not fully reproduce the chronic multi-stage progression to human nasal sclerotic deformity, and human-specific host-susceptibility factors are not captured.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Rhinoscleroma is best understood not as a simple pyogenic infection but as a <strong>maladaptive, immunosuppressive host–pathogen equilibrium</strong>. Three interlocking facts define it:</p>
+<ol>
+<li><strong>Intracellular persistence</strong> — the bacterium survives inside macrophage vacuoles (ultrastructurally proven, <a href="https://pubmed.ncbi.nlm.nih.gov/333340/">PMID: 333340</a>), which both explains chronicity/recurrence and dictates therapy (macrophage-penetrating antibiotics for prolonged periods).</li>
+<li><strong>IL-10-driven Mikulicz-cell genesis</strong> — the pathogen specifically induces IL-10, which is <em>causally required</em> for bone-marrow inflammatory monocytes to mature into the foamy Mikulicz cell (KO-mouse proof, <a href="https://pubmed.ncbi.nlm.nih.gov/23554169/">PMID: 23554169</a>). This is the mechanistic heart of the disease and the most promising host-directed drug target.</li>
+<li><strong>Capsule-dependent virulence, capsule-independent Mikulicz formation</strong> — the uniform K3 capsule drives bacterial fitness/immune evasion but is dispensable for the signature cell (<a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a>), cleanly separating the "virulence" and "immunopathology" arms.</li>
+</ol>
+<p>The clinical staging (catarrhal → granulomatous → sclerotic) maps directly onto this chain: early colonization, then IL-10/monocyte-driven granuloma, then fibrotic burnout. The therapeutic corollary is that intervention before fibrosis is critical, since sclerotic stenosis is irreversible.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Axis</th>
+<th>Upstream driver</th>
+<th>Downstream consequence</th>
+<th>Reversible?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bacterial</td>
+<td>K3 capsule, intracellular survival</td>
+<td>Persistence, recurrence</td>
+<td>Yes (with prolonged Abx)</td>
+</tr>
+<tr>
+<td>Immune</td>
+<td>IL-10 induction, monocyte recruitment</td>
+<td>Mikulicz cells, plasmacytosis</td>
+<td>Partially</td>
+</tr>
+<tr>
+<td>Structural</td>
+<td>Chronic granuloma</td>
+<td>Fibrosis, airway stenosis</td>
+<td>No</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Supports finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">29381692</a></td>
+<td>Disease definition; K3 uniform serotype; capsule = virulence factor not needed for Mikulicz cells; IL-10</td>
+<td>F001, F007, F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23554169/">23554169</a></td>
+<td>Mikulicz cells = IL-10-dependent, CCR2-independent bone-marrow inflammatory monocytes</td>
+<td>F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/333340/">333340</a></td>
+<td>Ultrastructure: Russell bodies (rough ER), viable intracellular bacilli in Mikulicz cells</td>
+<td>F002, F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8784898/">8784898</a></td>
+<td>Pathognomonic histology: plasmacytic infiltrate, Mikulicz histiocytes, Russell bodies</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17359555/">17359555</a></td>
+<td>Three-stage model; nose 95–100%; culture 50–60%; dual diagnostic route</td>
+<td>F003, F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40158349/">40158349</a></td>
+<td>Four-stage model; recurrence from intracellular nature</td>
+<td>F003, F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18947330/">18947330</a></td>
+<td>French series: familial early onset, consanguinity, HIV cases</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29578083/">29578083</a></td>
+<td>Rural/poor socioeconomic distribution; abnormal cell-mediated immunity</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11244532/">11244532</a></td>
+<td>Ciprofloxacin concentrates in macrophages</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17086321/">17086321</a></td>
+<td>Cipro dosing 500 mg bid ×4–12 wk; residual stenosis; differential diagnosis</td>
+<td>F005, F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19146007/">19146007</a></td>
+<td>Anatomical distribution percentages; imaging utility</td>
+<td>F006, F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21410904/">21410904</a></td>
+<td>88-case series: symptom spectrum and frequency</td>
+<td>F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39980691/">39980691</a></td>
+<td><em>Klebsiella</em> CPS as anti-phagocytic virulence factor (supporting)</td>
+<td>F001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30168726/">30168726</a></td>
+<td>Nonendemic rarity; antibiotic+surgery; high recurrence</td>
+<td>§11, §12</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Coherence:</strong> The evidence is internally consistent across ultrastructural pathology, clinical series, and a mechanistic mouse model. The strongest, most modern mechanistic claims (IL-10 dependence, monocyte origin, CCR2-independence, capsule role) rest on rigorous murine genetics (<a href="https://pubmed.ncbi.nlm.nih.gov/23554169/">PMID: 23554169</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29381692/">PMID: 29381692</a>).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No human genetic locus identified.</strong> Familial/consanguineous clustering strongly implies a recessive host-susceptibility gene affecting cell-mediated immunity, but no gene has been mapped — the largest gap.</li>
+<li><strong>Mechanistic data are largely murine.</strong> IL-10 dependence and monocyte origin are proven in mice; direct human tissue transcriptomics/proteomics/single-cell data are absent.</li>
+<li><strong>No formal epidemiology.</strong> Prevalence/incidence, sex ratio, and mortality are not rigorously quantified; evidence is case-series-based.</li>
+<li><strong>No controlled treatment trials.</strong> Antibiotic regimens/durations derive from small uncontrolled series; optimal regimen and duration are undefined, and recurrence rates are imprecisely quantified.</li>
+<li><strong>Model gaps.</strong> The mouse model uses lung inoculation and does not fully reproduce chronic nasal sclerotic progression or human-specific susceptibility.</li>
+<li><strong>Emerging microbiological complexity.</strong> A recent case suggests possible polymicrobial involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/42698439/">PMID: 42698439</a>); significance unknown.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Human genetic study:</strong> Whole-exome/genome sequencing of consanguineous multiplex families and early-onset sporadic cases to identify recessive susceptibility genes (candidates in the IL-10/STAT3 or myeloid/cell-mediated-immunity axes).</li>
+<li><strong>Human single-cell/spatial transcriptomics</strong> of biopsy tissue across stages to confirm the murine IL-10/inflammatory-monocyte program in humans and map the catarrhal→sclerotic transition.</li>
+<li><strong>Host-directed therapy proof-of-concept:</strong> Test IL-10 pathway blockade (anti-IL-10/anti-IL-10R or STAT3 inhibition) as adjunct to antibiotics in the murine model to accelerate clearance and prevent Mikulicz-cell formation.</li>
+<li><strong>Prospective treatment registry/trial:</strong> Standardize and compare fluoroquinolone regimens (± rifampicin), define optimal duration, and quantify recurrence and stenosis outcomes.</li>
+<li><strong>Capsule-targeted antibacterials:</strong> Evaluate K3-specific bacteriophage depolymerases (cf. <a href="https://pubmed.ncbi.nlm.nih.gov/35130876/">PMID: 35130876</a>) against <em>K. rhinoscleromatis</em> to disarm the K3 virulence factor.</li>
+<li><strong>Molecular diagnostics:</strong> Develop and validate PCR/MALDI-TOF-based assays on biopsy tissue to overcome the 50–60% culture sensitivity ceiling.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 10 confirmed findings across 28 reviewed papers over 5 investigation iterations. Evidence sources: human clinical case series, ultrastructural pathology, and a murine model. This is an infectious, non-Mendelian disease; sections keyed to genetic-variant/Mendelian-inheritance content are marked "not applicable" with rationale.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Rhinoscleroma-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Rhinoscleroma-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>23</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:35130876</code> (5 mentions) - Structural and biological insights into Klebsiella pneumoniae surface polysaccharide degradation by a bacteriophage K1 lyase: implications for clinical use.</li>
+<li>shared terms: genetic, human</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>disease</code>, <code>cell</code>, <code>stenosis</code>, <code>chronic</code>, <code>mikulicz</code>, <code>nasal</code>, <code>il-10</code>, <code>airway</code>, <code>rhinoscleromatis</code>, <code>rhinoscleroma</code>, <code>model</code>, <code>genetic</code>, <code>granulomatous</code>, <code>intracellular</code>, <code>sclerotic</code>, <code>recurrence</code>, <code>macrophage</code>, <code>monocyte</code>, <code>serie</code>, <code>human</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005945</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>rhinoscleroma</strong></li>
+<li><code>HP:0025095</code> (1 mention) - the report calls it "Nasal crusting"; HP calls it <strong>Sneeze</strong></li>
+<li><code>HP:0009928</code> (1 mention) - the report calls it "Nasal septal perforation"; HP calls it <strong>Thick nasal alae</strong></li>
+<li><code>HP:0012781</code> (1 mention) - the report calls it "Upper airway obstruction"; HP calls it <strong>Mid-frequency hearing loss</strong></li>
+<li><code>UBERON:0002110</code> (1 mention) - the report calls it "Paranasal sinuses"; UBERON calls it <strong>gallbladder</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>NCIT:C15788</code> (Clinical Trials, Diagnosis) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>CL:0000860</code> (1 mention) - the report calls it "classical/inflammatory monocyte"; CL calls it <strong>classical monocyte</strong>, and lists "inflammatory monocyte" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rheumatoid_Vasculitis-falcon.html">← Rheumatoid Vasculitis (Falcon)</a>
+                
+                
+                <a href="Rhizomelic_Dysplasia_Ain-Naz_Type-claude_code.html">Rhizomelic Dysplasia, Ain-Naz Type (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Rhinoscleroma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Rhinoscleroma-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

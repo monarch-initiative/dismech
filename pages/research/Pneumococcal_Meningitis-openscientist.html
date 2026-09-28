@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pneumococcal Meningitis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Pneumococcal Meningitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Pneumococcal Meningitis</h1>
+                
+                <p class="report-subtitle">Pneumococcal Meningitis (MONDO:0006913): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006913" target="_blank" rel="noopener noreferrer">MONDO:0006913</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">45 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Pneumococcal Meningitis (<a href="http://purl.obolibrary.org/obo/MONDO_0006913" target="_blank" rel="noopener noreferrer">MONDO:0006913</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Pneumococcal meningitis is an acute, life-threatening bacterial infection of the meninges and cerebrospinal fluid (CSF) caused by a single infectious agent, <em>Streptococcus pneumoniae</em> (NCBITaxon:1313).</strong> It is not a genetic disease; rather, it is an infectious disease whose etiology is a human-restricted, encapsulated Gram-positive commensal that ordinarily colonizes the nasopharynx and occasionally invades. The pathogenesis follows a well-characterized causal chain: nasopharyngeal colonization → mucosal/epithelial invasion → bloodstream survival via complement evasion → crossing of the blood–brain barrier (BBB) → unrestricted bacterial multiplication in the CSF → a pneumolysin- and complement-driven neuroinflammatory cascade → hippocampal apoptosis, cortical necrosis, cerebral edema, and cerebrovascular injury → death or long-term neurological sequelae, most commonly sensorineural hearing loss.</p>
+<p>Globally, <em>S. pneumoniae</em> meningitis (SPM) is a leading cause of bacterial meningitis death and disability-adjusted life years (DALYs), concentrated in children under 5 years, though the burden has fallen substantially since the introduction of pneumococcal conjugate vaccines (PCVs). The disease carries approximately 20–30% in-hospital mortality (with adults faring far worse than children) and leaves roughly 40% of survivors with neurological sequelae. Host susceptibility and outcome are modulated polygenically, concentrated in innate-immune and complement-pathway genes (MBL2, C5, CFH), rather than by Mendelian causal variants.</p>
+<p>Management centers on emergency empiric antimicrobial therapy (third-generation cephalosporin plus vancomycin) started within one hour of presentation, plus adjunctive dexamethasone given before or with the first antibiotic dose, which reduces unfavorable outcomes from ~25% to ~15% in adults with the pneumococcal subgroup benefiting most. Prevention rests on pneumococcal conjugate and polysaccharide vaccination, correction of anatomical CSF leaks in recurrent disease, and prophylaxis/vaccination in asplenic and immunocompromised patients. A central emerging challenge is serotype replacement and antimicrobial resistance following widespread PCV use.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Global burden: a leading cause of bacterial meningitis death and DALYs, concentrated in young children (F001)</h3>
+<p>The Global Burden of Disease (GBD) 2021 analysis established that <em>Streptococcus pneumoniae</em> meningitis caused <strong>20,718 deaths (95% UI 14,718–29,192) and 1,823,058 DALYs (95% UI 1,301,814–2,561,107)</strong> among people aged 0–19 in 2021, exceeding <em>Neisseria meningitidis</em> meningitis (17,389 deaths) in the same population. The burden clustered in children under 5 years. In GBD 2023, <em>S. pneumoniae</em> was the <strong>leading pathogen</strong> contributing to child death and DALY loss among children in G20 countries (~66,400 deaths, ages 0–14). Importantly, overall burden fell substantially from 1990 to 2021, driven by epidemiological change attributable to vaccination.</p>
+<blockquote>
+<p><em>"In 2021, SPM caused 20,718 deaths (95% UI 14,718-29,192) and 1,823,058 disability-adjusted life years (DALYs; 95% UI 1,301,814-2,561,107), while NMM caused 17,389 deaths"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42071803/">PMID: 42071803</a></p>
+<p><em>"Streptococcus pneumoniae was the leading pathogen contributing to death and DALY loss among children in G20 countries"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42752455/">PMID: 42752455</a></p>
+</blockquote>
+<h3>Finding 2 — Pathogenesis: a causal chain from nasopharyngeal colonization to inflammatory brain injury (F002)</h3>
+<p>The mechanistic sequence of pneumococcal meningitis is well described. Infection begins with <strong>nasopharyngeal colonization</strong> by <em>S. pneumoniae</em>, which evades mucosal entrapment and host immunity. Invasive disease then proceeds via <strong>epithelial adhesion → bloodstream invasion → activation of complement and coagulation → inflammatory mediators facilitating BBB crossing → free bacterial multiplication in CSF → activation of antigen-presenting and microglial cells → neutrophil recruitment and massive inflammation</strong>, resulting in the hallmark features of bacterial meningitis: CSF pleocytosis, cochlear damage, cerebral edema, hydrocephalus, and cerebrovascular complications.</p>
+<blockquote>
+<p><em>"The release of inflammatory mediators facilitates pneumococcal crossing of the blood-brain barrier into the brain, where the bacteria multiply freely and trigger activation of circulating antigen-presenting cells and resident microglial cells. The resulting massive inflammation leads to further neutrophil recruitment and inflammation, resulting in the well-known features of bacterial meningitis, including cerebrospinal fluid pleocytosis, cochlear damage, cerebral edema, hydrocephalus, and cerebrovascular complications"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21734248/">PMID: 21734248</a></p>
+</blockquote>
+<h3>Finding 3 — Pneumolysin: the key virulence factor driving neuronal death (F003)</h3>
+<p><strong>Pneumolysin (Ply)</strong> is the principal pneumococcal neurotoxin. Multiple mechanistic studies converge on several complementary pathways:</p>
+<ul>
+<li><strong>Neuronal adhesion/invasion:</strong> Via its cholesterol-binding domain 4, Ply interacts with neuronal β-actin together with the pilus-1 adhesin RrgA to promote neuronal adhesion, invasion, and death, with increased intracellular Ca²⁺ and actin cytoskeleton disassembly (<a href="https://pubmed.ncbi.nlm.nih.gov/33760879/">PMID: 33760879</a>).</li>
+<li><strong>Mitochondrial apoptosis:</strong> Ply localizes to mitochondria, alters membrane potential, and releases apoptosis-inducing factor (AIF), causing caspase-independent neuronal apoptosis (<a href="https://pubmed.ncbi.nlm.nih.gov/17562768/">PMID: 17562768</a>).</li>
+<li><strong>Glutamate excitotoxicity:</strong> Ply triggers Ca²⁺-dependent glutamate release from astrocytes, causing NMDA-receptor-dependent synaptic and dendritic damage; the NMDA antagonists MK801 and D-AP5 reduce pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/23785278/">PMID: 23785278</a>).</li>
+<li><strong>p38 MAPK signaling:</strong> Ply neurotoxicity involves calcium influx and p38 MAPK activation; the inhibitor SB203580 rescues neurons (<a href="https://pubmed.ncbi.nlm.nih.gov/12586546/">PMID: 12586546</a>).</li>
+<li><strong>In vivo requirement:</strong> A pneumolysin-deficient strain showed decreased virulence and longer survival in murine meningitis (<a href="https://pubmed.ncbi.nlm.nih.gov/12379738/">PMID: 12379738</a>).</li>
+</ul>
+<blockquote>
+<p><em>"pneumococci interact with the cytoskeleton protein β-actin through the pilus-1 adhesin RrgA and the cytotoxin pneumolysin (Ply), thereby promoting adhesion and invasion of neurons, and neuronal death"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33760879/">PMID: 33760879</a></p>
+<p><em>"Pneumolysin colocalized with mitochondrial membranes, altered the mitochondrial membrane potential, and caused the release of apoptosis-inducing factor and cell death"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17562768/">PMID: 17562768</a></p>
+</blockquote>
+<h3>Finding 4 — Adjunctive dexamethasone improves outcomes when timed with antibiotics (F004)</h3>
+<p>The 2002 European adult trial showed that adjunctive dexamethasone <strong>reduced unfavorable outcomes from 25% to 15%</strong> in bacterial meningitis, with the largest benefit in the pneumococcal subgroup, provided it was given <strong>before or with the first antibiotic dose</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/19386456/">PMID: 19386456</a>). A French national pediatric cohort (1,765 confirmed pediatric pneumococcal meningitis cases, 2005–2022) evaluated dexamethasone 0.15 mg/kg every 6 h for 4 days given within 12 h of antibiotics, using propensity-score (IPTW) analysis of 30-day all-cause death (<a href="https://pubmed.ncbi.nlm.nih.gov/40113367/">PMID: 40113367</a>). The benefit is timing-dependent and attenuated if given late; notably, dexamethasone has <strong>no proven benefit in infants and children</strong> in some analyses (see Finding 12).</p>
+<blockquote>
+<p><em>"This study showed that adjunctive dexamethasone therapy reduced the rate of unfavorable outcomes from 25 to 15% in adults with bacterial meningitis. In this study, adjunctive treatment with dexamethasone was given before or with the first dose of antibiotics"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19386456/">PMID: 19386456</a></p>
+</blockquote>
+<h3>Finding 5 — PCVs reduced meningitis but drove non-vaccine serotype replacement (F005)</h3>
+<p>The PSERENADE project (42 surveillance sites, 30 countries) found that <strong>6 years after PCV10/PCV13 introduction, pneumococcal meningitis incidence declined 48–74% in children &lt;5 y, 35–62% in ages 5–17 y, and 0–36% in adults ≥18 y</strong> — but replacement with non-vaccine serotypes persisted throughout follow-up (<a href="https://pubmed.ncbi.nlm.nih.gov/39864526/">PMID: 39864526</a>). In Mexico, PCV13-serotype meningitis fell from 77.2% (pre-PCV) to 33.3% (PCV13 era) while non-vaccine serotypes rose to 66.7%, with serotypes 19A and 15B increasing and cefotaxime resistance rising from 22.8% to 30.4% (<a href="https://pubmed.ncbi.nlm.nih.gov/41223711/">PMID: 41223711</a>). Penicillin non-susceptibility under meningitis breakpoints reaches 85.7% in some settings (Taiwan), though vancomycin susceptibility is preserved (<a href="https://pubmed.ncbi.nlm.nih.gov/34219043/">PMID: 34219043</a>).</p>
+<blockquote>
+<p><em>"Six years after PCV10/PCV13 introduction, pneumococcal meningitis declined 48-74% across products and PCV7 impact strata for children &lt;5 y, 35-62% for 5-17 y and 0-36% for ≥18 y"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39864526/">PMID: 39864526</a></p>
+</blockquote>
+<h3>Finding 6 — High mortality and frequent sequelae; adults worse than children (F006)</h3>
+<p>A Danish nationwide study (n=187) reported that <strong>21% died in hospital (adults 27% vs children 2%, p&lt;0.001)</strong>, and <strong>41% of survivors had neurological sequelae</strong>; the most common infection focus was the ear (30%) (<a href="https://pubmed.ncbi.nlm.nih.gov/16253143/">PMID: 16253143</a>). A German adult series (n=87) found in-hospital mortality of 24.1%, intracranial complications in 74.7% (diffuse brain edema 28.7%, hydrocephalus 16.1%, arterial cerebrovascular complications 21.8%), hearing loss in 25.8% of survivors, and only 48.3% with good outcome at discharge (<a href="https://pubmed.ncbi.nlm.nih.gov/12690042/">PMID: 12690042</a>). In pediatric series, coma, respiratory distress, and shock predicted death or sequelae (<a href="https://pubmed.ncbi.nlm.nih.gov/8749621/">PMID: 8749621</a>). <strong>Hearing loss is the most common long-term sequela, reported in up to 30% of survivors</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28460251/">PMID: 28460251</a>).</p>
+<blockquote>
+<p><em>"21% of patients died during hospitalisation (adults: 27% vs. children: 2%, Fisher Exact Test, P &lt; 0.001)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16253143/">PMID: 16253143</a></p>
+<p><em>"Hearing loss remains the most common long-term complication of pneumococcal meningitis (PM) reported in up to 30% of survivors"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28460251/">PMID: 28460251</a></p>
+</blockquote>
+<h3>Finding 7 — Host complement-pathway genetic variation modulates susceptibility and outcome (F007)</h3>
+<p>Pneumococcal meningitis is <strong>not a Mendelian disease</strong>; genetic risk is polygenic/multifactorial, concentrated in innate-immune and complement genes:</p>
+<ul>
+<li><strong>MBL2 (mannose-binding lectin):</strong> White individuals homozygous for the defective <em>MBL2</em> 0/0 genotype had substantially increased risk (<strong>OR 8.21, 95% CI 1.05–64.1; p=0.017</strong>); meta-analysis of 5 studies OR 2.33 (99% CI 1.39–3.90) (<a href="https://pubmed.ncbi.nlm.nih.gov/23741476/">PMID: 23741476</a>).</li>
+<li><strong>C5 (complement component 5):</strong> A common nonsynonymous SNP rs17611 is associated with unfavorable outcome; C5aR-deficient mice had less brain damage, and anti-C5 monoclonal antibodies prevented death in mice (<a href="https://pubmed.ncbi.nlm.nih.gov/21926466/">PMID: 21926466</a>).</li>
+<li><strong>CFH (complement factor H):</strong> The major (G) allele of rs6677604 is associated with low CSF factor H and increased mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/31883521/">PMID: 31883521</a>).</li>
+<li><strong>C2 deficiency:</strong> Classical-pathway C2 deficiency predisposes to invasive pneumococcal infection (<a href="https://pubmed.ncbi.nlm.nih.gov/16785571/">PMID: 16785571</a>).</li>
+</ul>
+<blockquote>
+<p><em>"The risk of contracting pneumococcal meningitis was substantially increased for white individuals homozygous with the defective MBL2 0/0 genotype (odds ratio [OR] 8.21, 95% confidence interval [CI] 1.05-64.1; p = 0.017)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/23741476/">PMID: 23741476</a></p>
+</blockquote>
+<p><strong>Suggested HGNC gene annotations:</strong> MBL2 (<a href="https://bioregistry.io/HGNC:6922" target="_blank" rel="noopener noreferrer">HGNC:6922</a>), C5 (<a href="https://bioregistry.io/HGNC:1331" target="_blank" rel="noopener noreferrer">HGNC:1331</a>), CFH (<a href="https://bioregistry.io/HGNC:4883" target="_blank" rel="noopener noreferrer">HGNC:4883</a>), C2 (<a href="https://bioregistry.io/HGNC:1248" target="_blank" rel="noopener noreferrer">HGNC:1248</a>).</p>
+<h3>Finding 8 — Major predisposing/risk factors (F008)</h3>
+<p>Repeatedly identified predisposing conditions include otitis/sinusitis (ear focus 30% in the Danish cohort; otitis or sinusitis 22% in those ≥80 y), pneumonia (16%), diabetes mellitus (17%), and advanced age. In patients ≥80 y, <em>S. pneumoniae</em> caused 66% of community-acquired bacterial meningitis and case-fatality reached 50% (<a href="https://pubmed.ncbi.nlm.nih.gov/35352336/">PMID: 35352336</a>). <strong>Asplenia/functional hyposplenism</strong> (sickle cell disease, post-splenectomy) confers markedly increased risk of overwhelming pneumococcal infection because the spleen clears encapsulated bacteria; sickle cell disease, Hodgkin's disease, transplant, myeloma, and nephrotic syndrome are documented high-risk groups (<a href="https://pubmed.ncbi.nlm.nih.gov/11577367/">PMID: 11577367</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/3070364/">PMID: 3070364</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/7025158/">PMID: 7025158</a>). Neurosurgical procedures and CSF leaks predispose to (often nosocomial) meningitis (<a href="https://pubmed.ncbi.nlm.nih.gov/36690945/">PMID: 36690945</a>).</p>
+<blockquote>
+<p><em>"Virtually every patient without spleen has a significantly increased risk of severe postsplenectomy infection (mostly caused by Streptococcus pneumoniae)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/11577367/">PMID: 11577367</a></p>
+</blockquote>
+<h3>Finding 9 — Acute presentation; the classic triad is often incomplete (F009)</h3>
+<p>Onset is acute/fulminant. The classic triad (fever, neck stiffness, altered consciousness) is frequently incomplete: in a Danish pre-hospital study of 209 community-acquired bacterial meningitis patients, <strong>only 3% reported all 3 triad symptoms while 85% had ≥1</strong>; the most common symptoms were altered mental state (58%) and fever (57%), with neck stiffness less common (9%) (<a href="https://pubmed.ncbi.nlm.nih.gov/38052853/">PMID: 38052853</a>). In the Danish pneumococcal meningitis cohort specifically, <strong>fever occurred in 93%, altered mental status in 94%, back/neck rigidity in 57%, headache in 41%, and convulsion in 11%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/16253143/">PMID: 16253143</a>).</p>
+<blockquote>
+<p><em>"Most patients (85%) reported at least 1 of the 3 symptoms in the classical triad of meningitis, while 3% reported all 3"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38052853/">PMID: 38052853</a></p>
+</blockquote>
+<h3>Finding 10 — Rodent models recapitulate disease and confirm complement/inflammation as drivers (F010)</h3>
+<p>Primary models are mouse and rat, induced by direct intracisternal/intracerebral inoculation of <em>S. pneumoniae</em> (e.g., strain D39), plus a bacteremia-derived meningitis mouse model; rabbit models were historically important (<a href="https://pubmed.ncbi.nlm.nih.gov/6397452/">PMID: 6397452</a>). These models reproduce CSF pleocytosis, cerebral edema, BBB disruption, neuronal apoptosis, and hearing loss. Mechanistic interventions: C5aR-deficient mice and anti-C5 mAb reduced CSF leukocytes, brain damage, and death (<a href="https://pubmed.ncbi.nlm.nih.gov/21926466/">PMID: 21926466</a>); <em>Cfh</em> knockout worsened outcome (<a href="https://pubmed.ncbi.nlm.nih.gov/31883521/">PMID: 31883521</a>); pneumolysin-deficient mutants were less virulent (<a href="https://pubmed.ncbi.nlm.nih.gov/12379738/">PMID: 12379738</a>); MRP8/14 augmented inflammation via NF-κB/TNF-α/IL-6 (<a href="https://pubmed.ncbi.nlm.nih.gov/31049785/">PMID: 31049785</a>); and border-associated macrophage depletion worsened disease, an effect abolished with a pneumolysin-deficient mutant (<a href="https://pubmed.ncbi.nlm.nih.gov/40988032/">PMID: 40988032</a>).</p>
+<blockquote>
+<p><em>"C5a receptor-deficient mice with pneumococcal meningitis had lower CSF wbc counts and decreased brain damage compared with WT mice. Adjuvant treatment with C5-specific monoclonal antibodies prevented death in all mice with pneumococcal meningitis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21926466/">PMID: 21926466</a></p>
+</blockquote>
+<h3>Finding 11 — Diagnosis rests on CSF analysis; CSF lactate is highly accurate; ESCMID guideline governs management (F011)</h3>
+<p>Lumbar puncture with CSF analysis is the principal diagnostic contributor; clinical features and blood parameters have limited accuracy (<a href="https://pubmed.ncbi.nlm.nih.gov/28478238/">PMID: 28478238</a>). Typical bacterial CSF shows <strong>neutrophilic pleocytosis, elevated protein, low glucose (low CSF:serum glucose ratio), and positive Gram stain and culture</strong>. CSF lactate differentiates bacterial from aseptic meningitis with <strong>pooled sensitivity 0.93 (95% CI 0.89–0.96) and specificity 0.96 (95% CI 0.93–0.98)</strong>, diagnostic OR 313, optimal cutoff ~35 mg/dL; sensitivity falls to 0.49 after antibiotic pretreatment (<a href="https://pubmed.ncbi.nlm.nih.gov/21382412/">PMID: 21382412</a>). Multiplex PCR (BioFire ME panel) increases yield: among 368 culture-negative CSF specimens it detected a pathogen in 24.5%, predominantly <em>S. pneumoniae</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37784010/">PMID: 37784010</a>). The <strong>ESCMID guideline</strong> advises starting empiric treatment within one hour of arrival, with dexamethasone as the only proven adjunct, started with antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/28478238/">PMID: 28478238</a>).</p>
+<blockquote>
+<p><em>"The pooled test characteristics of CSF lactate were sensitivity 0.93 (95% CI: 0.89-0.96), specificity 0.96 (95% CI: 0.93-0.98), likelihood ratio positive 22.9"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21382412/">PMID: 21382412</a></p>
+<p><em>"cerebrospinal fluid analysis remains the principal contributor to the final diagnosis. The ESCMID guideline advises to start empiric treatment within one hour of arrival"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28478238/">PMID: 28478238</a></p>
+</blockquote>
+<h3>Finding 12 — Downstream brain injury: MMPs, ROS, and cytokines produce hippocampal apoptosis and cortical necrosis (F012)</h3>
+<p>The neuropathological signature of experimental pneumococcal meningitis is <strong>apoptosis in the hippocampal dentate gyrus/subgranular zone plus ischemic necrosis in the cortex</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/25890041/">PMID: 25890041</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30131074/">PMID: 30131074</a>). Matrix metalloproteinases (especially <strong>MMP-9</strong>) mediate BBB breakdown, neutrophil infiltration, and cytokine signaling; MMP inhibitors (BB-94/batimastat, RS-130830, Trocade) reduce cortical necrosis, CSF IL-1β/IL-10, weight loss, and CSF leukocytes (<a href="https://pubmed.ncbi.nlm.nih.gov/25890041/">PMID: 25890041</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31172218/">PMID: 31172218</a>). <strong>Reactive oxygen species (ROS)</strong> cause severe neuronal DNA damage and are a major cause of cell death; antioxidant adjuvants (e.g., vitamin B6 modulating APE1) reduce AIF and glutamate (<a href="https://pubmed.ncbi.nlm.nih.gov/29233148/">PMID: 29233148</a>). Combined non-bacteriolytic antibiotic (daptomycin) + MMP inhibition reduced hippocampal apoptosis and cortical necrosis, lowered TNF-α/IL-1β/IL-6/IL-10, and preserved learning, memory, and hearing in infant rats — where dexamethasone has no proven benefit (<a href="https://pubmed.ncbi.nlm.nih.gov/30131074/">PMID: 30131074</a>). Fluoxetine also reduced hippocampal apoptosis (<a href="https://pubmed.ncbi.nlm.nih.gov/25839149/">PMID: 25839149</a>).</p>
+<blockquote>
+<p><em>"Neuropathological correlates of these sequelae are apoptosis in the hippocampal dentate gyrus and necrosis in the cortex. Matrix metalloproteinases (MMPs) play a critical role in the pathophysiology of PM"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25890041/">PMID: 25890041</a></p>
+<p><em>"The production of reactive oxygen species (ROS) during pneumococcal meningitis (PM) leads to severe DNA damage in the neurons and is the major cause of cell death during infection"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29233148/">PMID: 29233148</a></p>
+</blockquote>
+<h3>Finding 13 — Etiology: a single human-restricted encapsulated commensal with defined virulence factors (F013)</h3>
+<p>The sole causal agent is <em>Streptococcus pneumoniae</em> (NCBITaxon:1313), a <strong>Gram-positive, alpha-hemolytic, lancet-shaped diplococcus</strong> that colonizes the human nasopharynx as a commensal and occasionally invades (<a href="https://pubmed.ncbi.nlm.nih.gov/18981135/">PMID: 18981135</a>). Key virulence factors: the <strong>polysaccharide capsule</strong> (antiphagocytic; basis of &gt;90 serotypes and of conjugate/polysaccharide vaccines), <strong>pneumolysin</strong> (cytolysin/neurotoxin), <strong>neuraminidases (NanA)</strong>, <strong>hyaluronidase</strong>, and <strong>choline-binding protein A (CbpA/PspC)</strong>, which recruits complement factor H for immune evasion. CbpA binds <strong>human</strong> factor H but not mouse or other tested animal FH, and deleting the FH-binding domain did not alter virulence in mice — evidence that <em>S. pneumoniae</em> is adapted specifically to the human host (<a href="https://pubmed.ncbi.nlm.nih.gov/18981135/">PMID: 18981135</a>). Meningitis serotype distributions shift with vaccination (pre-PCV common types 3, 14, 19F, 23F, 6B; emerging non-vaccine types 19A, 15B, 35B, 24).</p>
+<blockquote>
+<p><em>"CbpA binds to human FH, but not to the FH proteins of mouse and other animal species tested to date"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18981135/">PMID: 18981135</a></p>
+<p><em>"Pneumolysin, neuraminidases A and B, and hyaluronidase are virulence factors of Streptococcus pneumoniae that appear to be involved in the pathogenesis of meningitis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12379738/">PMID: 12379738</a></p>
+</blockquote>
+<h3>Finding 14 — Modifiable risk factors and anatomical defects drive risk and recurrence; prevention combines vaccination and prophylaxis (F014)</h3>
+<p><strong>HIV</strong> is a dominant modifiable risk factor: bacteremic pneumococcal disease is <strong>~41-fold higher</strong> in HIV-infected individuals (<a href="https://pubmed.ncbi.nlm.nih.gov/10501310/">PMID: 10501310</a>); HIV also increases colonization (adjusted OR 1.6) and invasive pneumococcal pneumonia (adjusted OR 3.2) (<a href="https://pubmed.ncbi.nlm.nih.gov/24907383/">PMID: 24907383</a>). Other risk factors include cigarette smoking, dementia, seizure disorders, congestive heart failure, COPD, institutionalization/crowding, and alcohol (<a href="https://pubmed.ncbi.nlm.nih.gov/10501310/">PMID: 10501310</a>). Respiratory virus coinfection (influenza, adenovirus, rhinovirus) increases nasopharyngeal pneumococcal density, promoting invasion (<a href="https://pubmed.ncbi.nlm.nih.gov/24907383/">PMID: 24907383</a>). <strong>Recurrent</strong> pneumococcal meningitis is characteristically caused by a persistent CSF leak or anatomical defect (e.g., temporal-bone/Mondini dysplasia, dural defect, cochlear implant); identifying and surgically correcting the leak prevents recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/966915/">PMID: 966915</a>). Prevention: PPV23 reduced adult pneumococcal mortality especially in those ≥65 y (<a href="https://pubmed.ncbi.nlm.nih.gov/21387956/">PMID: 21387956</a>); conjugate vaccines reduce meningitis and carriage (<a href="https://pubmed.ncbi.nlm.nih.gov/39864526/">PMID: 39864526</a>); asplenic/immunocompromised patients receive vaccination plus antibiotic prophylaxis.</p>
+<blockquote>
+<p><em>"The rate of pneumococcal bacteremic pneumonia is higher in blacks than in whites and 41 times higher in those with human immunodeficiency virus (HIV) infection"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10501310/">PMID: 10501310</a></p>
+<p><em>"any abnormality which predisposes a patient to a recurrence of this serious disease, must be identified and corrected"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/966915/">PMID: 966915</a></p>
+</blockquote>
+<hr />
+<h2>Report by Template Section</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Pneumococcal meningitis is an acute purulent (bacterial) infection of the leptomeninges and CSF caused by <em>Streptococcus pneumoniae</em> (the pneumococcus). It is the most common and most lethal cause of community-acquired bacterial meningitis in adults and a leading cause in children. The information is aggregated at the disease level from clinical cohorts, national surveillance registries, and GBD modeling — not primarily from individual-patient EHR resources, although national cohort studies (Denmark, Netherlands, France) contribute patient-level data.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006913" target="_blank" rel="noopener noreferrer">MONDO:0006913</a>
+- <strong>MeSH:</strong> <em>Meningitis, Pneumococcal</em> (D008586)
+- <strong>ICD-10:</strong> G00.1 (Pneumococcal meningitis)
+- <strong>ICD-11:</strong> 1D01.0 (Bacterial meningitis) with <em>S. pneumoniae</em> as agent
+- <strong>SNOMED CT:</strong> Pneumococcal meningitis (disorder)
+- OMIM/Orphanet: Not a Mendelian disorder; no distinct OMIM entry (host susceptibility loci exist, e.g., complement genes).</p>
+<p><strong>Synonyms:</strong> Pneumococcal meningitis; <em>Streptococcus pneumoniae</em> meningitis; SPM; meningitis due to pneumococcus.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor:</strong> A single infectious agent — <em>Streptococcus pneumoniae</em> (F013). This is fundamentally an infectious, not genetic, disease.</p>
+<p><strong>Genetic risk factors (host):</strong> Polygenic/multifactorial, concentrated in complement/innate-immune genes — <em>MBL2</em> (OR 8.21 for 0/0 genotype), <em>C5</em> (rs17611), <em>CFH</em> (rs6677604), and classical-pathway <em>C2</em> deficiency (F007).</p>
+<p><strong>Environmental/modifiable risk factors (F008, F014):</strong> extremes of age; contiguous foci (otitis media, sinusitis, mastoiditis) and distant foci (pneumonia, endocarditis); asplenia/hyposplenism; diabetes mellitus; HIV (~41× risk); smoking; alcohol; COPD; CHF; institutionalization/crowding; respiratory viral coinfection; CSF leak/skull-base defects; neurosurgery/cochlear implants.</p>
+<p><strong>Protective factors:</strong> Vaccination (PCV, PPV23); intact splenic function; the IgG2 allotype G2M(n) is protective against severe infection in C2 deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/16785571/">PMID: 16785571</a>); in one influenza-SARI study, completed PCV schedule in children &lt;5 y was associated with decreased hospitalization risk (<a href="https://pubmed.ncbi.nlm.nih.gov/27720448/">PMID: 27720448</a>).</p>
+<p><strong>Gene–environment interactions:</strong> Complement-gene deficiency (MBL2/C2/CFH) combines with encapsulated-bacterium exposure and asplenia to amplify invasive risk; HIV/viral coinfection raise colonization density that intersects with host complement capacity to determine invasion.</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency (PM cohorts)</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom/sign</td>
+<td>93%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+</tr>
+<tr>
+<td>Altered mental status</td>
+<td>Sign</td>
+<td>94%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011446" target="_blank" rel="noopener noreferrer">HP:0011446</a> / <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" rel="noopener noreferrer">HP:0001259</a> (coma)</td>
+</tr>
+<tr>
+<td>Neck stiffness / nuchal rigidity</td>
+<td>Sign</td>
+<td>57%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031179" target="_blank" rel="noopener noreferrer">HP:0031179</a></td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td>41%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+</tr>
+<tr>
+<td>Seizure/convulsion</td>
+<td>Sign</td>
+<td>11%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+</tr>
+<tr>
+<td>Sensorineural hearing loss (sequela)</td>
+<td>Manifestation</td>
+<td>up to 30% of survivors</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+</tr>
+<tr>
+<td>Cerebral edema</td>
+<td>Manifestation</td>
+<td>~29% (adults)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002181" target="_blank" rel="noopener noreferrer">HP:0002181</a></td>
+</tr>
+<tr>
+<td>Hydrocephalus</td>
+<td>Manifestation</td>
+<td>~16%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" rel="noopener noreferrer">HP:0000238</a></td>
+</tr>
+<tr>
+<td>Cognitive/learning impairment</td>
+<td>Sequela</td>
+<td>variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Onset is <strong>acute</strong> (childhood peak, but all ages). Severity is <strong>severe</strong>. The classic triad is usually incomplete (only 3% have all three; 85% have ≥1). Quality-of-life impact is dominated by hearing loss (requiring hearing aids/cochlear implants) and cognitive/learning disability, particularly detrimental in infants and children (F006, F009, F012).</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p>No causal (Mendelian) gene. <strong>Host susceptibility/modifier genes</strong> (F007): <em>MBL2</em> (<a href="https://bioregistry.io/HGNC:6922" target="_blank" rel="noopener noreferrer">HGNC:6922</a>), <em>C5</em> (<a href="https://bioregistry.io/HGNC:1331" target="_blank" rel="noopener noreferrer">HGNC:1331</a>; rs17611 nonsynonymous, associated with outcome), <em>CFH</em> (<a href="https://bioregistry.io/HGNC:4883" target="_blank" rel="noopener noreferrer">HGNC:4883</a>; rs6677604), <em>C2</em> (<a href="https://bioregistry.io/HGNC:1248" target="_blank" rel="noopener noreferrer">HGNC:1248</a>; classical-pathway deficiency). <em>MBL2</em> variants are loss-of-function for lectin-pathway activation; the <em>CFH</em> variant lowers CSF factor H. Variant origin is <strong>germline</strong>; these are common population polymorphisms/deficiency alleles, not somatic. No epigenetic disease-defining signature or chromosomal abnormality is established for the host. <strong>Pathogen genetics</strong> (capsule locus determining &gt;90 serotypes; <em>ply</em>, <em>nanA</em>, <em>cbpA/pspC</em>) are the operative "molecular" determinants of virulence (F003, F013).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Infectious agent:</strong> <em>S. pneumoniae</em> (NCBITaxon:1313) — the necessary and sufficient cause (F013). <strong>Lifestyle:</strong> smoking, alcohol, crowding/institutional living (F014). <strong>Environmental/host exposures:</strong> respiratory viral coinfection raising nasopharyngeal density; HIV; asplenia; anatomical CSF leak (F008, F014). No classical toxin/pollutant etiology.</p>
+<h3>6. Mechanism / Pathophysiology — Ordered Causal Chain</h3>
+<pre><code>1.  S. pneumoniae colonizes the human nasopharynx (capsule + adhesins)         [F002, F013]
+│  leads to
+2.  Capsule/CbpA-mediated complement evasion permits mucosal + epithelial
+    invasion and bloodstream survival (bacteremia)                            [F013]
+│  leads to
+3.  Circulating pneumococci + inflammatory mediators disrupt the BBB and
+    the bacteria CROSS into the CSF                                           [F002]
+│  leads to
+4.  Bacteria multiply FREELY in CSF (complement/antibody-poor compartment)    [F002]
+│  leads to
+5.  Pneumolysin release → pore formation, Ca2+ influx, mitochondrial AIF
+    release, astrocytic glutamate/NMDA excitotoxicity, p38 MAPK activation    [F003]
+│  in parallel
+6.  Complement (C5a/C5aR) + microglial/macrophage activation → neutrophil
+    influx and massive CSF inflammation                                       [F002, F007, F010]
+│  leads to
+7.  Downstream effectors: MMP-9 → BBB breakdown; ROS → neuronal DNA damage;
+    cytokines TNF-α/IL-1β/IL-6                                                [F012]
+│  branches to
+8a. Hippocampal dentate-gyrus APOPTOSIS      8b. Cortical ischemic NECROSIS   [F012]
+    + cerebral edema, hydrocephalus, cerebrovascular (vasculitic) injury      [F002, F006]
+│  leads to
+9.  Clinical manifestation: death (~20–30%) OR survival with sequelae
+    (~40%), predominantly sensorineural hearing loss, cognitive/learning
+    impairment, focal neurological deficits                                   [F006, F012]
+</code></pre>
+<p><strong>Molecular pathways/processes:</strong> complement cascade (C5a–C5aR), NF-κB → TNF-α/IL-6 (MRP8/14 amplified), p38 MAPK, NMDA-receptor glutamate excitotoxicity, MMP proteolysis, ROS/oxidative DNA damage, caspase-independent (AIF) and caspase-dependent apoptosis. <strong>Suggested GO terms:</strong> inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), complement activation (<a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a>), neutrophil chemotaxis (<a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" rel="noopener noreferrer">GO:0030593</a>), apoptotic process (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>), response to oxidative stress (<a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a>), extracellular matrix disassembly (<a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" rel="noopener noreferrer">GO:0022617</a>). <strong>Suggested CL terms:</strong> neuron (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), microglial cell (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>), astrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a>), neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), brain microvascular endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_1001568" target="_blank" rel="noopener noreferrer">CL:1001568</a>). <strong>CHEBI:</strong> glutamate (<a href="http://purl.obolibrary.org/obo/CHEBI_14321" target="_blank" rel="noopener noreferrer">CHEBI:14321</a>), calcium(2+) (<a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a>), reactive oxygen species (<a href="http://purl.obolibrary.org/obo/CHEBI_26523" target="_blank" rel="noopener noreferrer">CHEBI:26523</a>), dexamethasone (<a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" rel="noopener noreferrer">CHEBI:41879</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ/site:</strong> meninges/leptomeninges (<a href="http://purl.obolibrary.org/obo/UBERON_0002361" target="_blank" rel="noopener noreferrer">UBERON:0002361</a>) and CSF (<a href="http://purl.obolibrary.org/obo/UBERON_0001359" target="_blank" rel="noopener noreferrer">UBERON:0001359</a>) of the brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>); central nervous system (<a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" rel="noopener noreferrer">UBERON:0001017</a>).</li>
+<li><strong>Secondary:</strong> cochlea/inner ear (<a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a>) → hearing loss; cerebral cortex (<a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a>) → necrosis; hippocampal dentate gyrus (<a href="http://purl.obolibrary.org/obo/UBERON_0001885" target="_blank" rel="noopener noreferrer">UBERON:0001885</a>) → apoptosis; cerebral ventricles → hydrocephalus; cerebral vasculature → vasculitis/infarction.</li>
+<li><strong>Body systems:</strong> nervous system (primary); also respiratory (portal of entry/pneumonia), auditory, cardiovascular (cerebrovascular complications, endocarditis foci).</li>
+<li><strong>Tissue/cell level:</strong> nervous tissue (neurons, astrocytes, microglia), leptomeningeal epithelium, brain microvascular endothelium; infiltrating neutrophils and macrophages.</li>
+<li><strong>Subcellular (GO CC):</strong> mitochondrion (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>; pneumolysin target), plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>; pore formation), nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>; ROS DNA damage).</li>
+<li><strong>Localization/lateralization:</strong> typically <strong>bilateral/diffuse</strong> meningeal involvement; focal cerebrovascular complications may be unilateral/asymmetric.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> acute to fulminant (hours to 1–2 days); can affect any age, with childhood (especially &lt;5 y) and elderly (≥65–80 y) peaks. <strong>Course:</strong> rapidly progressive if untreated; a medical emergency requiring treatment within 1 hour. <strong>Duration:</strong> acute, self-limited if treated (10–21 days IV antibiotics), but long-term/permanent sequelae in survivors. <strong>Critical period:</strong> the window before/at first antibiotic dose for dexamethasone efficacy; delayed cerebral vasculopathy can appear 1–8 days after completing dexamethasone (<a href="https://pubmed.ncbi.nlm.nih.gov/32531430/">PMID: 32531430</a>). <strong>Recurrence:</strong> episodic recurrence signals an anatomical CSF leak (F014).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology:</strong> Leading bacterial-meningitis pathogen for child mortality/DALYs; burden concentrated in &lt;5 y; declining with PCV rollout (F001, F005). In the elderly (≥80 y), <em>S. pneumoniae</em> causes 66% of community-acquired bacterial meningitis with case-fatality up to 50% (F008). <strong>Inheritance:</strong> Not applicable (infectious disease); host susceptibility is <strong>multifactorial/polygenic</strong> (complement genes). <strong>Penetrance/expressivity/anticipation:</strong> not applicable. <strong>Geographic distribution:</strong> worldwide; highest burden in low-income, low-vaccine-coverage settings; serotype distribution varies regionally and with vaccine era. <strong>Sex/age:</strong> slight male predominance reported in some pediatric series; bimodal age distribution (young children + elderly).</p>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>CSF analysis (principal):</strong> neutrophilic pleocytosis, elevated protein, low glucose/low CSF:serum glucose ratio, positive Gram stain (Gram-positive diplococci) and culture (F011). LOINC panels apply (CSF WBC, glucose, protein, lactate, culture).</li>
+<li><strong>CSF lactate:</strong> sensitivity 0.93 / specificity 0.96 (cutoff ~35 mg/dL); falls to 0.49 after antibiotics (F011).</li>
+<li><strong>Molecular:</strong> multiplex PCR (BioFire ME panel) increases yield in culture-negative CSF (24.5% positivity) (F011); pneumococcal antigen detection.</li>
+<li><strong>Blood:</strong> cultures, CBC, inflammatory markers.</li>
+<li><strong>Imaging:</strong> CT/MRI for complications (edema, hydrocephalus, infarction, abscess) and to identify skull-base/CSF-leak defects in recurrence.</li>
+<li><strong>Clinical criteria:</strong> ESCMID guideline — empiric treatment within 1 hour; differential diagnosis includes meningococcal, <em>H. influenzae</em>, <em>Listeria</em>, staphylococcal, tuberculous, and viral/aseptic meningitis (distinguished by CSF profile, lactate, Gram stain, PCR).</li>
+<li><strong>Genetic/omics testing:</strong> not routine; complement function testing (CH50/AH50, MBL levels) may be indicated in recurrent/invasive disease.</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Mortality:</strong> ~21–24% in-hospital overall; adults 27% vs children 2%; up to 50% in the very elderly (F006, F008).</li>
+<li><strong>Sequelae:</strong> ~40% of survivors; hearing loss the most common (up to 30%); also cognitive/learning impairment, focal deficits, epilepsy, hydrocephalus (F006, F012).</li>
+<li><strong>Prognostic factors:</strong> age (adult/elderly worse), coma, shock, respiratory distress, CSF findings (high protein, very low glucose), delayed treatment, bacterial load, complement genotype (CFH G allele → higher mortality) (F006, F007, F008).</li>
+<li><strong>Complications:</strong> cerebral edema, hydrocephalus, cerebrovascular/delayed vasculopathy, seizures, sepsis (F006).</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Empiric antibiotics:</strong> third-generation cephalosporin (ceftriaxone/cefotaxime) <strong>plus vancomycin</strong> (to cover penicillin/cephalosporin non-susceptibility), started within 1 hour (F005, F011). Vancomycin susceptibility is preserved even where penicillin non-susceptibility is high (F005). NCIT: Ceftriaxone (C548), Vancomycin (C1276).</li>
+<li><strong>Adjunctive dexamethasone</strong> (NCIT: C557): 0.15 mg/kg q6h ×4 days, before/with first antibiotic; reduces unfavorable outcome 25%→15% in adults; timing-critical; unproven benefit in children (F004, F012).</li>
+<li><strong>Supportive/ICU care:</strong> management of raised ICP, seizures, cerebral edema; hearing assessment and rehabilitation (cochlear implants).</li>
+<li><strong>Experimental/adjunctive (preclinical):</strong> anti-C5/C5aR agents (prevented death in mice), MMP inhibitors, non-bacteriolytic antibiotics (daptomycin), antioxidants (vitamin B6/APE1), fluoxetine — several preserved cognition/hearing in infant-rat models where dexamethasone fails (F007, F010, F012). These are not yet standard clinical therapy.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary — Immunization:</strong> pneumococcal conjugate vaccines (PCV10/PCV13/PCV20) reduce meningitis 48–74% in &lt;5 y and reduce carriage; PPV23 reduces adult mortality in ≥65 y (F005, F014). Ongoing serotype replacement and rising resistance motivate higher-valency vaccines (PCV20) and surveillance.</li>
+<li><strong>Secondary:</strong> rapid recognition/treatment; complement/immune workup after invasive disease.</li>
+<li><strong>Tertiary:</strong> correction of CSF leaks to prevent recurrence; hearing screening and rehabilitation; ESCMID recommends post-recovery pneumococcal vaccination (F011, F014).</li>
+<li><strong>Prophylaxis:</strong> antibiotic prophylaxis (penicillin) plus vaccination in asplenic/sickle-cell/immunocompromised patients (F008, F014).</li>
+<li><strong>Public health/behavioral:</strong> smoking cessation, HIV control/ART, reduce crowding.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p><em>S. pneumoniae</em> is <strong>human-restricted/host-adapted</strong> (CbpA binds human but not animal factor H; deleting the FH-binding domain did not alter virulence in mice — F013). Natural pneumococcal meningitis in companion animals/wildlife is not a recognized entity; the disease is essentially human. Animal involvement is limited to experimental infection (see Section 15). Zoonotic transmission is not a feature. <strong>NCBI Taxon:</strong> <em>Streptococcus pneumoniae</em> 1313; host <em>Homo sapiens</em> 9606; experimental hosts <em>Mus musculus</em> 10090, <em>Rattus norvegicus</em> 10116, <em>Oryctolagus cuniculus</em> 9986.</p>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse</strong> (intracisternal/intracerebral or bacteremia-derived; strain D39): recapitulates pleocytosis, edema, BBB disruption, neuronal apoptosis, hearing loss; supports genetic dissection (<em>Cfh</em>⁻/⁻, <em>C5ar</em>⁻/⁻, <em>Bdnf</em> conditional KO) and anti-C5 therapy (F007, F010) — <a href="https://pubmed.ncbi.nlm.nih.gov/21926466/">PMID: 21926466</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31883521/">PMID: 31883521</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32676082/">PMID: 32676082</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40988032/">PMID: 40988032</a>.</li>
+<li><strong>Infant rat</strong> (intracisternal): the standard model for hippocampal apoptosis + cortical necrosis and for testing adjuvant neuroprotection (MMP inhibitors, daptomycin, fluoxetine, vitamin B6) (F012) — <a href="https://pubmed.ncbi.nlm.nih.gov/30131074/">PMID: 30131074</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25890041/">PMID: 25890041</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25839149/">PMID: 25839149</a>.</li>
+<li><strong>Rabbit:</strong> historically important for BBB/CSF pathophysiology (F010) — <a href="https://pubmed.ncbi.nlm.nih.gov/6397452/">PMID: 6397452</a>.</li>
+<li><strong>In vitro:</strong> SH-SY5Y neuroblastoma, hippocampal organotypic cultures, organ-of-Corti explants, human brain microvascular endothelial cells (F003).</li>
+</ul>
+<p><strong>Phenotype recapitulation:</strong> strong for CSF inflammation, edema, the apoptosis/necrosis dichotomy, and hearing loss. <strong>Limitations:</strong> host restriction means mouse/rat complement (factor H) does not bind CbpA, so some human-specific evasion mechanisms are not modeled; dexamethasone's differential efficacy (adults vs infants) highlights translational gaps.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The disease is best understood as a <strong>two-hit, two-arm process</strong>. The first hit is <em>pathogen-intrinsic</em>: pneumolysin directly kills neurons (mitochondrial AIF, Ca²⁺/pore, glutamate excitotoxicity, p38 MAPK). The second, parallel arm is <em>host-inflammatory</em>: complement (C5a–C5aR) and microglial/macrophage activation recruit neutrophils, whose products (MMP-9, ROS, cytokines) break the BBB and injure brain tissue. These two arms converge on a stereotyped neuropathology — <strong>dentate-gyrus apoptosis + cortical necrosis</strong> — that is the substrate for the two dominant clinical outcomes (death; hearing loss/cognitive impairment).</p>
+<p>This model explains the therapeutic landscape: antibiotics kill bacteria but, if bacteriolytic, release more pneumolysin and cell-wall inflammogens; dexamethasone dampens the host-inflammatory arm (effective in adults, timing-critical); and the most promising experimental adjuvants (anti-C5/C5aR, MMP inhibitors, antioxidants, non-bacteriolytic antibiotics) each target a specific downstream node. It also explains host genetics: complement-gene variants (MBL2/C2 upstream; C5/CFH downstream) tune both susceptibility (opsonization/clearance) and injury (C5a-driven neutrophilic inflammation).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Arm</th>
+<th>Key mediators</th>
+<th>Upstream/downstream</th>
+<th>Intervention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pathogen-direct</td>
+<td>Pneumolysin, Ca²⁺, glutamate, AIF</td>
+<td>Upstream toxin</td>
+<td>Non-bacteriolytic abx; NMDA antagonists (preclinical)</td>
+</tr>
+<tr>
+<td>Host-inflammatory</td>
+<td>C5a/C5aR, NF-κB, TNF-α/IL-1β/IL-6</td>
+<td>Upstream inflammation</td>
+<td>Dexamethasone; anti-C5 (preclinical)</td>
+</tr>
+<tr>
+<td>Tissue-effector</td>
+<td>MMP-9, ROS</td>
+<td>Downstream injury</td>
+<td>MMP inhibitors, antioxidants (preclinical)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Relation to findings</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42071803/">42071803</a></td>
+<td>GBD 2021 SPM burden</td>
+<td>Supports F001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42752455/">42752455</a></td>
+<td>Leading child pathogen, G20</td>
+<td>Supports F001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21734248/">21734248</a></td>
+<td>Pathogenesis review</td>
+<td>Supports F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33760879/">33760879</a></td>
+<td>Ply/RrgA–β-actin</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17562768/">17562768</a></td>
+<td>Ply mitochondrial apoptosis</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23785278/">23785278</a></td>
+<td>Ply glutamate excitotoxicity</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12379738/">12379738</a></td>
+<td>Ply-deficient avirulence; virulence factors</td>
+<td>Supports F003, F013</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19386456/">19386456</a></td>
+<td>Dexamethasone 25→15%</td>
+<td>Supports F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40113367/">40113367</a></td>
+<td>Pediatric dexamethasone cohort</td>
+<td>Supports F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39864526/">39864526</a></td>
+<td>PSERENADE PCV impact</td>
+<td>Supports F005, F014</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41223711/">41223711</a></td>
+<td>Serotype replacement Mexico</td>
+<td>Supports F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34219043/">34219043</a></td>
+<td>Penicillin non-susceptibility</td>
+<td>Supports F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16253143/">16253143</a></td>
+<td>Danish cohort mortality/symptoms</td>
+<td>Supports F006, F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12690042/">12690042</a></td>
+<td>Adult complications</td>
+<td>Supports F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28460251/">28460251</a></td>
+<td>Hearing loss leading sequela</td>
+<td>Supports F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23741476/">23741476</a></td>
+<td>MBL2 susceptibility</td>
+<td>Supports F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21926466/">21926466</a></td>
+<td>C5/C5aR outcome + therapy</td>
+<td>Supports F007, F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31883521/">31883521</a></td>
+<td>CFH mortality</td>
+<td>Supports F007, F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11577367/">11577367</a></td>
+<td>Asplenia risk</td>
+<td>Supports F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35352336/">35352336</a></td>
+<td>Elderly predisposition</td>
+<td>Supports F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38052853/">38052853</a></td>
+<td>Incomplete triad</td>
+<td>Supports F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40988032/">40988032</a></td>
+<td>BAM depletion/Ply model</td>
+<td>Supports F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21382412/">21382412</a></td>
+<td>CSF lactate accuracy</td>
+<td>Supports F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28478238/">28478238</a></td>
+<td>ESCMID guideline</td>
+<td>Supports F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37784010/">37784010</a></td>
+<td>Multiplex PCR yield</td>
+<td>Supports F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30131074/">30131074</a></td>
+<td>Daptomycin+MMPi; sequelae</td>
+<td>Supports F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25890041/">25890041</a></td>
+<td>MMP/RS-130830; apoptosis/necrosis</td>
+<td>Supports F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29233148/">29233148</a></td>
+<td>ROS/APE1/vitamin B6</td>
+<td>Supports F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18981135/">18981135</a></td>
+<td>CbpA human-restricted FH binding</td>
+<td>Supports F013</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10501310/">10501310</a></td>
+<td>HIV 41× risk</td>
+<td>Supports F014</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24907383/">24907383</a></td>
+<td>Viral coinfection/density</td>
+<td>Supports F014</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/966915/">966915</a></td>
+<td>CSF-leak recurrence</td>
+<td>Supports F014</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Human vs model translation.</strong> <em>S. pneumoniae</em> is human-restricted (host-specific factor H binding), so rodent models cannot fully capture complement-evasion biology; the sharpest example is dexamethasone's proven adult benefit but unproven pediatric benefit.</li>
+<li><strong>No human clinical trials for the most promising adjuvants.</strong> Anti-C5/C5aR, MMP inhibitors, antioxidants, and non-bacteriolytic antibiotics are supported only by animal/in-vitro data; timing of MMP inhibition is critical because MMPs also aid neuroregeneration.</li>
+<li><strong>Host-genetics evidence is modest.</strong> MBL2/C5/CFH associations derive from candidate-gene studies with wide confidence intervals (e.g., MBL2 OR 8.21, 95% CI 1.05–64.1); no large GWAS of pneumococcal meningitis susceptibility was identified.</li>
+<li><strong>Serotype/resistance dynamics are moving targets.</strong> Replacement serotypes (19A, 15B, 35B) and rising cephalosporin resistance under meningitis breakpoints threaten current empiric regimens and vaccine coverage.</li>
+<li><strong>Sequelae quantification</strong> relies on heterogeneous cohorts; standardized long-term (especially neurocognitive and audiologic) follow-up data are limited.</li>
+<li><strong>Quality-of-life instruments</strong> (EQ-5D/SF-36/PROMIS) specific to pneumococcal meningitis survivors were not identified in the reviewed literature.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Clinical translation of complement-targeted adjuvants:</strong> design a phase 2 trial of a C5a/C5aR antagonist (sparing membrane-attack-complex to avoid increasing meningococcal susceptibility) as adjunct to standard therapy, stratified by <em>CFH</em>/<em>C5</em> genotype.</li>
+<li><strong>Pediatric adjuvant trial:</strong> evaluate non-bacteriolytic antibiotic (daptomycin) ± MMP inhibition in children, where dexamethasone lacks proven benefit, with hearing and neurocognition as primary endpoints.</li>
+<li><strong>Host-genetics GWAS/meta-analysis:</strong> pool national cohorts (Denmark, Netherlands, France) for a properly powered GWAS of susceptibility and outcome, validating MBL2/C5/CFH and discovering new loci.</li>
+<li><strong>Surveillance integration:</strong> couple PSERENADE-style serotype/resistance surveillance with genomic typing to guide PCV20+ formulation and empiric-therapy updates.</li>
+<li><strong>Biomarker development:</strong> prospectively validate CSF lactate, MMP-9, and complement activation fragments (C5a) as prognostic biomarkers for sequelae, enabling early neuroprotective intervention.</li>
+<li><strong>Recurrence workup protocol:</strong> standardize imaging (high-resolution temporal-bone CT/MRI) and complement/immune testing after invasive pneumococcal disease to detect correctable CSF leaks and immunodeficiency.</li>
+<li><strong>Humanized models:</strong> develop factor-H-humanized mice to better model CbpA-mediated complement evasion and test human-specific therapeutics.</li>
+</ol>
+<hr />
+<h2>Consensus Answer</h2>
+<p>Pneumococcal meningitis is an acute, life-threatening infection of the meninges and CSF caused by the human-restricted commensal <em>Streptococcus pneumoniae</em>, in which nasopharyngeal colonization progresses through complement-evading bacteremia and blood–brain-barrier crossing to unrestricted CSF multiplication, triggering a pneumolysin- and complement-driven neuroinflammatory cascade (MMP-9, ROS, TNF-α/IL-1β/IL-6) that produces hippocampal dentate-gyrus apoptosis, cortical necrosis, cerebral edema, and cerebrovascular injury. It carries ~20–30% mortality and ~40% sequelae (most often sensorineural hearing loss), with host susceptibility being polygenic and centered on complement genes (MBL2, C5, CFH). It is managed with urgent third-generation cephalosporin plus vancomycin and adjunctive dexamethasone (lowering mortality/unfavorable outcome from ~25% to ~15% in adults) and prevented primarily by pneumococcal conjugate/polysaccharide vaccination.</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Pneumococcal_Meningitis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Pneumococcal_Meningitis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>46</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000407</code> (1 mention) - the report calls it "up to 30% of survivors"; HP calls it <strong>Sensorineural hearing impairment</strong></li>
+<li><code>HP:0002181</code> (1 mention) - the report calls it "~29% (adults)"; HP calls it <strong>Cerebral edema</strong></li>
+<li><code>HP:0100543</code> (1 mention) - the report calls it "variable"; HP calls it <strong>Cognitive impairment</strong></li>
+<li><code>UBERON:0002361</code> (1 mention) - the report calls it "Primary organ/site:<strong> meninges/leptomeninges"; UBERON calls it </strong>pia mater**</li>
+<li><code>UBERON:0001844</code> (1 mention) - the report calls it "Secondary:<strong> cochlea/inner ear"; UBERON calls it </strong>cochlea**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCBITaxon:1313</code> (3 mentions) - the report calls it "Streptococcus pneumoniae", "S. pneumoniae"; NCBITaxon calls it <strong>Streptococcus pneumoniae</strong>, and lists "Diplococcus pneumoniae" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>NCBITaxon:1313</code> - called "Streptococcus pneumoniae", "S. pneumoniae"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="PMM2-Congenital_Disorder_of_Glycosylation-claude_code.html">← PMM2-Congenital Disorder of Glycosylation (Claude Code)</a>
+                
+                
+                <a href="PNPO_Deficiency-claude_code.html">PNPO Deficiency (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Pneumococcal_Meningitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Pneumococcal_Meningitis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

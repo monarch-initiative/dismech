@@ -321,7 +321,15 @@ it catches Named Entity Confusion — run `just preflight-dr` as usual. **The
 relevance check is not a substitute for that**: references are scored against
 *the report's own* vocabulary, so a report built around the wrong disease has
 wrong-disease vocabulary too and scores all of its wrong-disease citations as
-on topic. See
+on topic. Term validation cannot see it either, because a wrong-disease
+report's identifiers are correct *for the disease it is actually about*. So a
+clean validation table does not tell you the report is about your disease.
+The first openscientist report for CMD2H (GET3/ASNA1) was about CMD2D
+(RPL3L). It mentioned RPL3L 44 times and GET3 never, yet it came back with
+19/19 references resolved and 0 off topic. One failed quote match was the only
+warning ([#10495](https://github.com/monarch-initiative/dismech/issues/10495)).
+Run `just preflight-dr`; do not assume it would pass because the table is
+clean. See
 [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
 
 #### Term validation
@@ -501,10 +509,25 @@ missing, sweep the body for identifiers rather than reading linearly, so the set
 you work from is still the report's and not your reading path's:
 
 ```bash
-grep -o "PMID:[0-9]*" research/DISORDER-deep-research-PROVIDER.md | sort -u
+grep -oE "PMIDs?:? ?[0-9]{6,9}\b" research/DISORDER-deep-research-PROVIDER.md \
+  | grep -oE "[0-9]{6,9}" | sort -u
 ```
 
-That covers about four in five sidecar-less reports. Where it returns nothing,
+The pattern accepts `PMID:123`, `PMID: 123`, `PMID 123` and `PMIDs 123`,
+because providers do not agree on a separator. `openscientist` report bodies
+write `PMID 23023331` with a space, so a colon-only pattern returns nothing on
+them, and that empty result looks exactly like a report with no PMIDs (#10979).
+Its sidecar, when there is one, uses the colon form, but it is not written on
+every run of the same command. So an empty result from the sidecar *or* from
+this sweep is not evidence that the report has no fetchable identifiers. Check
+the other one before concluding that.
+
+Two limits. In a list such as `(PMID 29112224, 23023331)` only the first number
+follows the word `PMID`, so only the first is caught; read the lines the sweep
+matched for trailing numbers. And the trailing `\b` drops a digit run longer
+than nine characters rather than truncating it into a plausible-looking PMID.
+
+That covers about nine in ten sidecar-less reports. Where it returns nothing,
 look for DOIs before giving up. `falcon` reports are the usual case: they cite
 by author-year key (`martelli2024clinicalspectrumof`), which is not a fetchable
 identifier, and the sidecar-less ones carry no PMID strings at all — but most
