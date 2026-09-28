@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2158,11 +2195,13 @@ Conformance requires evidence of lost desmosomal adhesion - acantholysis, reduce
             
             <div class="item-box anchor-target" id="module-pathophysiology-desmosomal-component-loss-or-blockade" data-dismech-node="Desmosomal Component Loss or Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Desmosomal Component Loss or Blockade</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A structural component of the desmosome becomes unavailable to the junction. It may be absent because the gene encoding it carries a loss-of-function variant, functionally blocked because autoantibody has bound its adhesive ectodomain, or unable to be assembled because the calcium compartmentalization required for its processing has failed.</div>
                 
@@ -2347,11 +2386,13 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-desmosome-assembly-and-intermediate-filament-anchorage" data-dismech-node="Failure of Desmosome Assembly and Intermediate Filament Anchorage" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Desmosome Assembly and Intermediate Filament Anchorage</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Desmosomes are assembled in reduced numbers, are structurally abnormal, or lose their cytoskeletal connection. The plakin-family plaque proteins, desmoplakin foremost among them, are what link the intermediate filament network to the junctional membrane, so their loss uncouples the cytoskeleton from the adhesive surface even when cadherins are present. The junction is then no longer a load-bearing element of the tissue.</div>
                 
@@ -2543,11 +2584,13 @@ This pathophysiological event involves desmosome (GO:0030057). GO:0030057 is a c
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-desmosomal-intercellular-adhesion" data-dismech-node="Loss of Desmosomal Intercellular Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Desmosomal Intercellular Adhesion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Adjacent cells lose the high-tensile adhesion desmosomes provide. This is the rate-limiting, disorder-agnostic node of the module: the structural, autoimmune, and calcium-handling routes all converge here, and conformance should be declared against it.</div>
                 
@@ -2676,11 +2719,13 @@ This pathophysiological event involves decreased cell-cell adhesion (GO:0098609)
             
             <div class="item-box anchor-target" id="module-pathophysiology-acantholysis-and-mechanical-failure-of-desmosome-dependent-tissues" data-dismech-node="Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Acantholysis and Mechanical Failure of Desmosome-Dependent Tissues</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Cells detach from one another in whichever desmosome-dependent tissue is affected. In epidermis this is acantholysis - suprabasal separation producing blisters, erosions, or the acantholytic dyskeratosis of Darier disease - and the palmoplantar epidermis, which bears the greatest shear, responds with keratoderma. In the hair shaft it yields a structurally abnormal woolly or fragile hair. In myocardium, myocyte detachment at the intercalated disc permits cell death and fibrofatty replacement, the substrate for arrhythmogenic cardiomyopathy.</div>
                 
@@ -2889,11 +2934,13 @@ This pathophysiological event involves decreased cell-cell adhesion (GO:0098609)
             
             <div class="item-box anchor-target" id="module-pathophysiology-cutaneous-appendageal-and-cardiac-manifestations" data-dismech-node="Cutaneous, Appendageal and Cardiac Manifestations" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutaneous, Appendageal and Cardiac Manifestations</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The organ-level endpoint. Cutaneously this ranges from focal or striate palmoplantar keratoderma through generalized acantholytic blistering; the hair may be woolly or fragile; and where the affected component is also expressed in myocardium the syndrome includes cardiomyopathy with ventricular arrhythmia and a risk of sudden death that can substantially precede any cardiac symptom. The cardiac arm is the reason a dermatological diagnosis in this group carries a cardiological obligation.</div>
                 

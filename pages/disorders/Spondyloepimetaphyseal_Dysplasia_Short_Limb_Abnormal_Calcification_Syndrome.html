@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4649,6 +4691,7 @@ That two-route structure is the mechanistically interesting part of the entity, 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-ddr2-variants" data-dismech-node="Biallelic Loss-of-Function DDR2 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss-of-Function DDR2 Variants</div>
 
+
                 <div class="item-desc">The disease alleles cluster in two places that correspond to the two failure routes below. Most sit in the conserved tyrosine kinase domain - the three original missense alleles p.T713I, p.I726R and p.R752C, the splice-site allele IVS17+1g&gt;a, and the later frameshift p.S823Cfs*2 in exon 18. One, p.E113K, sits instead in the extracellular discoidin domain, in the collagen-binding site. Homozygosity mapping placed the locus in a 2.4 Mb interval on chromosome 1q23, and the phenotypic resemblance of the Ddr2 knockout mouse is what selected DDR2 out of that interval.
 </div>
 
@@ -4725,6 +4768,8 @@ This pathophysiological event involves decreased DDR2 (hgnc:2731). hgnc:2731 is 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4737,6 +4782,9 @@ This pathophysiological event involves decreased DDR2 (hgnc:2731). hgnc:2731 is 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic DDR2 alleles, homozygous in the consanguineous families in which the disease has been characterised.</div>
 
@@ -4892,6 +4940,7 @@ This pathophysiological event involves decreased DDR2 (hgnc:2731). hgnc:2731 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ddr2-retention-in-the-endoplasmic-reticulum" data-dismech-node="DDR2 Retention in the Endoplasmic Reticulum" data-dismech-type="pathophysiology">
                 <div class="item-name">DDR2 Retention in the Endoplasmic Reticulum</div>
 
+
                 <div class="item-desc">The first of the two failure routes, and the one that accounts for most reported alleles. Expressed in mammalian cell lines, the kinase-domain missense mutants p.T713I, p.I726R and p.R752C and the exon-18 frameshift p.S823Cfs*2 are held in the endoplasmic reticulum instead of reaching the plasma membrane, and the N-glycosylation profile of the retained protein confirms it has not transited the Golgi. A receptor that never reaches the surface cannot be activated by extracellular collagen however intact its ligand-binding site is, so this is a loss-of-function mechanism by mislocalisation rather than by loss of catalytic capacity.
 </div>
 
@@ -5036,6 +5085,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ddr2-collagen-binding-at-the-cell-surface" data-dismech-node="Loss of DDR2 Collagen Binding at the Cell Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of DDR2 Collagen Binding at the Cell Surface</div>
+
 
                 <div class="item-desc">The second failure route, established by a single assayed allele but important because it dissociates trafficking from function. p.E113K traffics to the plasma membrane exactly like wild-type DDR2 and still fails to be activated, because Glu113 lies in the ligand-binding site identified by structural work on the discoidin domain. The existence of this allele is what shows that the disease is caused by loss of collagen signalling and not, for instance, by an ER stress response to a misfolded protein.
 A second discoidin-domain allele, p.Arg124Trp, was later found in a Moroccan patient by exome sequencing. It has not been assayed functionally, so this entry does not assert that it fails the same way - only that the disease alleles are not confined to the kinase domain, which is what the founding series had suggested.
@@ -5227,6 +5277,7 @@ This pathophysiological event involves decreased collagen binding (GO:0005518). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-collagen-induced-ddr2-receptor-activation" data-dismech-node="Failure of Collagen-Induced DDR2 Receptor Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Collagen-Induced DDR2 Receptor Activation</div>
+
 
                 <div class="item-desc">Where both routes converge. DDR2 is a receptor tyrosine kinase whose ligand is fibrillar collagen rather than a soluble growth factor; ligand engagement drives receptor autophosphorylation and downstream signalling. Both classes of disease allele abolish collagen-induced activation, which is the single functional statement that covers every variant reported so far.
 </div>
@@ -5452,6 +5503,7 @@ This pathophysiological event involves decreased transmembrane receptor protein 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-growth-plate-chondrocyte-proliferation-and-endochondral-ossification" data-dismech-node="Disturbed Growth Plate Chondrocyte Proliferation and Endochondral Ossification" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Growth Plate Chondrocyte Proliferation and Endochondral Ossification</div>
+
 
                 <div class="item-desc">The tissue-level consequence, and the node the skeletal phenotypes hang from. In the growth plate the chondrocyte proliferates, hypertrophies and is replaced by bone in a spatially ordered column, and DDR2 is one of the receptors through which it senses the collagenous matrix it sits in. Losing that signal disturbs the metaphyseal and epiphyseal architecture where endochondral growth happens, shortens the long bones and the vertebral bodies, and is accompanied by premature and ectopic mineralisation.
 The strongest independent support is the mouse: Ddr2 knockout animals are dwarfed, and that phenotypic resemblance to the patients is what nominated DDR2 as the candidate within the mapped interval before any human variant was found. That makes it a prediction that succeeded rather than a post-hoc analogy.
@@ -5859,6 +5911,7 @@ This pathophysiological event occurs in epiphyseal plate (UBERON:0002516). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cranial-base-and-calvarial-growth" data-dismech-node="Impaired Cranial Base and Calvarial Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cranial Base and Calvarial Growth</div>
+
 
                 <div class="item-desc">The craniofacial branch, and it is the same lesion in a different growth centre rather than a separate mechanism. The skull base grows at synchondroses, which are mirror-image growth plates with a central resting zone, and the vault grows at sutures containing GLI1-positive progenitors. Ddr2-deficient mice have impaired calvarial growth and frontal suture formation together with cranial base hypoplasia from aberrant chondrogenesis and delayed ossification at the synchondroses, and those defects are accompanied by abnormal collagen fibril organisation and by disturbed chondrocyte proliferation and polarisation.
 That result matters for reading the human phenotype: the flat face, short nose and retrognathia of this dysplasia are the predicted consequence of a short cranial base rather than independent facial malformations, and they are curated here as downstream of this node for that reason.
@@ -6307,6 +6360,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6371,6 +6427,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6454,6 +6513,9 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6518,6 +6580,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6592,6 +6657,9 @@ This clinical feature is Retrognathia (HP:0000278). HP:0000278 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6658,6 +6726,9 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6743,6 +6814,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6809,6 +6883,9 @@ This clinical feature is Abnormal metaphysis morphology (HP:0000944). HP:0000944
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6894,6 +6971,9 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6958,6 +7038,9 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7034,6 +7117,9 @@ This clinical feature is Abnormal epiphysis morphology (HP:0005930). HP:0005930 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7098,6 +7184,9 @@ This clinical feature is Ectopic calcification (HP:0010766). HP:0010766 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7172,6 +7261,9 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7236,6 +7328,9 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7316,6 +7411,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7432,6 +7530,9 @@ This disease-associated gene is DDR2 (hgnc:2731). hgnc:2731 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

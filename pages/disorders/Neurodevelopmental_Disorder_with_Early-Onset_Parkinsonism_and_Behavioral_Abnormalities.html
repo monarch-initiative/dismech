@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5251,6 +5293,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ptrhd1-biallelic-loss-of-function" data-dismech-node="PTRHD1 Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PTRHD1 Biallelic Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous missense, frameshift, or nonsense variants in the single PTH2 domain of PTRHD1 (2p23.3) abolish or corrupt the function of the 140-amino-acid protein. Linkage-supported segregation in multiple unrelated consanguineous families, absence of the alleles from ethnically matched control chromosomes and population databases, and the presence of clearly truncating alleles together establish loss of function as the disease mechanism. PTRHD1 is widely expressed, including throughout the adult brain (cortex, cerebellum, brainstem, substantia nigra, pons, putamen, and spinal cord), which is consistent with a phenotype that spans cognitive, behavioral, pyramidal, and extrapyramidal domains.</div>
 
 
@@ -5495,6 +5544,13 @@ This pathophysiological event involves PTRHD1 (hgnc:33782). hgnc:33782 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-escape-of-nonsense-mediated-decay-with-stable-truncated-protein" data-dismech-node="Escape of Nonsense-Mediated Decay with Stable Truncated Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Escape of Nonsense-Mediated Decay with Stable Truncated Protein</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Functional work on the recurrent c.169_196del (p.Ala57Argfs*26) allele in primary cells from four affected members of an Omani family showed that, contrary to in-silico prediction, the premature-termination-codon transcript escapes nonsense-mediated mRNA decay and is in fact expressed at higher levels than wild type. Immunoblot and isoelectric focusing detected a stable truncated protein of roughly 8-9 kDa (isoelectric point ~11) instead of the 15 kDa wild-type product. The disease allele therefore produces an abnormal protein species rather than protein absence, which leaves open whether the pathogenic effect is pure loss of function or includes an aberrant activity of the truncated product.</div>
 
 
@@ -5580,6 +5636,13 @@ This pathophysiological event involves PTRHD1 (hgnc:33782). hgnc:33782 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ubiquitin-proteasome-protein-quality-control" data-dismech-node="Impaired Ubiquitin-Proteasome Protein Quality Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ubiquitin-Proteasome Protein Quality Control</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Hypothesized proximal consequence of PTRHD1 loss of function. The PTH2 domain family binds ubiquitin-like (UBL) domains and participates in the ubiquitin-proteasome pathway, and all reported disease alleles fall within that domain - although since PTH2 spans residues 25-139 of a 140-amino-acid protein, that localization is a weak constraint. A secondary review adds that the parkinsonism-causing variants sit in the UBL-domain-binding site, but it was written before p.Arg122Gln, p.Arg122Trp and p.Tyr71* were reported and so cannot speak to the full allele set. Disturbed ubiquitin-dependent proteolysis would plausibly account for the double phenotype, since the ubiquitin-proteasome system is required for brain development, synaptic plasticity, and long-term memory formation, and its failure is a recognized route to both intellectual disability and early-onset parkinsonism. No proteasome-activity or polyubiquitinated-protein measurement has been reported in PTRHD1-deficient human neurons, so this node remains a hypothesis rather than a demonstrated step.</div>
 
@@ -5790,6 +5853,13 @@ This pathophysiological event involves dysregulated ubiquitin-dependent protein 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-development-of-cognitive-and-behavioral-circuits" data-dismech-node="Disrupted Development of Cognitive and Behavioral Circuits" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Development of Cognitive and Behavioral Circuits</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The first arm of the biphasic course. Loss of PTRHD1 during brain development produces delayed milestones from late infancy, mild to severe impairment of intellectual development, speech and language delay, and a characteristic behavioral profile (attention deficit and hyperactivity, impulsivity, aggression, social isolation, obsessive-compulsive behavior, anxiety, and sleep disturbance). Critically, this arm is STATIC: cognitive impairment in the best-followed family was explicitly described as early-onset and non-progressive, in contrast to the later motor arm. Brain MRI is grossly unremarkable, so the substrate is presumed to be circuit- and synapse-level rather than a gross malformation.</div>
 
@@ -6069,6 +6139,13 @@ This pathophysiological event involves abnormal nervous system development (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nigrostriatal-dopaminergic-neuron-degeneration" data-dismech-node="Nigrostriatal Dopaminergic Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Nigrostriatal Dopaminergic Neuron Degeneration</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Inferred second arm of the biphasic course. Years to decades after the static developmental phase, affected individuals develop progressive parkinsonism that in most reported patients has been levodopa-responsive, implying a presynaptic nigrostriatal dopaminergic deficit. PTRHD1 is expressed in the substantia nigra, striatum, and putamen, providing an anatomical substrate. This node is nonetheless marked HYPOTHETICAL and is a declared knowledge gap: no neuropathology has ever been reported for a PTRHD1 patient, and no dopamine-transporter (DaT-SPECT) imaging result has been published - the Omani proband with parkinsonism explicitly had no DaTscan available. Conformance to the shared parkinsonism_dopaminergic_degeneration module is therefore asserted on pharmacological and expression grounds, not on direct demonstration of nigral cell loss in this disease.</div>
 
 
@@ -6255,6 +6332,13 @@ This pathophysiological event occurs in substantia nigra pars compacta (UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-striatal-dopamine-deficiency-and-basal-ganglia-motor-circuit-dysfunction" data-dismech-node="Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of nigrostriatal dopaminergic input unbalances the basal ganglia motor circuit, producing the clinical parkinsonian syndrome: bradykinesia with rest and postural tremor, muscle stiffness/rigidity, postural instability, and gait disturbance. The syndrome is levodopa-responsive in most reported patients, consistent with a dopamine-replaceable striatal deficit. It is also atypical in an important minority: one family developed bradykinesia, tremor and dementia in the fourth decade with neither muscle rigidity nor postural instability, and with a mildly ataxic rather than parkinsonian gait, widening the syndrome beyond pure parkinsonism.</div>
 
@@ -6456,6 +6540,13 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticospinal-tract-dysfunction" data-dismech-node="Corticospinal Tract Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticospinal Tract Dysfunction</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A pyramidal arm that is separable from the parkinsonian arm and, in some families, precedes it by decades. Affected individuals in the South African and Omani kindreds developed generalized spasticity, brisk reflexes and upgoing toes in childhood, alongside the developmental phase; in the most severely affected individual this worsened over time to loss of independent ambulation. Notably, the pyramidal arm is not universal - the Pakistani family had a mildly ataxic gait explicitly without spasticity or hemiparesis - so spasticity is a frequent but not obligate feature.</div>
 
 
@@ -6616,7 +6707,7 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of aggressive behavior, reported alongside hyperactivity and impulsivity in affected male siblings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety was among the psychiatric manifestations of the proband of the Iranian p.His53Tyr family and is listed among the recurrent behavioral symptoms across reported PTRHD1 families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention deficit hyperactivity disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Attention deficit with hyperactivity and impulsivity, one of the behavioral abnormalities named in the disease label. Formally diagnosed as ADHD in an Omani proband and described as attention deficit plus hyperactivity in the Pakistani family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007018\"}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowness of voluntary movement, the cardinal parkinsonian sign required for the diagnosis in reported families and graded on the UPDRS in the Omani patient with parkinsonism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"Corticospinal Tract Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pyramidal arm that is separable from the parkinsonian arm and, in some families, precedes it by decades. Affected individuals in the South African and Omani kindreds developed generalized spasticity, brisk reflexes and upgoing toes in childhood, alongside the developmental phase; in the most severely affected individual this worsened over time to loss of independent ambulation. Notably, the pyramidal arm is not universal - the Pakistani family had a mildly ataxic gait explicitly without spasticity or hemiparesis - so spasticity is a frequent but not obligate feature.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corticospinal tract\"]}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Language and speech delay, with poor communication skills persisting into adulthood; one reported individual had fewer than 100 words at age 7, and apraxia of speech and stuttering have been described.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Late cognitive decline superimposed on the static developmental impairment, appearing in the fourth decade together with the parkinsonian features. Its emergence marks the transition of the entry from a purely neurodevelopmental to a neurodegenerative phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000726\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is listed among the recurrent behavioral symptoms reported across PTRHD1 families. No counts are available.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The first arm of the biphasic course. Loss of PTRHD1 during brain development produces delayed milestones from late infancy, mild to severe impairment of intellectual development, speech and language delay, and a characteristic behavioral profile (attention deficit and hyperactivity, impulsivity, aggression, social isolation, obsessive-compulsive behavior, anxiety, and sleep disturbance). Critically, this arm is STATIC: cognitive impairment in the best-followed family was explicitly described as early-onset and non-progressive, in contrast to the later motor arm. Brain MRI is grossly unremarkable, so the substrate is presumed to be circuit- and synapse-level rather than a gross malformation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Escape of Nonsense-Mediated Decay with Stable Truncated Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional work on the recurrent c.169_196del (p.Ala57Argfs*26) allele in primary cells from four affected members of an Omani family showed that, contrary to in-silico prediction, the premature-termination-codon transcript escapes nonsense-mediated mRNA decay and is in fact expressed at higher levels than wild type. Immunoblot and isoelectric focusing detected a stable truncated protein of roughly 8-9 kDa (isoelectric point ~11) instead of the 15 kDa wild-type product. The disease allele therefore produces an abnormal protein species rather than protein absence, which leaves open whether the pathogenic effect is pure loss of function or includes an aberrant activity of the truncated product.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exotropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Divergent strabismus, reported in all affected siblings of the Pakistani family and described by the authors as an unusual feature not previously reported in PTRHD1-related disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000577\"}}, {\"id\": \"Extensor plantar response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upgoing toes (Babinski sign), completing the pyramidal picture in the reported cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003487\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly ataxic gait with impaired balance and coordination, without spasticity or hemiparesis, reported in the Pakistani family. Its presence suggests the neurological phenotype may extend beyond pure parkinsonism to involve cerebellar networks.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Generalized-onset seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genetic generalized epilepsy with onset at age 4 and persistence into adulthood was reported in an Austrian individual homozygous for p.Arg122Gln, suggesting a possible extension of the phenotypic spectrum. Reported in a single individual to date.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002197\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed attainment of motor, speech, and social milestones, apparent from late infancy or early childhood and preceding any motor-neurodegenerative feature by years to decades.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes accompanying the spasticity, part of the pyramidal arm of the phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001347\"}}, {\"id\": \"Hypersomnia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sleepiness, reported as hypersomnia in the proband of the Iranian p.His53Tyr family and listed among the variable complications of the PTRHD1 phenotype. Distinct from the sleep-onset insomnia reported with obsessive-compulsive disorder in the Omani family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001262\"}}, {\"id\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypothesized proximal consequence of PTRHD1 loss of function. The PTH2 domain family binds ubiquitin-like (UBL) domains and participates in the ubiquitin-proteasome pathway, and all reported disease alleles fall within that domain - although since PTH2 spans residues 25-139 of a 140-amino-acid protein, that localization is a weak constraint. A secondary review adds that the parkinsonism-causing variants sit in the UBL-domain-binding site, but it was written before p.Arg122Gln, p.Arg122Trp and p.Tyr71* were reported and so cannot speak to the full allele set. Disturbed ubiquitin-dependent proteolysis would plausibly account for the double phenotype, since the ubiquitin-proteasome system is required for brain development, synaptic plasticity, and long-term memory formation, and its failure is a recognized route to both intellectual disability and early-onset parkinsonism. No proteasome-activity or polyubiquitinated-protein measurement has been reported in PTRHD1-deficient human neurons, so this node remains a hypothesis rather than a demonstrated step.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"ubiquitin-dependent protein catabolic process\"]}}, {\"id\": \"Impaired intellectual development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impairment of intellectual development with learning difficulties, ranging from mild to severe across families and even between siblings. In the best-followed kindred the cognitive impairment was explicitly non-progressive over nine years of longitudinal follow-up into the fifth decade.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Levodopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A monitored levodopa trial is the principal symptomatic option once parkinsonism becomes functionally limiting. Most reported PTRHD1 patients who developed parkinsonism in the third or fourth decade had levodopa-responsive symptoms, which is also the pharmacological basis for inferring a presynaptic nigrostriatal dopaminergic deficit. Quantitative response rates, durability, and dyskinesia risk have not been reported in this disorder, and at least one patient was unable to cooperate with a levodopa trial.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levodopa\"]}}, {\"id\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inferred second arm of the biphasic course. Years to decades after the static developmental phase, affected individuals develop progressive parkinsonism that in most reported patients has been levodopa-responsive, implying a presynaptic nigrostriatal dopaminergic deficit. PTRHD1 is expressed in the substantia nigra, striatum, and putamen, providing an anatomical substrate. This node is nonetheless marked HYPOTHETICAL and is a declared knowledge gap: no neuropathology has ever been reported for a PTRHD1 patient, and no dopamine-transporter (DaT-SPECT) imaging result has been published - the Omani proband with parkinsonism explicitly had no DaTscan available. Conformance to the shared parkinsonism_dopaminergic_degeneration module is therefore asserted on pharmacological and expression grounds, not on direct demonstration of nigral cell loss in this disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"midbrain dopaminergic neuron\"], \"locations\": [\"substantia nigra pars compacta\"]}}, {\"id\": \"Obsessive-compulsive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent obsessive-compulsive disorder was documented in an Omani patient who also had parkinsonism, spending hours on repetitive cleaning and hand-washing rituals, with associated sleep-onset insomnia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000722\"}}, {\"id\": \"PTRHD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PTRHD1 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous missense, frameshift, or nonsense variants in the single PTH2 domain of PTRHD1 (2p23.3) abolish or corrupt the function of the 140-amino-acid protein. Linkage-supported segregation in multiple unrelated consanguineous families, absence of the alleles from ethnically matched control chromosomes and population databases, and the presence of clearly truncating alleles together establish loss of function as the disease mechanism. PTRHD1 is widely expressed, including throughout the adult brain (cortex, cerebellum, brainstem, substantia nigra, pons, putamen, and spinal cord), which is consistent with a phenotype that spans cognitive, behavioral, pyramidal, and extrapyramidal domains.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}]}}, {\"id\": \"PTRHD1 c.155G\u003eA (p.Cys52Tyr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent homozygous missense allele first reported in an Iranian sibling pair and later found in an unrelated Pakistani family with a very late (fourth-decade), atypical parkinsonian phase. Cys52 is conserved across species except C. elegans and lies immediately adjacent to the putative ligand-binding residue His53.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTRHD1 c.169_196del (p.Ala57Argfs*26)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent homozygous 28-nucleotide frameshift deletion in PTRHD1 exon 1, reported independently in a South African and an Omani consanguineous family and, per the most recent tally, carried by three families in total. Functional work in patient primary cells showed that the mutant transcript escapes nonsense-mediated decay and that a truncated (~81 amino-acid) but stable protein is expressed, so the allele is not a simple null by transcript degradation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTRHD1 c.365G\u003eA (p.Arg122Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele reported in a large kinship comprising three related families and, independently, in an Austrian individual whose phenotype additionally included genetic generalized epilepsy.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive parkinsonism developing after the static developmental phase. Across reported families, onset spans later childhood to the fourth decade, with most published motor onsets in the third and fourth decades. It is the second arm of the biphasic course and is variably penetrant within families.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001300\"}}, {\"id\": \"Pectus excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed sternum with prominent clavicles, reported in the three examined siblings of the Pakistani family and not described in other PTRHD1 kindreds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Postural instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired postural reflexes with a tendency to fall. Present in the index Iranian proband but explicitly absent in the Pakistani and Omani patients with parkinsonism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002172\"}}, {\"id\": \"Postural tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural tremor, listed by the monogenic-parkinsonism review among the variable complications of PTRHD1 disease and documented alongside rest tremor in the proband of the Iranian p.His53Tyr family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002174\"}}, {\"id\": \"Resting tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rest tremor was documented in the proband of the index Iranian p.His53Tyr family, and tremor was one of the fourth-decade parkinsonian signs in the Pakistani family. Postural tremor is curated separately.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002322\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle stiffness/rigidity was present in the index Iranian family and graded on the UPDRS in an Omani patient, but was explicitly ABSENT in all affected members of the Pakistani family even at age 48, so it is not an obligate feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Sensorimotor neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory-motor polyneuropathy is listed among the variable complications of the PTRHD1 phenotype. It is mechanistically notable because peripheral-nerve involvement is not part of the nigrostriatal or corticospinal arms curated here, and no nerve-conduction data have been published for any PTRHD1 patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007141\"}}, {\"id\": \"Sleep talking\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Somniloquy (sleep-talking) was reported as one of the early-onset behavioral problems in the Pakistani family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025187\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized spasticity with brisk reflexes, developing in childhood alongside the developmental phase in the Omani and South African kindreds and worsening over time to loss of independent ambulation in the most severely affected individual. Absent in the Pakistani family.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Speech apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apraxia of speech, reported among the early-onset behavioral and communication problems in the Pakistani family alongside stuttering and unclear language.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0011098\"}}, {\"id\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of nigrostriatal dopaminergic input unbalances the basal ganglia motor circuit, producing the clinical parkinsonian syndrome: bradykinesia with rest and postural tremor, muscle stiffness/rigidity, postural instability, and gait disturbance. The syndrome is levodopa-responsive in most reported patients, consistent with a dopamine-replaceable striatal deficit. It is also atypical in an important minority: one family developed bradykinesia, tremor and dementia in the fourth decade with neither muscle rigidity nor postural instability, and with a mildly ataxic rather than parkinsonian gait, widening the syndrome beyond pure parkinsonism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"dopamine secretion\"], \"locations\": [\"striatum\"]}}, {\"id\": \"Stuttering\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stuttering with unclear language in the most severely affected sibling of the Pakistani family.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0025268\"}}], \"edges\": [{\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Escape of Nonsense-Mediated Decay with Stable Truncated Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncating PTRHD1 alleles do not simply eliminate the transcript; the mutant mRNA is stable and a shortened protein is produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothesized link, based on the UBL-domain-binding activity of the PTH2 domain family; not demonstrated in patient neurons.\", \"hypothesis_groups\": [\"ptrhd1_ubiquitin_proteasome_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The first, static phase of the biphasic course: developmental milestones are delayed from late infancy and cognitive/behavioral impairment is then non-progressive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second, progressive phase, emerging years to decades after the developmental phase in the same individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Corticospinal Tract Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyramidal involvement, present in some families from childhood alongside the developmental phase and progressive in others.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported as mildly ataxic and explicitly NOT parkinsonian and NOT spastic, so it is not placed on either curated motor arm. The reporting authors suggest cerebellar or cerebellar-network involvement; no such node is curated because there is no imaging or pathological evidence for it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Sensorimotor neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral-nerve involvement lies outside both the nigrostriatal and the corticospinal arms and has no curated mechanism; it is attached to the root lesion to record that it is unexplained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Hypersomnia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive sleepiness is reported alongside the motor and behavioral features but cannot be assigned to a specific curated arm.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Generalized-onset seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Single-case epilepsy, proposed as a spectrum extension; no epileptogenic mechanism is curated for PTRHD1.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Exotropia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Single-family finding with no curated mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Pectus excavatum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Single-family skeletal finding with no curated mechanism; PTRHD1 is widely expressed outside the nervous system, but no connection has been shown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"target\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"ptrhd1_ubiquitin_proteasome_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"target\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"ptrhd1_ubiquitin_proteasome_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed attainment of motor, speech and social milestones is the earliest clinical expression of the disrupted developmental program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Impaired intellectual development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive outcome of the developmental arm, static once established.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Language is disproportionately affected within the developmental arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Speech apraxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-speech programming failure reported within the language phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Stuttering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysfluency reported in the most severely affected sibling of one family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Attention deficit hyperactivity disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The attention and hyperactivity component of the behavioral arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Aggressive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Externalizing behavior reported in a subset of affected siblings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Obsessive-compulsive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compulsive rituals reported in one affected adult.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Internalizing symptom reported among the recurrent behavioral features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Internalizing symptom reported among the recurrent behavioral features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Sleep talking\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep-related behavioral symptom reported in one family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"target\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Late cognitive decline appears in the same decade as the motor features, superimposed on the static developmental impairment. It is placed on the degenerative arm because of that temporal coupling; its anatomical substrate has never been examined in this disorder, so the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical syndrome produced by the striatal dopamine deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cardinal sign, required for the parkinsonism diagnosis in the reported families.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Resting tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rest tremor as part of the parkinsonian syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Postural tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postural tremor as part of the parkinsonian syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased tone, present in some families and explicitly absent in others.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Postural instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of postural reflexes, present in some families and explicitly absent in others.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Velocity-dependent hypertonia from loss of corticospinal inhibition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes from the same upper-motor-neuron lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction\", \"target\": \"Extensor plantar response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upgoing toes completing the pyramidal picture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Levodopa\", \"target\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PTRHD1\", \"target\": \"PTRHD1 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTRHD1 c.169_196del (p.Ala57Argfs*26)\", \"target\": \"PTRHD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTRHD1 c.155G\u003eA (p.Cys52Tyr)\", \"target\": \"PTRHD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTRHD1 c.365G\u003eA (p.Arg122Gln)\", \"target\": \"PTRHD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of aggressive behavior, reported alongside hyperactivity and impulsivity in affected male siblings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety was among the psychiatric manifestations of the proband of the Iranian p.His53Tyr family and is listed among the recurrent behavioral symptoms across reported PTRHD1 families.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention deficit hyperactivity disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Attention deficit with hyperactivity and impulsivity, one of the behavioral abnormalities named in the disease label. Formally diagnosed as ADHD in an Omani proband and described as attention deficit plus hyperactivity in the Pakistani family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007018\"}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowness of voluntary movement, the cardinal parkinsonian sign required for the diagnosis in reported families and graded on the UPDRS in the Omani patient with parkinsonism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"Corticospinal Tract Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A pyramidal arm that is separable from the parkinsonian arm and, in some families, precedes it by decades. Affected individuals in the South African and Omani kindreds developed generalized spasticity, brisk reflexes and upgoing toes in childhood, alongside the developmental phase; in the most severely affected individual this worsened over time to loss of independent ambulation. Notably, the pyramidal arm is not universal - the Pakistani family had a mildly ataxic gait explicitly without spasticity or hemiparesis - so spasticity is a frequent but not obligate feature.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corticospinal tract\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Language and speech delay, with poor communication skills persisting into adulthood; one reported individual had fewer than 100 words at age 7, and apraxia of speech and stuttering have been described.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Late cognitive decline superimposed on the static developmental impairment, appearing in the fourth decade together with the parkinsonian features. Its emergence marks the transition of the entry from a purely neurodevelopmental to a neurodegenerative phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000726\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is listed among the recurrent behavioral symptoms reported across PTRHD1 families. No counts are available.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The first arm of the biphasic course. Loss of PTRHD1 during brain development produces delayed milestones from late infancy, mild to severe impairment of intellectual development, speech and language delay, and a characteristic behavioral profile (attention deficit and hyperactivity, impulsivity, aggression, social isolation, obsessive-compulsive behavior, anxiety, and sleep disturbance). Critically, this arm is STATIC: cognitive impairment in the best-followed family was explicitly described as early-onset and non-progressive, in contrast to the later motor arm. Brain MRI is grossly unremarkable, so the substrate is presumed to be circuit- and synapse-level rather than a gross malformation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Escape of Nonsense-Mediated Decay with Stable Truncated Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Functional work on the recurrent c.169_196del (p.Ala57Argfs*26) allele in primary cells from four affected members of an Omani family showed that, contrary to in-silico prediction, the premature-termination-codon transcript escapes nonsense-mediated mRNA decay and is in fact expressed at higher levels than wild type. Immunoblot and isoelectric focusing detected a stable truncated protein of roughly 8-9 kDa (isoelectric point ~11) instead of the 15 kDa wild-type product. The disease allele therefore produces an abnormal protein species rather than protein absence, which leaves open whether the pathogenic effect is pure loss of function or includes an aberrant activity of the truncated product.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Exotropia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Divergent strabismus, reported in all affected siblings of the Pakistani family and described by the authors as an unusual feature not previously reported in PTRHD1-related disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000577\"}}, {\"id\": \"Extensor plantar response\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upgoing toes (Babinski sign), completing the pyramidal picture in the reported cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003487\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mildly ataxic gait with impaired balance and coordination, without spasticity or hemiparesis, reported in the Pakistani family. Its presence suggests the neurological phenotype may extend beyond pure parkinsonism to involve cerebellar networks.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Generalized-onset seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genetic generalized epilepsy with onset at age 4 and persistence into adulthood was reported in an Austrian individual homozygous for p.Arg122Gln, suggesting a possible extension of the phenotypic spectrum. Reported in a single individual to date.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002197\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed attainment of motor, speech, and social milestones, apparent from late infancy or early childhood and preceding any motor-neurodegenerative feature by years to decades.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes accompanying the spasticity, part of the pyramidal arm of the phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001347\"}}, {\"id\": \"Hypersomnia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sleepiness, reported as hypersomnia in the proband of the Iranian p.His53Tyr family and listed among the variable complications of the PTRHD1 phenotype. Distinct from the sleep-onset insomnia reported with obsessive-compulsive disorder in the Omani family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001262\"}}, {\"id\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypothesized proximal consequence of PTRHD1 loss of function. The PTH2 domain family binds ubiquitin-like (UBL) domains and participates in the ubiquitin-proteasome pathway, and all reported disease alleles fall within that domain - although since PTH2 spans residues 25-139 of a 140-amino-acid protein, that localization is a weak constraint. A secondary review adds that the parkinsonism-causing variants sit in the UBL-domain-binding site, but it was written before p.Arg122Gln, p.Arg122Trp and p.Tyr71* were reported and so cannot speak to the full allele set. Disturbed ubiquitin-dependent proteolysis would plausibly account for the double phenotype, since the ubiquitin-proteasome system is required for brain development, synaptic plasticity, and long-term memory formation, and its failure is a recognized route to both intellectual disability and early-onset parkinsonism. No proteasome-activity or polyubiquitinated-protein measurement has been reported in PTRHD1-deficient human neurons, so this node remains a hypothesis rather than a demonstrated step.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"ubiquitin-dependent protein catabolic process\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Impaired intellectual development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impairment of intellectual development with learning difficulties, ranging from mild to severe across families and even between siblings. In the best-followed kindred the cognitive impairment was explicitly non-progressive over nine years of longitudinal follow-up into the fifth decade.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Levodopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A monitored levodopa trial is the principal symptomatic option once parkinsonism becomes functionally limiting. Most reported PTRHD1 patients who developed parkinsonism in the third or fourth decade had levodopa-responsive symptoms, which is also the pharmacological basis for inferring a presynaptic nigrostriatal dopaminergic deficit. Quantitative response rates, durability, and dyskinesia risk have not been reported in this disorder, and at least one patient was unable to cooperate with a levodopa trial.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levodopa\"]}}, {\"id\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inferred second arm of the biphasic course. Years to decades after the static developmental phase, affected individuals develop progressive parkinsonism that in most reported patients has been levodopa-responsive, implying a presynaptic nigrostriatal dopaminergic deficit. PTRHD1 is expressed in the substantia nigra, striatum, and putamen, providing an anatomical substrate. This node is nonetheless marked HYPOTHETICAL and is a declared knowledge gap: no neuropathology has ever been reported for a PTRHD1 patient, and no dopamine-transporter (DaT-SPECT) imaging result has been published - the Omani proband with parkinsonism explicitly had no DaTscan available. Conformance to the shared parkinsonism_dopaminergic_degeneration module is therefore asserted on pharmacological and expression grounds, not on direct demonstration of nigral cell loss in this disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"midbrain dopaminergic neuron\"], \"locations\": [\"substantia nigra pars compacta\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Obsessive-compulsive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent obsessive-compulsive disorder was documented in an Omani patient who also had parkinsonism, spending hours on repetitive cleaning and hand-washing rituals, with associated sleep-onset insomnia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000722\"}}, {\"id\": \"PTRHD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PTRHD1 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous missense, frameshift, or nonsense variants in the single PTH2 domain of PTRHD1 (2p23.3) abolish or corrupt the function of the 140-amino-acid protein. Linkage-supported segregation in multiple unrelated consanguineous families, absence of the alleles from ethnically matched control chromosomes and population databases, and the presence of clearly truncating alleles together establish loss of function as the disease mechanism. PTRHD1 is widely expressed, including throughout the adult brain (cortex, cerebellum, brainstem, substantia nigra, pons, putamen, and spinal cord), which is consistent with a phenotype that spans cognitive, behavioral, pyramidal, and extrapyramidal domains.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"PTRHD1 c.155G\u003eA (p.Cys52Tyr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent homozygous missense allele first reported in an Iranian sibling pair and later found in an unrelated Pakistani family with a very late (fourth-decade), atypical parkinsonian phase. Cys52 is conserved across species except C. elegans and lies immediately adjacent to the putative ligand-binding residue His53.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTRHD1 c.169_196del (p.Ala57Argfs*26)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent homozygous 28-nucleotide frameshift deletion in PTRHD1 exon 1, reported independently in a South African and an Omani consanguineous family and, per the most recent tally, carried by three families in total. Functional work in patient primary cells showed that the mutant transcript escapes nonsense-mediated decay and that a truncated (~81 amino-acid) but stable protein is expressed, so the allele is not a simple null by transcript degradation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"PTRHD1 c.365G\u003eA (p.Arg122Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele reported in a large kinship comprising three related families and, independently, in an Austrian individual whose phenotype additionally included genetic generalized epilepsy.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTRHD1\"], \"gene_terms\": [{\"label\": \"PTRHD1\", \"id\": \"hgnc:33782\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive parkinsonism developing after the static developmental phase. Across reported families, onset spans later childhood to the fourth decade, with most published motor onsets in the third and fourth decades. It is the second arm of the biphasic course and is variably penetrant within families.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001300\"}}, {\"id\": \"Pectus excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed sternum with prominent clavicles, reported in the three examined siblings of the Pakistani family and not described in other PTRHD1 kindreds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Postural instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Impaired postural reflexes with a tendency to fall. Present in the index Iranian proband but explicitly absent in the Pakistani and Omani patients with parkinsonism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002172\"}}, {\"id\": \"Postural tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural tremor, listed by the monogenic-parkinsonism review among the variable complications of PTRHD1 disease and documented alongside rest tremor in the proband of the Iranian p.His53Tyr family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002174\"}}, {\"id\": \"Resting tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rest tremor was documented in the proband of the index Iranian p.His53Tyr family, and tremor was one of the fourth-decade parkinsonian signs in the Pakistani family. Postural tremor is curated separately.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002322\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle stiffness/rigidity was present in the index Iranian family and graded on the UPDRS in an Omani patient, but was explicitly ABSENT in all affected members of the Pakistani family even at age 48, so it is not an obligate feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Sensorimotor neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory-motor polyneuropathy is listed among the variable complications of the PTRHD1 phenotype. It is mechanistically notable because peripheral-nerve involvement is not part of the nigrostriatal or corticospinal arms curated here, and no nerve-conduction data have been published for any PTRHD1 patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007141\"}}, {\"id\": \"Sleep talking\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Somniloquy (sleep-talking) was reported as one of the early-onset behavioral problems in the Pakistani family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025187\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized spasticity with brisk reflexes, developing in childhood alongside the developmental phase in the Omani and South African kindreds and worsening over time to loss of independent ambulation in the most severely affected individual. Absent in the Pakistani family.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Speech apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apraxia of speech, reported among the early-onset behavioral and communication problems in the Pakistani family alongside stuttering and unclear language.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0011098\"}}, {\"id\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of nigrostriatal dopaminergic input unbalances the basal ganglia motor circuit, producing the clinical parkinsonian syndrome: bradykinesia with rest and postural tremor, muscle stiffness/rigidity, postural instability, and gait disturbance. The syndrome is levodopa-responsive in most reported patients, consistent with a dopamine-replaceable striatal deficit. It is also atypical in an important minority: one family developed bradykinesia, tremor and dementia in the fourth decade with neither muscle rigidity nor postural instability, and with a mildly ataxic rather than parkinsonian gait, widening the syndrome beyond pure parkinsonism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"dopamine secretion\"], \"locations\": [\"striatum\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Stuttering\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stuttering with unclear language in the most severely affected sibling of the Pakistani family.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0025268\"}}], \"edges\": [{\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Escape of Nonsense-Mediated Decay with Stable Truncated Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncating PTRHD1 alleles do not simply eliminate the transcript; the mutant mRNA is stable and a shortened protein is produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothesized link, based on the UBL-domain-binding activity of the PTH2 domain family; not demonstrated in patient neurons.\", \"hypothesis_groups\": [\"ptrhd1_ubiquitin_proteasome_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The first, static phase of the biphasic course: developmental milestones are delayed from late infancy and cognitive/behavioral impairment is then non-progressive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second, progressive phase, emerging years to decades after the developmental phase in the same individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Corticospinal Tract Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyramidal involvement, present in some families from childhood alongside the developmental phase and progressive in others.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported as mildly ataxic and explicitly NOT parkinsonian and NOT spastic, so it is not placed on either curated motor arm. The reporting authors suggest cerebellar or cerebellar-network involvement; no such node is curated because there is no imaging or pathological evidence for it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Sensorimotor neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral-nerve involvement lies outside both the nigrostriatal and the corticospinal arms and has no curated mechanism; it is attached to the root lesion to record that it is unexplained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Hypersomnia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive sleepiness is reported alongside the motor and behavioral features but cannot be assigned to a specific curated arm.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Generalized-onset seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Single-case epilepsy, proposed as a spectrum extension; no epileptogenic mechanism is curated for PTRHD1.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Exotropia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Single-family finding with no curated mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PTRHD1 Biallelic Loss of Function\", \"target\": \"Pectus excavatum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Single-family skeletal finding with no curated mechanism; PTRHD1 is widely expressed outside the nervous system, but no connection has been shown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"target\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"ptrhd1_ubiquitin_proteasome_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Ubiquitin-Proteasome Protein Quality Control\", \"target\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"ptrhd1_ubiquitin_proteasome_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed attainment of motor, speech and social milestones is the earliest clinical expression of the disrupted developmental program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Impaired intellectual development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive outcome of the developmental arm, static once established.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Language is disproportionately affected within the developmental arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Speech apraxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-speech programming failure reported within the language phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Stuttering\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysfluency reported in the most severely affected sibling of one family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Attention deficit hyperactivity disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The attention and hyperactivity component of the behavioral arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Aggressive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Externalizing behavior reported in a subset of affected siblings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Obsessive-compulsive behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compulsive rituals reported in one affected adult.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Internalizing symptom reported among the recurrent behavioral features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Internalizing symptom reported among the recurrent behavioral features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Development of Cognitive and Behavioral Circuits\", \"target\": \"Sleep talking\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep-related behavioral symptom reported in one family.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"target\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopaminergic Neuron Degeneration\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Late cognitive decline appears in the same decade as the motor features, superimposed on the static developmental impairment. It is placed on the degenerative arm because of that temporal coupling; its anatomical substrate has never been examined in this disorder, so the intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical syndrome produced by the striatal dopamine deficit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cardinal sign, required for the parkinsonism diagnosis in the reported families.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Resting tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rest tremor as part of the parkinsonian syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Postural tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postural tremor as part of the parkinsonian syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased tone, present in some families and explicitly absent in others.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"target\": \"Postural instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of postural reflexes, present in some families and explicitly absent in others.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Velocity-dependent hypertonia from loss of corticospinal inhibition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brisk deep tendon reflexes from the same upper-motor-neuron lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal Tract Dysfunction\", \"target\": \"Extensor plantar response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upgoing toes completing the pyramidal picture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Levodopa\", \"target\": \"Striatal Dopamine Deficiency and Basal Ganglia Motor Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PTRHD1\", \"target\": \"PTRHD1 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTRHD1 c.169_196del (p.Ala57Argfs*26)\", \"target\": \"PTRHD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTRHD1 c.155G\u003eA (p.Cys52Tyr)\", \"target\": \"PTRHD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PTRHD1 c.365G\u003eA (p.Arg122Gln)\", \"target\": \"PTRHD1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6677,6 +6768,9 @@ This clinical feature is Exotropia (HP:0000577). HP:0000577 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6757,6 +6851,9 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6889,6 +6986,9 @@ This clinical feature is Spasticity (HP:0001257), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6980,6 +7080,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7094,6 +7197,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7191,6 +7297,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as chil
 
 
                     </div>
+
+
+
 
 
 
@@ -7319,6 +7428,9 @@ This clinical feature is Delayed speech and language development (HP:0000750), q
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7412,6 +7524,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018), 
 
 
                     </div>
+
+
+
 
 
 
@@ -7540,6 +7655,9 @@ This clinical feature is Aggressive behavior (HP:0000718), qualified as childhoo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7611,6 +7729,9 @@ This clinical feature is Obsessive-compulsive behavior, annotated with Compulsiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7675,6 +7796,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7778,6 +7902,9 @@ This clinical feature is Sleep talking (HP:0025187), qualified as childhood onse
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7875,6 +8002,9 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
                     </div>
+
+
+
 
 
 
@@ -8019,6 +8149,9 @@ This clinical feature is Bradykinesia (HP:0002067), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8090,6 +8223,9 @@ This clinical feature is Resting tremor (HP:0002322). HP:0002322 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8156,6 +8292,9 @@ This clinical feature is Postural instability (HP:0002172). HP:0002172 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8257,6 +8396,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8325,6 +8467,9 @@ This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8432,6 +8577,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive;
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8498,6 +8646,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8603,6 +8754,9 @@ This clinical feature is Generalized-onset seizure (HP:0002197), qualified as ch
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8667,6 +8821,9 @@ This clinical feature is Postural tremor (HP:0002174). HP:0002174 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8766,6 +8923,9 @@ This clinical feature is Sensory-motor polyneuropathy, annotated with Sensorimot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8832,6 +8992,9 @@ This clinical feature is Hypersomnia, annotated with Excessive daytime somnolenc
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8926,6 +9089,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9031,6 +9197,9 @@ This clinical feature is Apraxia of speech, annotated with Speech apraxia (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9126,6 +9295,9 @@ This clinical feature is Stuttering (HP:0025268), qualified as childhood onset. 
 
 
                     </div>
+
+
+
 
 
 
@@ -9246,6 +9418,9 @@ This disease-associated gene is PTRHD1 (hgnc:33782). hgnc:33782 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -9359,6 +9534,7 @@ This disease-associated gene is PTRHD1 (hgnc:33782). hgnc:33782 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9380,7 +9556,13 @@ This variant is in PTRHD1 (hgnc:33782). hgnc:33782 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent homozygous 28-nucleotide frameshift deletion in PTRHD1 exon 1, reported independently in a South African and an Omani consanguineous family and, per the most recent tally, carried by three families in total. Functional work in patient primary cells showed that the mutant transcript escapes nonsense-mediated decay and that a truncated (~81 amino-acid) but stable protein is expressed, so the allele is not a simple null by transcript degradation.</div>
@@ -9468,6 +9650,7 @@ This variant is in PTRHD1 (hgnc:33782). hgnc:33782 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9489,7 +9672,13 @@ This variant is in PTRHD1 (hgnc:33782). hgnc:33782 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent homozygous missense allele first reported in an Iranian sibling pair and later found in an unrelated Pakistani family with a very late (fourth-decade), atypical parkinsonian phase. Cys52 is conserved across species except C. elegans and lies immediately adjacent to the putative ligand-binding residue His53.</div>
@@ -9552,6 +9741,7 @@ This variant is in PTRHD1 (hgnc:33782). hgnc:33782 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9573,7 +9763,13 @@ This variant is in PTRHD1 (hgnc:33782). hgnc:33782 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense allele reported in a large kinship comprising three related families and, independently, in an Austrian individual whose phenotype additionally included genetic generalized epilepsy.</div>

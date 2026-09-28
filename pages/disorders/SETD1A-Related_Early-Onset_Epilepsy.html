@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4706,6 +4748,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-setd1a-haploinsufficiency" data-dismech-node="SETD1A Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SETD1A Haploinsufficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Heterozygous SETD1A variants -- truncating alleles and damaging missense changes within and outside the catalytic SET domain -- reduce the dosage of functional SETD1A, the catalytic subunit of a Set1/COMPASS histone methyltransferase complex. Functional characterization of patient variants (including a SET-domain missense allele) shows behavior comparable to loss-of-function alleles, and the gene is strongly depleted of loss-of-function variants in the general population, consistent with dosage sensitivity.</div>
 
 
@@ -4766,6 +4815,8 @@ This pathophysiological event involves SETD1A (hgnc:29010). hgnc:29010 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -4778,6 +4829,9 @@ This pathophysiological event involves SETD1A (hgnc:29010). hgnc:29010 is a gene
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous SETD1A alleles: truncating (frameshift, nonsense, splice-site) changes and damaging missense substitutions both inside and outside the catalytic SET domain. Patient-derived cell lines show that even a SET-domain missense allele behaves as loss of function, and the gene is strongly depleted of loss-of-function variants in the general population. Most reported epilepsy variants arose de novo, but the defining report includes one missense allele inherited through four generations, so DE_NOVO records the predominant rather than exclusive origin.</div>
 
@@ -4938,6 +4992,13 @@ This pathophysiological event involves decreased histone H3K4 methyltransferase 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-promoter-h3k4-methylation" data-dismech-node="Reduced Promoter H3K4 Methylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Promoter H3K4 Methylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">SETD1A deposits mono-, di-, and trimethylation on histone H3 lysine 4; H3K4me3 is a hallmark of transcriptionally active promoters. Reduced SETD1A dosage lowers this activating chromatin mark at Set1/COMPASS target loci. Note that this histone-methylation lesion has no detectable correlate in blood DNA methylation: profiling of six SETD1A patients found no strong CpG methylation episignature (PMID:37166351).</div>
 
@@ -5111,6 +5172,13 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transcriptional-dysregulation-of-synaptic-and-neurodevelopmental-genes" data-dismech-node="Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced H3K4 methylation at SETD1A-bound promoters and enhancers dysregulates transcriptional programs in neurons. In Setd1a-deficient mice, Setd1a binds both promoters and enhancers (overlapping Mef2 on enhancers), and its targets -- highly expressed in pyramidal neurons -- show complex up- and downregulation, including genes related to neurodevelopmental disorders and synaptic function in the medial prefrontal cortex. In human SETD1A+/- iPSC-derived neuronal networks, transcriptomic profiling shows perturbation of glutamatergic synaptic gene sets. In patient-variant overexpression experiments, two common downstream genes (Neurl4 and Usp39) were affected by SETD1A mutations.</div>
 
@@ -5317,6 +5385,13 @@ This pathophysiological event involves dysregulated regulation of transcription 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-excitatory-synapse-development-and-function" data-dismech-node="Abnormal Excitatory Synapse Development and Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Excitatory Synapse Development and Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Epilepsy-associated SETD1A variants expressed in mouse primary cortical neurons impair excitatory synapse development. Consistently, Setd1a+/- mice show altered axonal branching, cortical synaptic dynamics, and impaired excitatory synaptic transmission in layer 2/3 pyramidal neurons of the medial prefrontal cortex, with postsynaptic Setd1a required for normal excitatory transmission. Human SETD1A+/- iPSC-derived neurons show increased dendritic complexity. The mouse work is schizophrenia-focused and reports attenuated excitatory function, whereas human iPSC networks are hyperactive -- a directionality discrepancy recorded in the HUMAN_MODEL_MISMATCH discussion on this entry.</div>
 
@@ -5600,6 +5675,13 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-neuron-migration" data-dismech-node="Impaired Cortical Neuron Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortical Neuron Migration</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Expression of the familial R913C epilepsy variant perturbed migration of cortical neurons in the developing mouse brain, indicating that some SETD1A variants additionally disturb neuronal positioning during corticogenesis. Notably, affected individuals -- across the allelic SETD1A disorders -- do not show major structural brain malformations, so any migration contribution must be subtle.</div>
 
 
@@ -5738,6 +5820,13 @@ This pathophysiological event involves abnormal neuron migration (GO:0001764). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Human excitatory/inhibitory neuronal networks derived from SETD1A+/- iPSCs show functionally increased bursting activity, driven primarily by haploinsufficiency in glutamatergic neurons -- an in vitro correlate of the network hyperexcitability that generates seizures in patients. Direct demonstration of hyperexcitability in patient brain tissue does not exist, and Setd1a+/- mice (schizophrenia models) show attenuated rather than increased excitatory transmission, so this node is provisional.</div>
 
@@ -5949,6 +6038,13 @@ This pathophysiological event involves increased action potential (GO:0001508). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-onset-seizures" data-dismech-node="Early-Onset Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Onset Seizures</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint of the epilepsy arm of the cascade: recurrent seizures beginning in infancy, often within the first months of life. Reported semiologies include focal-to-bilateral tonic-clonic seizures, focal impaired-awareness seizures, and infantile epileptic spasms syndrome with hypsarrhythmia; brain MRI is typically normal.</div>
 
 
@@ -6074,6 +6170,13 @@ This pathophysiological event involves increased action potential (GO:0001508). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variable-neurodevelopmental-impairment" data-dismech-node="Variable Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Variable Neurodevelopmental Impairment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Developmental impact ranges from none to global developmental delay -- the &#34;with or without developmental delay&#34; of the disease name. One reported child with seizures from 3 months of age had a developmental quotient and IQ in the normal range with normal MRI, while other SETD1A carriers in the epilepsy series and the wider allelic spectrum have developmental delay or intellectual disability. The determinants of this variability are unknown.</div>
 
 
@@ -6197,7 +6300,7 @@ This pathophysiological event involves increased action potential (GO:0001508). 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Excitatory Synapse Development and Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epilepsy-associated SETD1A variants expressed in mouse primary cortical neurons impair excitatory synapse development. Consistently, Setd1a+/- mice show altered axonal branching, cortical synaptic dynamics, and impaired excitatory synaptic transmission in layer 2/3 pyramidal neurons of the medial prefrontal cortex, with postsynaptic Setd1a required for normal excitatory transmission. Human SETD1A+/- iPSC-derived neurons show increased dendritic complexity. The mouse work is schizophrenia-focused and reports attenuated excitatory function, whereas human iPSC networks are hyperactive -- a directionality discrepancy recorded in the HUMAN_MODEL_MISMATCH discussion on this entry.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"glutamatergic neuron\"], \"biological_processes\": [\"synapse organization\", \"chemical synaptic transmission\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Setd1a haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Setd1a+/- (heterozygous loss-of-function / frameshift)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mice reproduce the existence of a cortical excitatory synaptic lesion downstream of Setd1a haploinsufficiency, together with the transcriptional dysregulation of synaptic genes that this entry places upstream of it.\"}]}}, {\"id\": \"Adrenocorticotropic Hormone Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ACTH is the guideline-standard therapy for infantile epileptic spasms syndrome and is the agent that produced remission in the one reported SETD1A-related IESS case: spasms stopped within three days of starting ACTH (2 U/kg/day), treatment continued for four weeks and was then switched to oral prednisone, with valproic acid added as adjunct. The child remained seizure-free at follow-up. Pyridoxine had been given empirically alongside ACTH from admission, but the authors concluded that a pyridoxine-dependent mechanism was not involved -- spasms persisted on pyridoxine alone and no ALDH7A1 alteration was found -- so the response is attributed to ACTH. This is a single case, not evidence of a SETD1A-specific ACTH effect.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"adrenocorticotropic hormone\"]}}, {\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disorder-specific therapy exists; management is conventional antiseizure treatment chosen by semiology and syndrome. Across the three treated cases with reported outcomes, phenobarbital significantly reduced seizure frequency in the focal-epilepsy case, levetiracetam achieved seizure freedom in a further case with recurrence four years later, and valproic acid was added as adjunct after the epileptic spasms had already responded to ACTH. Pyridoxine (vitamin B6) was given empirically on admission in the spasms case, but the authors explicitly discounted a pyridoxine-responsive mechanism, so it is not listed here as an active agent -- ACTH is curated as its own treatment. These are single-case observations, not comparative evidence.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"phenobarbital\", \"levetiracetam\", \"valproic acid\"]}}, {\"id\": \"Bilateral tonic-clonic seizure with focal onset\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal-to-bilateral tonic-clonic seizures, reported from 3 months of age with unilateral onset and versive features, alongside focal impaired-awareness seizures in the same child.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007334\"}}, {\"id\": \"Cortical Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human excitatory/inhibitory neuronal networks derived from SETD1A+/- iPSCs show functionally increased bursting activity, driven primarily by haploinsufficiency in glutamatergic neurons -- an in vitro correlate of the network hyperexcitability that generates seizures in patients. Direct demonstration of hyperexcitability in patient brain tissue does not exist, and Setd1a+/- mice (schizophrenia models) show attenuated rather than increased excitatory transmission, so this node is provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"action potential\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"SETD1A+/- human iPSC-derived excitatory/inhibitory neuronal network\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"SETD1A haploinsufficiency in a human neuronal network produces increased bursting driven by glutamatergic neurons -- the in vitro counterpart of the hyperexcitable, hypersynchronous state this node asserts.\"}], \"animal_models\": [{\"name\": \"Setd1a haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Setd1a+/- (heterozygous loss-of-function / frameshift)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"No Setd1a+/- mouse study reports spontaneous seizures, epileptiform EEG, or a lowered seizure threshold, and the measured direction of change in excitatory synaptic function is the opposite of a hyperexcitable state. The mouse therefore does not model the epileptogenic step of this entry\u0027s pathograph, which is the substance of the HUMAN_MODEL_MISMATCH discussion.\"}]}}, {\"id\": \"Early-Onset Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of the epilepsy arm of the cascade: recurrent seizures beginning in infancy, often within the first months of life. Reported semiologies include focal-to-bilateral tonic-clonic seizures, focal impaired-awareness seizures, and infantile epileptic spasms syndrome with hypsarrhythmia; brain MRI is typically normal.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Epileptic spasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile epileptic spasms syndrome has been reported as a presentation of a de novo SETD1A frameshift variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011097\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is variable -- present in some individuals (the epileptic-spasms case had delay as part of the IESS triad) and absent in others, including a child with seizures from 3 months whose developmental quotient and IQ were normal. The disease name\u0027s \\\"with or without developmental delay\\\" encodes exactly this variability.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypsarrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chaotic high-amplitude interictal EEG pattern accompanying the epileptic spasms presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002521\"}}, {\"id\": \"Impaired Cortical Neuron Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of the familial R913C epilepsy variant perturbed migration of cortical neurons in the developing mouse brain, indicating that some SETD1A variants additionally disturb neuronal positioning during corticogenesis. Notably, affected individuals -- across the allelic SETD1A disorders -- do not show major structural brain malformations, so any migration contribution must be subtle.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neuron migration\"], \"role\": \"central_effector\"}}, {\"id\": \"Reduced Promoter H3K4 Methylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SETD1A deposits mono-, di-, and trimethylation on histone H3 lysine 4; H3K4me3 is a hallmark of transcriptionally active promoters. Reduced SETD1A dosage lowers this activating chromatin mark at Set1/COMPASS target loci. Note that this histone-methylation lesion has no detectable correlate in blood DNA methylation: profiling of six SETD1A patients found no strong CpG methylation episignature (PMID:37166351).\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epigenetic regulation of gene expression\", \"chromatin organization\"], \"role\": \"central_effector\"}}, {\"id\": \"SETD1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SETD1A\"], \"gene_terms\": [{\"label\": \"SETD1A\", \"id\": \"hgnc:29010\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 6}}, {\"id\": \"SETD1A Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous SETD1A variants -- truncating alleles and damaging missense changes within and outside the catalytic SET domain -- reduce the dosage of functional SETD1A, the catalytic subunit of a Set1/COMPASS histone methyltransferase complex. Functional characterization of patient variants (including a SET-domain missense allele) shows behavior comparable to loss-of-function alleles, and the gene is strongly depleted of loss-of-function variants in the general population, consistent with dosage sensitivity.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H3K4 methyltransferase activity\"], \"genes\": [\"SETD1A\"], \"gene_terms\": [{\"label\": \"SETD1A\", \"id\": \"hgnc:29010\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous SETD1A alleles: truncating (frameshift, nonsense, splice-site) changes and damaging missense substitutions both inside and outside the catalytic SET domain. Patient-derived cell lines show that even a SET-domain missense allele behaves as loss of function, and the gene is strongly depleted of loss-of-function variants in the general population. Most reported epilepsy variants arose de novo, but the defining report includes one missense allele inherited through four generations, so DE_NOVO records the predominant rather than exclusive origin.\"}, \"role\": \"trigger\"}}, {\"id\": \"SETD1A+/- human iPSC-derived excitatory/inhibitory neuronal network\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR-Cas9-engineered human induced pluripotent stem cells carrying a heterozygous SETD1A loss-of-function mutation, differentiated into mixed excitatory/inhibitory neuronal networks and recorded on multi-electrode arrays. This is the only model system in which SETD1A haploinsufficiency has been shown to produce a hyperactive network state, and the effect is reversible by cAMP/PKA-pathway inhibition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glutamatergic neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:35508131\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature: recurrent seizures with onset in infancy, often in the first months of life. Semiology is heterogeneous across reported individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Setd1a haploinsufficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Two independently generated heterozygous Setd1a mouse lines. Mukai et al. (PMID:31606247) report altered axonal branching, cortical synaptic dynamics and working-memory deficits, plus reversibility on adult Setd1a reinstatement or LSD1 antagonism; Nagahama et al. (PMID:32937141) carry a frameshift mimicking a human loss-of-function allele and show impaired excitatory synaptic transmission in layer 2/3 medial prefrontal cortex pyramidal neurons. Both were built to model schizophrenia, and both are curated here as one model record because they share the genotype and the same relationship to this entry\u0027s pathograph.\"}, {\"id\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced H3K4 methylation at SETD1A-bound promoters and enhancers dysregulates transcriptional programs in neurons. In Setd1a-deficient mice, Setd1a binds both promoters and enhancers (overlapping Mef2 on enhancers), and its targets -- highly expressed in pyramidal neurons -- show complex up- and downregulation, including genes related to neurodevelopmental disorders and synaptic function in the medial prefrontal cortex. In human SETD1A+/- iPSC-derived neuronal networks, transcriptomic profiling shows perturbation of glutamatergic synaptic gene sets. In patient-variant overexpression experiments, two common downstream genes (Neurl4 and Usp39) were affected by SETD1A mutations.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"role\": \"central_effector\"}}, {\"id\": \"Variable Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental impact ranges from none to global developmental delay -- the \\\"with or without developmental delay\\\" of the disease name. One reported child with seizures from 3 months of age had a developmental quotient and IQ in the normal range with normal MRI, while other SETD1A carriers in the epilepsy series and the wider allelic spectrum have developmental delay or intellectual disability. The determinants of this variability are unknown.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"p.Arg1392His\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Arg913Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant segregating with seizures in a four-generation family (Yu et al. 2019); its expression also perturbed cortical neuron migration in the mouse brain.\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Gln269Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Glu1002Glyfs*20 (c.3005_3006delAG)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo frameshift variant in exon 12 in a child with infantile epileptic spasms syndrome and hypsarrhythmia.\", \"meta\": {\"variant_type\": \"frameshift\"}}, {\"id\": \"p.Gly1369Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Ser356Phe (c.1067C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant outside the SET domain in a girl with focal-to-bilateral tonic-clonic seizures from 3 months, normal MRI, and preserved cognition; classified likely pathogenic (ACMG PS2+PM2+PP3).\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}], \"edges\": [{\"source\": \"SETD1A Haploinsufficiency\", \"target\": \"Reduced Promoter H3K4 Methylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of catalytic SETD1A dosage directly reduces deposition of H3K4 methylation marks by the Set1/COMPASS complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Promoter H3K4 Methylation\", \"target\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of an activating promoter mark alters transcription of Set1/COMPASS target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"target\": \"Abnormal Excitatory Synapse Development and Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated synaptic gene programs impair the development and function of excitatory synapses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"target\": \"Impaired Cortical Neuron Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated neurodevelopmental transcription perturbs cortical neuron migration, demonstrated for the familial R913C variant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Excitatory Synapse Development and Function\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In human SETD1A+/- neuronal networks, synaptic and cAMP/PKA-pathway changes culminate in network hyperactivity; the intermediate steps operating in the patient brain are not established.\", \"hypothesis_groups\": [\"camp_pka_network_hyperactivity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Excitatory Synapse Development and Function\", \"target\": \"Variable Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical synaptic dysfunction is the presumed substrate of the variable developmental impairment; the determinants of who develops delay are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuron Migration\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed, not demonstrated: subtly mispositioned cortical neurons could contribute to epileptogenic circuit formation, but no study has traced this link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Early-Onset Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable, hypersynchronous cortical network activity manifests clinically as recurrent early-onset seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level seizure state recorded clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Bilateral tonic-clonic seizure with focal onset\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal-to-bilateral tonic-clonic semiology reported from 3 months of age.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Epileptic spasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile epileptic spasms syndrome presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Hypsarrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interictal EEG correlate of the epileptic-spasms presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Variable Neurodevelopmental Impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variable developmental-delay phenotype recorded clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure Medication\", \"target\": \"Early-Onset Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenocorticotropic Hormone Therapy\", \"target\": \"Early-Onset Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenocorticotropic Hormone Therapy\", \"target\": \"Epileptic spasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SETD1A+/- human iPSC-derived excitatory/inhibitory neuronal network\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"SETD1A haploinsufficiency in a human neuronal network produces increased bursting driven by glutamatergic neurons -- the in vitro counterpart of the hyperexcitable, hypersynchronous state this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"An in vitro network of immature iPSC-derived neurons is not cortical tissue: it lacks laminar architecture, long-range connectivity, and the developmental age at which human seizures begin, and network bursting on a multi-electrode array is not a seizure. The donor lines carry engineered rather than patient EPEDD variants, and the parent study was designed around schizophrenia risk, not epilepsy.\"}, {\"source\": \"Setd1a haploinsufficient mouse\", \"target\": \"Abnormal Excitatory Synapse Development and Function\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mice reproduce the existence of a cortical excitatory synaptic lesion downstream of Setd1a haploinsufficiency, together with the transcriptional dysregulation of synaptic genes that this entry places upstream of it.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The synaptic deficit is characterized in adult medial prefrontal cortex in the context of schizophrenia-related behavior, not in the developing cortex at the ages when human seizures begin, and its direction (attenuated excitatory transmission) is opposite to that seen in human SETD1A+/- neuronal networks.\"}, {\"source\": \"Setd1a haploinsufficient mouse\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"No Setd1a+/- mouse study reports spontaneous seizures, epileptiform EEG, or a lowered seizure threshold, and the measured direction of change in excitatory synaptic function is the opposite of a hyperexcitable state. The mouse therefore does not model the epileptogenic step of this entry\u0027s pathograph, which is the substance of the HUMAN_MODEL_MISMATCH discussion.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Two limitations, and they are different. First, the phenotype: these lines show attenuated -- not increased -- excitatory synaptic transmission, so on the one relevant measure they run against the human epilepsy. Second, ascertainment: they were built and phenotyped for schizophrenia-related behavior and cognition, so no chronic video-EEG or chemoconvulsant seizure-threshold testing has been published at any age. A negative on an assay that was never run is weaker than a demonstrated absence of seizures, and this link should be revisited if such phenotyping is reported.\"}, {\"source\": \"SETD1A\", \"target\": \"SETD1A Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Gln269Arg\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg913Cys\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly1369Arg\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg1392His\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ser356Phe (c.1067C\u003eT)\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Glu1002Glyfs*20 (c.3005_3006delAG)\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Excitatory Synapse Development and Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epilepsy-associated SETD1A variants expressed in mouse primary cortical neurons impair excitatory synapse development. Consistently, Setd1a+/- mice show altered axonal branching, cortical synaptic dynamics, and impaired excitatory synaptic transmission in layer 2/3 pyramidal neurons of the medial prefrontal cortex, with postsynaptic Setd1a required for normal excitatory transmission. Human SETD1A+/- iPSC-derived neurons show increased dendritic complexity. The mouse work is schizophrenia-focused and reports attenuated excitatory function, whereas human iPSC networks are hyperactive -- a directionality discrepancy recorded in the HUMAN_MODEL_MISMATCH discussion on this entry.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"glutamatergic neuron\"], \"biological_processes\": [\"synapse organization\", \"chemical synaptic transmission\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Setd1a haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Setd1a+/- (heterozygous loss-of-function / frameshift)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mice reproduce the existence of a cortical excitatory synaptic lesion downstream of Setd1a haploinsufficiency, together with the transcriptional dysregulation of synaptic genes that this entry places upstream of it.\"}]}}, {\"id\": \"Adrenocorticotropic Hormone Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"ACTH is the guideline-standard therapy for infantile epileptic spasms syndrome and is the agent that produced remission in the one reported SETD1A-related IESS case: spasms stopped within three days of starting ACTH (2 U/kg/day), treatment continued for four weeks and was then switched to oral prednisone, with valproic acid added as adjunct. The child remained seizure-free at follow-up. Pyridoxine had been given empirically alongside ACTH from admission, but the authors concluded that a pyridoxine-dependent mechanism was not involved -- spasms persisted on pyridoxine alone and no ALDH7A1 alteration was found -- so the response is attributed to ACTH. This is a single case, not evidence of a SETD1A-specific ACTH effect.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"adrenocorticotropic hormone\"]}}, {\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disorder-specific therapy exists; management is conventional antiseizure treatment chosen by semiology and syndrome. Across the three treated cases with reported outcomes, phenobarbital significantly reduced seizure frequency in the focal-epilepsy case, levetiracetam achieved seizure freedom in a further case with recurrence four years later, and valproic acid was added as adjunct after the epileptic spasms had already responded to ACTH. Pyridoxine (vitamin B6) was given empirically on admission in the spasms case, but the authors explicitly discounted a pyridoxine-responsive mechanism, so it is not listed here as an active agent -- ACTH is curated as its own treatment. These are single-case observations, not comparative evidence.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"phenobarbital\", \"levetiracetam\", \"valproic acid\"]}}, {\"id\": \"Bilateral tonic-clonic seizure with focal onset\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal-to-bilateral tonic-clonic seizures, reported from 3 months of age with unilateral onset and versive features, alongside focal impaired-awareness seizures in the same child.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007334\"}}, {\"id\": \"Cortical Network Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human excitatory/inhibitory neuronal networks derived from SETD1A+/- iPSCs show functionally increased bursting activity, driven primarily by haploinsufficiency in glutamatergic neurons -- an in vitro correlate of the network hyperexcitability that generates seizures in patients. Direct demonstration of hyperexcitability in patient brain tissue does not exist, and Setd1a+/- mice (schizophrenia models) show attenuated rather than increased excitatory transmission, so this node is provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"action potential\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"experimental_models\": [{\"name\": \"SETD1A+/- human iPSC-derived excitatory/inhibitory neuronal network\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"SETD1A haploinsufficiency in a human neuronal network produces increased bursting driven by glutamatergic neurons -- the in vitro counterpart of the hyperexcitable, hypersynchronous state this node asserts.\"}], \"animal_models\": [{\"name\": \"Setd1a haploinsufficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Setd1a+/- (heterozygous loss-of-function / frameshift)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"No Setd1a+/- mouse study reports spontaneous seizures, epileptiform EEG, or a lowered seizure threshold, and the measured direction of change in excitatory synaptic function is the opposite of a hyperexcitable state. The mouse therefore does not model the epileptogenic step of this entry\u0027s pathograph, which is the substance of the HUMAN_MODEL_MISMATCH discussion.\"}]}}, {\"id\": \"Early-Onset Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of the epilepsy arm of the cascade: recurrent seizures beginning in infancy, often within the first months of life. Reported semiologies include focal-to-bilateral tonic-clonic seizures, focal impaired-awareness seizures, and infantile epileptic spasms syndrome with hypsarrhythmia; brain MRI is typically normal.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Epileptic spasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile epileptic spasms syndrome has been reported as a presentation of a de novo SETD1A frameshift variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011097\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is variable -- present in some individuals (the epileptic-spasms case had delay as part of the IESS triad) and absent in others, including a child with seizures from 3 months whose developmental quotient and IQ were normal. The disease name\u0027s \\\"with or without developmental delay\\\" encodes exactly this variability.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypsarrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chaotic high-amplitude interictal EEG pattern accompanying the epileptic spasms presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002521\"}}, {\"id\": \"Impaired Cortical Neuron Migration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of the familial R913C epilepsy variant perturbed migration of cortical neurons in the developing mouse brain, indicating that some SETD1A variants additionally disturb neuronal positioning during corticogenesis. Notably, affected individuals -- across the allelic SETD1A disorders -- do not show major structural brain malformations, so any migration contribution must be subtle.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neuron migration\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Promoter H3K4 Methylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SETD1A deposits mono-, di-, and trimethylation on histone H3 lysine 4; H3K4me3 is a hallmark of transcriptionally active promoters. Reduced SETD1A dosage lowers this activating chromatin mark at Set1/COMPASS target loci. Note that this histone-methylation lesion has no detectable correlate in blood DNA methylation: profiling of six SETD1A patients found no strong CpG methylation episignature (PMID:37166351).\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"epigenetic regulation of gene expression\", \"chromatin organization\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"SETD1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SETD1A\"], \"gene_terms\": [{\"label\": \"SETD1A\", \"id\": \"hgnc:29010\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 6}}, {\"id\": \"SETD1A Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous SETD1A variants -- truncating alleles and damaging missense changes within and outside the catalytic SET domain -- reduce the dosage of functional SETD1A, the catalytic subunit of a Set1/COMPASS histone methyltransferase complex. Functional characterization of patient variants (including a SET-domain missense allele) shows behavior comparable to loss-of-function alleles, and the gene is strongly depleted of loss-of-function variants in the general population, consistent with dosage sensitivity.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H3K4 methyltransferase activity\"], \"genes\": [\"SETD1A\"], \"gene_terms\": [{\"label\": \"SETD1A\", \"id\": \"hgnc:29010\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous SETD1A alleles: truncating (frameshift, nonsense, splice-site) changes and damaging missense substitutions both inside and outside the catalytic SET domain. Patient-derived cell lines show that even a SET-domain missense allele behaves as loss of function, and the gene is strongly depleted of loss-of-function variants in the general population. Most reported epilepsy variants arose de novo, but the defining report includes one missense allele inherited through four generations, so DE_NOVO records the predominant rather than exclusive origin.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"SETD1A+/- human iPSC-derived excitatory/inhibitory neuronal network\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR-Cas9-engineered human induced pluripotent stem cells carrying a heterozygous SETD1A loss-of-function mutation, differentiated into mixed excitatory/inhibitory neuronal networks and recorded on multi-electrode arrays. This is the only model system in which SETD1A haploinsufficiency has been shown to produce a hyperactive network state, and the effect is reversible by cAMP/PKA-pathway inhibition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glutamatergic neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:35508131\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature: recurrent seizures with onset in infancy, often in the first months of life. Semiology is heterogeneous across reported individuals.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Setd1a haploinsufficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Two independently generated heterozygous Setd1a mouse lines. Mukai et al. (PMID:31606247) report altered axonal branching, cortical synaptic dynamics and working-memory deficits, plus reversibility on adult Setd1a reinstatement or LSD1 antagonism; Nagahama et al. (PMID:32937141) carry a frameshift mimicking a human loss-of-function allele and show impaired excitatory synaptic transmission in layer 2/3 medial prefrontal cortex pyramidal neurons. Both were built to model schizophrenia, and both are curated here as one model record because they share the genotype and the same relationship to this entry\u0027s pathograph.\"}, {\"id\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced H3K4 methylation at SETD1A-bound promoters and enhancers dysregulates transcriptional programs in neurons. In Setd1a-deficient mice, Setd1a binds both promoters and enhancers (overlapping Mef2 on enhancers), and its targets -- highly expressed in pyramidal neurons -- show complex up- and downregulation, including genes related to neurodevelopmental disorders and synaptic function in the medial prefrontal cortex. In human SETD1A+/- iPSC-derived neuronal networks, transcriptomic profiling shows perturbation of glutamatergic synaptic gene sets. In patient-variant overexpression experiments, two common downstream genes (Neurl4 and Usp39) were affected by SETD1A mutations.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pyramidal neuron\"], \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Variable Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developmental impact ranges from none to global developmental delay -- the \\\"with or without developmental delay\\\" of the disease name. One reported child with seizures from 3 months of age had a developmental quotient and IQ in the normal range with normal MRI, while other SETD1A carriers in the epilepsy series and the wider allelic spectrum have developmental delay or intellectual disability. The determinants of this variability are unknown.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"p.Arg1392His\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Arg913Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant segregating with seizures in a four-generation family (Yu et al. 2019); its expression also perturbed cortical neuron migration in the mouse brain.\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Gln269Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Glu1002Glyfs*20 (c.3005_3006delAG)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo frameshift variant in exon 12 in a child with infantile epileptic spasms syndrome and hypsarrhythmia.\", \"meta\": {\"variant_type\": \"frameshift\"}}, {\"id\": \"p.Gly1369Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).\", \"meta\": {\"variant_type\": \"missense\"}}, {\"id\": \"p.Ser356Phe (c.1067C\u003eT)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo missense variant outside the SET domain in a girl with focal-to-bilateral tonic-clonic seizures from 3 months, normal MRI, and preserved cognition; classified likely pathogenic (ACMG PS2+PM2+PP3).\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}], \"edges\": [{\"source\": \"SETD1A Haploinsufficiency\", \"target\": \"Reduced Promoter H3K4 Methylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of catalytic SETD1A dosage directly reduces deposition of H3K4 methylation marks by the Set1/COMPASS complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Promoter H3K4 Methylation\", \"target\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of an activating promoter mark alters transcription of Set1/COMPASS target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"target\": \"Abnormal Excitatory Synapse Development and Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated synaptic gene programs impair the development and function of excitatory synapses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcriptional Dysregulation of Synaptic and Neurodevelopmental Genes\", \"target\": \"Impaired Cortical Neuron Migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated neurodevelopmental transcription perturbs cortical neuron migration, demonstrated for the familial R913C variant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Excitatory Synapse Development and Function\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In human SETD1A+/- neuronal networks, synaptic and cAMP/PKA-pathway changes culminate in network hyperactivity; the intermediate steps operating in the patient brain are not established.\", \"hypothesis_groups\": [\"camp_pka_network_hyperactivity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal Excitatory Synapse Development and Function\", \"target\": \"Variable Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical synaptic dysfunction is the presumed substrate of the variable developmental impairment; the determinants of who develops delay are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuron Migration\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed, not demonstrated: subtly mispositioned cortical neurons could contribute to epileptogenic circuit formation, but no study has traced this link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cortical Network Hyperexcitability\", \"target\": \"Early-Onset Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperexcitable, hypersynchronous cortical network activity manifests clinically as recurrent early-onset seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level seizure state recorded clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Bilateral tonic-clonic seizure with focal onset\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal-to-bilateral tonic-clonic semiology reported from 3 months of age.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Epileptic spasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile epileptic spasms syndrome presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early-Onset Seizures\", \"target\": \"Hypsarrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Interictal EEG correlate of the epileptic-spasms presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Variable Neurodevelopmental Impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variable developmental-delay phenotype recorded clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure Medication\", \"target\": \"Early-Onset Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenocorticotropic Hormone Therapy\", \"target\": \"Early-Onset Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adrenocorticotropic Hormone Therapy\", \"target\": \"Epileptic spasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SETD1A+/- human iPSC-derived excitatory/inhibitory neuronal network\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"SETD1A haploinsufficiency in a human neuronal network produces increased bursting driven by glutamatergic neurons -- the in vitro counterpart of the hyperexcitable, hypersynchronous state this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"An in vitro network of immature iPSC-derived neurons is not cortical tissue: it lacks laminar architecture, long-range connectivity, and the developmental age at which human seizures begin, and network bursting on a multi-electrode array is not a seizure. The donor lines carry engineered rather than patient EPEDD variants, and the parent study was designed around schizophrenia risk, not epilepsy.\"}, {\"source\": \"Setd1a haploinsufficient mouse\", \"target\": \"Abnormal Excitatory Synapse Development and Function\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mice reproduce the existence of a cortical excitatory synaptic lesion downstream of Setd1a haploinsufficiency, together with the transcriptional dysregulation of synaptic genes that this entry places upstream of it.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The synaptic deficit is characterized in adult medial prefrontal cortex in the context of schizophrenia-related behavior, not in the developing cortex at the ages when human seizures begin, and its direction (attenuated excitatory transmission) is opposite to that seen in human SETD1A+/- neuronal networks.\"}, {\"source\": \"Setd1a haploinsufficient mouse\", \"target\": \"Cortical Network Hyperexcitability\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"No Setd1a+/- mouse study reports spontaneous seizures, epileptiform EEG, or a lowered seizure threshold, and the measured direction of change in excitatory synaptic function is the opposite of a hyperexcitable state. The mouse therefore does not model the epileptogenic step of this entry\u0027s pathograph, which is the substance of the HUMAN_MODEL_MISMATCH discussion.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Two limitations, and they are different. First, the phenotype: these lines show attenuated -- not increased -- excitatory synaptic transmission, so on the one relevant measure they run against the human epilepsy. Second, ascertainment: they were built and phenotyped for schizophrenia-related behavior and cognition, so no chronic video-EEG or chemoconvulsant seizure-threshold testing has been published at any age. A negative on an assay that was never run is weaker than a demonstrated absence of seizures, and this link should be revisited if such phenotyping is reported.\"}, {\"source\": \"SETD1A\", \"target\": \"SETD1A Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Gln269Arg\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg913Cys\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gly1369Arg\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg1392His\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ser356Phe (c.1067C\u003eT)\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Glu1002Glyfs*20 (c.3005_3006delAG)\", \"target\": \"SETD1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6267,6 +6370,9 @@ This clinical feature is Seizure (HP:0001250), qualified as infantile onset. HP:
 
 
                 </div>
+
+
+
 
 
 
@@ -6366,6 +6472,9 @@ This clinical feature is Focal-to-bilateral tonic-clonic seizure, annotated with
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6430,6 +6539,9 @@ This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:00023
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6504,6 +6616,9 @@ This clinical feature is Focal aware motor seizure (HP:0020217). HP:0020217 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6568,6 +6683,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6696,6 +6814,9 @@ This clinical feature is Epileptic spasm (HP:0011097), qualified as infantile on
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6765,6 +6886,9 @@ This clinical feature is Hypsarrhythmia (HP:0002521). HP:0002521 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6829,6 +6953,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6946,6 +7073,9 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7044,7 +7174,9 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7052,6 +7184,11 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).</div>
@@ -7077,7 +7214,9 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7085,6 +7224,11 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variant segregating with seizures in a four-generation family (Yu et al. 2019); its expression also perturbed cortical neuron migration in the mouse brain.</div>
@@ -7110,7 +7254,9 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7118,6 +7264,11 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).</div>
@@ -7143,7 +7294,9 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7151,6 +7304,11 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo missense variant reported in early-onset epilepsy (Yu et al. 2019).</div>
@@ -7178,7 +7336,9 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7186,6 +7346,11 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo missense variant outside the SET domain in a girl with focal-to-bilateral tonic-clonic seizures from 3 months, normal MRI, and preserved cognition; classified likely pathogenic (ACMG PS2+PM2+PP3).</div>
@@ -7211,7 +7376,9 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
@@ -7219,6 +7386,11 @@ This disease-associated gene is SETD1A (hgnc:29010). hgnc:29010 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo frameshift variant in exon 12 in a child with infantile epileptic spasms syndrome and hypsarrhythmia.</div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4780,6 +4822,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysgenetic-gonad-with-y-chromosome-material" data-dismech-node="Dysgenetic Gonad With Y-Chromosome Material" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysgenetic Gonad With Y-Chromosome Material</div>
 
+
                 <div class="item-desc">A minority of malignant ovarian germ cell tumors arise on an identifiable predisposing substrate: a dysgenetic (streak) gonad containing Y-chromosome material, as in 46,XY complete gonadal dysgenesis (Swyer syndrome) or Turner syndrome with Y mosaicism. Germ cells in a dysgenetic gonad fail to complete maturation and persist in an OCT3/4-positive pluripotent state; expression of gonadoblastoma-region Y genes (TSPY) in that setting marks cells that can progress through gonadoblastoma to invasive dysgerminoma. This is the basis for prophylactic gonadectomy in high-risk differences of sex development.</div>
 
 
@@ -4998,6 +5041,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-primordial-germ-cell-transformation-with-retained-pluripotency" data-dismech-node="Primordial Germ Cell Transformation With Retained Pluripotency" data-dismech-type="pathophysiology">
                 <div class="item-name">Primordial Germ Cell Transformation With Retained Pluripotency</div>
+
 
                 <div class="item-desc">Malignant ovarian germ cell tumors derive from primordial germ cells that fail to complete normal oogenesis and instead retain an embryonic pluripotency program (OCT3/4, NANOG, SALL4). This retained stemness both permits survival outside the normal differentiation trajectory and supplies the capacity for subsequent multi-lineage (embryonic and extraembryonic) differentiation that generates the histologic diversity of the disease.</div>
 
@@ -5243,6 +5287,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromosome-12p-gain-and-copy-number-driven-genome-imbalance" data-dismech-node="Chromosome 12p Gain and Copy-Number-Driven Genome Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromosome 12p Gain and Copy-Number-Driven Genome Imbalance</div>
 
+
                 <div class="item-desc">Rather than a high point-mutation burden, malignant germ cell tumors are driven principally by copy-number imbalance. Gain of the short arm of chromosome 12, frequently as isochromosome 12p, is the keystone cytogenetic lesion shared across postpubertal-type germ cell tumors of the ovary and testis. Pure immature teratoma is the notable exception in which 12p gain is typically absent, which is consistent with its distinct meiotic-error/parthenogenetic origin.</div>
 
 
@@ -5294,6 +5339,8 @@ This pathophysiological event involves primordial germ cell (CL:0000670). CL:000
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5302,6 +5349,9 @@ This pathophysiological event involves primordial germ cell (CL:0000670). CL:000
 
 
     </div>
+
+
+
 
 
 
@@ -5435,6 +5485,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kit-and-ras-pi3k-oncogenic-signaling-activation" data-dismech-node="KIT and RAS-PI3K Oncogenic Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">KIT and RAS-PI3K Oncogenic Signaling Activation</div>
+
 
                 <div class="item-desc">The dominant recurrent oncogenic lesions of malignant ovarian germ cell tumors fall in the receptor tyrosine kinase and downstream mitogenic pathways. Activating KIT mutations (characteristically exon 17 codon 816) and KIT amplification are enriched in dysgerminoma, where KIT/CD117 protein is expressed in the large majority of tumors; KRAS mutations together with PIK3CA and AKT1 amplification cluster instead in yolk sac tumor. KIT mutation is associated with more advanced stage at presentation and defines the rationale for KIT-inhibitor trials in dysgerminoma.</div>
 
@@ -5755,6 +5806,7 @@ This pathophysiological event involves increased cell surface receptor protein t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-mitogenic-pathway-activation" data-dismech-node="Constitutive Mitogenic Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Mitogenic Pathway Activation</div>
 
+
                 <div class="item-desc">KIT, RAS, and PI3K-AKT lesions converge on chronic, ligand-independent flux through the RAS-MAPK and PI3K-AKT-mTOR cascades, sustaining proliferation and survival of the transformed germ cell independently of extrinsic growth-factor cues. This is the conserved hallmark-1 effector node that the disorder-specific KIT (dysgerminoma) and KRAS/PIK3CA/AKT1 (yolk sac tumor) drivers feed into.</div>
 
 
@@ -5996,6 +6048,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-factor-independent-germ-cell-proliferation" data-dismech-node="Growth-Factor-Independent Germ Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth-Factor-Independent Germ Cell Proliferation</div>
 
+
                 <div class="item-desc">Sustained KIT/RAS/PI3K signaling carries the transformed germ cell through the G1 restriction point into repeated rounds of division without the normal requirement for extrinsic growth factors. Clinically this autonomous proliferation is what makes MOGCT one of the fastest-growing ovarian neoplasms, with symptoms often developing over only weeks.</div>
 
 
@@ -6168,6 +6221,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-histology-determining-epigenetic-reprogramming" data-dismech-node="Histology-Determining Epigenetic Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Histology-Determining Epigenetic Reprogramming</div>
+
 
                 <div class="item-desc">Germ cells undergo complete epigenetic reprogramming during development, and the DNA-methylation state at which transformation arrests is a principal determinant of which histology results. An epigenome-wide study of 154 paediatric germ cell tumours identified 8,481 differentially methylated regions between histologies, and unsupervised clustering on those regions recovered four clusters corresponding to tumour histology rather than to age, anatomical location, sex or FFPE status. Germinomatous tumours (germinoma/seminoma/dysgerminoma) are globally hypomethylated relative to yolk sac tumour. This is the layer that the copy-number arm does not explain: 12p gain is shared across MOGCT histologies, so it cannot by itself account for the germinomatous versus non-germinomatous split, whereas the methylation state clusters by exactly that split.</div>
 
@@ -6367,6 +6421,7 @@ This pathophysiological event involves dysregulated epigenetic (DNA methylation)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-divergent-germinomatous-and-non-germinomatous-differentiation" data-dismech-node="Divergent Germinomatous and Non-Germinomatous Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Divergent Germinomatous and Non-Germinomatous Differentiation</div>
 
+
                 <div class="item-desc">The histologic diversity of MOGCT reflects which differentiation program the transformed pluripotent germ cell adopts. Cells that remain germinoma-like produce dysgerminoma (OCT3/4-, NANOG-, SALL4-, CD117-positive, AFP-negative); extraembryonic differentiation produces yolk sac tumor (SALL4-, glypican-3-, AFP-positive, OCT4-negative) and non-gestational choriocarcinoma; embryonic/somatic differentiation produces embryonal carcinoma and immature teratoma; simultaneous divergent differentiation produces mixed tumors. The resulting immunophenotype is what pathology uses to assign subtype.</div>
 
 
@@ -6522,6 +6577,7 @@ This pathophysiological event involves abnormal cell differentiation (GO:0030154
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lineage-specific-tumor-marker-secretion" data-dismech-node="Lineage-Specific Tumor Marker Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Lineage-Specific Tumor Marker Secretion</div>
 
+
                 <div class="item-desc">Because each MOGCT histology recapitulates a different embryonic lineage, each secretes a different circulating marker: yolk sac differentiation produces alpha-fetoprotein, trophoblastic differentiation produces beta-hCG, and dysgerminoma releases lactate dehydrogenase in proportion to tumor burden. Embryonal carcinoma can produce either AFP or beta-hCG. This lineage-to-marker mapping makes serum markers simultaneously a subtype clue, a staging aid, and the principal response and relapse monitor.</div>
 
 
@@ -6628,6 +6684,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rapidly-expanding-unilateral-ovarian-mass" data-dismech-node="Rapidly Expanding Unilateral Ovarian Mass" data-dismech-type="pathophysiology">
                 <div class="item-name">Rapidly Expanding Unilateral Ovarian Mass</div>
+
 
                 <div class="item-desc">MOGCTs typically form a large, solid or solid-cystic, unilateral ovarian mass that enlarges over only weeks. Mass effect and capsular stretch produce abdominal pain and distension, and the pedunculated bulky mass is prone to torsion or rupture, which can present as an acute abdomen. Rapid growth is also why most tumors become symptomatic - and therefore are detected - at an early FIGO stage.</div>
 
@@ -6797,6 +6854,7 @@ This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peritoneal-nodal-and-distant-dissemination" data-dismech-node="Peritoneal, Nodal, and Distant Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Peritoneal, Nodal, and Distant Dissemination</div>
 
+
                 <div class="item-desc">Spread beyond the ovary follows histology-specific routes: dysgerminoma has the highest risk of lymphatic (retroperitoneal nodal) metastasis, yolk sac tumor spreads peritoneally as hypervascular implants, and choriocarcinoma disseminates haematogenously to lung and liver. Capsular rupture and peritoneal spread are the imaging complications specifically sought at staging. Because the disease remains chemosensitive, even disseminated disease is usually curable, which is why radical cytoreduction is avoided.</div>
 
 
@@ -6961,6 +7019,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exquisite-platinum-chemosensitivity" data-dismech-node="Exquisite Platinum Chemosensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Exquisite Platinum Chemosensitivity</div>
 
+
                 <div class="item-desc">Germ cell tumors are among the most chemosensitive solid tumors. Their embryonic, pluripotency-associated apoptotic wiring and limited DNA-damage tolerance mean cisplatin-induced DNA adducts efficiently trigger apoptosis, so bleomycin/etoposide/cisplatin achieves survival above 90% even in advanced disease. This is the pathophysiologic reason mutilating surgery is avoided and fertility-sparing surgery is oncologically safe. The corollary is that the dominant unmet need is the platinum-resistant minority, especially relapsed yolk sac tumor, in which nucleotide-excision repair, stemness, and detoxification programs restore survival.</div>
 
 
@@ -7099,6 +7158,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platinum-resistant-relapse" data-dismech-node="Platinum-Resistant Relapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Platinum-Resistant Relapse</div>
+
 
                 <div class="item-desc">The clinically decisive minority are the tumors that survive platinum. Most relapses occur in the first few years and are detected by rising serum markers or imaging change; recurrence after primary chemotherapy carries a substantially worse prognosis, and relapsed yolk sac tumor in particular is the principal unmet need. Management shifts to high-dose chemotherapy with stem-cell rescue, selected secondary cytoreduction, or radiotherapy. A distinct, non-malignant mimic is growing teratoma syndrome, in which masses enlarge during chemotherapy with normalized markers because a benign mature teratoma component is proliferating; that entity is chemoresistant by nature and is treated by resection alone.</div>
 
@@ -7569,6 +7629,9 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7635,6 +7698,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7715,6 +7781,9 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7823,6 +7892,9 @@ This clinical feature is Ovarian neoplasm (HP:0100615). HP:0100615 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7894,6 +7966,9 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7960,6 +8035,9 @@ This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8040,6 +8118,9 @@ This clinical feature is Elevated circulating alpha-fetoprotein concentration (H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8141,6 +8222,9 @@ This clinical feature is Elevated circulating beta chorionic gonadotropin concen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8232,6 +8316,9 @@ This clinical feature is Increased circulating lactate dehydrogenase concentrati
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8339,6 +8426,9 @@ This clinical feature is Anti-NMDA receptor encephalitis, annotated with Encepha
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Scope caveat: the association is with ovarian teratoma broadly, and in the defining series the majority of associated tumors were MATURE (benign) cystic teratomas, which are explicitly out of scope for this malignant-tumor entry and are listed under differential_diagnoses. The phenotype is retained here, tagged to the Immature Teratoma subtype, because immature (malignant) teratomas also cause it and because finding the tumor changes oncologic management; the supporting evidence is therefore marked PARTIAL. Separately, HPO has no term for autoimmune or anti-NMDA receptor encephalitis, so this phenotype binds the closest available parent (HP:0001298 Encephalopathy) and carries the specific syndrome name in preferred_term.</div>
@@ -8453,6 +8543,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8537,6 +8630,9 @@ This clinical feature is Acute abdomen from adnexal torsion or tumor rupture, an
 
 
                     </div>
+
+
+
 
 
 
@@ -8668,6 +8764,9 @@ This clinical feature is Acute abdomen from adnexal torsion or tumor rupture, an
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8765,6 +8864,9 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -8870,6 +8972,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8971,6 +9076,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9027,6 +9135,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -6626,6 +6668,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unknown-imcd-initiating-process" data-dismech-node="Unknown iMCD Initiating Process" data-dismech-type="pathophysiology">
                 <div class="item-name">Unknown iMCD Initiating Process</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">The event that starts idiopathic multicentric Castleman disease has not been identified. Three candidate processes have been proposed and none has been excluded: systemic inflammatory disease driven by autoantibodies or germline inflammatory gene variants; a paraneoplastic mechanism in which a clonal cell population ectopically secretes cytokine; and infection by a virus other than HHV-8. Viral-Track analysis of 22 UCD and 19 iMCD lymph nodes found no shared viral signature, which weighs against the third candidate without excluding a hit-and-run or non-transcribed agent. This node is deliberately kept in the graph as an explicit unknown so that everything downstream is not implicitly attributed to IL-6.</div>
 
 
@@ -6789,6 +6838,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-stromal-cell-mutation" data-dismech-node="Somatic Stromal Cell Mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Stromal Cell Mutation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Recurrent somatic mutations are found in the lesional tissue of both unicentric and idiopathic multicentric CD. PDGFRB N666S, an activating receptor tyrosine kinase allele, is present in about 10% of UCD, and NCOA4 L261F in about 23% of iMCD. In paraneoplastic-pemphigus-associated UCD, whole-exome sequencing found IL6ST (encoding gp130) and PDGFRB as the most frequently mutated genes at 32% each, with IL6ST variants predicting worse overall survival. More broadly, MAPK and interleukin signaling pathway abnormalities cluster in UCD while chromatin-organization and methylation abnormalities cluster in iMCD. Whether these alleles initiate the lesion or accumulate within it is unresolved.</div>
 
 
@@ -6817,6 +6873,8 @@
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -6827,6 +6885,9 @@
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">PDGFRB N666S is an activating allele; IL6ST encodes the gp130 subunit shared by IL-6 and vIL-6 signaling. The functional consequence of NCOA4 L261F in this disease has not been characterized.</div>
@@ -6999,6 +7060,13 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-mediated-immune-dysregulation" data-dismech-node="Autoantibody-Mediated Immune Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody-Mediated Immune Dysregulation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">IgG autoantibodies against connective tissue disease autoantigens are found in 47% of iMCD patients versus 17% of healthy controls, and anti-cytokine autoantibodies in 38% versus 10%. One sample showed receptor-blocking activity against interferon-omega. The autoantibodies are heterogeneous rather than a single shared specificity, and no pathogenic mechanism linking them to lymph node pathology has been shown, so this node records an association-level candidate mechanism rather than an established step.</div>
 
 
@@ -7159,6 +7227,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymph-node-stromal-cell-activation-and-expansion" data-dismech-node="Lymph Node Stromal Cell Activation and Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymph Node Stromal Cell Activation and Expansion</div>
+
 
                 <div class="item-desc">Spatial proteomic and single-nuclei transcriptomic mapping shows that the non-lymphoid stromal compartment of the multicentric Castleman lymph node expands and forms microenvironments absent from reactive nodes. The subsets that expand here are PDGFRA+ T-zone reticular cells and ACTA2+ perivascular reticular cells, in contrast to the B-zone reticular cells that dominate the unicentric form. These stromal populations, not the hematopoietic compartment, carry the highest VEGFA and IL-6-module expression, and they activate JAK-STAT, TGF-beta, and MAPK programs. Plasma cells, plasmablasts, endothelium, lymphatics, monocytes and macrophages are also increased.</div>
 
@@ -7577,6 +7646,7 @@ This pathophysiological event involves increased TGF-beta receptor signaling, an
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-follicular-dendritic-cell-meshwork-expansion" data-dismech-node="Follicular Dendritic Cell Meshwork Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Follicular Dendritic Cell Meshwork Expansion</div>
 
+
                 <div class="item-desc">CD21+ follicular dendritic cell meshworks are larger, brighter, and more structurally complex in both UCD and MCD than in reactive lymph nodes. Interdigitation of the expanded meshwork between concentric layers of mantle zone B cells is the proposed structural basis of the &#34;onion-skinning&#34; appearance, and the resulting sustained antigen presentation is proposed to drive B cell activation and plasma cell differentiation. This reinterprets the prominent FDCs of Castleman histology as an active driver rather than a passive remnant of an attenuated germinal center.</div>
 
 
@@ -7853,6 +7923,7 @@ This pathophysiological event involves increased Plasma cell differentiation (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stromal-vegf-overproduction-and-neovascularization" data-dismech-node="Stromal VEGF Overproduction and Neovascularization" data-dismech-type="pathophysiology">
                 <div class="item-name">Stromal VEGF Overproduction and Neovascularization</div>
 
+
                 <div class="item-desc">VEGFA is expressed at its highest levels by perivascular and T-zone reticular cells in MCD and by CXCL13+ follicular dendritic cells inside follicles in UCD. In UCD the expression is confined to follicles; in MCD it extends into the interfollicular space. The resulting perifollicular neovascularization and penetrating vessels are the structural basis of the diagnostic &#34;lollipop&#34; follicle, and hypervascularization supports the stromal remodeling and nodal expansion. Systemically, VEGF contributes to vascular permeability and to the POEMS phenotype.</div>
 
 
@@ -8094,6 +8165,13 @@ This pathophysiological event involves increased Angiogenesis (GO:0001525). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-mtor-pathway-activation" data-dismech-node="PI3K/AKT/mTOR Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K/AKT/mTOR Pathway Activation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">In IL-6-blockade-refractory iMCD, quantitative serum proteomics, cytokine panels, flow cytometry, and phospho-S6 immunohistochemistry showed increased CD8+ T cell activation, elevated VEGF-A, and PI3K/AKT/mTOR pathway activity. Sirolimus attenuated CD8+ T cell activation, lowered VEGF-A, and produced durable clinical benefit in all three patients studied. This is the first pharmacologically targetable process identified for patients whose disease does not respond to IL-6 blockade, and it is the mechanistic rationale for NCT03933904. The supporting series is three patients.</div>
 
 
@@ -8323,6 +8401,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-6-overproduction" data-dismech-node="IL-6 Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-6 Overproduction</div>
 
+
                 <div class="item-desc">Endogenous human IL-6 is overproduced from a trigger that has not been identified. The producing cell appears to differ by subtype: plasma cells in iMCD-IPL, under an XBP1-driven endoplasmic reticulum stress and plasma-cell-differentiation program, and vascular endothelial cells in iMCD-TAFRO, where the serum elevation may be secondary to the cytokine storm rather than its cause. That difference is the leading explanation for why IL-6 blockade works well in IPL and poorly in TAFRO, and it is why this node is not treated as the single unifying driver of the disease.</div>
 
 
@@ -8549,6 +8628,7 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat3-signaling-activation" data-dismech-node="JAK-STAT3 Signaling Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT3 Signaling Activation</div>
 
+
                 <div class="item-desc">IL-6 and vIL-6 bind gp130 and activate downstream JAK kinases and STAT3 transcription factor signaling. This pathway is therapeutically targeted by anti-IL-6 (siltuximab), anti-IL-6R (tocilizumab), and JAK1/2 inhibitors (ruxolitinib).</div>
 
 
@@ -8667,6 +8747,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cxcl13-chemokine-axis-elevation" data-dismech-node="CXCL13 Chemokine Axis Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">CXCL13 Chemokine Axis Elevation</div>
+
 
                 <div class="item-desc">In a comparison of 1,178 serum proteins across 88 iMCD patients, 60 patients with related diseases, and 42 healthy participants, CXCL13 was the protein most prominently up-regulated in iMCD. CXCL13 is the follicular dendritic cell chemokine that organizes B cell follicles, so its elevation connects the stromal compartment to the B cell expansion seen histologically. A 17% reduction in CXCL13 by day 8 of siltuximab predicts later response, making this node the best-supported pharmacodynamic readout in the disease.</div>
 
@@ -8801,6 +8882,7 @@ This pathophysiological event involves increased Chemokine-mediated signaling, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-cell-b-cell-proliferation" data-dismech-node="Plasma Cell / B Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasma Cell / B Cell Proliferation</div>
+
 
                 <div class="item-desc">JAK-STAT3 signaling drives proliferation of B cells and plasma cells within affected lymph nodes. Immunoglobulin output from the expanded plasma cell compartment is polyclonal, class-switched, and somatically hypermutated, consistent with a driven germinal-centre-type response rather than antigen-independent activation.</div>
 
@@ -9015,6 +9097,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-acute-phase-response" data-dismech-node="Hepatic Acute-Phase Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Acute-Phase Response</div>
 
+
                 <div class="item-desc">IL-6 signaling reprogrammes hepatic protein synthesis: C-reactive protein and fibrinogen are induced, albumin synthesis falls, and hepcidin induction restricts iron availability. This is a separate effector arm from the B-lineage one - a different cell lineage with a different clinical read-out - and its markers normalize earlier on IL-6 blockade than immunoglobulin does.</div>
 
 
@@ -9171,6 +9254,7 @@ This pathophysiological event involves increased Acute-phase response (GO:000695
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiofollicular-lymph-node-hyperplasia" data-dismech-node="Angiofollicular Lymph Node Hyperplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiofollicular Lymph Node Hyperplasia</div>
 
+
                 <div class="item-desc">The unifying histopathologic feature across all CD subtypes: lymph nodes show abnormal germinal centers (regressed/atretic in hyaline-vascular UCD, hyperplastic with plasma cell infiltrates in plasma-cell variant MCD), penetrating &#34;lollipop&#34; vessels, mantle-zone expansion (&#34;onion-skinning&#34;), and interfollicular plasmacytosis and vascular proliferation driven by IL-6 and VEGF.</div>
 
 
@@ -9311,6 +9395,7 @@ This pathophysiological event involves increased Angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-hyperpermeability-and-third-space-fluid-accumulation" data-dismech-node="Vascular Hyperpermeability and Third-Space Fluid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Hyperpermeability and Third-Space Fluid Accumulation</div>
+
 
                 <div class="item-desc">VEGF-driven and cytokine-driven endothelial permeability, compounded by hypoalbuminemia, causes fluid to leave the vascular space. Clinically this is the anasarca of iMCD-TAFRO, with pleural effusion, ascites, and generalized edema. Fluid retention was present in 84% of iMCD patients in the ACCELERATE registry, and 46% required paracentesis.</div>
 
@@ -9469,6 +9554,7 @@ This pathophysiological event involves increased Regulation of vascular permeabi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-injury-and-renal-thrombotic-microangiopathy" data-dismech-node="Endothelial Injury and Renal Thrombotic Microangiopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Injury and Renal Thrombotic Microangiopathy</div>
+
 
                 <div class="item-desc">Renal involvement is common in MCD and especially in TAFRO. Where kidney biopsy is performed, membranoproliferative glomerulonephritis-like injury and thrombotic microangiopathy are the findings most often reported, implicating glomerular endothelial injury rather than a primary tubular or immune-complex process. IL-6 and VEGF have both been proposed as the mediators, but their specific role in the renal lesion has not been established. Thrombotic microangiopathy was diagnosed after iMCD onset in 6.9% of the ACCELERATE cohort, predominantly TAFRO patients.</div>
 
@@ -9666,6 +9752,13 @@ This pathophysiological event involves increased Blood coagulation (GO:0007596).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-marrow-stromal-fibrotic-remodeling" data-dismech-node="Marrow Stromal Fibrotic Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Marrow Stromal Fibrotic Remodeling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">In iMCD-TAFRO the bone marrow stroma lays down excess reticulin - the &#34;R&#34; of the TAFRO acronym - typically with megakaryocytic hyperplasia. What drives the fibrotic response in this setting has not been established.</div>
 
 
@@ -9777,6 +9870,13 @@ This pathophysiological event involves increased Extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-platelet-consumption" data-dismech-node="Peripheral Platelet Consumption" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Platelet Consumption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Platelet counts fall in iMCD-TAFRO despite adequate marrow megakaryocyte numbers, so the deficit is peripheral rather than a failure of production. This distinguishes TAFRO sharply from iMCD-IPL and iMCD-NOS, where thrombocytosis rather than thrombocytopenia is typical. Kept separate from the marrow fibrosis node because the two are different claims - one about stromal remodeling in the marrow, one about platelet survival in the circulation - and neither is established as causing the other. The mechanism of the consumption has not been established; endothelial injury and thrombotic microangiopathy are the leading candidates in this subtype.</div>
 
@@ -10151,7 +10251,7 @@ This pathophysiological event involves increased Negative regulation of megakary
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Angiofollicular Lymph Node Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The unifying histopathologic feature across all CD subtypes: lymph nodes show abnormal germinal centers (regressed/atretic in hyaline-vascular UCD, hyperplastic with plasma cell infiltrates in plasma-cell variant MCD), penetrating \\\"lollipop\\\" vessels, mantle-zone expansion (\\\"onion-skinning\\\"), and interfollicular plasmacytosis and vascular proliferation driven by IL-6 and VEGF.\", \"meta\": {\"cell_types\": [\"Plasma cell\", \"Follicular dendritic cell\"], \"biological_processes\": [\"Angiogenesis\"]}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0001541\"}}, {\"id\": \"Autoantibody-Mediated Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IgG autoantibodies against connective tissue disease autoantigens are found in 47% of iMCD patients versus 17% of healthy controls, and anti-cytokine autoantibodies in 38% versus 10%. One sample showed receptor-blocking activity against interferon-omega. The autoantibodies are heterogeneous rather than a single shared specificity, and no pathogenic mechanism linking them to lymph node pathology has been shown, so this node records an association-level candidate mechanism rather than an established step.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Immunoglobulin production\"]}}, {\"id\": \"Bone Marrow Reticulin Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0011974\"}}, {\"id\": \"CXCL13 Chemokine Axis Elevation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a comparison of 1,178 serum proteins across 88 iMCD patients, 60 patients with related diseases, and 42 healthy participants, CXCL13 was the protein most prominently up-regulated in iMCD. CXCL13 is the follicular dendritic cell chemokine that organizes B cell follicles, so its elevation connects the stromal compartment to the B cell expansion seen histologically. A 17% reduction in CXCL13 by day 8 of siltuximab predicts later response, making this node the best-supported pharmacodynamic readout in the disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Chemokine-mediated signaling\"]}}, {\"id\": \"Endothelial Injury and Renal Thrombotic Microangiopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal involvement is common in MCD and especially in TAFRO. Where kidney biopsy is performed, membranoproliferative glomerulonephritis-like injury and thrombotic microangiopathy are the findings most often reported, implicating glomerular endothelial injury rather than a primary tubular or immune-complex process. IL-6 and VEGF have both been proposed as the mediators, but their specific role in the renal lesion has not been established. Thrombotic microangiopathy was diagnosed after iMCD onset in 6.9% of the ACCELERATE cohort, predominantly TAFRO patients.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Glomerular endothelial cell\"], \"biological_processes\": [\"Blood coagulation\"]}}, {\"id\": \"Follicular Dendritic Cell Meshwork Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD21+ follicular dendritic cell meshworks are larger, brighter, and more structurally complex in both UCD and MCD than in reactive lymph nodes. Interdigitation of the expanded meshwork between concentric layers of mantle zone B cells is the proposed structural basis of the \\\"onion-skinning\\\" appearance, and the resulting sustained antigen presentation is proposed to drive B cell activation and plasma cell differentiation. This reinterprets the prominent FDCs of Castleman histology as an active driver rather than a passive remnant of an attenuated germinal center.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Follicular dendritic cell\", \"Mantle zone B cell\"], \"biological_processes\": [\"Germinal center formation\", \"Plasma cell differentiation\"]}}, {\"id\": \"Generalized Edema (Anasarca)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0000969\"}}, {\"id\": \"Generalized Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008940\"}}, {\"id\": \"Hepatic Acute-Phase Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-6 signaling reprogrammes hepatic protein synthesis: C-reactive protein and fibrinogen are induced, albumin synthesis falls, and hepcidin induction restricts iron availability. This is a separate effector arm from the B-lineage one - a different cell lineage with a different clinical read-out - and its markers normalize earlier on IL-6 blockade than immunoglobulin does.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Acute-phase response\"]}}, {\"id\": \"Hypoalbuminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003073\"}}, {\"id\": \"IL-6 Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endogenous human IL-6 is overproduced from a trigger that has not been identified. The producing cell appears to differ by subtype: plasma cells in iMCD-IPL, under an XBP1-driven endoplasmic reticulum stress and plasma-cell-differentiation program, and vascular endothelial cells in iMCD-TAFRO, where the serum elevation may be secondary to the cytokine storm rather than its cause. That difference is the leading explanation for why IL-6 blockade works well in IPL and poorly in TAFRO, and it is why this node is not treated as the single unifying driver of the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Plasma cell\", \"Vascular endothelial cell\"], \"biological_processes\": [\"Interleukin-6 production\"]}}, {\"id\": \"JAK-STAT3 Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-6 and vIL-6 bind gp130 and activate downstream JAK kinases and STAT3 transcription factor signaling. This pathway is therapeutically targeted by anti-IL-6 (siltuximab), anti-IL-6R (tocilizumab), and JAK1/2 inhibitors (ruxolitinib).\", \"meta\": {\"biological_processes\": [\"Interleukin-6-mediated signaling pathway\", \"JAK-STAT signaling\"]}}, {\"id\": \"Lymph Node Stromal Cell Activation and Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spatial proteomic and single-nuclei transcriptomic mapping shows that the non-lymphoid stromal compartment of the multicentric Castleman lymph node expands and forms microenvironments absent from reactive nodes. The subsets that expand here are PDGFRA+ T-zone reticular cells and ACTA2+ perivascular reticular cells, in contrast to the B-zone reticular cells that dominate the unicentric form. These stromal populations, not the hematopoietic compartment, carry the highest VEGFA and IL-6-module expression, and they activate JAK-STAT, TGF-beta, and MAPK programs. Plasma cells, plasmablasts, endothelium, lymphatics, monocytes and macrophages are also increased.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Follicular dendritic cell\", \"T-zone reticular cell\", \"B-zone reticular cell\", \"Perivascular reticular cell\", \"Fibroblastic reticular cell\"], \"biological_processes\": [\"Extracellular matrix remodeling\", \"MAPK cascade\", \"TGF-beta receptor signaling\"]}}, {\"id\": \"Marrow Stromal Fibrotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In iMCD-TAFRO the bone marrow stroma lays down excess reticulin - the \\\"R\\\" of the TAFRO acronym - typically with megakaryocytic hyperplasia. What drives the fibrotic response in this setting has not been established.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Extracellular matrix organization\"]}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In IL-6-blockade-refractory iMCD, quantitative serum proteomics, cytokine panels, flow cytometry, and phospho-S6 immunohistochemistry showed increased CD8+ T cell activation, elevated VEGF-A, and PI3K/AKT/mTOR pathway activity. Sirolimus attenuated CD8+ T cell activation, lowered VEGF-A, and produced durable clinical benefit in all three patients studied. This is the first pharmacologically targetable process identified for patients whose disease does not respond to IL-6 blockade, and it is the mechanistic rationale for NCT03933904. The supporting series is three patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8+ T cell\"], \"biological_processes\": [\"PI3K/AKT signal transduction\", \"TOR signaling\"]}}, {\"id\": \"Peripheral Platelet Consumption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelet counts fall in iMCD-TAFRO despite adequate marrow megakaryocyte numbers, so the deficit is peripheral rather than a failure of production. This distinguishes TAFRO sharply from iMCD-IPL and iMCD-NOS, where thrombocytosis rather than thrombocytopenia is typical. Kept separate from the marrow fibrosis node because the two are different claims - one about stromal remodeling in the marrow, one about platelet survival in the circulation - and neither is established as causing the other. The mechanism of the consumption has not been established; endothelial injury and thrombotic microangiopathy are the leading candidates in this subtype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative regulation of megakaryocyte differentiation\"]}}, {\"id\": \"Plasma Cell / B Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JAK-STAT3 signaling drives proliferation of B cells and plasma cells within affected lymph nodes. Immunoglobulin output from the expanded plasma cell compartment is polyclonal, class-switched, and somatically hypermutated, consistent with a driven germinal-centre-type response rather than antigen-independent activation.\", \"meta\": {\"cell_types\": [\"B cell\", \"Plasma cell\", \"Plasmablast\"], \"biological_processes\": [\"B cell proliferation\", \"Immunoglobulin production\"]}}, {\"id\": \"Pleural Effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0002202\"}}, {\"id\": \"Polyclonal Hypergammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-IPL\"], \"term_id\": \"HP:0032288\"}}, {\"id\": \"Renal Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Ruxolitinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"JAK1/2 inhibitor under investigation as second-line therapy in iMCD patients refractory or intolerant to anti-IL-6 therapy; multicenter Phase II trial NCT07085039 enrolling since 2025. Acting on JAK rather than on IL-6 itself would in principle cover signaling driven by other gp130 ligands.\", \"meta\": {\"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"Siltuximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-6 monoclonal antibody. FDA-approved first-line therapy across all iMCD subtypes (TAFRO, IPL, NOS). Directly binds and neutralizes human IL-6. Durable tumor and symptomatic response occurred in 34% of treated patients in the registration trial, and progression-free survival was significantly prolonged. It is also recommended for unresectable UCD with an inflammatory syndrome. Despite this it reached only 8.7% of US iMCD patients in a claims analysis.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"siltuximab\"]}}, {\"id\": \"Sirolimus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibitor for anti-IL-6-refractory iMCD, with a mechanistic rationale from PI3K/AKT/mTOR pathway activation in refractory iMCD-TAFRO. In the three-patient index series sirolimus attenuated CD8+ T cell activation, lowered VEGF-A, and produced remissions of 66, 19, and 19 months. A single-arm Phase II trial (NCT03933904) is testing it prospectively.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"Somatic Stromal Cell Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent somatic mutations are found in the lesional tissue of both unicentric and idiopathic multicentric CD. PDGFRB N666S, an activating receptor tyrosine kinase allele, is present in about 10% of UCD, and NCOA4 L261F in about 23% of iMCD. In paraneoplastic-pemphigus-associated UCD, whole-exome sequencing found IL6ST (encoding gp130) and PDGFRB as the most frequently mutated genes at 32% each, with IL6ST variants predicting worse overall survival. More broadly, MAPK and interleukin signaling pathway abnormalities cluster in UCD while chromatin-organization and methylation abnormalities cluster in iMCD. Whether these alleles initiate the lesion or accumulate within it is unresolved.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"MAPK cascade\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\"}}}, {\"id\": \"Stromal VEGF Overproduction and Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VEGFA is expressed at its highest levels by perivascular and T-zone reticular cells in MCD and by CXCL13+ follicular dendritic cells inside follicles in UCD. In UCD the expression is confined to follicles; in MCD it extends into the interfollicular space. The resulting perifollicular neovascularization and penetrating vessels are the structural basis of the diagnostic \\\"lollipop\\\" follicle, and hypervascularization supports the stromal remodeling and nodal expansion. Systemically, VEGF contributes to vascular permeability and to the POEMS phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Perivascular reticular cell\", \"Blood endothelial cell\"], \"biological_processes\": [\"Vascular endothelial growth factor production\", \"Angiogenesis\"]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"iMCD-TAFRO\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tocilizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-6-receptor monoclonal antibody. Approved in Japan for MCD; recommended internationally as alternative when siltuximab is unavailable.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"Unknown iMCD Initiating Process\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The event that starts idiopathic multicentric Castleman disease has not been identified. Three candidate processes have been proposed and none has been excluded: systemic inflammatory disease driven by autoantibodies or germline inflammatory gene variants; a paraneoplastic mechanism in which a clonal cell population ectopically secretes cytokine; and infection by a virus other than HHV-8. Viral-Track analysis of 22 UCD and 19 iMCD lymph nodes found no shared viral signature, which weighs against the third candidate without excluding a hit-and-run or non-transcribed agent. This node is deliberately kept in the graph as an explicit unknown so that everything downstream is not implicitly attributed to IL-6.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VEGF-driven and cytokine-driven endothelial permeability, compounded by hypoalbuminemia, causes fluid to leave the vascular space. Clinically this is the anasarca of iMCD-TAFRO, with pleural effusion, ascites, and generalized edema. Fluid retention was present in 84% of iMCD patients in the ACCELERATE registry, and 46% required paracentesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular endothelial cell\"], \"biological_processes\": [\"Regulation of vascular permeability\"]}}], \"edges\": [{\"source\": \"Unknown iMCD Initiating Process\", \"target\": \"Autoantibody-Mediated Immune Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the autoimmune candidate, the initiating process is loss of tolerance producing the autoantibody repertoire seen in iMCD sera.\", \"hypothesis_groups\": [\"autoimmune_etiology\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unknown iMCD Initiating Process\", \"target\": \"Lymph Node Stromal Cell Activation and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the trigger, the observed tissue consequence is activation and expansion of the lymph node stromal compartment.\", \"hypothesis_groups\": [\"immune_stromal_dysregulation\", \"stromal_cytokine_source\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic Stromal Cell Mutation\", \"target\": \"Lymph Node Stromal Cell Activation and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the clonal hypothesis, an activating stromal mutation is what makes the stromal compartment expand autonomously.\", \"hypothesis_groups\": [\"clonal_stromal_origin\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody-Mediated Immune Dysregulation\", \"target\": \"Lymph Node Stromal Cell Activation and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed route by which loss of tolerance would produce chronic nodal immune activation. No intermediate step has been demonstrated.\", \"hypothesis_groups\": [\"autoimmune_etiology\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lymph Node Stromal Cell Activation and Expansion\", \"target\": \"Follicular Dendritic Cell Meshwork Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymph Node Stromal Cell Activation and Expansion\", \"target\": \"Stromal VEGF Overproduction and Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymph Node Stromal Cell Activation and Expansion\", \"target\": \"IL-6 Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the stromal-source hypothesis, activated perivascular and T-zone reticular cells are a principal origin of the IL-6 signal in MCD.\", \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Dendritic Cell Meshwork Expansion\", \"target\": \"Angiofollicular Lymph Node Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Meshwork interdigitation between concentric mantle-zone B cell layers is the proposed structural basis of onion-skinning.\", \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Dendritic Cell Meshwork Expansion\", \"target\": \"Plasma Cell / B Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Stromal VEGF Overproduction and Neovascularization\", \"target\": \"Angiofollicular Lymph Node Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stromal VEGF Overproduction and Neovascularization\", \"target\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Stromal VEGF Overproduction and Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTOR inhibition lowers circulating VEGF-A, placing VEGF downstream of this pathway in the refractory setting.\", \"hypothesis_groups\": [\"il6_independent_mtor\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"IL-6 Overproduction\", \"target\": \"JAK-STAT3 Signaling Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"JAK-STAT3 Signaling Activation\", \"target\": \"Plasma Cell / B Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"JAK-STAT3 Signaling Activation\", \"target\": \"CXCL13 Chemokine Axis Elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Serum CXCL13 falls early after siltuximab in responders, placing it downstream of IL-6/JAK-STAT signaling in patients whose disease is IL-6-driven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CXCL13 Chemokine Axis Elevation\", \"target\": \"Plasma Cell / B Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"immune_stromal_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasma Cell / B Cell Proliferation\", \"target\": \"Angiofollicular Lymph Node Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Plasma Cell / B Cell Proliferation\", \"target\": \"Polyclonal Hypergammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded polyclonal plasma cells are the direct source of the hypergammaglobulinemia that defines the iMCD-IPL pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Acute-Phase Response\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-6-driven hepcidin induction and the acute-phase response produce the anemia of inflammation seen in 85% of iMCD patients at diagnosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Acute-Phase Response\", \"target\": \"Hypoalbuminemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reprioritized hepatic protein synthesis during the acute-phase response lowers serum albumin, present in 79% of iMCD patients at diagnosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Angiofollicular Lymph Node Hyperplasia\", \"target\": \"Generalized Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"target\": \"Generalized Edema (Anasarca)\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"target\": \"Pleural Effusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Injury and Renal Thrombotic Microangiopathy\", \"target\": \"Renal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Stromal Fibrotic Remodeling\", \"target\": \"Bone Marrow Reticulin Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Platelet Consumption\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Siltuximab\", \"target\": \"IL-6 Overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Siltuximab\", \"target\": \"CXCL13 Chemokine Axis Elevation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab\", \"target\": \"JAK-STAT3 Signaling Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ruxolitinib\", \"target\": \"JAK-STAT3 Signaling Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Angiofollicular Lymph Node Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The unifying histopathologic feature across all CD subtypes: lymph nodes show abnormal germinal centers (regressed/atretic in hyaline-vascular UCD, hyperplastic with plasma cell infiltrates in plasma-cell variant MCD), penetrating \\\"lollipop\\\" vessels, mantle-zone expansion (\\\"onion-skinning\\\"), and interfollicular plasmacytosis and vascular proliferation driven by IL-6 and VEGF.\", \"meta\": {\"cell_types\": [\"Plasma cell\", \"Follicular dendritic cell\"], \"biological_processes\": [\"Angiogenesis\"]}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0001541\"}}, {\"id\": \"Autoantibody-Mediated Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IgG autoantibodies against connective tissue disease autoantigens are found in 47% of iMCD patients versus 17% of healthy controls, and anti-cytokine autoantibodies in 38% versus 10%. One sample showed receptor-blocking activity against interferon-omega. The autoantibodies are heterogeneous rather than a single shared specificity, and no pathogenic mechanism linking them to lymph node pathology has been shown, so this node records an association-level candidate mechanism rather than an established step.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Immunoglobulin production\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Bone Marrow Reticulin Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0011974\"}}, {\"id\": \"CXCL13 Chemokine Axis Elevation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a comparison of 1,178 serum proteins across 88 iMCD patients, 60 patients with related diseases, and 42 healthy participants, CXCL13 was the protein most prominently up-regulated in iMCD. CXCL13 is the follicular dendritic cell chemokine that organizes B cell follicles, so its elevation connects the stromal compartment to the B cell expansion seen histologically. A 17% reduction in CXCL13 by day 8 of siltuximab predicts later response, making this node the best-supported pharmacodynamic readout in the disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Chemokine-mediated signaling\"]}}, {\"id\": \"Endothelial Injury and Renal Thrombotic Microangiopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal involvement is common in MCD and especially in TAFRO. Where kidney biopsy is performed, membranoproliferative glomerulonephritis-like injury and thrombotic microangiopathy are the findings most often reported, implicating glomerular endothelial injury rather than a primary tubular or immune-complex process. IL-6 and VEGF have both been proposed as the mediators, but their specific role in the renal lesion has not been established. Thrombotic microangiopathy was diagnosed after iMCD onset in 6.9% of the ACCELERATE cohort, predominantly TAFRO patients.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Glomerular endothelial cell\"], \"biological_processes\": [\"Blood coagulation\"]}}, {\"id\": \"Follicular Dendritic Cell Meshwork Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD21+ follicular dendritic cell meshworks are larger, brighter, and more structurally complex in both UCD and MCD than in reactive lymph nodes. Interdigitation of the expanded meshwork between concentric layers of mantle zone B cells is the proposed structural basis of the \\\"onion-skinning\\\" appearance, and the resulting sustained antigen presentation is proposed to drive B cell activation and plasma cell differentiation. This reinterprets the prominent FDCs of Castleman histology as an active driver rather than a passive remnant of an attenuated germinal center.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Follicular dendritic cell\", \"Mantle zone B cell\"], \"biological_processes\": [\"Germinal center formation\", \"Plasma cell differentiation\"]}}, {\"id\": \"Generalized Edema (Anasarca)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0000969\"}}, {\"id\": \"Generalized Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008940\"}}, {\"id\": \"Hepatic Acute-Phase Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-6 signaling reprogrammes hepatic protein synthesis: C-reactive protein and fibrinogen are induced, albumin synthesis falls, and hepcidin induction restricts iron availability. This is a separate effector arm from the B-lineage one - a different cell lineage with a different clinical read-out - and its markers normalize earlier on IL-6 blockade than immunoglobulin does.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Acute-phase response\"]}}, {\"id\": \"Hypoalbuminemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003073\"}}, {\"id\": \"IL-6 Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endogenous human IL-6 is overproduced from a trigger that has not been identified. The producing cell appears to differ by subtype: plasma cells in iMCD-IPL, under an XBP1-driven endoplasmic reticulum stress and plasma-cell-differentiation program, and vascular endothelial cells in iMCD-TAFRO, where the serum elevation may be secondary to the cytokine storm rather than its cause. That difference is the leading explanation for why IL-6 blockade works well in IPL and poorly in TAFRO, and it is why this node is not treated as the single unifying driver of the disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Plasma cell\", \"Vascular endothelial cell\"], \"biological_processes\": [\"Interleukin-6 production\"]}}, {\"id\": \"JAK-STAT3 Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-6 and vIL-6 bind gp130 and activate downstream JAK kinases and STAT3 transcription factor signaling. This pathway is therapeutically targeted by anti-IL-6 (siltuximab), anti-IL-6R (tocilizumab), and JAK1/2 inhibitors (ruxolitinib).\", \"meta\": {\"biological_processes\": [\"Interleukin-6-mediated signaling pathway\", \"JAK-STAT signaling\"]}}, {\"id\": \"Lymph Node Stromal Cell Activation and Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spatial proteomic and single-nuclei transcriptomic mapping shows that the non-lymphoid stromal compartment of the multicentric Castleman lymph node expands and forms microenvironments absent from reactive nodes. The subsets that expand here are PDGFRA+ T-zone reticular cells and ACTA2+ perivascular reticular cells, in contrast to the B-zone reticular cells that dominate the unicentric form. These stromal populations, not the hematopoietic compartment, carry the highest VEGFA and IL-6-module expression, and they activate JAK-STAT, TGF-beta, and MAPK programs. Plasma cells, plasmablasts, endothelium, lymphatics, monocytes and macrophages are also increased.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Follicular dendritic cell\", \"T-zone reticular cell\", \"B-zone reticular cell\", \"Perivascular reticular cell\", \"Fibroblastic reticular cell\"], \"biological_processes\": [\"Extracellular matrix remodeling\", \"MAPK cascade\", \"TGF-beta receptor signaling\"]}}, {\"id\": \"Marrow Stromal Fibrotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In iMCD-TAFRO the bone marrow stroma lays down excess reticulin - the \\\"R\\\" of the TAFRO acronym - typically with megakaryocytic hyperplasia. What drives the fibrotic response in this setting has not been established.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Extracellular matrix organization\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"PI3K/AKT/mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In IL-6-blockade-refractory iMCD, quantitative serum proteomics, cytokine panels, flow cytometry, and phospho-S6 immunohistochemistry showed increased CD8+ T cell activation, elevated VEGF-A, and PI3K/AKT/mTOR pathway activity. Sirolimus attenuated CD8+ T cell activation, lowered VEGF-A, and produced durable clinical benefit in all three patients studied. This is the first pharmacologically targetable process identified for patients whose disease does not respond to IL-6 blockade, and it is the mechanistic rationale for NCT03933904. The supporting series is three patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8+ T cell\"], \"biological_processes\": [\"PI3K/AKT signal transduction\", \"TOR signaling\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Peripheral Platelet Consumption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelet counts fall in iMCD-TAFRO despite adequate marrow megakaryocyte numbers, so the deficit is peripheral rather than a failure of production. This distinguishes TAFRO sharply from iMCD-IPL and iMCD-NOS, where thrombocytosis rather than thrombocytopenia is typical. Kept separate from the marrow fibrosis node because the two are different claims - one about stromal remodeling in the marrow, one about platelet survival in the circulation - and neither is established as causing the other. The mechanism of the consumption has not been established; endothelial injury and thrombotic microangiopathy are the leading candidates in this subtype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative regulation of megakaryocyte differentiation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Plasma Cell / B Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JAK-STAT3 signaling drives proliferation of B cells and plasma cells within affected lymph nodes. Immunoglobulin output from the expanded plasma cell compartment is polyclonal, class-switched, and somatically hypermutated, consistent with a driven germinal-centre-type response rather than antigen-independent activation.\", \"meta\": {\"cell_types\": [\"B cell\", \"Plasma cell\", \"Plasmablast\"], \"biological_processes\": [\"B cell proliferation\", \"Immunoglobulin production\"]}}, {\"id\": \"Pleural Effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-TAFRO\"], \"term_id\": \"HP:0002202\"}}, {\"id\": \"Polyclonal Hypergammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"iMCD-IPL\"], \"term_id\": \"HP:0032288\"}}, {\"id\": \"Renal Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Ruxolitinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"JAK1/2 inhibitor under investigation as second-line therapy in iMCD patients refractory or intolerant to anti-IL-6 therapy; multicenter Phase II trial NCT07085039 enrolling since 2025. Acting on JAK rather than on IL-6 itself would in principle cover signaling driven by other gp130 ligands.\", \"meta\": {\"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"Siltuximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-6 monoclonal antibody. FDA-approved first-line therapy across all iMCD subtypes (TAFRO, IPL, NOS). Directly binds and neutralizes human IL-6. Durable tumor and symptomatic response occurred in 34% of treated patients in the registration trial, and progression-free survival was significantly prolonged. It is also recommended for unresectable UCD with an inflammatory syndrome. Despite this it reached only 8.7% of US iMCD patients in a claims analysis.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"siltuximab\"]}}, {\"id\": \"Sirolimus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibitor for anti-IL-6-refractory iMCD, with a mechanistic rationale from PI3K/AKT/mTOR pathway activation in refractory iMCD-TAFRO. In the three-patient index series sirolimus attenuated CD8+ T cell activation, lowered VEGF-A, and produced remissions of 66, 19, and 19 months. A single-arm Phase II trial (NCT03933904) is testing it prospectively.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"Somatic Stromal Cell Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent somatic mutations are found in the lesional tissue of both unicentric and idiopathic multicentric CD. PDGFRB N666S, an activating receptor tyrosine kinase allele, is present in about 10% of UCD, and NCOA4 L261F in about 23% of iMCD. In paraneoplastic-pemphigus-associated UCD, whole-exome sequencing found IL6ST (encoding gp130) and PDGFRB as the most frequently mutated genes at 32% each, with IL6ST variants predicting worse overall survival. More broadly, MAPK and interleukin signaling pathway abnormalities cluster in UCD while chromatin-organization and methylation abnormalities cluster in iMCD. Whether these alleles initiate the lesion or accumulate within it is unresolved.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"MAPK cascade\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\"}, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Stromal VEGF Overproduction and Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VEGFA is expressed at its highest levels by perivascular and T-zone reticular cells in MCD and by CXCL13+ follicular dendritic cells inside follicles in UCD. In UCD the expression is confined to follicles; in MCD it extends into the interfollicular space. The resulting perifollicular neovascularization and penetrating vessels are the structural basis of the diagnostic \\\"lollipop\\\" follicle, and hypervascularization supports the stromal remodeling and nodal expansion. Systemically, VEGF contributes to vascular permeability and to the POEMS phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Perivascular reticular cell\", \"Blood endothelial cell\"], \"biological_processes\": [\"Vascular endothelial growth factor production\", \"Angiogenesis\"]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"iMCD-TAFRO\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tocilizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-6-receptor monoclonal antibody. Approved in Japan for MCD; recommended internationally as alternative when siltuximab is unavailable.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"Unknown iMCD Initiating Process\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The event that starts idiopathic multicentric Castleman disease has not been identified. Three candidate processes have been proposed and none has been excluded: systemic inflammatory disease driven by autoantibodies or germline inflammatory gene variants; a paraneoplastic mechanism in which a clonal cell population ectopically secretes cytokine; and infection by a virus other than HHV-8. Viral-Track analysis of 22 UCD and 19 iMCD lymph nodes found no shared viral signature, which weighs against the third candidate without excluding a hit-and-run or non-transcribed agent. This node is deliberately kept in the graph as an explicit unknown so that everything downstream is not implicitly attributed to IL-6.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VEGF-driven and cytokine-driven endothelial permeability, compounded by hypoalbuminemia, causes fluid to leave the vascular space. Clinically this is the anasarca of iMCD-TAFRO, with pleural effusion, ascites, and generalized edema. Fluid retention was present in 84% of iMCD patients in the ACCELERATE registry, and 46% required paracentesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular endothelial cell\"], \"biological_processes\": [\"Regulation of vascular permeability\"]}}], \"edges\": [{\"source\": \"Unknown iMCD Initiating Process\", \"target\": \"Autoantibody-Mediated Immune Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the autoimmune candidate, the initiating process is loss of tolerance producing the autoantibody repertoire seen in iMCD sera.\", \"hypothesis_groups\": [\"autoimmune_etiology\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Unknown iMCD Initiating Process\", \"target\": \"Lymph Node Stromal Cell Activation and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the trigger, the observed tissue consequence is activation and expansion of the lymph node stromal compartment.\", \"hypothesis_groups\": [\"immune_stromal_dysregulation\", \"stromal_cytokine_source\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Somatic Stromal Cell Mutation\", \"target\": \"Lymph Node Stromal Cell Activation and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the clonal hypothesis, an activating stromal mutation is what makes the stromal compartment expand autonomously.\", \"hypothesis_groups\": [\"clonal_stromal_origin\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoantibody-Mediated Immune Dysregulation\", \"target\": \"Lymph Node Stromal Cell Activation and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed route by which loss of tolerance would produce chronic nodal immune activation. No intermediate step has been demonstrated.\", \"hypothesis_groups\": [\"autoimmune_etiology\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lymph Node Stromal Cell Activation and Expansion\", \"target\": \"Follicular Dendritic Cell Meshwork Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymph Node Stromal Cell Activation and Expansion\", \"target\": \"Stromal VEGF Overproduction and Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymph Node Stromal Cell Activation and Expansion\", \"target\": \"IL-6 Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the stromal-source hypothesis, activated perivascular and T-zone reticular cells are a principal origin of the IL-6 signal in MCD.\", \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Dendritic Cell Meshwork Expansion\", \"target\": \"Angiofollicular Lymph Node Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Meshwork interdigitation between concentric mantle-zone B cell layers is the proposed structural basis of onion-skinning.\", \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Follicular Dendritic Cell Meshwork Expansion\", \"target\": \"Plasma Cell / B Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"stromal_cytokine_source\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Stromal VEGF Overproduction and Neovascularization\", \"target\": \"Angiofollicular Lymph Node Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stromal VEGF Overproduction and Neovascularization\", \"target\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PI3K/AKT/mTOR Pathway Activation\", \"target\": \"Stromal VEGF Overproduction and Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTOR inhibition lowers circulating VEGF-A, placing VEGF downstream of this pathway in the refractory setting.\", \"hypothesis_groups\": [\"il6_independent_mtor\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"IL-6 Overproduction\", \"target\": \"JAK-STAT3 Signaling Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"JAK-STAT3 Signaling Activation\", \"target\": \"Plasma Cell / B Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"JAK-STAT3 Signaling Activation\", \"target\": \"CXCL13 Chemokine Axis Elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Serum CXCL13 falls early after siltuximab in responders, placing it downstream of IL-6/JAK-STAT signaling in patients whose disease is IL-6-driven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CXCL13 Chemokine Axis Elevation\", \"target\": \"Plasma Cell / B Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"immune_stromal_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasma Cell / B Cell Proliferation\", \"target\": \"Angiofollicular Lymph Node Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Plasma Cell / B Cell Proliferation\", \"target\": \"Polyclonal Hypergammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanded polyclonal plasma cells are the direct source of the hypergammaglobulinemia that defines the iMCD-IPL pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Acute-Phase Response\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-6-driven hepcidin induction and the acute-phase response produce the anemia of inflammation seen in 85% of iMCD patients at diagnosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Acute-Phase Response\", \"target\": \"Hypoalbuminemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reprioritized hepatic protein synthesis during the acute-phase response lowers serum albumin, present in 79% of iMCD patients at diagnosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Angiofollicular Lymph Node Hyperplasia\", \"target\": \"Generalized Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"target\": \"Generalized Edema (Anasarca)\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Hyperpermeability and Third-Space Fluid Accumulation\", \"target\": \"Pleural Effusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Injury and Renal Thrombotic Microangiopathy\", \"target\": \"Renal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Stromal Fibrotic Remodeling\", \"target\": \"Bone Marrow Reticulin Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Platelet Consumption\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Siltuximab\", \"target\": \"IL-6 Overproduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Siltuximab\", \"target\": \"CXCL13 Chemokine Axis Elevation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab\", \"target\": \"JAK-STAT3 Signaling Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus\", \"target\": \"PI3K/AKT/mTOR Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ruxolitinib\", \"target\": \"JAK-STAT3 Signaling Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -10220,6 +10320,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Anemia of inflammation. Present in 85.3% of iMCD patients at diagnosis in the ACCELERATE registry, with a median hemoglobin of 7.8 g/dL.</div>
@@ -10293,6 +10396,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The &#34;T&#34; of iMCD-TAFRO and the feature that most sharply separates it from iMCD-IPL and iMCD-NOS, where thrombocytosis is typical. Platelet transfusion was required by 21.6% of the ACCELERATE iMCD cohort, almost entirely TAFRO patients.</div>
@@ -10389,6 +10495,9 @@ This clinical feature is Thrombocytosis (HP:0001894). HP:0001894 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Thrombocytosis, with polyclonal hypergammaglobulinemia, defines the iMCD-IPL pattern and is the mirror image of the TAFRO platelet phenotype. It was the first abnormality to normalize in siltuximab responders.</div>
@@ -10489,6 +10598,9 @@ This clinical feature is Polyclonal hypergammaglobulinemia, annotated with Polyc
                     </div>
 
 
+
+
+
                     <div class="item-desc">Severe polyclonal hyperimmunoglobulinemia is the defining laboratory feature of idiopathic plasmacytic lymphadenopathy. Serum IgG above roughly 5,000 mg/dL is associated with enough IgG4-positive cells to also satisfy the histological criteria for IgG4-related disease, which is the main source of diagnostic confusion for this subtype.</div>
 
 
@@ -10560,6 +10672,9 @@ This clinical feature is Reticulin fibrosis of the bone marrow, annotated with M
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">The &#34;R&#34; of TAFRO in its original formulation. Bone marrow biopsy showing reticulin fibrosis with megakaryocytic hyperplasia is part of the TAFRO diagnostic workup.</div>
@@ -10642,6 +10757,9 @@ This clinical feature is Generalized lymphadenopathy (HP:0008940). HP:0008940 is
                     </div>
 
 
+
+
+
                     <div class="item-desc">Multiple enlarged lymph node regions, which is a required criterion for the diagnosis. Lymphadenopathy in iMCD-TAFRO is characteristically small-volume, so node size does not track disease severity.</div>
 
 
@@ -10713,6 +10831,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">48.2% in iMCD versus 89.2% in HHV8+ MCD by meta-analysis; 72% at diagnosis in the ACCELERATE iMCD cohort.</div>
@@ -10820,6 +10941,9 @@ This clinical feature is Loss of appetite, annotated with Anorexia (HP:0002039).
                     </div>
 
 
+
+
+
                     <div class="item-desc">Loss of appetite is one of the 16 items on the validated MCD symptom score used in the siltuximab trial and the ACCELERATE registry.</div>
 
 
@@ -10856,6 +10980,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Present in 60% of iMCD patients at diagnosis in the ACCELERATE registry.</div>
@@ -10927,6 +11054,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Component of the anasarca that hallmarks iMCD-TAFRO. Paracentesis was required by 46% of the ACCELERATE iMCD cohort.</div>
@@ -11011,6 +11141,9 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Renal dysfunction/reticulin fibrosis is the &#34;R&#34; of iMCD-TAFRO; component of the defining TAFRO pentad. Renal dysfunction was reported in 36.9% of iMCD versus 17.4% of HHV8+ MCD by meta-analysis, and 26.5% of the ACCELERATE iMCD cohort required dialysis.</div>
@@ -11111,6 +11244,9 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">The most common iMCD-related morbidity arising after diagnosis, affecting 48% of the ACCELERATE cohort. It occurred in both TAFRO and NOS patients.</div>
 
 
@@ -11180,6 +11316,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reflects the membranoproliferative glomerulonephritis-like and thrombotic microangiopathic glomerular injury reported on renal biopsy.</div>
@@ -11266,6 +11405,9 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Constitutional symptoms including fever were present in 46.6% of iMCD patients in a 1,998-patient meta-analysis - substantially less than the 98.6% seen in HHV-8-associated disease. Fever, or an elevated C-reactive protein in its place, is one of the five defining TAFRO features.</div>
 
 
@@ -11341,6 +11483,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Present in 79.4% of iMCD patients at diagnosis (median albumin 2.2 g/dL). Hypoalbuminemia is a minor criterion in the international iMCD diagnostic criteria and contributes to the third-space fluid accumulation.</div>
 
 
@@ -11412,6 +11557,9 @@ This clinical feature is Elevated C-reactive protein, annotated with Elevated ci
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Elevated CRP is the &#34;F&#34; of TAFRO in the CDCN formulation (fever/elevated C-reactive protein) and a minor criterion for iMCD. It is the routine marker used to follow disease activity and treatment response.</div>
@@ -11492,6 +11640,9 @@ This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). H
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pleural-effusion" data-dismech-node="Pleural Effusion" data-dismech-type="phenotype">
@@ -11517,6 +11668,9 @@ This clinical feature is Pleural effusion (HP:0002202). HP:0002202 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Component of the anasarca of iMCD-TAFRO.</div>
@@ -11588,6 +11742,9 @@ This clinical feature is Anasarca, annotated with Edema (HP:0000969). HP:0000969
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Generalized edema/anasarca is a hallmark of iMCD-TAFRO. Fluid retention was present in 84% of iMCD patients at diagnosis in the ACCELERATE registry.</div>
@@ -11677,6 +11834,9 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
@@ -11702,6 +11862,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11745,6 +11908,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -11826,6 +11992,9 @@ This disease-associated gene is NCOA4 (hgnc:7671). hgnc:7671 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

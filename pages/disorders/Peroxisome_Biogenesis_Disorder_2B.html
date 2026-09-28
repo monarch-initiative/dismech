@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4482,6 +4524,13 @@ It is not a foregone conclusion either way, and that is the point. Thermal rescu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomorphic-pex5-variants-with-residual-pts1-receptor-function" data-dismech-node="Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion, and the point at which PBD2B separates from classic PEX5 Zellweger syndrome. PEX5 mutations define complementation group 2 of the peroxisome biogenesis disorders, and expressing wild-type PEX5 rescues the PTS1 import defect in patient fibroblasts - which is what makes the variants causal rather than incidental.
 The three PEX5 patients analysed together in 1999 span the group&#39;s whole severity range and correlate it with allele type: a nonsense allele (R390X) in the Zellweger patient, and missense alleles in the two non-classic patients (N489K in neonatal adrenoleukodystrophy, S563W in infantile Refsum disease). PBD2B is the missense, residual-function half of that picture.</div>
 
@@ -4543,6 +4592,8 @@ This pathophysiological event involves PEX5 (hgnc:9719). hgnc:9719 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4553,6 +4604,9 @@ This pathophysiological event involves PEX5 (hgnc:9719). hgnc:9719 is a gene fro
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as partial rather than complete loss of function on the strength of the measured import phenotypes: the non-classic alleles retain demonstrable PTS1 or PTS2 receptor activity in patient fibroblasts, where the nonsense allele associated with classic Zellweger syndrome does not. This is the slot&#39;s intended use - the claim is about the consequence of a variant, not about the activity level of a pathway.</div>
 
@@ -4666,6 +4720,13 @@ This pathophysiological event involves PEX5 (hgnc:9719). hgnc:9719 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cargo-selective-failure-of-pts1-recognition" data-dismech-node="Cargo-Selective Failure of PTS1 Recognition" data-dismech-type="pathophysiology">
                 <div class="item-name">Cargo-Selective Failure of PTS1 Recognition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The mechanism that is specific to this entity rather than borrowed from the spectrum. PEX5 recognises matrix enzymes by their C-terminal PTS1 tripeptide, but real PTS1 signals are not equally good matches. The canonical -SKL of acyl-CoA oxidase is a strong signal; -AKL (D-bifunctional protein, sterol carrier protein 2) and -KANL (catalase) are weaker variants.
 A mildly damaged receptor therefore fails asymmetrically. In the infantile Refsum patient&#39;s fibroblasts the S563W receptor still imported the -SKL cargo and had little or no function for -AKL and -KANL. The authors draw the general conclusion: the poorer PTS1 variants are the ones most susceptible to a receptor mutation.
@@ -4809,6 +4870,13 @@ This pathophysiological event involves decreased protein targeting to peroxisome
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-loss-of-the-pex5l-dependent-pts2-arm" data-dismech-node="Partial Loss of the PEX5L-Dependent PTS2 Arm" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial Loss of the PEX5L-Dependent PTS2 Arm</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PEX5 is transcribed as two isoforms. The long one, PEX5L, carries an extra internal exon and additionally acts as the co-receptor through which PEX7 delivers PTS2-tagged cargo; the short one does PTS1 import only. Transfection experiments separate the two arms cleanly: PEX5S restores PTS1 import but not PTS2 import, PEX5L restores both.
 That architecture is why a PEX5 patient&#39;s PTS2 arm may or may not be involved, and the involvement tracks severity. The Zellweger patient&#39;s nonsense allele lost both arms; the neonatal adrenoleukodystrophy patient&#39;s N489K receptor was severely defective in PTS1 import with PTS2 import preserved; the infantile Refsum patient retained function on both. So in PBD2B the PTS2 arm is *relatively* spared, and that sparing is part of why the disease is milder.
@@ -4980,6 +5048,13 @@ This pathophysiological event involves decreased protein import into peroxisome 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-temperature-sensitive-residual-peroxisome-function" data-dismech-node="Temperature-Sensitive Residual Peroxisome Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Temperature-Sensitive Residual Peroxisome Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A property of the mild end of the peroxisome biogenesis disorders generally, recorded here because it is the clearest available demonstration that a non-classic phenotype reflects a conformationally marginal peroxin rather than a missing one: in cells from patients with mild phenotypes, peroxisomal biogenesis and metabolic function are restored by culturing at 30 degrees C.
 Marked PROVISIONAL, and the reason is specific rather than generic. The source states the phenomenon for PBD mild phenotypes as a class, and this knowledge base&#39;s PEX1 entry carries the equivalent observation for the G843D allele directly. Nothing cited here shows temperature rescue in a PEX5 patient&#39;s cells. The node is curated because it is the mechanistic basis on which &#34;residual function&#34; is claimed for non-classic alleles across this spectrum, and because it is a directly testable prediction for PBD2B fibroblasts, not because it has been tested in them.</div>
 
@@ -5058,6 +5133,13 @@ Marked PROVISIONAL, and the reason is specific rather than generic. The source s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-peroxisomal-matrix-protein-import-failure" data-dismech-node="Partial Peroxisomal Matrix Protein Import Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial Peroxisomal Matrix Protein Import Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The cellular endpoint of the receptor lesion: peroxisomes are present but incompletely loaded, because a subset of matrix enzymes never reaches them. This is the step at which PBD2B rejoins the rest of the Zellweger spectrum - PBD1B and PBD4B arrive at the same place by failing to recycle the receptor rather than by failing to recognise the cargo.
 Its partial character is what the entry turns on. Complementation restores the import defect, which fixes causality; the residual import that remains in the untreated cells is what separates a non-classic phenotype from classic Zellweger syndrome.</div>
@@ -5200,6 +5282,13 @@ This pathophysiological event involves decreased protein import into peroxisome 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-peroxisomal-metabolic-block" data-dismech-node="Attenuated Peroxisomal Metabolic Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Peroxisomal Metabolic Block</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Peroxisomes are essential for beta-oxidation of fatty acids, for ether-lipid (plasmalogen) synthesis and for redox homeostasis, so incompletely loaded peroxisomes produce a metabolic block across all of these. In the non-classic phenotypes that block is attenuated rather than complete, which is why the disease is degenerative over years instead of lethal in infancy.
 Marked PROVISIONAL for this entity specifically. The metabolic consequences of peroxisomal import failure are not in doubt, and they are curated in detail on the Zellweger Spectrum Disorders entry; what is not established here is the *quantitative* profile in a PEX5 non-classic patient. The cargo-selectivity result upstream predicts that the profile should be uneven - catalase and D-bifunctional protein import failing before acyl-CoA oxidase import does - and no one has measured that in a PBD2B patient.</div>
@@ -5349,6 +5438,13 @@ This pathophysiological event involves decreased ether lipid biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-degenerative-multisystem-disease" data-dismech-node="Progressive Degenerative Multisystem Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Degenerative Multisystem Disease</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint, and the node at which this entry is at its most borrowed. The non-classic Zellweger spectrum phenotype is degenerative rather than malformative: these patients do not have the congenital malformations of classic Zellweger syndrome, and instead accumulate sensory loss, neurological involvement, liver dysfunction, adrenal insufficiency and renal oxalate stones over years.
 PROVISIONAL because the evidence for it is gene-agnostic. GeneReviews describes intermediate/milder ZSD across all thirteen ZSD-PEX genes, and the prolonged-survival cohort that supplies the &#34;common to all patients&#34; findings was 21/31 PEX1. No PEX5-specific clinical series exists. The phenotypes below inherit that limitation and each is marked INDIRECT.</div>
@@ -5548,7 +5644,7 @@ PROVISIONAL because the evidence for it is gene-agnostic. GeneReviews describes 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adrenal failure is part of the non-classic ZSD picture and is the reason the historical name for this phenotype carried \\\"adrenoleukodystrophy\\\". It is treatable, which is why it is worth surveillance rather than merely recording.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000846\"}}, {\"id\": \"Amelogenesis Imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective enamel in the secondary teeth is near-universal in the non-classic phenotype and is one of the few features distinctive enough to raise the diagnosis in an older child who has been carried as \\\"cerebral palsy\\\" or \\\"syndromic hearing loss\\\".\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000705\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three neurological manifestations GeneReviews names for intermediate/milder ZSD, alongside polyneuropathy and leukodystrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Attenuated Peroxisomal Metabolic Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peroxisomes are essential for beta-oxidation of fatty acids, for ether-lipid (plasmalogen) synthesis and for redox homeostasis, so incompletely loaded peroxisomes produce a metabolic block across all of these. In the non-classic phenotypes that block is attenuated rather than complete, which is why the disease is degenerative over years instead of lethal in infancy.\\nMarked PROVISIONAL for this entity specifically. The metabolic consequences of peroxisomal import failure are not in doubt, and they are curated in detail on the Zellweger Spectrum Disorders entry; what is not established here is the *quantitative* profile in a PEX5 non-classic patient. The cargo-selectivity result upstream predicts that the profile should be uneven - catalase and D-bifunctional protein import failing before acyl-CoA oxidase import does - and no one has measured that in a PBD2B patient.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid beta-oxidation\", \"ether lipid biosynthetic process\"], \"role\": \"effector\"}}, {\"id\": \"C26:0-lysophosphatidylcholine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Attenuated Peroxisomal Metabolic Block\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated dried-blood-spot C26:0-lysoPC reports the peroxisomal beta-oxidation block.\"}]}}, {\"id\": \"Cargo-Selective Failure of PTS1 Recognition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanism that is specific to this entity rather than borrowed from the spectrum. PEX5 recognises matrix enzymes by their C-terminal PTS1 tripeptide, but real PTS1 signals are not equally good matches. The canonical -SKL of acyl-CoA oxidase is a strong signal; -AKL (D-bifunctional protein, sterol carrier protein 2) and -KANL (catalase) are weaker variants.\\nA mildly damaged receptor therefore fails asymmetrically. In the infantile Refsum patient\u0027s fibroblasts the S563W receptor still imported the -SKL cargo and had little or no function for -AKL and -KANL. The authors draw the general conclusion: the poorer PTS1 variants are the ones most susceptible to a receptor mutation.\\nTwo consequences worth holding on to. First, this predicts that the biochemical profile of a PBD2B patient should be uneven across peroxisomal pathways rather than uniformly depressed, because which enzymes reach the organelle depends on their targeting signals. Second, it means \\\"residual receptor function\\\" in this disorder is not a single number - two patients with the same residual import of one reporter could differ in which enzymes they actually import.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein targeting to peroxisome\"], \"role\": \"central_effector\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Typical, but explicitly not universal in outcome: the same GeneReviews sentence that reports developmental delay adds that intellect can be normal, and the prolonged-survival cohort found speech ranging from non-verbal to grammatical speech and comprehensive reading. Both facts belong in a counselling conversation, and quoting only the first would misrepresent the range.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver involvement was present in every patient of the prolonged-survival cohort and is named by GeneReviews as part of the non-classic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001410\"}}, {\"id\": \"Hyperoxaluria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peroxisomal alanine-glyoxylate aminotransferase is a PTS1 cargo, so a PTS1 receptor defect is a mechanistically apt cause of hyperoxaluria - but note that connection is stated here as reasoning, not as something the cited sources measured in a PBD2B patient. What they report is the association: renal oxalate stones in intermediate/milder ZSD, and hyperoxaluria in 10 of 31 prolonged-survival patients, 4 of whom had stones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003159\"}}, {\"id\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion, and the point at which PBD2B separates from classic PEX5 Zellweger syndrome. PEX5 mutations define complementation group 2 of the peroxisome biogenesis disorders, and expressing wild-type PEX5 rescues the PTS1 import defect in patient fibroblasts - which is what makes the variants causal rather than incidental.\\nThe three PEX5 patients analysed together in 1999 span the group\u0027s whole severity range and correlate it with allele type: a nonsense allele (R390X) in the Zellweger patient, and missense alleles in the two non-classic patients (N489K in neonatal adrenoleukodystrophy, S563W in infantile Refsum disease). PBD2B is the missense, residual-function half of that picture.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PEX5\"], \"gene_terms\": [{\"label\": \"PEX5\", \"id\": \"hgnc:9719\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Curated as partial rather than complete loss of function on the strength of the measured import phenotypes: the non-classic alleles retain demonstrable PTS1 or PTS2 receptor activity in patient fibroblasts, where the nonsense allele associated with classic Zellweger syndrome does not. This is the slot\u0027s intended use - the claim is about the consequence of a variant, not about the activity level of a pathway.\"}, \"role\": \"trigger\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Typical across the Zellweger spectrum including the non-classic end, and usually the presenting sign. No frequency band: the source is a qualitative class-level statement, not a counted series, and there is no PEX5-specific denominator to compute one from.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White-matter disease is the feature that gave neonatal adrenoleukodystrophy - the historical name for this entity\u0027s severe half - its name. It is one of the neurologic manifestations of intermediate/milder ZSD, and in the prolonged-survival cohort it was one of the recognised outcome profiles rather than a universal finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002415\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal oxalate stones, the clinical consequence of the hyperoxaluria curated above. In the prolonged-survival cohort 4 of the 10 hyperoxaluric patients had stones; GeneReviews lists renal oxalate stones among the intermediate/milder ZSD manifestations, and attaches both a surveillance schedule and a supportive treatment to them. Curated separately from hyperoxaluria because the two need different clinical actions - a urine ratio for one, hydration and lithotripsy for the other.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000787\"}}, {\"id\": \"Osteopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone density occurs in part of the non-classic Zellweger spectrum population - GeneReviews says \\\"some\\\", without a proportion, so no frequency band is recorded. It is curated because it is one of the manifestations GeneReviews attaches a specific management recommendation to, and because it sits in the same sentence as the amelogenesis imperfecta this entry already curates.\\nThe mechanism is not established here. Reduced mobility, fat-soluble vitamin malabsorption from bile-acid deficiency, and chronic liver disease are all plausible contributors in this population, and none of the cited sources attributes the bone loss to any of them, so the edge from the clinical node is left as unknown intermediates.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000938\"}}, {\"id\": \"PEX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PEX5\"], \"gene_terms\": [{\"label\": \"PEX5\", \"id\": \"hgnc:9719\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Partial Loss of the PEX5L-Dependent PTS2 Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX5 is transcribed as two isoforms. The long one, PEX5L, carries an extra internal exon and additionally acts as the co-receptor through which PEX7 delivers PTS2-tagged cargo; the short one does PTS1 import only. Transfection experiments separate the two arms cleanly: PEX5S restores PTS1 import but not PTS2 import, PEX5L restores both.\\nThat architecture is why a PEX5 patient\u0027s PTS2 arm may or may not be involved, and the involvement tracks severity. The Zellweger patient\u0027s nonsense allele lost both arms; the neonatal adrenoleukodystrophy patient\u0027s N489K receptor was severely defective in PTS1 import with PTS2 import preserved; the infantile Refsum patient retained function on both. So in PBD2B the PTS2 arm is *relatively* spared, and that sparing is part of why the disease is milder.\\nA caution against over-reading this. It rests on three patients, one per phenotype, and the alleles differ in kind as well as in position - so the correlation between \\\"how many arms fail\\\" and \\\"how severe the disease\\\" is a pattern across three points, not a demonstrated dose-response.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein import into peroxisome matrix\"], \"role\": \"effector\"}}, {\"id\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular endpoint of the receptor lesion: peroxisomes are present but incompletely loaded, because a subset of matrix enzymes never reaches them. This is the step at which PBD2B rejoins the rest of the Zellweger spectrum - PBD1B and PBD4B arrive at the same place by failing to recycle the receptor rather than by failing to recognise the cargo.\\nIts partial character is what the entry turns on. Complementation restores the import defect, which fixes causality; the residual import that remains in the untreated cells is what separates a non-classic phenotype from classic Zellweger syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein import into peroxisome matrix\"], \"role\": \"effector\"}}, {\"id\": \"Polyneuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement in the non-classic phenotype, named by GeneReviews alongside ataxia and leukodystrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001271\"}}, {\"id\": \"Postnatal Growth Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth deficiency emerging after birth, reported in many patients in the prolonged-survival cohort. It matters clinically because it is the manifestation gastrostomy feeding addresses, and because - unlike the congenital growth deficiency of classic Zellweger syndrome - it is consistent with the postnatal, degenerative character of this end of the spectrum.\\nNo frequency band: the source says \\\"many\\\" without a count, and the cohort is PEX1-dominated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008897\"}}, {\"id\": \"Progressive Degenerative Multisystem Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint, and the node at which this entry is at its most borrowed. The non-classic Zellweger spectrum phenotype is degenerative rather than malformative: these patients do not have the congenital malformations of classic Zellweger syndrome, and instead accumulate sensory loss, neurological involvement, liver dysfunction, adrenal insufficiency and renal oxalate stones over years.\\nPROVISIONAL because the evidence for it is gene-agnostic. GeneReviews describes intermediate/milder ZSD across all thirteen ZSD-PEX genes, and the prolonged-survival cohort that supplies the \\\"common to all patients\\\" findings was 21/31 PEX1. No PEX5-specific clinical series exists. The phenotypes below inherit that limitation and each is marked INDIRECT.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal dystrophy is one of the two sensory manifestations that define the non-classic Zellweger spectrum phenotype, and it was present in every patient of the prolonged-survival cohort.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The second defining sensory manifestation of the non-classic phenotype, and likewise universal in the prolonged-survival cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Symptomatic and Supportive Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment that restores peroxisomal import. Management of the non-classic Zellweger spectrum is symptomatic and organ-directed, and several of its components matter because the manifestations they address are themselves treatable: hearing aids, cataract removal and refractive correction, fat-soluble vitamin supplementation, cholic acid, gastrostomy for caloric intake, adrenal replacement, vitamin D with consideration of bisphosphonates for osteopenia, dental care for the amelogenesis imperfecta, and hydration, lithotripsy or surgery for renal oxalate stones.\\nCurated as one treatment rather than split into a dozen, because the source presents it as one management approach and splitting it would create treatment entries with no evidence of their own.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Temperature-Sensitive Residual Peroxisome Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A property of the mild end of the peroxisome biogenesis disorders generally, recorded here because it is the clearest available demonstration that a non-classic phenotype reflects a conformationally marginal peroxin rather than a missing one: in cells from patients with mild phenotypes, peroxisomal biogenesis and metabolic function are restored by culturing at 30 degrees C.\\nMarked PROVISIONAL, and the reason is specific rather than generic. The source states the phenomenon for PBD mild phenotypes as a class, and this knowledge base\u0027s PEX1 entry carries the equivalent observation for the G843D allele directly. Nothing cited here shows temperature rescue in a PEX5 patient\u0027s cells. The node is curated because it is the mechanistic basis on which \\\"residual function\\\" is claimed for non-classic alleles across this spectrum, and because it is a directly testable prediction for PBD2B fibroblasts, not because it has been tested in them.\", \"meta\": {\"evidence_count\": 1, \"role\": \"modulator\"}}, {\"id\": \"Very-long-chain fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"term_id\": \"CHEBI:27283\", \"term_label\": \"very long-chain fatty acid\", \"readouts\": [{\"target\": \"Attenuated Peroxisomal Metabolic Block\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Accumulating very-long-chain fatty acids report the residual peroxisomal beta-oxidation block - the \\\"attenuated\\\" part of that node is what makes the elevation modest rather than absent.\"}]}}], \"edges\": [{\"source\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"target\": \"Cargo-Selective Failure of PTS1 Recognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"target\": \"Partial Loss of the PEX5L-Dependent PTS2 Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drawn as a separate edge because the two import arms are separably affected in this disorder - which is the observation that makes the PEX5 gradient interpretable at all.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"target\": \"Temperature-Sensitive Residual Peroxisome Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cargo-Selective Failure of PTS1 Recognition\", \"target\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Partial Loss of the PEX5L-Dependent PTS2 Arm\", \"target\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Temperature-Sensitive Residual Peroxisome Function\", \"target\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A modulating rather than a causal edge: residual thermolabile function is what leaves the import defect partial instead of complete.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"target\": \"Attenuated Peroxisomal Metabolic Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Peroxisomal Metabolic Block\", \"target\": \"Progressive Degenerative Multisystem Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Adrenal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Hyperoxaluria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Amelogenesis Imperfecta\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Postnatal Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperoxaluria\", \"target\": \"Nephrolithiasis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Stone formation is downstream of the oxalate load rather than a parallel manifestation: the intermediates - urinary calcium oxalate supersaturation and crystal nucleation - are known renal physiology, and are omitted from the graph rather than unknown. The cited cohort reports the stones inside the hyperoxaluric subgroup, and GeneReviews names them oxalate stones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Symptomatic and Supportive Management\", \"target\": \"Progressive Degenerative Multisystem Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Attenuated Peroxisomal Metabolic Block\", \"target\": \"Very-long-chain fatty acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Accumulating very-long-chain fatty acids report the residual peroxisomal beta-oxidation block - the \\\"attenuated\\\" part of that node is what makes the elevation modest rather than absent.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Attenuated Peroxisomal Metabolic Block\", \"target\": \"C26:0-lysophosphatidylcholine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated dried-blood-spot C26:0-lysoPC reports the peroxisomal beta-oxidation block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PEX5\", \"target\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adrenal failure is part of the non-classic ZSD picture and is the reason the historical name for this phenotype carried \\\"adrenoleukodystrophy\\\". It is treatable, which is why it is worth surveillance rather than merely recording.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000846\"}}, {\"id\": \"Amelogenesis Imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective enamel in the secondary teeth is near-universal in the non-classic phenotype and is one of the few features distinctive enough to raise the diagnosis in an older child who has been carried as \\\"cerebral palsy\\\" or \\\"syndromic hearing loss\\\".\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000705\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three neurological manifestations GeneReviews names for intermediate/milder ZSD, alongside polyneuropathy and leukodystrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Attenuated Peroxisomal Metabolic Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peroxisomes are essential for beta-oxidation of fatty acids, for ether-lipid (plasmalogen) synthesis and for redox homeostasis, so incompletely loaded peroxisomes produce a metabolic block across all of these. In the non-classic phenotypes that block is attenuated rather than complete, which is why the disease is degenerative over years instead of lethal in infancy.\\nMarked PROVISIONAL for this entity specifically. The metabolic consequences of peroxisomal import failure are not in doubt, and they are curated in detail on the Zellweger Spectrum Disorders entry; what is not established here is the *quantitative* profile in a PEX5 non-classic patient. The cargo-selectivity result upstream predicts that the profile should be uneven - catalase and D-bifunctional protein import failing before acyl-CoA oxidase import does - and no one has measured that in a PBD2B patient.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid beta-oxidation\", \"ether lipid biosynthetic process\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"C26:0-lysophosphatidylcholine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"readouts\": [{\"target\": \"Attenuated Peroxisomal Metabolic Block\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated dried-blood-spot C26:0-lysoPC reports the peroxisomal beta-oxidation block.\"}]}}, {\"id\": \"Cargo-Selective Failure of PTS1 Recognition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanism that is specific to this entity rather than borrowed from the spectrum. PEX5 recognises matrix enzymes by their C-terminal PTS1 tripeptide, but real PTS1 signals are not equally good matches. The canonical -SKL of acyl-CoA oxidase is a strong signal; -AKL (D-bifunctional protein, sterol carrier protein 2) and -KANL (catalase) are weaker variants.\\nA mildly damaged receptor therefore fails asymmetrically. In the infantile Refsum patient\u0027s fibroblasts the S563W receptor still imported the -SKL cargo and had little or no function for -AKL and -KANL. The authors draw the general conclusion: the poorer PTS1 variants are the ones most susceptible to a receptor mutation.\\nTwo consequences worth holding on to. First, this predicts that the biochemical profile of a PBD2B patient should be uneven across peroxisomal pathways rather than uniformly depressed, because which enzymes reach the organelle depends on their targeting signals. Second, it means \\\"residual receptor function\\\" in this disorder is not a single number - two patients with the same residual import of one reporter could differ in which enzymes they actually import.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein targeting to peroxisome\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Typical, but explicitly not universal in outcome: the same GeneReviews sentence that reports developmental delay adds that intellect can be normal, and the prolonged-survival cohort found speech ranging from non-verbal to grammatical speech and comprehensive reading. Both facts belong in a counselling conversation, and quoting only the first would misrepresent the range.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hepatic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver involvement was present in every patient of the prolonged-survival cohort and is named by GeneReviews as part of the non-classic phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001410\"}}, {\"id\": \"Hyperoxaluria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peroxisomal alanine-glyoxylate aminotransferase is a PTS1 cargo, so a PTS1 receptor defect is a mechanistically apt cause of hyperoxaluria - but note that connection is stated here as reasoning, not as something the cited sources measured in a PBD2B patient. What they report is the association: renal oxalate stones in intermediate/milder ZSD, and hyperoxaluria in 10 of 31 prolonged-survival patients, 4 of whom had stones.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003159\"}}, {\"id\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion, and the point at which PBD2B separates from classic PEX5 Zellweger syndrome. PEX5 mutations define complementation group 2 of the peroxisome biogenesis disorders, and expressing wild-type PEX5 rescues the PTS1 import defect in patient fibroblasts - which is what makes the variants causal rather than incidental.\\nThe three PEX5 patients analysed together in 1999 span the group\u0027s whole severity range and correlate it with allele type: a nonsense allele (R390X) in the Zellweger patient, and missense alleles in the two non-classic patients (N489K in neonatal adrenoleukodystrophy, S563W in infantile Refsum disease). PBD2B is the missense, residual-function half of that picture.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PEX5\"], \"gene_terms\": [{\"label\": \"PEX5\", \"id\": \"hgnc:9719\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Curated as partial rather than complete loss of function on the strength of the measured import phenotypes: the non-classic alleles retain demonstrable PTS1 or PTS2 receptor activity in patient fibroblasts, where the nonsense allele associated with classic Zellweger syndrome does not. This is the slot\u0027s intended use - the claim is about the consequence of a variant, not about the activity level of a pathway.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Typical across the Zellweger spectrum including the non-classic end, and usually the presenting sign. No frequency band: the source is a qualitative class-level statement, not a counted series, and there is no PEX5-specific denominator to compute one from.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White-matter disease is the feature that gave neonatal adrenoleukodystrophy - the historical name for this entity\u0027s severe half - its name. It is one of the neurologic manifestations of intermediate/milder ZSD, and in the prolonged-survival cohort it was one of the recognised outcome profiles rather than a universal finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002415\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal oxalate stones, the clinical consequence of the hyperoxaluria curated above. In the prolonged-survival cohort 4 of the 10 hyperoxaluric patients had stones; GeneReviews lists renal oxalate stones among the intermediate/milder ZSD manifestations, and attaches both a surveillance schedule and a supportive treatment to them. Curated separately from hyperoxaluria because the two need different clinical actions - a urine ratio for one, hydration and lithotripsy for the other.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000787\"}}, {\"id\": \"Osteopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone density occurs in part of the non-classic Zellweger spectrum population - GeneReviews says \\\"some\\\", without a proportion, so no frequency band is recorded. It is curated because it is one of the manifestations GeneReviews attaches a specific management recommendation to, and because it sits in the same sentence as the amelogenesis imperfecta this entry already curates.\\nThe mechanism is not established here. Reduced mobility, fat-soluble vitamin malabsorption from bile-acid deficiency, and chronic liver disease are all plausible contributors in this population, and none of the cited sources attributes the bone loss to any of them, so the edge from the clinical node is left as unknown intermediates.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000938\"}}, {\"id\": \"PEX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PEX5\"], \"gene_terms\": [{\"label\": \"PEX5\", \"id\": \"hgnc:9719\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Partial Loss of the PEX5L-Dependent PTS2 Arm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PEX5 is transcribed as two isoforms. The long one, PEX5L, carries an extra internal exon and additionally acts as the co-receptor through which PEX7 delivers PTS2-tagged cargo; the short one does PTS1 import only. Transfection experiments separate the two arms cleanly: PEX5S restores PTS1 import but not PTS2 import, PEX5L restores both.\\nThat architecture is why a PEX5 patient\u0027s PTS2 arm may or may not be involved, and the involvement tracks severity. The Zellweger patient\u0027s nonsense allele lost both arms; the neonatal adrenoleukodystrophy patient\u0027s N489K receptor was severely defective in PTS1 import with PTS2 import preserved; the infantile Refsum patient retained function on both. So in PBD2B the PTS2 arm is *relatively* spared, and that sparing is part of why the disease is milder.\\nA caution against over-reading this. It rests on three patients, one per phenotype, and the alleles differ in kind as well as in position - so the correlation between \\\"how many arms fail\\\" and \\\"how severe the disease\\\" is a pattern across three points, not a demonstrated dose-response.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"protein import into peroxisome matrix\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular endpoint of the receptor lesion: peroxisomes are present but incompletely loaded, because a subset of matrix enzymes never reaches them. This is the step at which PBD2B rejoins the rest of the Zellweger spectrum - PBD1B and PBD4B arrive at the same place by failing to recycle the receptor rather than by failing to recognise the cargo.\\nIts partial character is what the entry turns on. Complementation restores the import defect, which fixes causality; the residual import that remains in the untreated cells is what separates a non-classic phenotype from classic Zellweger syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein import into peroxisome matrix\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Polyneuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral nerve involvement in the non-classic phenotype, named by GeneReviews alongside ataxia and leukodystrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001271\"}}, {\"id\": \"Postnatal Growth Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth deficiency emerging after birth, reported in many patients in the prolonged-survival cohort. It matters clinically because it is the manifestation gastrostomy feeding addresses, and because - unlike the congenital growth deficiency of classic Zellweger syndrome - it is consistent with the postnatal, degenerative character of this end of the spectrum.\\nNo frequency band: the source says \\\"many\\\" without a count, and the cohort is PEX1-dominated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008897\"}}, {\"id\": \"Progressive Degenerative Multisystem Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint, and the node at which this entry is at its most borrowed. The non-classic Zellweger spectrum phenotype is degenerative rather than malformative: these patients do not have the congenital malformations of classic Zellweger syndrome, and instead accumulate sensory loss, neurological involvement, liver dysfunction, adrenal insufficiency and renal oxalate stones over years.\\nPROVISIONAL because the evidence for it is gene-agnostic. GeneReviews describes intermediate/milder ZSD across all thirteen ZSD-PEX genes, and the prolonged-survival cohort that supplies the \\\"common to all patients\\\" findings was 21/31 PEX1. No PEX5-specific clinical series exists. The phenotypes below inherit that limitation and each is marked INDIRECT.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Retinal Dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal dystrophy is one of the two sensory manifestations that define the non-classic Zellweger spectrum phenotype, and it was present in every patient of the prolonged-survival cohort.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000556\"}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The second defining sensory manifestation of the non-classic phenotype, and likewise universal in the prolonged-survival cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Symptomatic and Supportive Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment that restores peroxisomal import. Management of the non-classic Zellweger spectrum is symptomatic and organ-directed, and several of its components matter because the manifestations they address are themselves treatable: hearing aids, cataract removal and refractive correction, fat-soluble vitamin supplementation, cholic acid, gastrostomy for caloric intake, adrenal replacement, vitamin D with consideration of bisphosphonates for osteopenia, dental care for the amelogenesis imperfecta, and hydration, lithotripsy or surgery for renal oxalate stones.\\nCurated as one treatment rather than split into a dozen, because the source presents it as one management approach and splitting it would create treatment entries with no evidence of their own.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Temperature-Sensitive Residual Peroxisome Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A property of the mild end of the peroxisome biogenesis disorders generally, recorded here because it is the clearest available demonstration that a non-classic phenotype reflects a conformationally marginal peroxin rather than a missing one: in cells from patients with mild phenotypes, peroxisomal biogenesis and metabolic function are restored by culturing at 30 degrees C.\\nMarked PROVISIONAL, and the reason is specific rather than generic. The source states the phenomenon for PBD mild phenotypes as a class, and this knowledge base\u0027s PEX1 entry carries the equivalent observation for the G843D allele directly. Nothing cited here shows temperature rescue in a PEX5 patient\u0027s cells. The node is curated because it is the mechanistic basis on which \\\"residual function\\\" is claimed for non-classic alleles across this spectrum, and because it is a directly testable prediction for PBD2B fibroblasts, not because it has been tested in them.\", \"meta\": {\"evidence_count\": 1, \"role\": \"modulator\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Very-long-chain fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased\", \"term_id\": \"CHEBI:27283\", \"term_label\": \"very long-chain fatty acid\", \"readouts\": [{\"target\": \"Attenuated Peroxisomal Metabolic Block\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Accumulating very-long-chain fatty acids report the residual peroxisomal beta-oxidation block - the \\\"attenuated\\\" part of that node is what makes the elevation modest rather than absent.\"}]}}], \"edges\": [{\"source\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"target\": \"Cargo-Selective Failure of PTS1 Recognition\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"target\": \"Partial Loss of the PEX5L-Dependent PTS2 Arm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Drawn as a separate edge because the two import arms are separably affected in this disorder - which is the observation that makes the PEX5 gradient interpretable at all.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"target\": \"Temperature-Sensitive Residual Peroxisome Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cargo-Selective Failure of PTS1 Recognition\", \"target\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Partial Loss of the PEX5L-Dependent PTS2 Arm\", \"target\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Temperature-Sensitive Residual Peroxisome Function\", \"target\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A modulating rather than a causal edge: residual thermolabile function is what leaves the import defect partial instead of complete.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Partial Peroxisomal Matrix Protein Import Failure\", \"target\": \"Attenuated Peroxisomal Metabolic Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Attenuated Peroxisomal Metabolic Block\", \"target\": \"Progressive Degenerative Multisystem Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Retinal Dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Polyneuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Hepatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Adrenal Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Hyperoxaluria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Amelogenesis Imperfecta\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Degenerative Multisystem Disease\", \"target\": \"Postnatal Growth Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperoxaluria\", \"target\": \"Nephrolithiasis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Stone formation is downstream of the oxalate load rather than a parallel manifestation: the intermediates - urinary calcium oxalate supersaturation and crystal nucleation - are known renal physiology, and are omitted from the graph rather than unknown. The cited cohort reports the stones inside the hyperoxaluric subgroup, and GeneReviews names them oxalate stones.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Symptomatic and Supportive Management\", \"target\": \"Progressive Degenerative Multisystem Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Attenuated Peroxisomal Metabolic Block\", \"target\": \"Very-long-chain fatty acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Accumulating very-long-chain fatty acids report the residual peroxisomal beta-oxidation block - the \\\"attenuated\\\" part of that node is what makes the elevation modest rather than absent.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Attenuated Peroxisomal Metabolic Block\", \"target\": \"C26:0-lysophosphatidylcholine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated dried-blood-spot C26:0-lysoPC reports the peroxisomal beta-oxidation block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PEX5\", \"target\": \"Hypomorphic PEX5 Variants with Residual PTS1 Receptor Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5621,6 +5717,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5708,6 +5807,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5783,6 +5885,9 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5881,6 +5986,9 @@ This clinical feature is Retinal dystrophy (HP:0000556), qualified as course pro
 
 
                     </div>
+
+
+
 
 
 
@@ -5991,6 +6099,9 @@ This clinical feature is Hyperoxaluria (HP:0003159). HP:0003159 is a phenotype f
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6066,6 +6177,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6178,6 +6292,9 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6258,6 +6375,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6324,6 +6444,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6404,6 +6527,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6507,6 +6633,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6578,6 +6707,9 @@ This clinical feature is Polyneuropathy (HP:0001271). HP:0001271 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6644,6 +6776,9 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6726,6 +6861,9 @@ This clinical feature is Postnatal growth failure, annotated with Postnatal grow
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to HP:0008897 (Postnatal growth retardation) rather than to HP:0001508 (Failure to thrive), which the sibling entry Peroxisome_Biogenesis_Disorder_1B uses for the same source sentence. HP:0008897 is the literal match for what the source says - growth deficiency apparent after birth - whereas failure to thrive carries a weight-gain and feeding connotation the cited sentence does not make. The divergence from the sibling is deliberate and recorded here rather than silently introduced.</div>
@@ -6846,6 +6984,9 @@ This disease-associated gene is PEX5 (hgnc:9719). hgnc:9719 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

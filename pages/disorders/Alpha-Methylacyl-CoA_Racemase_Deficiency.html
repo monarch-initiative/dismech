@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4428,6 +4470,7 @@ This is recorded as HUMAN_MODEL_MISMATCH rather than KNOWLEDGE_GAP because evide
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amacr-racemase-loss-of-function" data-dismech-node="AMACR Racemase Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">AMACR Racemase Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic AMACR variants abolish alpha-methylacyl-CoA racemase activity. The enzyme interconverts the (R)- and (S)-stereoisomers at the 2-methyl (or 25-methyl) position of branched-chain acyl-CoA esters. Peroxisomal beta-oxidation is stereospecific and accepts only the (S)-form, so the racemase is an obligatory gate rather than an accessory step - which is why a single enzyme loss blocks two unrelated substrate streams.</div>
 
 
@@ -4488,6 +4531,8 @@ This pathophysiological event involves AMACR (hgnc:451). hgnc:451 is a gene from
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4498,6 +4543,9 @@ This pathophysiological event involves AMACR (hgnc:451). hgnc:451 is a gene from
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic, but not uniformly homozygous point variants: of the 12 cohort patients, three were compound heterozygous and two siblings carried a whole-gene deletion from a 5p13.3 chromosomal deletion. ZygosityEnum is single-valued and has no &#34;biallelic&#34; member, and allele_type: VARIANT would not describe the deletion patients, so both slots are deliberately left unset rather than narrowed to the majority case.</div>
 
@@ -4628,6 +4676,7 @@ This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-peroxisomal-beta-oxidation-of-branched-chain-substrates" data-dismech-node="Blocked Peroxisomal Beta-Oxidation of Branched-Chain Substrates" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked Peroxisomal Beta-Oxidation of Branched-Chain Substrates</div>
 
+
                 <div class="item-desc">With no (S)-stereoisomer available, peroxisomal beta-oxidation of 2-methyl-branched substrates stops. The block is upstream of two independent downstream streams that share nothing but this enzyme.</div>
 
 
@@ -4745,6 +4794,7 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pristanic-and-phytanic-acid-accumulation" data-dismech-node="Pristanic and Phytanic Acid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pristanic and Phytanic Acid Accumulation</div>
+
 
                 <div class="item-desc">Pristanic acid accumulates, with phytanic acid alongside it. Both derive from dietary phytol, so this arm of the disease is the one with an exogenous input - which is what makes dietary restriction plausible as therapy and what the mouse model demonstrates most sharply.</div>
 
@@ -4877,6 +4927,7 @@ This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c27-bile-acid-intermediate-accumulation" data-dismech-node="C27-Bile Acid Intermediate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">C27-Bile Acid Intermediate Accumulation</div>
 
+
                 <div class="item-desc">DHCA and THCA, the C27 precursors of the mature C24 bile acids, cannot be shortened and accumulate, along with a C29-dicarboxylic acid. The accumulating intermediates are hepatotoxic and mature bile acid synthesis is deficient, which is the basis both for the liver phenotype and for treating with cholic acid.</div>
 
 
@@ -4996,6 +5047,7 @@ This pathophysiological event involves decreased bile acid biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-photoreceptor-degeneration" data-dismech-node="Retinal Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Photoreceptor Degeneration</div>
+
 
                 <div class="item-desc">The retinal arm, which the natural-history cohort makes the leading adult presentation: retinitis pigmentosa in 5 of 9 adults, at a median age of 45, typically decades before the neurological features. Modelled downstream of the phytanic/pristanic accumulation because the same accumulation causes retinopathy in Refsum disease - but the mechanism has not been demonstrated in AMACR deficiency specifically, hence the unknown intermediates.</div>
 
@@ -5153,6 +5205,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-liver-fibrosis-and-cirrhosis" data-dismech-node="Progressive Liver Fibrosis and Cirrhosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Liver Fibrosis and Cirrhosis</div>
 
+
                 <div class="item-desc">Chronic hepatic injury progressing to fibrosis and cirrhosis, and the substrate on which hepatocellular carcinoma arises. The cohort authors treat this as a surveillance obligation rather than an incidental association, which is why it is modelled as its own node rather than folded into the acute hepatic injury above it.</div>
 
 
@@ -5253,6 +5306,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-injury-and-cholestasis" data-dismech-node="Hepatic Injury and Cholestasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Injury and Cholestasis</div>
+
 
                 <div class="item-desc">The childhood presentation. Persistently elevated liver enzymes, with or without cholestatic jaundice, and coagulopathy - which in a child is the combination the review argues should trigger measurement of peroxisomal metabolites. Some children are otherwise entirely asymptomatic and come to attention only through incidental blood tests.</div>
 
@@ -5421,6 +5475,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-axonal-degeneration" data-dismech-node="Peripheral Nerve Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Nerve Axonal Degeneration</div>
 
+
                 <div class="item-desc">The tissue-level lesion behind the classic adult presentation. It is a diagnostic mimic: of the first two adult patients, one had pigmentary retinopathy suggesting Refsum disease and the other upper motor neuron signs suggesting adrenomyeloneuropathy - and both of those differentials are themselves disorders of branched-chain fatty acid handling, so the confusion is mechanistically principled rather than superficial.</div>
 
 
@@ -5494,6 +5549,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-relapsing-encephalopathy-and-stroke-like-episodes" data-dismech-node="Relapsing Encephalopathy and Stroke-Like Episodes" data-dismech-type="pathophysiology">
                 <div class="item-name">Relapsing Encephalopathy and Stroke-Like Episodes</div>
+
 
                 <div class="item-desc">Episodic neurological decompensation - dysphasia, headache, sensory disturbance - that resembles neither migraine nor epilepsy nor TIA, and which in the oldest reported patient was investigated for mitochondrial disease for eight years before whole genome sequencing gave the answer. Escalation to febrile encephalopathy with coma is described.</div>
 
@@ -5708,6 +5764,9 @@ This clinical feature is Coagulopathy, annotated with Abnormality of the coagula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5790,6 +5849,9 @@ This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5856,6 +5918,9 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5959,6 +6024,9 @@ This clinical feature is Cholelithiasis (HP:0001081). HP:0001081 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6025,6 +6093,9 @@ This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6107,6 +6178,9 @@ This clinical feature is Pigmentary retinopathy (HP:0000580). HP:0000580 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6244,6 +6318,9 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6321,6 +6398,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6435,6 +6515,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830), qualified as adult 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6501,6 +6584,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6602,6 +6688,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6693,6 +6782,9 @@ This clinical feature is Cognitive impairment (HP:0100543), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6761,6 +6853,9 @@ This clinical feature is Abnormal thalamus morphology (HP:0010663). HP:0010663 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6879,6 +6974,9 @@ This disease-associated gene is AMACR (hgnc:451). hgnc:451 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6926,6 +7024,12 @@ This disease-associated gene is AMACR (hgnc:451). hgnc:451 is a gene from the HU
         c.154T&gt;C
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">p.Ser52Pro. Recurrent: homozygous in three of the twelve cohort patients and present on one allele in two of the three compound heterozygotes. It is one of only two AMACR lesions that had been reported before this cohort, which is why it is the allele most often named in secondary sources - but the entry does not claim it is the commonest, since c.364C&gt;T is homozygous in the same number of patients here.</div>
@@ -7012,6 +7116,12 @@ This disease-associated gene is AMACR (hgnc:451). hgnc:451 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">p.His122Tyr. Equally recurrent - homozygous in three cohort patients, the same number as c.154T&gt;C, and present on one allele of a compound heterozygote. Unlike c.154T&gt;C it had not been reported before this cohort, so it is absent from the secondary sources that name Ser52Pro as the characteristic allele.</div>
 
 
@@ -7094,6 +7204,12 @@ This disease-associated gene is AMACR (hgnc:451). hgnc:451 is a gene from the HU
         5p13.3 deletion
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A whole-gene lesion rather than a point variant: a chromosome 5p13.3 deletion spanning five genes including AMACR, homozygous in two siblings. A distinct mechanism class - the enzyme is absent rather than misfolded or catalytically dead - and it is the reason this entry leaves allele_type and zygosity unset on the pathophysiology node. The contiguous-gene span also means phenotype in these siblings cannot be attributed to AMACR alone; the index sibling came to attention through oculocutaneous albinism.</div>

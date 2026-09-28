@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4535,6 +4577,7 @@ Natural history is thinner than the progression block may suggest. What exists i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ndufa2-variant" data-dismech-node="Biallelic NDUFA2 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NDUFA2 Variant</div>
 
+
                 <div class="item-desc">Two damaged copies of NDUFA2. Four patients and four alleles are known and they fall into two classes. The founding case is homozygous for the splice variant c.208+5G&gt;A, which causes most transcripts to skip exon 2 with a frameshift; no protein or transcript was detected, so it behaves as a null. The three later patients carry missense alleles at residues that contact NDUFS1 - p.Lys45Thr, homozygous in one and in trans with the frameshift p.Asn76Metfs*4 in another, and p.Glu57Ala homozygous in the fourth.</div>
 
 
@@ -4635,6 +4678,8 @@ This genetic context concerns NDUFA2 (hgnc:7685). hgnc:7685 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: splice variant causing exon 2 skipping, interface missense variants, and a frameshift</span>
 
 
@@ -4650,6 +4695,9 @@ This genetic context concerns NDUFA2 (hgnc:7685). hgnc:7685 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Three of the four patients are homozygous, which is the value recorded here; the fourth is compound heterozygous for p.Lys45Thr and the frameshift p.Asn76Metfs*4, and is described in the notes because the slot is single-valued.</div>
 
@@ -4782,6 +4830,13 @@ This genetic context concerns NDUFA2 (hgnc:7685). hgnc:7685 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilisation-of-the-ndufa2-ndufs1-contact" data-dismech-node="Destabilisation of the NDUFA2-NDUFS1 Contact" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilisation of the NDUFA2-NDUFS1 Contact</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">NDUFA2 binds the matrix arm through a single interface. It has exclusive contacts with the core subunit NDUFS1, made mostly through the flat four-stranded beta-sheet of its thioredoxin-like fold, and it sits at least 40 angstroms from any iron-sulfur cluster - so it cannot be doing chemistry, and what it can be doing is holding NDUFS1 in place. Both patient missense residues map to that interface: Lys45 contacts several NDUFS1 residues directly, and Glu57 makes a probable ion pair with NDUFS1 Arg382. The reading is that these alleles weaken the contact rather than remove the protein.</div>
 
@@ -4990,6 +5045,7 @@ This pathophysiological event involves NDUFS1 (hgnc:7707). hgnc:7707 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-complex-i-n-module-assembly" data-dismech-node="Failure of Complex I N-Module Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Complex I N-Module Assembly</div>
+
 
                 <div class="item-desc">Losing NDUFA2 does not just weaken complex I, it prevents part of it from being built. In knockout cell lines, blue native electrophoresis shows the N-module only partly assembled, with the core subunits NDUFS1, NDUFV1 and NDUFV2 lost along with the accessory subunits NDUFS4, NDUFS6, NDUFA7 and NDUFV3. The N-module carries the NADH binding site, which is why activity falls further than the amount of residual complex would suggest. In the founding patient the same effect was described as disturbed assembly of complex I.</div>
 
@@ -5278,6 +5334,7 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-i-deficiency" data-dismech-node="Isolated Complex I Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex I Deficiency</div>
 
+
                 <div class="item-desc">The measured biochemical endpoint, and the phenotype the entity is named for. The founding patient&#39;s deficiency was expressed in both skin fibroblasts and muscle, and it was isolated - the other respiratory chain complexes were spared, which is what a subunit dedicated to complex I predicts and what distinguishes this from the combined deficiencies caused by defects of mitochondrial gene expression. Transducing the patient&#39;s cells with a baculovirus expressing wild-type NDUFA2 partially restored complex I expression and activity, which is the experiment that makes the gene causal rather than merely associated.</div>
 
 
@@ -5438,6 +5495,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-membrane-depolarisation" data-dismech-node="Mitochondrial Membrane Depolarisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Membrane Depolarisation</div>
 
+
                 <div class="item-desc">The consequence measured in the founding patient&#39;s fibroblasts. Complex I is one of the proton pumps that build the inner membrane potential, so an enzyme that cannot oxidise NADH cannot pump, and the membrane depolarises. The depolarisation was corrected along with the enzyme when wild-type NDUFA2 was supplied, which ties it to the genotype rather than to the culture.</div>
 
 
@@ -5532,6 +5590,13 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-in-brain-and-heart" data-dismech-node="Bioenergetic Failure in Brain and Heart" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure in Brain and Heart</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The tissues that fail are the ones with the least metabolic reserve. In the founding patient this was brain and heart - Leigh disease with hypertrophic cardiomyopathy, ending in cardiovascular arrest before the age of one. In the three later patients it was brain alone, presenting as white matter disease rather than as the symmetrical brainstem and basal ganglia lesions of Leigh syndrome. Which of the two patterns a patient gets is unexplained, and the correlation with allele class is discussed rather than asserted.</div>
 
@@ -5774,7 +5839,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Baculovirus complementation of patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The rescue experiment from the founding study. Patient fibroblasts carrying the homozygous splice allele were transduced with a baculovirus expressing wild-type NDUFA2, and complex I expression, complex I activity and the mitochondrial membrane potential all improved. The rescue is described as partial, which the entry keeps - complementation establishes causality without establishing that the defect is fully correctable.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Biallelic NDUFA2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two damaged copies of NDUFA2. Four patients and four alleles are known and they fall into two classes. The founding case is homozygous for the splice variant c.208+5G\u003eA, which causes most transcripts to skip exon 2 with a frameshift; no protein or transcript was detected, so it behaves as a null. The three later patients carry missense alleles at residues that contact NDUFS1 - p.Lys45Thr, homozygous in one and in trans with the frameshift p.Asn76Metfs*4 in another, and p.Glu57Ala homozygous in the fourth.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFA2\"], \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}], \"genetic_context\": {\"allele_type\": \"splice variant causing exon 2 skipping, interface missense variants, and a frameshift\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Three of the four patients are homozygous, which is the value recorded here; the fourth is compound heterozygous for p.Lys45Thr and the frameshift p.Asn76Metfs*4, and is described in the notes because the slot is single-valued.\", \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}]}}}, {\"id\": \"Bioenergetic Failure in Brain and Heart\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissues that fail are the ones with the least metabolic reserve. In the founding patient this was brain and heart - Leigh disease with hypertrophic cardiomyopathy, ending in cardiovascular arrest before the age of one. In the three later patients it was brain alone, presenting as white matter disease rather than as the symmetrical brainstem and basal ganglia lesions of Leigh syndrome. Which of the two patterns a patient gets is unexplained, and the correlation with allele class is discussed rather than asserted.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\", \"white matter\"]}}, {\"id\": \"Decreased Activity of Mitochondrial Complex I\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining biochemical finding, demonstrated in fibroblasts and in muscle in the founding patient and in the two leukoencephalopathy patients. It is isolated, meaning the other respiratory chain complexes are normal.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011923\"}}, {\"id\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFA2 binds the matrix arm through a single interface. It has exclusive contacts with the core subunit NDUFS1, made mostly through the flat four-stranded beta-sheet of its thioredoxin-like fold, and it sits at least 40 angstroms from any iron-sulfur cluster - so it cannot be doing chemistry, and what it can be doing is holding NDUFS1 in place. Both patient missense residues map to that interface: Lys45 contacts several NDUFS1 residues directly, and Glu57 makes a probable ion pair with NDUFS1 Arg382. The reading is that these alleles weaken the contact rather than remove the protein.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"NDUFA2\", \"NDUFS1\"], \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}, {\"label\": \"NDUFS1\", \"id\": \"hgnc:7707\"}]}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired skills, reported in the first of the two 2018 patients alongside her cystic leukoencephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Failure of Complex I N-Module Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing NDUFA2 does not just weaken complex I, it prevents part of it from being built. In knockout cell lines, blue native electrophoresis shows the N-module only partly assembled, with the core subunits NDUFS1, NDUFV1 and NDUFV2 lost along with the accessory subunits NDUFS4, NDUFS6, NDUFA7 and NDUFV3. The N-module carries the NADH binding site, which is why activity falls further than the amount of residual complex would suggest. In the founding patient the same effect was described as disturbed assembly of complex I.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"genes\": [\"NDUFS1\", \"NDUFV1\", \"NDUFV2\"], \"gene_terms\": [{\"label\": \"NDUFS1\", \"id\": \"hgnc:7707\"}, {\"label\": \"NDUFV1\", \"id\": \"hgnc:7716\"}, {\"label\": \"NDUFV2\", \"id\": \"hgnc:7717\"}]}}, {\"id\": \"Focal Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal epilepsy beginning at six years in the first 2018 patient, who was wheelchair-bound by nine and last evaluated at twelve.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007359\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the founding patient alongside Leigh disease, and the proximate cause of his death. It has not been reported in any of the three later patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical endpoint, and the phenotype the entity is named for. The founding patient\u0027s deficiency was expressed in both skin fibroblasts and muscle, and it was isolated - the other respiratory chain complexes were spared, which is what a subunit dedicated to complex I predicts and what distinguishes this from the combined deficiencies caused by defects of mitochondrial gene expression. Transducing the patient\u0027s cells with a baculovirus expressing wild-type NDUFA2 partially restored complex I expression and activity, which is the experiment that makes the gene causal rather than merely associated.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"experimental_models\": [{\"name\": \"Baculovirus complementation of patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Supplying wild-type NDUFA2 to the patient\u0027s own cells restores what the variant took away, which is the standard demonstration that a candidate variant is causal.\"}]}}, {\"id\": \"Leigh Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presentation of the founding patient, and the reason the entity entered the literature as a Leigh syndrome gene. It has not recurred in any patient since.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White matter disease is the modal presentation of NDUFA2 deficiency, present in three of the four reported patients. It has been described as cystic in the two 2018 cases and as cavitating with a tigroid-like pattern in the 2020 case.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Loss of Ambulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The first 2018 patient, who developed focal epilepsy at six years, was wheelchair-bound by nine and last evaluated at twelve. This is the only patient in the series with a documented ambulation outcome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002505\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the 2020 patient, alongside white matter disease, seizures and movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial Membrane Depolarisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The consequence measured in the founding patient\u0027s fibroblasts. Complex I is one of the proton pumps that build the inner membrane potential, so an enzyme that cannot oxidise NADH cannot pump, and the membrane depolarises. The depolarisation was corrected along with the enzyme when wild-type NDUFA2 was supplied, which ties it to the genotype rather than to the culture.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Two of the four reported patients have a movement abnormality: the second 2018 patient, described as having movement difficulties at her last evaluation at four years, and the 2020 patient, described as having movement disorders at the same age.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"NDUFA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA2\"], \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures of any type, in two of the four reported patients - the first 2018 patient, whose epilepsy is characterised as focal, and the 2020 patient, whose seizures are reported without a type.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"Biallelic NDUFA2 Variant\", \"target\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route taken by the two interface missense alleles, which leave the protein in place and weaken its grip on NDUFS1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic NDUFA2 Variant\", \"target\": \"Failure of Complex I N-Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route taken by the founding splice allele, which is a demonstrated null - no protein and no transcript were detected, so there is no NDUFA2 left to destabilise a contact with. Absence of the subunit reaches the assembly failure directly rather than through the interface node, which is why the two edges run in parallel.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"target\": \"Failure of Complex I N-Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Complex I N-Module Assembly\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Mitochondrial Membrane Depolarisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex I\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Membrane Depolarisation\", \"target\": \"Bioenergetic Failure in Brain and Heart\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Leigh Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Focal Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Loss of Ambulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Baculovirus complementation of patient fibroblasts\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Supplying wild-type NDUFA2 to the patient\u0027s own cells restores what the variant took away, which is the standard demonstration that a candidate variant is causal.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is partial rather than complete, and the reason is not resolved - transduction efficiency, expression level and the possibility of an irreversible component are all consistent with the result. The system is a patient fibroblast, so it says nothing about brain or heart, and only the null allele has been tested; the three missense patients have had no complementation experiment. Baculovirus-driven expression is also non-physiological in level and timing.\"}, {\"source\": \"NDUFA2\", \"target\": \"Biallelic NDUFA2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NDUFA2\", \"target\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Baculovirus complementation of patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The rescue experiment from the founding study. Patient fibroblasts carrying the homozygous splice allele were transduced with a baculovirus expressing wild-type NDUFA2, and complex I expression, complex I activity and the mitochondrial membrane potential all improved. The rescue is described as partial, which the entry keeps - complementation establishes causality without establishing that the defect is fully correctable.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Biallelic NDUFA2 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two damaged copies of NDUFA2. Four patients and four alleles are known and they fall into two classes. The founding case is homozygous for the splice variant c.208+5G\u003eA, which causes most transcripts to skip exon 2 with a frameshift; no protein or transcript was detected, so it behaves as a null. The three later patients carry missense alleles at residues that contact NDUFS1 - p.Lys45Thr, homozygous in one and in trans with the frameshift p.Asn76Metfs*4 in another, and p.Glu57Ala homozygous in the fourth.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NDUFA2\"], \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}], \"genetic_context\": {\"allele_type\": \"splice variant causing exon 2 skipping, interface missense variants, and a frameshift\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Three of the four patients are homozygous, which is the value recorded here; the fourth is compound heterozygous for p.Lys45Thr and the frameshift p.Asn76Metfs*4, and is described in the notes because the slot is single-valued.\", \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}]}}}, {\"id\": \"Bioenergetic Failure in Brain and Heart\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissues that fail are the ones with the least metabolic reserve. In the founding patient this was brain and heart - Leigh disease with hypertrophic cardiomyopathy, ending in cardiovascular arrest before the age of one. In the three later patients it was brain alone, presenting as white matter disease rather than as the symmetrical brainstem and basal ganglia lesions of Leigh syndrome. Which of the two patterns a patient gets is unexplained, and the correlation with allele class is discussed rather than asserted.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\", \"white matter\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Decreased Activity of Mitochondrial Complex I\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining biochemical finding, demonstrated in fibroblasts and in muscle in the founding patient and in the two leukoencephalopathy patients. It is isolated, meaning the other respiratory chain complexes are normal.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011923\"}}, {\"id\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NDUFA2 binds the matrix arm through a single interface. It has exclusive contacts with the core subunit NDUFS1, made mostly through the flat four-stranded beta-sheet of its thioredoxin-like fold, and it sits at least 40 angstroms from any iron-sulfur cluster - so it cannot be doing chemistry, and what it can be doing is holding NDUFS1 in place. Both patient missense residues map to that interface: Lys45 contacts several NDUFS1 residues directly, and Glu57 makes a probable ion pair with NDUFS1 Arg382. The reading is that these alleles weaken the contact rather than remove the protein.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"NDUFA2\", \"NDUFS1\"], \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}, {\"label\": \"NDUFS1\", \"id\": \"hgnc:7707\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of acquired skills, reported in the first of the two 2018 patients alongside her cystic leukoencephalopathy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Failure of Complex I N-Module Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Losing NDUFA2 does not just weaken complex I, it prevents part of it from being built. In knockout cell lines, blue native electrophoresis shows the N-module only partly assembled, with the core subunits NDUFS1, NDUFV1 and NDUFV2 lost along with the accessory subunits NDUFS4, NDUFS6, NDUFA7 and NDUFV3. The N-module carries the NADH binding site, which is why activity falls further than the amount of residual complex would suggest. In the founding patient the same effect was described as disturbed assembly of complex I.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial respiratory chain complex I assembly\"], \"genes\": [\"NDUFS1\", \"NDUFV1\", \"NDUFV2\"], \"gene_terms\": [{\"label\": \"NDUFS1\", \"id\": \"hgnc:7707\"}, {\"label\": \"NDUFV1\", \"id\": \"hgnc:7716\"}, {\"label\": \"NDUFV2\", \"id\": \"hgnc:7717\"}]}}, {\"id\": \"Focal Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Focal epilepsy beginning at six years in the first 2018 patient, who was wheelchair-bound by nine and last evaluated at twelve.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0007359\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the founding patient alongside Leigh disease, and the proximate cause of his death. It has not been reported in any of the three later patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Isolated Complex I Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The measured biochemical endpoint, and the phenotype the entity is named for. The founding patient\u0027s deficiency was expressed in both skin fibroblasts and muscle, and it was isolated - the other respiratory chain complexes were spared, which is what a subunit dedicated to complex I predicts and what distinguishes this from the combined deficiencies caused by defects of mitochondrial gene expression. Transducing the patient\u0027s cells with a baculovirus expressing wild-type NDUFA2 partially restored complex I expression and activity, which is the experiment that makes the gene causal rather than merely associated.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"experimental_models\": [{\"name\": \"Baculovirus complementation of patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Supplying wild-type NDUFA2 to the patient\u0027s own cells restores what the variant took away, which is the standard demonstration that a candidate variant is causal.\"}]}}, {\"id\": \"Leigh Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presentation of the founding patient, and the reason the entity entered the literature as a Leigh syndrome gene. It has not recurred in any patient since.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White matter disease is the modal presentation of NDUFA2 deficiency, present in three of the four reported patients. It has been described as cystic in the two 2018 cases and as cavitating with a tigroid-like pattern in the 2020 case.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Loss of Ambulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The first 2018 patient, who developed focal epilepsy at six years, was wheelchair-bound by nine and last evaluated at twelve. This is the only patient in the series with a documented ambulation outcome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002505\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported in the 2020 patient, alongside white matter disease, seizures and movement disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial Membrane Depolarisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The consequence measured in the founding patient\u0027s fibroblasts. Complex I is one of the proton pumps that build the inner membrane potential, so an enzyme that cannot oxidise NADH cannot pump, and the membrane depolarises. The depolarisation was corrected along with the enzyme when wild-type NDUFA2 was supplied, which ties it to the genotype rather than to the culture.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Movement Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Two of the four reported patients have a movement abnormality: the second 2018 patient, described as having movement difficulties at her last evaluation at four years, and the 2020 patient, described as having movement disorders at the same age.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100022\"}}, {\"id\": \"NDUFA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NDUFA2\"], \"gene_terms\": [{\"label\": \"NDUFA2\", \"id\": \"hgnc:7685\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures of any type, in two of the four reported patients - the first 2018 patient, whose epilepsy is characterised as focal, and the 2020 patient, whose seizures are reported without a type.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"Biallelic NDUFA2 Variant\", \"target\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route taken by the two interface missense alleles, which leave the protein in place and weaken its grip on NDUFS1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic NDUFA2 Variant\", \"target\": \"Failure of Complex I N-Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route taken by the founding splice allele, which is a demonstrated null - no protein and no transcript were detected, so there is no NDUFA2 left to destabilise a contact with. Absence of the subunit reaches the assembly failure directly rather than through the interface node, which is why the two edges run in parallel.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"target\": \"Failure of Complex I N-Module Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Complex I N-Module Assembly\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Mitochondrial Membrane Depolarisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isolated Complex I Deficiency\", \"target\": \"Decreased Activity of Mitochondrial Complex I\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Membrane Depolarisation\", \"target\": \"Bioenergetic Failure in Brain and Heart\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Leigh Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Focal Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Movement Disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Loss of Ambulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bioenergetic Failure in Brain and Heart\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Baculovirus complementation of patient fibroblasts\", \"target\": \"Isolated Complex I Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Supplying wild-type NDUFA2 to the patient\u0027s own cells restores what the variant took away, which is the standard demonstration that a candidate variant is causal.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is partial rather than complete, and the reason is not resolved - transduction efficiency, expression level and the possibility of an irreversible component are all consistent with the result. The system is a patient fibroblast, so it says nothing about brain or heart, and only the null allele has been tested; the three missense patients have had no complementation experiment. Baculovirus-driven expression is also non-physiological in level and timing.\"}, {\"source\": \"NDUFA2\", \"target\": \"Biallelic NDUFA2 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NDUFA2\", \"target\": \"Destabilisation of the NDUFA2-NDUFS1 Contact\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5839,6 +5904,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">One of four patients, and the one with the null allele. Whether cardiac involvement tracks allele severity or is coincidental in a series this small cannot be told, which is the subject of the genotype-phenotype discussion.</div>
@@ -5926,6 +5994,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6001,6 +6072,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to the general term rather than to a cystic or cavitating descendant, because HPO has no term matching those descriptions and inventing a narrower match is worse than a broader accurate one. The cystic, cavitating and tigroid-like qualifiers are in the description, where they are quotable.</div>
@@ -6104,6 +6178,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6170,6 +6247,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Carried as the general term so that both patients are counted once. The focal character of the first patient&#39;s epilepsy is a separate, narrower entry; the 2020 patient cannot be counted into it because no seizure type was reported.</div>
@@ -6272,6 +6352,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">One of the four patients. The focal character is documented for this patient only; the 2020 patient&#39;s seizures are reported without a seizure type and are counted under the general Seizures entry instead of being read into this one.</div>
 
 
@@ -6345,6 +6428,9 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Bound to the general movement-abnormality term because neither source names a movement phenotype - no dystonia, ataxia, chorea or tremor is reported for either patient - and a narrower binding would assert a syndrome neither paper describes.</div>
@@ -6445,6 +6531,9 @@ This clinical feature is Loss of ambulation (HP:0002505). HP:0002505 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">One of the four children, so 1/4 or 25 percent, inside the OCCASIONAL band. The denominator is the whole series rather than the patients with a recorded motor course, which would be one - the other three have no ambulation status reported either way, and counting only the patient in whom the outcome is known would turn a single observation into a 100 percent finding.</div>
 
 
@@ -6525,6 +6614,9 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">OBLIGATE because the deficiency is what defines the entity and was demonstrated in every patient in whom it was assayed. The denominator is four patients. Note that the fourth patient was reported as having no systemic biochemical abnormalities of mitochondrial disorders, which is a statement about blood chemistry rather than about enzyme assay and does not contradict this.</div>
@@ -6615,6 +6707,9 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No phenotype_term is bound. Leigh syndrome is a disease concept, MONDO:0009723, rather than an HPO phenotype, and this follows the sibling entry MC1DN34, which curates it the same way. The frequency is OCCASIONAL because it is one of four reported patients - which is also the tension this entry is careful about, since the disorder&#39;s MONDO and OMIM identity sits in the complex I deficiency series while its best-known presentation is the one that has not recurred.</div>
@@ -6758,6 +6853,9 @@ This disease-associated gene is NDUFA2 (hgnc:7685). hgnc:7685 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

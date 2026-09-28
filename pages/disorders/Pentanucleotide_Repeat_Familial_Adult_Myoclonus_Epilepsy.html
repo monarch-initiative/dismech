@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4016,7 +4058,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -4070,7 +4112,7 @@
             <a class="stat-link" href="#differentials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔀</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Differentials</div>
             </div>
             </a>
@@ -4653,7 +4695,7 @@ This subtype is caused by variation in RAI1 (hgnc:9834). hgnc:9834 is a gene fro
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="kgap_fame_nova2_evidence_scope">
@@ -4738,6 +4780,121 @@ This subtype is caused by variation in RAI1 (hgnc:9834). hgnc:9834 is a gene fro
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="oq_fame5_cntn2_entity_status">
+                <div class="item-name">Is the CNTN2 locus historically numbered FAME5 an established disease entity in its own right, or a single-family assignment that should be retired rather than curated?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">OPEN QUESTION</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">oq_fame5_cntn2_entity_status</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#differential-diagnosis-autosomal-recessive-cntn2-related-cortical-myoclonic-tremor-and-epilepsy">differential_diagnoses#Autosomal recessive CNTN2-related cortical myoclonic tremor and epilepsy</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#subtypes">has_subtypes#</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Excluding FAME5 from this entry settles where CNTN2 does not belong, not whether it names a disease. The assignment rests on one consanguineous pedigree, the authors&#39; own follow-up screen of 189 further epilepsy patients found no second recessive case, and their conclusion is phrased as a likelihood rather than a demonstration. That screen bears on replication less strongly than its size suggests: the screened cohort was Caucasian while the index family is Egyptian and consanguineous, and a recessive founder-type allele segregating in one North African pedigree would not be expected to recur in an outbred European epilepsy cohort. No independent replication has been curated here. The concept is held in the curation queue as stubs/Epilepsy_Familial_Adult_Myoclonic_5.yaml, where either a dismech entry or an OUT_OF_SCOPE ruling with the reasoning recorded would be a completed curation. Resolving it needs a second reported family, or a considered decision that one is not going to appear.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23518707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23518707" target="_blank">PMID:23518707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To further delineate the role of CNTN2 in patients with epilepsy, we sequenced the coding exons in 189 Caucasian patients with epilepsy. No recessive mutation was detected and heterozygote carriers of rare CNTN2 variants do not seem to be predisposed to epilepsy."</div>
+
+
+                <div class="evidence-explanation">The reporting study&#39;s own cohort screen recovered no further recessive CNTN2 case, which is why the locus is treated as unreplicated here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23518707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23518707" target="_blank">PMID:23518707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Given the severity of the mutation and the proposed function of the gene, we consider this mutation as the most likely cause for cortical myoclonic tremor and epilepsy in this family."</div>
+
+
+                <div class="evidence-explanation">The causal claim is stated as the most likely explanation in one family rather than as an established gene-disease relationship.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -4752,6 +4909,7 @@ This subtype is caused by variation in RAI1 (hgnc:9834). hgnc:9834 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-samd12-locus-specific-repeat-expansion" data-dismech-node="SAMD12 locus-specific repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">SAMD12 locus-specific repeat expansion</div>
+
 
                 <div class="item-desc">The SAMD12 repeat-positive subtype is driven by a SAMD12 intronic TTTCA-containing pentanucleotide repeat expansion.</div>
 
@@ -4835,6 +4993,7 @@ This pathophysiological event involves SAMD12 (hgnc:31750). hgnc:31750 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stard7-locus-specific-repeat-expansion" data-dismech-node="STARD7 locus-specific repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">STARD7 locus-specific repeat expansion</div>
 
+
                 <div class="item-desc">The STARD7 repeat-positive subtype is driven by a STARD7 intronic TTTCA-containing pentanucleotide repeat expansion.</div>
 
 
@@ -4916,6 +5075,7 @@ This pathophysiological event involves STARD7 (hgnc:18063). hgnc:18063 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-marchf6-locus-specific-repeat-expansion" data-dismech-node="MARCHF6 locus-specific repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">MARCHF6 locus-specific repeat expansion</div>
+
 
                 <div class="item-desc">The MARCHF6 repeat-positive subtype is driven by a MARCHF6 intronic TTTCA-containing pentanucleotide repeat expansion.</div>
 
@@ -4999,6 +5159,7 @@ This pathophysiological event involves MARCHF6 (hgnc:30550). hgnc:30550 is a gen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-yeats2-locus-specific-repeat-expansion" data-dismech-node="YEATS2 locus-specific repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">YEATS2 locus-specific repeat expansion</div>
 
+
                 <div class="item-desc">The YEATS2 repeat-positive subtype is driven by a YEATS2 intronic TTTCA-containing pentanucleotide repeat expansion.</div>
 
 
@@ -5080,6 +5241,7 @@ This pathophysiological event involves YEATS2 (hgnc:25489). hgnc:25489 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnrc6a-locus-specific-repeat-expansion" data-dismech-node="TNRC6A locus-specific repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">TNRC6A locus-specific repeat expansion</div>
+
 
                 <div class="item-desc">The TNRC6A repeat-positive subtype is driven by a TNRC6A intronic TTTCA-containing pentanucleotide repeat expansion.</div>
 
@@ -5163,6 +5325,7 @@ This pathophysiological event involves TNRC6A (hgnc:11969). hgnc:11969 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rapgef2-locus-specific-repeat-expansion" data-dismech-node="RAPGEF2 locus-specific repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">RAPGEF2 locus-specific repeat expansion</div>
 
+
                 <div class="item-desc">The RAPGEF2 repeat-positive subtype is driven by a RAPGEF2 intronic TTTCA-containing pentanucleotide repeat expansion.</div>
 
 
@@ -5245,6 +5408,7 @@ This pathophysiological event involves RAPGEF2 (hgnc:16854). hgnc:16854 is a gen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rai1-locus-specific-repeat-expansion" data-dismech-node="RAI1 locus-specific repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">RAI1 locus-specific repeat expansion</div>
 
+
                 <div class="item-desc">The RAI1 repeat-positive subtype is driven by a RAI1 intronic TTTCA-containing pentanucleotide repeat expansion.</div>
 
 
@@ -5326,6 +5490,7 @@ This pathophysiological event involves RAI1 (hgnc:9834). hgnc:9834 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tttca-containing-intronic-pentanucleotide-repeat-expansion" data-dismech-node="TTTCA-containing intronic pentanucleotide repeat expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">TTTCA-containing intronic pentanucleotide repeat expansion</div>
+
 
                 <div class="item-desc">The core molecular lesion is an intronic TTTTA expansion containing pathogenic TTTCA insertions in one of the established FAME loci: SAMD12, STARD7, MARCHF6, YEATS2, TNRC6A, RAPGEF2, or RAI1.</div>
 
@@ -5703,6 +5868,7 @@ This pathophysiological event involves RAI1 (hgnc:9834). hgnc:9834 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uuuca-repeat-rna-toxicity" data-dismech-node="UUUCA repeat RNA toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">UUUCA repeat RNA toxicity</div>
 
+
                 <div class="item-desc">The leading shared mechanism is toxicity from transcribed UUUCA repeat RNA with nuclear foci formation, rather than a simple consequence of altered host-gene dosage.</div>
 
 
@@ -5873,6 +6039,7 @@ This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nova2-mediated-neuronal-alternative-splicing-dysregulation" data-dismech-node="NOVA2-mediated neuronal alternative splicing dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">NOVA2-mediated neuronal alternative splicing dysregulation</div>
+
 
                 <div class="item-desc">UUUCA repeat RNA interacts with NOVA2, disturbs its nuclear distribution, and disrupts neuronal alternative splicing in patient-derived neurons.</div>
 
@@ -6090,6 +6257,7 @@ This pathophysiological event involves dysregulated RNA splicing (GO:0008380). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synapse-related-transcript-isoform-dysregulation" data-dismech-node="Synapse-related transcript isoform dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Synapse-related transcript isoform dysregulation</div>
 
+
                 <div class="item-desc">The neuronal splicing defect preferentially affects transcripts encoding synaptic proteins, altering the isoform composition of synapse-associated gene products rather than implying that splicing itself occurs at the synapse.</div>
 
 
@@ -6224,6 +6392,7 @@ This pathophysiological event involves synapse (GO:0045202). GO:0045202 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellocortical-circuit-dysfunction" data-dismech-node="Cerebellocortical circuit dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellocortical circuit dysfunction</div>
+
 
                 <div class="item-desc">Repeat-positive FAME is not purely cortical; available human data support a combined cortex-cerebellum disorder in which cerebellar dysfunction may shape or amplify cortical hyperexcitability.</div>
 
@@ -6463,6 +6632,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-hyperexcitability-and-seizure-susceptibility" data-dismech-node="Cortical hyperexcitability and seizure susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical hyperexcitability and seizure susceptibility</div>
+
 
                 <div class="item-desc">The final common electrophysiological state is cortical hyperexcitability, producing cortical tremor/myoclonus and susceptibility to generalized epileptic seizures.</div>
 
@@ -6751,6 +6921,9 @@ This clinical feature is Night blindness, annotated with Nyctalopia (HP:0000662)
                     </div>
 
 
+
+
+
                     <div class="item-desc">Reported in a subset of FAME families; the specific locus or loci associated with this feature have not been established in the published literature.</div>
 
 
@@ -6831,6 +7004,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
                     </div>
 
 
+
+
+
                     <div class="item-desc">Tremorlike distal jerks of the hands often represent the earliest recognized manifestation of cortical myoclonus.</div>
 
 
@@ -6904,6 +7080,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
             </div>
+
 
 
             <div class="context-notes">Tremorlike cortical myoclonus typically begins in the second decade and is often the earliest recognized clinical manifestation.</div>
@@ -6981,6 +7158,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7049,6 +7229,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
             </div>
+
 
 
             <div class="context-notes">Cortical myoclonus usually begins with the same late-adolescent or early adult onset pattern as the tremorlike distal jerks.</div>
@@ -7123,6 +7304,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Generalized tonic-clonic seizures are the dominant epileptic phenotype and myoclonic seizures can also occur, but seizure burden is often low.</div>
@@ -7250,6 +7434,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
             </div>
 
 
+
             <div class="context-notes">Seizures usually arise after the onset of cortical tremor/myoclonus and often cluster in the third to fourth decades.</div>
 
 
@@ -7324,6 +7509,9 @@ This clinical feature is Photosensitivity, annotated with EEG with photoparoxysm
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Light sensitivity and photoparoxysmal responses are recurrent but often under-recognized features in FAME and can help distinguish it from essential tremor.</div>
@@ -7425,6 +7613,9 @@ This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7489,6 +7680,9 @@ This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported in a subset of FAME families; the specific locus or loci associated with this feature have not been established in the published literature.</div>
@@ -7560,6 +7754,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7652,6 +7849,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
 
                 </div>
+
+
+
 
 
 
@@ -7767,6 +7967,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7786,11 +7987,17 @@ This variant is in SAMD12 (hgnc:31750). hgnc:31750 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">intronic pentanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pathogenic intronic pentanucleotide repeat expansion at the SAMD12 locus in which an expanded TTTTA tract contains inserted TTTCA motifs.</div>
@@ -7879,6 +8086,7 @@ This variant is in SAMD12 (hgnc:31750). hgnc:31750 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7898,11 +8106,17 @@ This variant is in STARD7 (hgnc:18063). hgnc:18063 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">intronic pentanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pathogenic intronic pentanucleotide repeat expansion at the STARD7 locus in which an expanded TTTTA tract contains inserted TTTCA motifs.</div>
@@ -7991,6 +8205,7 @@ This variant is in STARD7 (hgnc:18063). hgnc:18063 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8010,11 +8225,17 @@ This variant is in MARCHF6 (hgnc:30550). hgnc:30550 is a gene from the HUGO Gene
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">intronic pentanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pathogenic intronic pentanucleotide repeat expansion at the MARCHF6 locus in which an expanded TTTTA tract contains inserted TTTCA motifs.</div>
@@ -8103,6 +8324,7 @@ This variant is in MARCHF6 (hgnc:30550). hgnc:30550 is a gene from the HUGO Gene
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8122,11 +8344,17 @@ This variant is in YEATS2 (hgnc:25489). hgnc:25489 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">intronic pentanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pathogenic intronic pentanucleotide repeat expansion at the YEATS2 locus in which an expanded TTTTA tract contains inserted TTTCA motifs.</div>
@@ -8215,6 +8443,7 @@ This variant is in YEATS2 (hgnc:25489). hgnc:25489 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8234,11 +8463,17 @@ This variant is in TNRC6A (hgnc:11969). hgnc:11969 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">intronic pentanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pathogenic intronic pentanucleotide repeat expansion at the TNRC6A locus in which an expanded TTTTA tract contains inserted TTTCA motifs.</div>
@@ -8327,6 +8562,7 @@ This variant is in TNRC6A (hgnc:11969). hgnc:11969 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8346,11 +8582,17 @@ This variant is in RAPGEF2 (hgnc:16854). hgnc:16854 is a gene from the HUGO Gene
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">intronic pentanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pathogenic intronic pentanucleotide repeat expansion at the RAPGEF2 locus in which an expanded TTTTA tract contains inserted TTTCA motifs.</div>
@@ -8439,6 +8681,7 @@ This variant is in RAPGEF2 (hgnc:16854). hgnc:16854 is a gene from the HUGO Gene
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8458,11 +8701,17 @@ This variant is in RAI1 (hgnc:9834). hgnc:9834 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">intronic pentanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pathogenic intronic pentanucleotide repeat expansion at the RAI1 locus in which an expanded TTTTA tract contains inserted TTTCA motifs.</div>
@@ -9697,7 +9946,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="card-header">
                 <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
                 <h2 class="card-title">Differential Diagnoses</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
             <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
                 Conditions with similar clinical presentations that must be differentiated from Pentanucleotide Repeat Familial Adult Myoclonus Epilepsy:
@@ -9871,6 +10120,115 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autosomal-recessive-cntn2-related-cortical-myoclonic-tremor-and-epilepsy">
+                <div class="item-name">
+
+                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Autosomal recessive CNTN2-related cortical myoclonic tremor and epilepsy</span>
+                    <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0014167" target="_blank" class="missing-ontology-link">
+                            MONDO:0014167
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    The locus historically numbered FAME5 is a homozygous CNTN2 coding frameshift described in one consanguineous Egyptian family. It presents with the same cortical myoclonic tremor and epilepsy picture, but carries a coding lesion in a cell-adhesion molecule that stabilizes juxtaparanodal potassium channels, not an intronic TTTCA-containing pentanucleotide repeat. It is therefore a differential diagnosis for this entry rather than one of its repeat-positive subtypes.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Recessive segregation within a consanguineous pedigree, whereas every established FAME locus in this entry is dominantly transmitted.</li>
+
+                        <li>A coding frameshift in CNTN2, whereas the FAME loci in this entry carry intronic TTTCA-containing pentanucleotide repeat expansions.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23518707" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23518707" target="_blank">PMID:23518707</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Within the suspected region we identified a homozygous single base pair deletion (c.503_503delG) leading to a frameshift in the coding region of the sixth exon of CNTN2 alias TAG-1 (p.Trp168fs), which segregated in the respective family."</div>
+
+
+                <div class="evidence-explanation">Establishes the FAME5 lesion as a recessive coding frameshift in CNTN2, which is mechanistically distinct from the repeat expansions this entry is scoped to.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29416935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29416935" target="_blank">PMID:29416935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Excluded were pedigrees and cases with another cause for tremor and epilepsy (including autosomal recessive FCMTE45), structural lesions on magnetic resonance imaging (MRI)"</div>
+
+
+                <div class="evidence-explanation">A systematic review of the FCMTE pedigree literature excluded the recessive CNTN2 form from its case set, independent precedent for treating it as a separate entity rather than a FAME subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -9937,7 +10295,16 @@ notes: &gt;-
   loci, does not represent the separate RAPGEF2-related neurodevelopmental
   disorder caused by de novo coding variants, and excludes recently described
   MARCHF6 repeat alleles that cause familial cortical myoclonus without
-  epilepsy. Clinically, the disorder remains under-recognized, occurs
+  epilepsy. The nonrepeat locus that exclusion names is FAME5, assigned to a
+  homozygous CNTN2 coding frameshift in a single consanguineous Egyptian
+  pedigree with autosomal recessive inheritance. It shares neither the dominant
+  transmission nor the repeat-RNA lesion this entry is scoped to, so CNTN2
+  appears here as a differential diagnosis rather than as a subtype, and the
+  concept is kept in the curation queue as
+  stubs/Epilepsy_Familial_Adult_Myoclonic_5.yaml so that a later curator can
+  still rule on it. Recording that boundary explicitly, rather than leaving it
+  implicit in the absence of a CNTN2 row, keeps the scope decision visible.
+  Clinically, the disorder remains under-recognized, occurs
   worldwide, and shows regional clustering of individual repeat loci rather
   than a single globally dominant gene.
 mappings:
@@ -11175,6 +11542,55 @@ differential_diagnoses:
     explanation: &gt;-
       Supports PME syndromes as an important differential diagnosis across age
       groups.
+- name: Autosomal recessive CNTN2-related cortical myoclonic tremor and epilepsy
+  description: &gt;-
+    The locus historically numbered FAME5 is a homozygous CNTN2 coding
+    frameshift described in one consanguineous Egyptian family. It presents
+    with the same cortical myoclonic tremor and epilepsy picture, but carries a
+    coding lesion in a cell-adhesion molecule that stabilizes juxtaparanodal
+    potassium channels, not an intronic TTTCA-containing pentanucleotide
+    repeat. It is therefore a differential diagnosis for this entry rather than
+    one of its repeat-positive subtypes.
+  distinguishing_features:
+  - Recessive segregation within a consanguineous pedigree, whereas every established
+    FAME locus in this entry is dominantly transmitted.
+  - A coding frameshift in CNTN2, whereas the FAME loci in this entry carry intronic
+    TTTCA-containing pentanucleotide repeat expansions.
+  disease_term:
+    preferred_term: epilepsy, familial adult myoclonic, 5
+    term:
+      id: MONDO:0014167
+      label: epilepsy, familial adult myoclonic, 5
+  evidence:
+  - reference: PMID:23518707
+    reference_title: &#34;Autosomal recessive cortical myoclonic tremor and epilepsy: association with a mutation in the potassium channel associated gene CNTN2.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &gt;-
+      Within the suspected region we identified a homozygous single base pair
+      deletion (c.503_503delG) leading to a frameshift in the coding region of
+      the sixth exon of CNTN2 alias TAG-1 (p.Trp168fs), which segregated in the
+      respective family.
+    explanation: &gt;-
+      Establishes the FAME5 lesion as a recessive coding frameshift in CNTN2,
+      which is mechanistically distinct from the repeat expansions this entry
+      is scoped to.
+  - reference: PMID:29416935
+    reference_title: &#34;Familial Cortical Myoclonic Tremor and Epilepsy, an Enigmatic Disorder: From Phenotypes to Pathophysiology and Genetics. A Systematic Review.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      Excluded were pedigrees and cases with another cause for tremor and
+      epilepsy (including autosomal recessive FCMTE45), structural lesions on
+      magnetic resonance imaging (MRI)
+    explanation: &gt;-
+      A systematic review of the FCMTE pedigree literature excluded the
+      recessive CNTN2 form from its case set, independent precedent for
+      treating it as a separate entity rather than a FAME subtype.
 treatments:
 - name: Anticonvulsant agent therapy
   description: &gt;-
@@ -11364,6 +11780,59 @@ discussions:
       Evidence for NOVA2 interaction is restricted to FCMTE1/SAMD12-derived
       iPSC-neuron models; generalization to other FAME loci requires
       independent experimental confirmation.
+- discussion_id: oq_fame5_cntn2_entity_status
+  prompt: &gt;-
+    Is the CNTN2 locus historically numbered FAME5 an established disease
+    entity in its own right, or a single-family assignment that should be
+    retired rather than curated?
+  kind: OPEN_QUESTION
+  status: OPEN
+  attaches_to:
+  - differential_diagnoses#Autosomal recessive CNTN2-related cortical myoclonic tremor and epilepsy
+  - has_subtypes#
+  rationale: &gt;-
+    Excluding FAME5 from this entry settles where CNTN2 does not belong, not
+    whether it names a disease. The assignment rests on one consanguineous
+    pedigree, the authors&#39; own follow-up screen of 189 further epilepsy
+    patients found no second recessive case, and their conclusion is phrased as
+    a likelihood rather than a demonstration. That screen bears on replication
+    less strongly than its size suggests: the screened cohort was Caucasian
+    while the index family is Egyptian and consanguineous, and a recessive
+    founder-type allele segregating in one North African pedigree would not be
+    expected to recur in an outbred European epilepsy cohort. No independent
+    replication has been curated here. The concept is held in the curation queue as
+    stubs/Epilepsy_Familial_Adult_Myoclonic_5.yaml, where either a dismech
+    entry or an OUT_OF_SCOPE ruling with the reasoning recorded would be a
+    completed curation. Resolving it needs a second reported family, or a
+    considered decision that one is not going to appear.
+  evidence:
+  - reference: PMID:23518707
+    reference_title: &#34;Autosomal recessive cortical myoclonic tremor and epilepsy: association with a mutation in the potassium channel associated gene CNTN2.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &gt;-
+      To further delineate the role of CNTN2 in patients with epilepsy, we
+      sequenced the coding exons in 189 Caucasian patients with epilepsy. No
+      recessive mutation was detected and heterozygote carriers of rare CNTN2
+      variants do not seem to be predisposed to epilepsy.
+    explanation: &gt;-
+      The reporting study&#39;s own cohort screen recovered no further recessive
+      CNTN2 case, which is why the locus is treated as unreplicated here.
+  - reference: PMID:23518707
+    reference_title: &#34;Autosomal recessive cortical myoclonic tremor and epilepsy: association with a mutation in the potassium channel associated gene CNTN2.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &gt;-
+      Given the severity of the mutation and the proposed function of the
+      gene, we consider this mutation as the most likely cause for cortical
+      myoclonic tremor and epilepsy in this family.
+    explanation: &gt;-
+      The causal claim is stated as the most likely explanation in one family
+      rather than as an established gene-disease relationship.
 </pre>
             </div>
         </div>
@@ -13171,7 +13640,7 @@ FAME allele:      ...(TTTTA)exp(TTTCA)exp... (pathogenic)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pentanucleotide Repeat Familial Adult Myoclonus Epilepsy", "mondoId": "MONDO:0019448", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pentanucleotide_Repeat_Familial_Adult_Myoclonus_Epilepsy", "yamlRevision": "c8cd01340661"};
+        const OS_CONFIG = {"diseaseName": "Pentanucleotide Repeat Familial Adult Myoclonus Epilepsy", "mondoId": "MONDO:0019448", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pentanucleotide_Repeat_Familial_Adult_Myoclonus_Epilepsy", "yamlRevision": "dc529ce07167"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

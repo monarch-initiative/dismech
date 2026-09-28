@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4447,6 +4489,13 @@ The three are not alternatives, and the question is one of weight. It matters fo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-sppl2a-loss-of-function" data-dismech-node="Biallelic SPPL2A Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SPPL2A Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The primary lesion is biallelic loss of function of SPPL2A, encoding an aspartyl intramembrane protease of lysosomes and late endosomes that cleaves type II transmembrane proteins.</div>
 
 
@@ -4636,6 +4685,13 @@ This pathophysiological event involves aspartic-type endopeptidase activity (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cd74-n-terminal-fragment-proteolysis" data-dismech-node="Failure of CD74 N-Terminal Fragment Proteolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CD74 N-Terminal Fragment Proteolysis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">CD74 is degraded stepwise in endosomal compartments to let MHC class II acquire peptide. The final membrane-bound N-terminal fragment requires SPPL2a for its turnover, and the primary cleavage site has been mapped within the CD74 transmembrane segment between Y52 and F53. Without SPPL2a that last step does not happen.</div>
 
@@ -4848,6 +4904,13 @@ This pathophysiological event involves decreased protein catabolic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd74-n-terminal-fragment-accumulation" data-dismech-node="CD74 N-Terminal Fragment Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">CD74 N-Terminal Fragment Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The uncleaved CD74 NTF builds up in the MHC class II-positive myeloid and lymphoid cells of SPPL2a-deficient patients. This node is the hinge of the whole entry: it is the point at which the disease stops being a loss of function and becomes a gain of something toxic. Everything downstream is attributed to the presence of this fragment, not to the absence of the protease.
 That the accumulation is conserved in humans and not only in mice was shown independently in human B-cell lines carrying a homozygous deletion of the SPPL2A locus, before any patient with mycobacterial disease had been reported.</div>
@@ -5066,6 +5129,13 @@ This pathophysiological event involves CD74 (hgnc:1697). hgnc:1697 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-tnf-alpha-intracellular-domain-signalling-to-il-12" data-dismech-node="Loss of TNF-alpha Intracellular Domain Signalling to IL-12" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of TNF-alpha Intracellular Domain Signalling to IL-12</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A second and mechanistically separate consequence of losing the protease. SPPL2a catalyses intramembrane cleavage of TNF-alpha, releasing its intracellular domain, and that released domain triggers IL-12 expression in activated human dendritic cells. Losing it therefore lowers IL-12 output from dendritic cells that are still alive, by a route entirely independent of the CD74 fragment and of cDC2 depletion.
 Two caveats are load-bearing and are the reason this node is graded provisional. The source characterises SPPL2a and SPPL2b jointly and does not isolate the contribution of SPPL2a alone, so the attribution to SPPL2A specifically is an inference. And the work is in human dendritic cells in vitro, not in patient cells - no SPPL2A-deficient patient has been shown to have a TNF-alpha-ICD defect.</div>
 
@@ -5245,6 +5315,13 @@ This pathophysiological event involves SPPL2A (hgnc:30227). hgnc:30227 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-depletion-of-cd1c-positive-conventional-dendritic-cells" data-dismech-node="Depletion of CD1c-Positive Conventional Dendritic Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Depletion of CD1c-Positive Conventional Dendritic Cells</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The accumulated CD74 NTF selectively depletes the CD1c-positive conventional dendritic cells (cDC2) that produce IL-12 and IL-23, along with their circulating progenitors. Selectivity is the striking feature: a fragment that accumulates in all MHC class II-positive cells kills one subset preferentially.
 That the depletion is caused by the substrate rather than by loss of the protease was shown by epistasis in mice - cDC2 depletion in Sppl2a-knockout animals is abolished when CD74 is also deleted. Removing the substrate rescues the cell type, which is the cleanest available demonstration that the fragment, not the missing enzyme, is the toxic agent.</div>
 
@@ -5409,6 +5486,13 @@ This pathophysiological event involves CD1c-positive conventional dendritic cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-ifn-gamma-production-by-mycobacterium-specific-memory-t-cells" data-dismech-node="Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">SPPL2a-deficient memory TH1* cells selectively fail to produce IFN-gamma when stimulated with mycobacterial antigens in vitro. The word that carries the mechanism is &#34;selectively&#34;: the defect is antigen-specific rather than a general inability of the T cells to make IFN-gamma, which is what a primary T-cell lesion would look like. This node is the point at which the disease converges on the classical MSMD phenotype, having arrived there without a mutation anywhere in the IFN-gamma circuit.</div>
 
 
@@ -5557,6 +5641,13 @@ This pathophysiological event involves decreased type II interferon production (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shifted-dendritic-cell-cytokine-balance" data-dismech-node="Shifted Dendritic Cell Cytokine Balance" data-dismech-type="pathophysiology">
                 <div class="item-name">Shifted Dendritic Cell Cytokine Balance</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Beyond their reduced number, the dendritic cells that remain behave differently. SPPL2a-deficient bone-marrow-derived dendritic cells exposed to mycobacteria secrete more IL-1-beta and less IL-10 and IFN-beta, a shift from anti- to pro-inflammatory output, and this tracks with altered signalling through TLR4 and Dectin-1, with Dectin-1 redistributed to endosomal compartments.
 Graded provisional: the work is entirely in mouse cells, and the proposal that this functional change contributes to disease alongside the cell loss is the authors&#39; own and has not been tested in patients.</div>
 
@@ -5693,6 +5784,13 @@ This pathophysiological event involves conventional dendritic cell (CL:0000990).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-immunoglobulin-production" data-dismech-node="Impaired Immunoglobulin Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Immunoglobulin Production</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Hypogammaglobulinaemia was reported in the fourth patient, notably with normal B-cell counts. That combination - low immunoglobulin with preserved B-cell numbers - is the opposite shape to the mouse, which lacks mature B-cell subsets outright, and it is the reason the human B-cell arm of this disease should not be described from the murine literature.</div>
 
 
@@ -5808,6 +5906,13 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mycobacterial-disease" data-dismech-node="Mycobacterial Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Mycobacterial Disease</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical endpoint: disease caused by weakly virulent mycobacteria, principally BCG after vaccination. This is the MSMD phenotype, reached through dendritic-cell loss rather than through a lesion in the IFN-gamma circuit itself.</div>
 
 
@@ -5911,7 +6016,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic SPPL2A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic loss of function of SPPL2A, encoding an aspartyl intramembrane protease of lysosomes and late endosomes that cleaves type II transmembrane proteins.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"aspartic-type endopeptidase activity\"], \"genes\": [\"SPPL2A\"], \"gene_terms\": [{\"label\": \"SPPL2A\", \"id\": \"hgnc:30227\"}]}}, {\"id\": \"CD74 N-Terminal Fragment Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uncleaved CD74 NTF builds up in the MHC class II-positive myeloid and lymphoid cells of SPPL2a-deficient patients. This node is the hinge of the whole entry: it is the point at which the disease stops being a loss of function and becomes a gain of something toxic. Everything downstream is attributed to the presence of this fragment, not to the absence of the protease.\\nThat the accumulation is conserved in humans and not only in mice was shown independently in human B-cell lines carrying a homozygous deletion of the SPPL2A locus, before any patient with mycobacterial disease had been reported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD1c-positive myeloid dendritic cell\", \"B cell\"], \"genes\": [\"CD74\"], \"gene_terms\": [{\"label\": \"CD74\", \"id\": \"hgnc:1697\"}]}}, {\"id\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accumulated CD74 NTF selectively depletes the CD1c-positive conventional dendritic cells (cDC2) that produce IL-12 and IL-23, along with their circulating progenitors. Selectivity is the striking feature: a fragment that accumulates in all MHC class II-positive cells kills one subset preferentially.\\nThat the depletion is caused by the substrate rather than by loss of the protease was shown by epistasis in mice - cDC2 depletion in Sppl2a-knockout animals is abolished when CD74 is also deleted. Removing the substrate rescues the cell type, which is the cleanest available demonstration that the fragment, not the missing enzyme, is the toxic agent.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD1c-positive conventional dendritic cell (cDC2)\"], \"animal_models\": [{\"name\": \"Sppl2a/CD74 double-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"SPPL2a-/- CD74-/-\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"cDC2 depletion in Sppl2a-null mice depends on CD74. Removing the substrate rescues the cell type, establishing that the toxic agent is the accumulated fragment and not the absence of the protease - the single most important control behind this entry\u0027s framing of the mechanism.\"}]}}, {\"id\": \"Failure of CD74 N-Terminal Fragment Proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD74 is degraded stepwise in endosomal compartments to let MHC class II acquire peptide. The final membrane-bound N-terminal fragment requires SPPL2a for its turnover, and the primary cleavage site has been mapped within the CD74 transmembrane segment between Y52 and F53. Without SPPL2a that last step does not happen.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"antigen processing and presentation of exogenous peptide antigen via MHC class II\", \"protein catabolic process\"], \"genes\": [\"CD74\"], \"gene_terms\": [{\"label\": \"CD74\", \"id\": \"hgnc:1697\"}]}}, {\"id\": \"Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SPPL2a-deficient memory TH1* cells selectively fail to produce IFN-gamma when stimulated with mycobacterial antigens in vitro. The word that carries the mechanism is \\\"selectively\\\": the defect is antigen-specific rather than a general inability of the T cells to make IFN-gamma, which is what a primary T-cell lesion would look like. This node is the point at which the disease converges on the classical MSMD phenotype, having arrived there without a mutation anywhere in the IFN-gamma circuit.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"memory T-helper 1 cell\"], \"biological_processes\": [\"type II interferon production\"]}}, {\"id\": \"Impaired Immunoglobulin Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypogammaglobulinaemia was reported in the fourth patient, notably with normal B-cell counts. That combination - low immunoglobulin with preserved B-cell numbers - is the opposite shape to the mouse, which lacks mature B-cell subsets outright, and it is the reason the human B-cell arm of this disease should not be described from the murine literature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"animal_models\": [{\"name\": \"Sppl2a-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Sppl2a-/-\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse null has a profound humoral immunodeficiency and lacks mature B-cell subsets, phenocopying BAFF deficiency. The one human patient with reported B-cell numbers had hypogammaglobulinaemia with normal B-cell counts. The murine B-cell phenotype is therefore not a model of the human one: both are humoral defects, but a numerical loss of mature B cells and a functional immunoglobulin deficit with preserved cell numbers are different lesions.\"}]}}, {\"id\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second and mechanistically separate consequence of losing the protease. SPPL2a catalyses intramembrane cleavage of TNF-alpha, releasing its intracellular domain, and that released domain triggers IL-12 expression in activated human dendritic cells. Losing it therefore lowers IL-12 output from dendritic cells that are still alive, by a route entirely independent of the CD74 fragment and of cDC2 depletion.\\nTwo caveats are load-bearing and are the reason this node is graded provisional. The source characterises SPPL2a and SPPL2b jointly and does not isolate the contribution of SPPL2a alone, so the attribution to SPPL2A specifically is an inference. And the work is in human dendritic cells in vitro, not in patient cells - no SPPL2A-deficient patient has been shown to have a TNF-alpha-ICD defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"conventional dendritic cell\"], \"genes\": [\"SPPL2A\"], \"gene_terms\": [{\"label\": \"SPPL2A\", \"id\": \"hgnc:30227\"}]}}, {\"id\": \"Mycobacterial Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: disease caused by weakly virulent mycobacteria, principally BCG after vaccination. This is the MSMD phenotype, reached through dendritic-cell loss rather than through a lesion in the IFN-gamma circuit itself.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Sppl2a-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Sppl2a-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Sppl2a-null mice lack cDC2s, have CD4+ T cells that produce little IFN-gamma after BCG infection, and are highly susceptible to BCG and to M. tuberculosis - the same three-step chain demonstrated in the patients, in the same order.\"}]}}, {\"id\": \"SPPL2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SPPL2A\"], \"gene_terms\": [{\"label\": \"SPPL2A\", \"id\": \"hgnc:30227\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Second-Line Antimycobacterial Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The reported patient received second-line anti-tuberculosis agents for BCG disease. This is treatment of the infection, not of the immune defect, and no mechanism-directed therapy has been reported for this disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antitubercular agent\"]}}, {\"id\": \"Shifted Dendritic Cell Cytokine Balance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond their reduced number, the dendritic cells that remain behave differently. SPPL2a-deficient bone-marrow-derived dendritic cells exposed to mycobacteria secrete more IL-1-beta and less IL-10 and IFN-beta, a shift from anti- to pro-inflammatory output, and this tracks with altered signalling through TLR4 and Dectin-1, with Dectin-1 redistributed to endosomal compartments.\\nGraded provisional: the work is entirely in mouse cells, and the proposal that this functional change contributes to disease alongside the cell loss is the authors\u0027 own and has not been tested in patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"conventional dendritic cell\"]}}, {\"id\": \"Sppl2a-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse null, used in the founding human paper to close the loop between the cellular defect and mycobacterial susceptibility in vivo.\"}, {\"id\": \"Sppl2a/CD74 double-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An epistasis experiment rather than a disease model. Deleting CD74 on the Sppl2a-null background removes the substrate whose fragment accumulates, and tests whether that fragment is what causes the dendritic-cell loss.\"}], \"edges\": [{\"source\": \"Biallelic SPPL2A Loss of Function\", \"target\": \"Failure of CD74 N-Terminal Fragment Proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the only protease known to perform this cleavage step blocks turnover of its substrate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic SPPL2A Loss of Function\", \"target\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A separate substrate of the same protease, reaching the IL-12 circuit without passing through CD74 or through loss of any cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CD74 N-Terminal Fragment Proteolysis\", \"target\": \"CD74 N-Terminal Fragment Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An uncleaved fragment that is not turned over accumulates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD74 N-Terminal Fragment Accumulation\", \"target\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The accumulated fragment is described as toxic and selectively depletes this dendritic-cell subset and its circulating progenitors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD74 N-Terminal Fragment Accumulation\", \"target\": \"Impaired Immunoglobulin Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from CD74 NTF accumulation to hypogammaglobulinaemia in humans is not established, and the mouse route through loss of mature B cells does not appear to apply.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"target\": \"Shifted Dendritic Cell Cytokine Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IL-12 from surviving dendritic cells contributes to their altered cytokine output independently of how many of them remain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"target\": \"Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the IL-12/IL-23-producing dendritic cell removes the signal that licenses mycobacterium-specific T cells to make IFN-gamma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"target\": \"Shifted Dendritic Cell Cytokine Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second, functional consequence in the dendritic cells that remain, distinct from their reduced number.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antigen-specific IFN-gamma is the effector deficit that permits mycobacterial growth, as in the other MSMD genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shifted Dendritic Cell Cytokine Balance\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proposed additional contribution to susceptibility, not an established one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Second-Line Antimycobacterial Therapy\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sppl2a-knockout mouse\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Sppl2a-null mice lack cDC2s, have CD4+ T cells that produce little IFN-gamma after BCG infection, and are highly susceptible to BCG and to M. tuberculosis - the same three-step chain demonstrated in the patients, in the same order.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse additionally has a profound B-cell phenotype that the human disease does not appear to share, so the model over-predicts the humoral consequences of SPPL2a loss even while it reproduces the mycobacterial ones.\"}, {\"source\": \"Sppl2a-knockout mouse\", \"target\": \"Impaired Immunoglobulin Production\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse null has a profound humoral immunodeficiency and lacks mature B-cell subsets, phenocopying BAFF deficiency. The one human patient with reported B-cell numbers had hypogammaglobulinaemia with normal B-cell counts. The murine B-cell phenotype is therefore not a model of the human one: both are humoral defects, but a numerical loss of mature B cells and a functional immunoglobulin deficit with preserved cell numbers are different lesions.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The comparison rests on a single human patient\u0027s immunophenotype, so the divergence is reported rather than established. It is included because the alternative - describing the human B-cell compartment from the mouse - is the error this entry most wants to prevent. Note also that the molecular step upstream IS conserved: human SPPL2a-null B-cell lines accumulate the CD74 NTF comparably to mouse B cells, so the divergence appears downstream of the substrate accumulation, not at it.\"}, {\"source\": \"Sppl2a/CD74 double-knockout mouse\", \"target\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"cDC2 depletion in Sppl2a-null mice depends on CD74. Removing the substrate rescues the cell type, establishing that the toxic agent is the accumulated fragment and not the absence of the protease - the single most important control behind this entry\u0027s framing of the mechanism.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Performed in mice, and on the murine cDC2 equivalent rather than on human CD1c-positive cells; no comparable epistasis test is possible in patients.\"}, {\"source\": \"SPPL2A\", \"target\": \"Biallelic SPPL2A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPPL2A\", \"target\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic SPPL2A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is biallelic loss of function of SPPL2A, encoding an aspartyl intramembrane protease of lysosomes and late endosomes that cleaves type II transmembrane proteins.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"aspartic-type endopeptidase activity\"], \"genes\": [\"SPPL2A\"], \"gene_terms\": [{\"label\": \"SPPL2A\", \"id\": \"hgnc:30227\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CD74 N-Terminal Fragment Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uncleaved CD74 NTF builds up in the MHC class II-positive myeloid and lymphoid cells of SPPL2a-deficient patients. This node is the hinge of the whole entry: it is the point at which the disease stops being a loss of function and becomes a gain of something toxic. Everything downstream is attributed to the presence of this fragment, not to the absence of the protease.\\nThat the accumulation is conserved in humans and not only in mice was shown independently in human B-cell lines carrying a homozygous deletion of the SPPL2A locus, before any patient with mycobacterial disease had been reported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD1c-positive myeloid dendritic cell\", \"B cell\"], \"genes\": [\"CD74\"], \"gene_terms\": [{\"label\": \"CD74\", \"id\": \"hgnc:1697\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accumulated CD74 NTF selectively depletes the CD1c-positive conventional dendritic cells (cDC2) that produce IL-12 and IL-23, along with their circulating progenitors. Selectivity is the striking feature: a fragment that accumulates in all MHC class II-positive cells kills one subset preferentially.\\nThat the depletion is caused by the substrate rather than by loss of the protease was shown by epistasis in mice - cDC2 depletion in Sppl2a-knockout animals is abolished when CD74 is also deleted. Removing the substrate rescues the cell type, which is the cleanest available demonstration that the fragment, not the missing enzyme, is the toxic agent.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD1c-positive conventional dendritic cell (cDC2)\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Sppl2a/CD74 double-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"SPPL2a-/- CD74-/-\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"cDC2 depletion in Sppl2a-null mice depends on CD74. Removing the substrate rescues the cell type, establishing that the toxic agent is the accumulated fragment and not the absence of the protease - the single most important control behind this entry\u0027s framing of the mechanism.\"}]}}, {\"id\": \"Failure of CD74 N-Terminal Fragment Proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD74 is degraded stepwise in endosomal compartments to let MHC class II acquire peptide. The final membrane-bound N-terminal fragment requires SPPL2a for its turnover, and the primary cleavage site has been mapped within the CD74 transmembrane segment between Y52 and F53. Without SPPL2a that last step does not happen.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"antigen processing and presentation of exogenous peptide antigen via MHC class II\", \"protein catabolic process\"], \"genes\": [\"CD74\"], \"gene_terms\": [{\"label\": \"CD74\", \"id\": \"hgnc:1697\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SPPL2a-deficient memory TH1* cells selectively fail to produce IFN-gamma when stimulated with mycobacterial antigens in vitro. The word that carries the mechanism is \\\"selectively\\\": the defect is antigen-specific rather than a general inability of the T cells to make IFN-gamma, which is what a primary T-cell lesion would look like. This node is the point at which the disease converges on the classical MSMD phenotype, having arrived there without a mutation anywhere in the IFN-gamma circuit.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"memory T-helper 1 cell\"], \"biological_processes\": [\"type II interferon production\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Impaired Immunoglobulin Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypogammaglobulinaemia was reported in the fourth patient, notably with normal B-cell counts. That combination - low immunoglobulin with preserved B-cell numbers - is the opposite shape to the mouse, which lacks mature B-cell subsets outright, and it is the reason the human B-cell arm of this disease should not be described from the murine literature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Sppl2a-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Sppl2a-/-\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The mouse null has a profound humoral immunodeficiency and lacks mature B-cell subsets, phenocopying BAFF deficiency. The one human patient with reported B-cell numbers had hypogammaglobulinaemia with normal B-cell counts. The murine B-cell phenotype is therefore not a model of the human one: both are humoral defects, but a numerical loss of mature B cells and a functional immunoglobulin deficit with preserved cell numbers are different lesions.\"}]}}, {\"id\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second and mechanistically separate consequence of losing the protease. SPPL2a catalyses intramembrane cleavage of TNF-alpha, releasing its intracellular domain, and that released domain triggers IL-12 expression in activated human dendritic cells. Losing it therefore lowers IL-12 output from dendritic cells that are still alive, by a route entirely independent of the CD74 fragment and of cDC2 depletion.\\nTwo caveats are load-bearing and are the reason this node is graded provisional. The source characterises SPPL2a and SPPL2b jointly and does not isolate the contribution of SPPL2a alone, so the attribution to SPPL2A specifically is an inference. And the work is in human dendritic cells in vitro, not in patient cells - no SPPL2A-deficient patient has been shown to have a TNF-alpha-ICD defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"conventional dendritic cell\"], \"genes\": [\"SPPL2A\"], \"gene_terms\": [{\"label\": \"SPPL2A\", \"id\": \"hgnc:30227\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Mycobacterial Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: disease caused by weakly virulent mycobacteria, principally BCG after vaccination. This is the MSMD phenotype, reached through dendritic-cell loss rather than through a lesion in the IFN-gamma circuit itself.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Sppl2a-knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Sppl2a-/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Sppl2a-null mice lack cDC2s, have CD4+ T cells that produce little IFN-gamma after BCG infection, and are highly susceptible to BCG and to M. tuberculosis - the same three-step chain demonstrated in the patients, in the same order.\"}]}}, {\"id\": \"SPPL2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SPPL2A\"], \"gene_terms\": [{\"label\": \"SPPL2A\", \"id\": \"hgnc:30227\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Second-Line Antimycobacterial Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The reported patient received second-line anti-tuberculosis agents for BCG disease. This is treatment of the infection, not of the immune defect, and no mechanism-directed therapy has been reported for this disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"antitubercular agent\"]}}, {\"id\": \"Shifted Dendritic Cell Cytokine Balance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond their reduced number, the dendritic cells that remain behave differently. SPPL2a-deficient bone-marrow-derived dendritic cells exposed to mycobacteria secrete more IL-1-beta and less IL-10 and IFN-beta, a shift from anti- to pro-inflammatory output, and this tracks with altered signalling through TLR4 and Dectin-1, with Dectin-1 redistributed to endosomal compartments.\\nGraded provisional: the work is entirely in mouse cells, and the proposal that this functional change contributes to disease alongside the cell loss is the authors\u0027 own and has not been tested in patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"conventional dendritic cell\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Sppl2a-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The mouse null, used in the founding human paper to close the loop between the cellular defect and mycobacterial susceptibility in vivo.\"}, {\"id\": \"Sppl2a/CD74 double-knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"An epistasis experiment rather than a disease model. Deleting CD74 on the Sppl2a-null background removes the substrate whose fragment accumulates, and tests whether that fragment is what causes the dendritic-cell loss.\"}], \"edges\": [{\"source\": \"Biallelic SPPL2A Loss of Function\", \"target\": \"Failure of CD74 N-Terminal Fragment Proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the only protease known to perform this cleavage step blocks turnover of its substrate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic SPPL2A Loss of Function\", \"target\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A separate substrate of the same protease, reaching the IL-12 circuit without passing through CD74 or through loss of any cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CD74 N-Terminal Fragment Proteolysis\", \"target\": \"CD74 N-Terminal Fragment Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An uncleaved fragment that is not turned over accumulates.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD74 N-Terminal Fragment Accumulation\", \"target\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The accumulated fragment is described as toxic and selectively depletes this dendritic-cell subset and its circulating progenitors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD74 N-Terminal Fragment Accumulation\", \"target\": \"Impaired Immunoglobulin Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The route from CD74 NTF accumulation to hypogammaglobulinaemia in humans is not established, and the mouse route through loss of mature B cells does not appear to apply.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"target\": \"Shifted Dendritic Cell Cytokine Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IL-12 from surviving dendritic cells contributes to their altered cytokine output independently of how many of them remain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"target\": \"Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the IL-12/IL-23-producing dendritic cell removes the signal that licenses mycobacterium-specific T cells to make IFN-gamma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"target\": \"Shifted Dendritic Cell Cytokine Balance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A second, functional consequence in the dendritic cells that remain, distinct from their reduced number.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of IFN-gamma Production by Mycobacterium-Specific Memory T Cells\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antigen-specific IFN-gamma is the effector deficit that permits mycobacterial growth, as in the other MSMD genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shifted Dendritic Cell Cytokine Balance\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A proposed additional contribution to susceptibility, not an established one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Second-Line Antimycobacterial Therapy\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sppl2a-knockout mouse\", \"target\": \"Mycobacterial Disease\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Sppl2a-null mice lack cDC2s, have CD4+ T cells that produce little IFN-gamma after BCG infection, and are highly susceptible to BCG and to M. tuberculosis - the same three-step chain demonstrated in the patients, in the same order.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The mouse additionally has a profound B-cell phenotype that the human disease does not appear to share, so the model over-predicts the humoral consequences of SPPL2a loss even while it reproduces the mycobacterial ones.\"}, {\"source\": \"Sppl2a-knockout mouse\", \"target\": \"Impaired Immunoglobulin Production\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The mouse null has a profound humoral immunodeficiency and lacks mature B-cell subsets, phenocopying BAFF deficiency. The one human patient with reported B-cell numbers had hypogammaglobulinaemia with normal B-cell counts. The murine B-cell phenotype is therefore not a model of the human one: both are humoral defects, but a numerical loss of mature B cells and a functional immunoglobulin deficit with preserved cell numbers are different lesions.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The comparison rests on a single human patient\u0027s immunophenotype, so the divergence is reported rather than established. It is included because the alternative - describing the human B-cell compartment from the mouse - is the error this entry most wants to prevent. Note also that the molecular step upstream IS conserved: human SPPL2a-null B-cell lines accumulate the CD74 NTF comparably to mouse B cells, so the divergence appears downstream of the substrate accumulation, not at it.\"}, {\"source\": \"Sppl2a/CD74 double-knockout mouse\", \"target\": \"Depletion of CD1c-Positive Conventional Dendritic Cells\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"cDC2 depletion in Sppl2a-null mice depends on CD74. Removing the substrate rescues the cell type, establishing that the toxic agent is the accumulated fragment and not the absence of the protease - the single most important control behind this entry\u0027s framing of the mechanism.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"Performed in mice, and on the murine cDC2 equivalent rather than on human CD1c-positive cells; no comparable epistasis test is possible in patients.\"}, {\"source\": \"SPPL2A\", \"target\": \"Biallelic SPPL2A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPPL2A\", \"target\": \"Loss of TNF-alpha Intracellular Domain Signalling to IL-12\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5972,6 +6077,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6050,6 +6158,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6135,6 +6246,9 @@ This clinical feature is BCGitis (HP:0020086). HP:0020086 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6201,6 +6315,9 @@ This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:001
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6315,6 +6432,9 @@ This disease-associated gene is SPPL2A (hgnc:30227). hgnc:30227 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

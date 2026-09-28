@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4994,6 +5036,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gestational-neurosteroid-surge" data-dismech-node="Gestational Neurosteroid Surge" data-dismech-type="pathophysiology">
                 <div class="item-name">Gestational Neurosteroid Surge</div>
 
+
                 <div class="item-desc">Across pregnancy, placental and ovarian steroidogenesis raises circulating progesterone and its 5-alpha-reduced neurosteroid metabolite allopregnanolone to supraphysiologic levels. This is the rising limb, and it is a normal feature of every pregnancy — it is pathogenic only as the setup for the fall that follows, by remodeling GABA-A receptors to a high-neurosteroid environment that will not persist.</div>
 
 
@@ -5148,6 +5191,7 @@ This pathophysiological event involves increased steroid biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-precipitous-postpartum-neurosteroid-withdrawal" data-dismech-node="Precipitous Postpartum Neurosteroid Withdrawal" data-dismech-type="pathophysiology">
                 <div class="item-name">Precipitous Postpartum Neurosteroid Withdrawal</div>
+
 
                 <div class="item-desc">Delivery of the placenta removes the dominant source of progesterone-derived neurosteroid within hours, producing the steepest neurosteroid withdrawal in normal human physiology. The withdrawal itself is universal; what distinguishes women who develop PPD is differential sensitivity to it, established experimentally by inducing and then withdrawing pregnancy-level estradiol and progesterone under double-blind conditions.</div>
 
@@ -5351,6 +5395,7 @@ This pathophysiological event involves abnormal response to progesterone (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-gaba-a-receptor-subunit-plasticity" data-dismech-node="Failure of GABA-A Receptor Subunit Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of GABA-A Receptor Subunit Plasticity</div>
+
 
                 <div class="item-desc">GABA-A receptors normally adapt to the pregnancy neurosteroid environment by downregulating delta and gamma2 subunits, then rebounding immediately postpartum as neurosteroid levels fall. Delta-subunit-containing extrasynaptic receptors mediate tonic inhibition and are the principal neurosteroid-sensitive population, while gamma2-containing synaptic receptors mediate phasic inhibition. Mice genetically unable to perform the delta-subunit adaptation develop depression-like and abnormal maternal behavior, identifying failed receptor plasticity — rather than the hormone change itself — as the pathogenic step.</div>
 
@@ -5611,6 +5656,7 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gabaergic-inhibitory-tone" data-dismech-node="Loss of GABAergic Inhibitory Tone" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of GABAergic Inhibitory Tone</div>
 
+
                 <div class="item-desc">The net consequence of neurosteroid withdrawal against a maladapted receptor population is reduced tonic and phasic GABAergic inhibition in limbic circuits regulating mood and maternal behavior. This node is the convergent target of both approved mechanism-matched drugs, which restore positive allosteric modulation at synaptic and extrasynaptic GABA-A receptors. Its therapeutic reversibility is the strongest evidence that the node is causal rather than correlative.</div>
 
 
@@ -5870,6 +5916,7 @@ This pathophysiological event involves decreased gamma-aminobutyric acid signali
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-crh-elevation" data-dismech-node="Placental CRH Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental CRH Elevation</div>
 
+
                 <div class="item-desc">The placenta secretes corticotropin-releasing hormone in exponentially rising quantities across gestation. Unlike hypothalamic CRH, placental CRH is upregulated rather than suppressed by cortisol, creating a feed-forward loop. Women whose mid-gestation pCRH rises fastest are at elevated risk of postpartum depressive symptoms — an association that holds after adjusting for prenatal depressive symptoms.</div>
 
 
@@ -6031,6 +6078,7 @@ This pathophysiological event involves increased cellular response to corticotro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postpartum-hpa-axis-hyporesponsiveness" data-dismech-node="Postpartum HPA Axis Hyporesponsiveness" data-dismech-type="pathophysiology">
                 <div class="item-name">Postpartum HPA Axis Hyporesponsiveness</div>
 
+
                 <div class="item-desc">Placental delivery abruptly removes the dominant CRH source, leaving a transiently hyporesponsive hypothalamic-pituitary-adrenal axis while suppressed hypothalamic CRH output recovers. Notably the risk signal in human data attaches to placental CRH and is not mirrored by cortisol or ACTH, which constrains this arm to a placental rather than adrenal locus.</div>
 
 
@@ -6166,6 +6214,7 @@ This pathophysiological event involves dysregulated cellular response to cortico
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-sensitive-epigenetic-reprogramming-in-susceptible-women" data-dismech-node="Estrogen-Sensitive Epigenetic Reprogramming in Susceptible Women" data-dismech-type="pathophysiology">
                 <div class="item-name">Estrogen-Sensitive Epigenetic Reprogramming in Susceptible Women</div>
+
 
                 <div class="item-desc">Susceptibility to PPD appears to reside partly in how a woman&#39;s genome responds epigenetically to the perinatal estrogen excursion, rather than in the size of the excursion itself. Antenatal blood DNA methylation at estrogen-responsive loci — identified by cross-referencing human prospective profiles with hippocampal methylation changes induced by 17-beta-estradiol in mice — discriminates women who will develop PPD, with HP1BP3 and TTC9B as the two replicated biomarker loci. This provides a molecular correlate for the differential steroid sensitivity demonstrated experimentally.</div>
 
@@ -6339,6 +6388,7 @@ This pathophysiological event involves abnormal cellular response to estrogen st
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-postpartum-major-depressive-episode" data-dismech-node="Postpartum Major Depressive Episode" data-dismech-type="pathophysiology">
                 <div class="item-name">Postpartum Major Depressive Episode</div>
+
 
                 <div class="item-desc">The convergent clinical endpoint: a major depressive episode with peripartum onset, comprising depressed mood, anhedonia, sleep and appetite disturbance, impaired concentration, anxiety, and in severe cases suicidal ideation. Beyond the mother, the episode disrupts maternal-infant bonding and is associated with adverse infant cognitive and behavioral outcomes. Rapid reversibility with neuroactive-steroid therapy — meaningful separation from placebo by day 3 — distinguishes the syndrome pharmacodynamically from non-puerperal major depression treated with monoaminergic agents.</div>
 
@@ -6554,6 +6604,9 @@ This clinical feature is Poor appetite (HP:0004396). HP:0004396 is a phenotype f
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6590,6 +6643,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6668,6 +6724,9 @@ This clinical feature is Anhedonia (HP:0012154). HP:0012154 is a phenotype from 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
@@ -6693,6 +6752,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6771,6 +6833,9 @@ This clinical feature is Insomnia (HP:0100785). HP:0100785 is a phenotype from t
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-irritability" data-dismech-node="Irritability" data-dismech-type="phenotype">
@@ -6805,6 +6870,9 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-suicidal-ideation" data-dismech-node="Suicidal ideation" data-dismech-type="phenotype">
@@ -6830,6 +6898,9 @@ This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6917,6 +6988,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6989,6 +7063,9 @@ This disease-associated gene is HP1BP3 (hgnc:24973). hgnc:24973 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -7067,6 +7144,9 @@ This disease-associated gene is TTC9B (hgnc:26395). hgnc:26395 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7137,6 +7217,9 @@ This disease-associated gene is KCTD16 (hgnc:29244). hgnc:29244 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -7269,6 +7352,9 @@ This disease-associated gene is PCDH9 (hgnc:8661). hgnc:8661 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

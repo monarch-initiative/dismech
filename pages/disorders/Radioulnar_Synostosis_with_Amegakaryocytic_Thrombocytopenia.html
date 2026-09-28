@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5884,6 +5926,7 @@ Until fetal genotyping is done this cannot become a recurrence-risk figure, and 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-heterozygous-mecom-zinc-finger-variant" data-dismech-node="Germline Heterozygous MECOM Zinc Finger Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline Heterozygous MECOM Zinc Finger Variant</div>
 
+
                 <div class="item-desc">A single altered MECOM allele, almost always de novo, encoding the zinc-finger transcription factor EVI1. The variants that give the full RUSAT picture are missense changes in the region spanning zinc fingers 8 and 9 of the C-terminal zinc finger domain - about ten amino acids, comprising zinc finger 8 and the adjacent linker.
 That is not the only missense hotspot, and this node should not be read as saying it is. A 2026 series reports every missense variant mapping to &#34;the zinc finger 6 or zinc finger 8/9 region&#34;, so there is a second cluster in the N-terminal zinc finger domain - the domain through which EVI1 binds the GATA2 promoter. A further reported variant, p.P634L, lies between the two domains altogether. Whether the ZF6 cluster produces synostosis is not established in anything cited here. Variants elsewhere in the locus, including nonsense, frameshift, splice and whole-gene deletion alleles, cause bone marrow failure without the synostosis. That the two variant classes give different syndromes from the same gene is the central genotype-phenotype observation in this disease, and it is why this node is specified by domain rather than simply as &#34;loss of one MECOM allele&#34;.
 </div>
@@ -5989,6 +6032,7 @@ That is not the only missense hotspot, and this node should not be read as sayin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-heterozygous-hoxa11-frameshift-variant" data-dismech-node="Germline Heterozygous HOXA11 Frameshift Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline Heterozygous HOXA11 Frameshift Variant</div>
 
+
                 <div class="item-desc">The RUSAT1 lesion: HOXA11 c.872delA, p.Asn291ThrfsX3, a single-nucleotide deletion falling in the third helix of the homeodomain and truncating the protein. It is the only HOXA11 allele ever reported in this disease, found in six individuals from two families. HOXA11 is a posterior HOX transcription factor with roles in both early forelimb patterning and haematopoiesis, which is the same dual requirement that makes MECOM a RUSAT gene.
 </div>
 
@@ -6066,6 +6110,7 @@ That is not the only missense hotspot, and this node should not be read as sayin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-evi1-sequence-specific-dna-binding" data-dismech-node="Loss of EVI1 Sequence-Specific DNA Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of EVI1 Sequence-Specific DNA Binding</div>
+
 
                 <div class="item-desc">The zinc-finger 8/9 variants reduce EVI1 occupancy at its recognition sites. Protein modelling of the two mutational hotspots, zinc finger 6 and zinc fingers 8/9, predicts both are DNA-binding regions, so the variants are read as disabling contact with DNA rather than destabilising the protein as a whole. The functional consequence is measured on both sides of EVI1&#39;s dual role: it is a repressor at some targets and a permissive factor at others, and the variants shift both.
 </div>
@@ -6292,6 +6337,7 @@ This pathophysiological event involves EVI1 DNA-binding transcription factor act
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-hoxa11-sequence-specific-dna-binding" data-dismech-node="Loss of HOXA11 Sequence-Specific DNA Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of HOXA11 Sequence-Specific DNA Binding</div>
 
+
                 <div class="item-desc">The truncated HOXA11 protein cannot bind its consensus site, and the defect is not rescued by its cofactor. Wild-type HOXA11 binds DNA most efficiently in the presence of the TALE factor Meis1b; the truncated protein still associates with Meis1b but binding to DNA is abolished even so. The protein-protein interaction is therefore intact while the DNA contact is not, which localises the lesion to the homeodomain.
 </div>
 
@@ -6415,6 +6461,7 @@ This pathophysiological event involves HOXA11 DNA-binding transcription factor a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulation-of-the-evi1-hsc-maintenance-network" data-dismech-node="Dysregulation of the EVI1 HSC Maintenance Network" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulation of the EVI1 HSC Maintenance Network</div>
+
 
                 <div class="item-desc">The central node of the MECOM arm, and the point at which one molecular lesion becomes several tissue phenotypes. EVI1 does not maintain haematopoietic stem cells through a single target: it binds regulatory enhancers controlling a network of hundreds of genes, and modelling MECOM haploinsufficiency in primary human haematopoietic stem cells shows that network is required for stem-cell maintenance. Among its targets are GATA2, whose promoter EVI1 binds through the N-terminal zinc fingers, and MPL, the thrombopoietin receptor. EVI1 also prevents the CTCF-dependent genome reorganisation that normally accompanies differentiation, so the consequence of losing it is not simply reduced output of one factor.
 Read the magnitude carefully, because the phenotype is severe and the transcriptional change is not. The primary-human-HSC study describes a &#34;high degree of similarity&#34; in the single-cell transcriptome after MECOM perturbation and, on random permutation analysis, detected no differentially expressed genes at all. This node therefore asserts coordinated dysregulation of a defined network, not a wholesale collapse of transcription. That a small, coordinated shift produces an absence of stem cells is the interesting part, not an argument for a larger shift.
@@ -6647,6 +6694,7 @@ This pathophysiological event involves decreased EVI1 binding at haematopoietic 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-evi1-transcriptional-control-of-mpl" data-dismech-node="Loss of EVI1 Transcriptional Control of MPL" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of EVI1 Transcriptional Control of MPL</div>
 
+
                 <div class="item-desc">EVI1 transcriptionally regulates MPL, the thrombopoietin receptor. Biallelic MPL loss is the cause of congenital amegakaryocytic thrombocytopenia, so this branch is the proposed mechanistic reason RUSAT and CAMT are hard to tell apart in a newborn with an amegakaryocytic marrow: they converge on the same receptor.
 The node is deliberately named for a loss of control rather than for a direction, because the direction is not established and the obvious guess is probably backwards. What the assay shows is that the variant &#34;impairs the repressive activity of the transcription factor&#34; - and impaired repression would, on its face, raise MPL rather than lower it. No measurement of MPL message or thrombopoietin-receptor signalling in RUSAT patient megakaryocytes is cited here. `DYSREGULATED` is the honest tag until someone measures it; naming this node for a direction would export an assertion no source supports into the graph.
 </div>
@@ -6763,6 +6811,7 @@ This pathophysiological event involves dysregulated thrombopoietin-mediated sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematopoietic-stem-cell-maintenance-failure" data-dismech-node="Hematopoietic Stem Cell Maintenance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematopoietic Stem Cell Maintenance Failure</div>
+
 
                 <div class="item-desc">Haematopoietic stem cells are not maintained. The human phenotype modelled in primary HSCs is described as an early-onset absence of stem cells in vivo, which is what distinguishes this disease from the inherited marrow failure syndromes that declare themselves in later childhood or adolescence. The severity tracks gene dosage, and the consequence is multilineage rather than lineage-restricted - which is the main reason the &#34;amegakaryocytic thrombocytopenia&#34; half of the disease name understates what is happening.
 </div>
@@ -6987,6 +7036,7 @@ This pathophysiological event involves decreased stem cell population maintenanc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-megakaryocyte-differentiation-arrest" data-dismech-node="Megakaryocyte Differentiation Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Megakaryocyte Differentiation Arrest</div>
 
+
                 <div class="item-desc">Megakaryocytes are absent or severely reduced in the marrow, which is what the &#34;amegakaryocytic&#34; in the disease name refers to and what separates RUSAT from a peripheral destructive thrombocytopenia at the bedside. Two upstream routes converge here in the MECOM arm - loss of stem cells, and loss of MPL transcriptional control - and one in the HOXA11 arm. Some cohorts describe the marrow as hypomegakaryocytic rather than amegakaryocytic; the distinction is one of degree.
 </div>
 
@@ -7140,6 +7190,7 @@ This pathophysiological event involves decreased megakaryocyte differentiation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-multilineage-marrow-failure" data-dismech-node="Progressive Multilineage Marrow Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Multilineage Marrow Failure</div>
+
 
                 <div class="item-desc">The thrombocytopenia does not stay isolated. Marrow output falls across lineages, producing anaemia and neutropenia on top of the platelet defect and, in a substantial fraction, frank pancytopenia requiring transplant. The rate is very variable: some infants are transfusion-dependent in the first weeks of life and some adults reach a modest single cytopenia only in later life, within the same family and sometimes with the same allele. At the most severe end the failure begins before birth and presents as non-immune hydrops with severe anaemia.
 </div>
@@ -7310,6 +7361,7 @@ This pathophysiological event involves decreased hematopoietic stem cell differe
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-developmental-arrest" data-dismech-node="B-Cell Developmental Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">B-Cell Developmental Arrest</div>
+
 
                 <div class="item-desc">A subset of MECOM patients have B-cell lymphopenia with hypogammaglobulinaemia, which has led to MECOM deficiency being classified as an inborn error of immunity as well as a marrow failure syndrome. The mechanism is unknown. What is notable is the co-segregation: in the largest series, B-cell deficiency and radioulnar synostosis were seen only in patients whose variants hit the same short C-terminal zinc-finger region - two features with no obvious relationship to one another, appearing and disappearing together with variant position.
 </div>
@@ -7491,6 +7543,7 @@ This pathophysiological event involves decreased B cell differentiation (GO:0030
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-selection-of-revertant-hematopoietic-stem-cells" data-dismech-node="Clonal Selection of Revertant Hematopoietic Stem Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Selection of Revertant Hematopoietic Stem Cells</div>
 
+
                 <div class="item-desc">Somatic genetic rescue. In a failing marrow, a stem cell that has lost the mutant MECOM allele outgrows the rest, and the usual mechanism is copy neutral loss of heterozygosity across chromosome 3q, which duplicates the residual wild-type allele. In a 15-person cohort, 7 individuals showed spontaneous resolution, alleviation, or late onset of haematological disease, and in 4 of 6 evaluable such cases this reversion was found.
 This node is the reason several things about the disease look strange from outside. Apparent non-penetrance in an adult carrier may be a rescued marrow rather than a mild allele. Neonatal thrombocytopenia that resolves on its own is a documented course, not a misdiagnosis. And it is the one node in this entry with a direct, immediate consequence for how the disease is diagnosed: blood is an unreliable germline sample in a carrier whose counts have recovered.
 The same demand-adapted clonal dynamics run the other way as well. Clonal haematopoiesis is curated as a sibling of this node rather than as its consequence - both descend from the same selective pressure in a failing marrow, which is what the source&#39;s &#34;two roads&#34; model says and as far as it goes.
@@ -7615,6 +7668,7 @@ This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-related-clonal-hematopoiesis" data-dismech-node="Age-Related Clonal Hematopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Related Clonal Hematopoiesis</div>
+
 
                 <div class="item-desc">All three older individuals in the 15-person cohort of Venugopal et al. (PMID:38662475) carried somatic variants in age-related clonal haematopoiesis genes - ASXL1, DNMT3A, TET2 - and two also carried ETV6 variants, which is not a typical age-related finding. Transient 20q loss was seen in two individuals in the cohort, though not the same two - one of them is a younger carrier, so it is not a feature of the older group specifically. These clones likely improve haematopoietic output, which is the source&#39;s own hedged phrasing and the reason they expand; the cost is that the same alterations carry myeloid malignancy risk.
 Curated at the strength the source states and no further. Four myeloid malignancies had been reported among 80 MECOM-associated individuals - three adult myelodysplastic syndromes and one paediatric acute myeloid leukaemia, about 5% - and the source attributes that low frequency to most patients being transplanted young, which implies an underestimate without saying so outright. This entry therefore records myelodysplasia and clonal haematopoiesis as curated findings, and does not assert a quantified germline leukaemia predisposition, which no cited source supports.
@@ -7752,6 +7806,7 @@ This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-proximal-radioulnar-joint-separation" data-dismech-node="Failure of Proximal Radioulnar Joint Separation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Proximal Radioulnar Joint Separation</div>
+
 
                 <div class="item-desc">The radius and ulna fail to separate proximally during limb development and remain fused as bone. This is a developmental non-event rather than a destructive lesion: the joint interzone that should cavitate does not, so the forearm is fixed - usually in pronation - from birth and never supinates.
 The developmental biology is better established for one of the two genes than the other, and the entry keeps that asymmetry visible.
@@ -7981,6 +8036,7 @@ This pathophysiological event involves decreased forelimb morphogenesis (GO:0035
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multi-organ-developmental-mecom-requirement" data-dismech-node="Multi-Organ Developmental MECOM Requirement" data-dismech-type="pathophysiology">
                 <div class="item-name">Multi-Organ Developmental MECOM Requirement</div>
 
+
                 <div class="item-desc">A deliberately coarse node collecting the extra-haematopoietic malformations - digital, ungual, patellar, cardiac, renal and auditory - that recur across MECOM cohorts without any of them being obligate. The justification for grouping rather than splitting is that the only thing tying them together in the cited literature is one fact: MECOM is expressed at high levels in the embryonic heart, lungs, limb buds, nasal cavity and urinary tract, and those are the organs that turn out to be malformed. No source traces a pathway from EVI1 target genes to any individual lesion.
 Two honest limits. The expression data behind the grouping are murine, while the malformations are human. And a node at this resolution earns little: it says these findings are developmental rather than consequences of the marrow disease, which matters clinically - they are present at birth and are not corrected by transplant - but it does not explain any of them. Splitting it is the right move as soon as a source supports a specific route.
 The radioulnar synostosis is deliberately NOT routed through this node. It has its own node because it is the defining feature, because it segregates with a specific variant region, and because it has its own model-organism literature; folding it in here would lose all three.
@@ -8182,6 +8238,7 @@ This pathophysiological event involves decreased embryonic organ development (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-arterial-endothelial-mecom-deficiency" data-dismech-node="Pulmonary Arterial Endothelial MECOM Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Arterial Endothelial MECOM Deficiency</div>
+
 
                 <div class="item-desc">A branch reported only in 2026 and curated as provisional. MECOM is expressed principally in pulmonary arterial endothelial cells, and in a 15-person series assembled through GeneMatcher, 6 had pulmonary arterial hypertension. Protein modelling suggests the variant hotspots interfere with binding to a VEGFR2/KDR enhancer, which would give an endothelial route independent of the marrow. This is an ascertainment-prone series - it was assembled by querying for a phenotype the authors had already nominated MECOM for - and the mechanism is modelled rather than measured.
 It is attached downstream of the DNA-binding node rather than left free-floating, because its evidential shape is the same as the limb branch this entry does connect: expression data plus human genetics, with no intervening steps established, and variants in the same zinc-finger hotspot.
@@ -8410,6 +8467,9 @@ This clinical feature is Thrombocytopenia (HP:0001873), qualified as temporality
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -8517,6 +8577,9 @@ This clinical feature is Megakaryocytopenia (HP:0005548). HP:0005548 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8605,6 +8668,9 @@ This clinical feature is Pancytopenia (HP:0001876), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8675,6 +8741,9 @@ This clinical feature is Bone marrow hypocellularity (HP:0005528). HP:0005528 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8740,6 +8809,9 @@ This clinical feature is Aplastic anemia (HP:0001915). HP:0001915 is a phenotype
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8851,6 +8923,9 @@ This clinical feature is Myelodysplasia (HP:0002863), qualified as adult onset. 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8916,6 +8991,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8991,6 +9069,9 @@ This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9056,6 +9137,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9138,6 +9222,9 @@ This clinical feature is Intracranial hemorrhage (HP:0002170). HP:0002170 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9203,6 +9290,9 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9285,6 +9375,9 @@ This clinical feature is Decreased circulating immunoglobulin concentration (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9359,6 +9452,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9486,6 +9582,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9576,6 +9675,9 @@ This clinical feature is Aortic root dilatation, annotated with Aortic root aneu
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9650,6 +9752,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9757,6 +9862,9 @@ This clinical feature is Renal malformation, annotated with Abnormality of the k
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9893,6 +10001,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9969,6 +10080,9 @@ This clinical feature is Nail abnormality, annotated with Abnormal nail morpholo
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10066,6 +10180,9 @@ This clinical feature is Bilateral proximal radioulnar synostosis, annotated wit
 
 
                     </div>
+
+
+
 
 
 
@@ -10194,6 +10311,9 @@ This clinical feature is Limited pronation/supination of forearm (HP:0006394), q
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10259,6 +10379,9 @@ This clinical feature is Clinodactyly (HP:0030084). HP:0030084 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10362,6 +10485,9 @@ This clinical feature is Patellar aplasia or hypoplasia, annotated with Aplasia/
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10460,6 +10586,9 @@ This clinical feature is Hypoplasia of the middle and distal phalanges of the fi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10534,6 +10663,9 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10646,6 +10778,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10720,6 +10855,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10837,6 +10975,9 @@ This disease-associated gene is MECOM (hgnc:3498). hgnc:3498 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10970,6 +11111,9 @@ This disease-associated gene is HOXA11 (hgnc:5101). hgnc:5101 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11082,6 +11226,7 @@ This disease-associated gene is HOXA11 (hgnc:5101). hgnc:5101 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11101,11 +11246,17 @@ This variant is in MECOM (hgnc:3498). hgnc:3498 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SNV</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Numbering note before anything else, because this is a live source of confusion. p.Arg750Trp is EVI1 numbering (NP_001098548.2, transcript NM_001105078). The MDS1-EVI1 isoform adds 188 residues at the N-terminus, so this same allele is p.Arg938Trp in MDS1-EVI1 coordinates - the position shifts, the substituted residue does not.
@@ -11168,6 +11319,7 @@ The recurrent RUSAT allele, and the most informative one for expressivity. It wa
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11187,11 +11339,17 @@ This variant is in HOXA11 (hgnc:5101). hgnc:5101 is a gene from the HUGO Gene No
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">DELETION</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The single RUSAT1 allele, c.872delA, causing a frameshift and premature truncation of HOXA11. Found in six individuals from two families and never reported again. Functional work shows the truncated protein loses DNA binding while retaining its interaction with Meis1b.</div>

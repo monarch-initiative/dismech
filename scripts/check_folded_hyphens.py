@@ -21,21 +21,31 @@ A *folded*-scalar content line that ends in ``<word>-``. Legitimate
 continuation line begins with a coordinating word (``and``/``or``/``to``/
 ``vs``/``nor``), since there the trailing space is intended.
 
-Baseline ratchet
-----------------
-A large pre-existing backlog of these splits already lives in ``kb/`` (tracked
-separately). To let this check *gate new occurrences* without first cleaning up
-the whole backlog, current findings are grandfathered in
-``tests/folded_hyphen_baseline.txt``. ``--check`` (the default, used by the
-pytest guard) fails only on findings that are NOT in the baseline. Regenerate
-the baseline with ``--update-baseline`` after intentionally changing the set.
+No baseline
+-----------
+This check gates on *every* finding. It did not always: the backlog predating
+the guard was grandfathered in ``tests/folded_hyphen_baseline.txt`` (dismech
+#4802), so that new occurrences could be gated without first repairing it.
+dismech #11760 repaired that backlog -- 293 splits across 181 files -- and took
+the file from 330 rows to 0, and the baseline mechanism was removed in #12372,
+which was #4800's stated endpoint.
+
+Rows and splits are not the same count, so do not read 330 and 293 as a
+discrepancy: a row recorded a finding as of the last baseline regeneration, and
+the two drifted apart over the months between (#6702 is one such edit).
+
+So there is no longer a way to grandfather a finding, deliberately. If the
+detector flags a line that is genuinely correct, the fix is to teach the
+detector about that shape and pin it with a test -- as ``COORD_RE`` does for
+suspended hyphens and ``is_status_marker`` for clinical negativity markers --
+not to record an exception. Each of those classes was found by a real false
+positive; a new one should be handled the same way.
 
 Usage
 -----
-    python scripts/check_folded_hyphens.py            # gate: fail on NEW splits
+    python scripts/check_folded_hyphens.py            # gate: fail on any split
     python scripts/check_folded_hyphens.py --all      # list every finding
-    python scripts/check_folded_hyphens.py --count     # summary counts
-    python scripts/check_folded_hyphens.py --update-baseline
+    python scripts/check_folded_hyphens.py --count    # summary counts
 """
 from __future__ import annotations
 
@@ -50,7 +60,6 @@ ROOT = Path(__file__).resolve().parents[1]
 # deliberately excluded: those records are append-only, so a finding there
 # cannot be repaired without rewriting history.
 SCAN_DIRS = (ROOT / "kb", ROOT / "src")
-BASELINE_PATH = ROOT / "tests" / "folded_hyphen_baseline.txt"
 
 # A block-scalar header: a key (or list dash) whose value is a block indicator
 # (``>`` folded or ``|`` literal), optionally with chomping/indentation and a
@@ -65,7 +74,7 @@ COORD_RE = re.compile(r"^(and|or|to|vs|nor|&)\b", re.IGNORECASE)
 # compound -- ``ER+/HER2- metastatic``, ``gsp+ and gsp- patients``,
 # ``T-B-NK- immunophenotype``. There the following space is real text, so
 # "repairing" it destroys the clinical meaning (and, in a snippet, the quote).
-# Four such lines were flagged as bugs and joined by the #4800 sweep before
+# Four such lines were flagged as bugs and joined by the #11760 sweep before
 # review caught them; these rules stop the next sweep reintroducing them.
 #
 # The trade-off runs the other way from COORD_RE: an exemption here means a
@@ -173,51 +182,16 @@ def scan_repo():
     return findings
 
 
-def _baseline_key(rel: str, line: str) -> str:
-    return f"{rel}\t{line}"
-
-
-def load_baseline() -> set[str]:
-    if not BASELINE_PATH.exists():
-        return set()
-    keys = set()
-    for ln in BASELINE_PATH.read_text(encoding="utf-8").splitlines():
-        ln = ln.rstrip("\n")
-        if ln and not ln.startswith("#"):
-            keys.add(ln)
-    return keys
-
-
-def write_baseline(findings) -> None:
-    keys = sorted({_baseline_key(rel, line) for rel, _, line in findings})
-    header = (
-        "# Grandfathered folded-scalar hyphen splits (see "
-        "scripts/check_folded_hyphens.py).\n"
-        "# Each line is `path<TAB>offending_line`. New occurrences NOT listed\n"
-        "# here fail the guard. Remove entries as the backlog is fixed; do not\n"
-        "# add new ones. Regenerate with: just update-folded-hyphen-baseline\n"
-    )
-    BASELINE_PATH.write_text(header + "\n".join(keys) + "\n", encoding="utf-8")
-
-
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--check", action="store_true",
-                   help="(default) fail on findings not in the baseline")
+                   help="(default) fail on any finding")
     g.add_argument("--all", action="store_true", help="list every finding")
     g.add_argument("--count", action="store_true", help="print summary counts")
-    g.add_argument("--update-baseline", action="store_true",
-                   help="rewrite the baseline from current findings")
     args = ap.parse_args(argv)
 
     findings = scan_repo()
-
-    if args.update_baseline:
-        write_baseline(findings)
-        print(f"Wrote baseline with {len(findings)} entries to "
-              f"{BASELINE_PATH.relative_to(ROOT)}")
-        return 0
 
     if args.all:
         for rel, lineno, line in findings:
@@ -227,29 +201,26 @@ def main(argv=None) -> int:
 
     if args.count:
         files = {rel for rel, _, _ in findings}
-        baseline = load_baseline()
-        new = [f for f in findings if _baseline_key(f[0], f[2]) not in baseline]
         print(f"total findings: {len(findings)} across {len(files)} file(s)")
-        print(f"baseline entries: {len(baseline)}")
-        print(f"new (non-baselined): {len(new)}")
         return 0
 
     # default: --check
-    baseline = load_baseline()
-    new = [f for f in findings if _baseline_key(f[0], f[2]) not in baseline]
-    if new:
-        print("New folded-scalar compound-word split(s) detected.")
+    if findings:
+        print("Folded-scalar compound-word split(s) detected.")
         print("A line inside a YAML folded ('>'/'>-') scalar ends in a hyphen, so")
         print("folding will insert an unwanted space mid-compound (e.g.")
         print("'relapsing- remitting'). Reflow so the compound stays on one line.\n")
-        for rel, lineno, line in new:
+        for rel, lineno, line in findings:
             print(f"{rel}:{lineno}: {line}")
-        print(f"\n{len(new)} new finding(s). If a finding is an intentional")
-        print("suspended hyphen, rephrase so the continuation starts with a")
-        print("coordinating word, or run --update-baseline to grandfather it.")
+        print(f"\n{len(findings)} finding(s). There is no way to grandfather one:")
+        print("if the trailing hyphen is real text rather than a folding artifact,")
+        print("reflow the line so it is not line-final -- never edit a quoted")
+        print("snippet to suit the checker. A shape the detector should recognise")
+        print("(as it does suspended hyphens and negativity markers such as")
+        print("'T-B-NK-') belongs in the detector, with a test, not in an")
+        print("exception list.")
         return 1
-    print(f"OK: no new folded-scalar hyphen splits "
-          f"({len(baseline)} grandfathered in baseline).")
+    print("OK: no folded-scalar hyphen splits.")
     return 0
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4818,6 +4860,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-primary-visual-cortex-response-dynamics" data-dismech-node="Abnormal Primary Visual Cortex Response Dynamics" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Primary Visual Cortex Response Dynamics</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Human perceptual and MEG experiments demonstrate abnormal visual-cortical responses, but the abnormality is paradigm-dependent. Reduced center-surround suppression, increased stimulus-evoked gamma power, and reduced alpha-gamma coupling support abnormal response regulation; a later MEG study did not reproduce an average gamma or stimulus-intensity effect. This node therefore represents measured response abnormalities, not an established claim of tonic cortical hyperexcitability.</div>
 
 
@@ -5021,6 +5070,13 @@ This pathophysiological event occurs in primary visual cortex (UBERON:0002436). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-activity-dependent-visual-cortical-plasticity" data-dismech-node="Enhanced Activity-Dependent Visual Cortical Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Activity-Dependent Visual Cortical Plasticity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Repeated visual stimulation produces a steeper increase in gamma power in VSS than in controls despite similar average gamma power and frequency. The finding suggests abnormal experience-dependent response updating rather than a fixed excitation-inhibition imbalance, but independent replication is required.</div>
 
 
@@ -5173,6 +5229,13 @@ This pathophysiological event occurs in primary visual cortex (UBERON:0002436). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distributed-visual-attentional-salience-network-dysconnectivity" data-dismech-node="Distributed Visual-Attentional-Salience Network Dysconnectivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Distributed Visual-Attentional-Salience Network Dysconnectivity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Resting-state and stimulus-related fMRI studies identify hyperconnectivity and hypoconnectivity across visual pathways, visual association cortex, thalamic/basal-ganglia circuits, attentional systems, and the salience network. Receptor-enriched analyses additionally implicate glutamatergic and serotonergic connectivity patterns. These are group-level research findings, not validated diagnostic biomarkers.</div>
 
@@ -5377,6 +5440,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-sensory-gating-and-noise-suppression" data-dismech-node="Impaired Sensory Gating and Noise Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Sensory Gating and Noise Suppression</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">A candidate integrative mechanism in which irrelevant or subthreshold sensory signals are insufficiently suppressed before reaching perceptual awareness. It connects local response abnormalities and distributed network findings to the persistent positive percepts, but remains inferential.</div>
 
 
@@ -5523,6 +5593,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-positive-visual-perception" data-dismech-node="Persistent Positive Visual Perception" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Positive Visual Perception</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The established syndrome-level perceptual state: continuous pan-field visual static accompanied by a variable combination of afterimages or trailing, enhanced entoptic phenomena, photophobia, impaired night vision, and photopsia. This node is a clinical bridge from uncertain upstream mechanisms to observed manifestations rather than a claim about a single molecular lesion.</div>
 
@@ -5780,7 +5857,7 @@ This pathophysiological event occurs in visual system (UBERON:0002104). UBERON:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Primary Visual Cortex Response Dynamics\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human perceptual and MEG experiments demonstrate abnormal visual-cortical responses, but the abnormality is paradigm-dependent. Reduced center-surround suppression, increased stimulus-evoked gamma power, and reduced alpha-gamma coupling support abnormal response regulation; a later MEG study did not reproduce an average gamma or stimulus-intensity effect. This node therefore represents measured response abnormalities, not an established claim of tonic cortical hyperexcitability.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"visual perception\"], \"locations\": [\"primary visual cortex\"]}}, {\"id\": \"Alcohol and Recreational Drug Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Chromatic Filters and Tinted Lenses\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individually selected chromatic filters or tinted lenses may reduce perceived intensity of visual static and associated photophobia, palinopsia, or entoptic phenomena. Evidence is retrospective, nonrandomized, and vulnerable to selection and expectancy effects; standardized long-term trials are lacking.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Distributed Visual-Attentional-Salience Network Dysconnectivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resting-state and stimulus-related fMRI studies identify hyperconnectivity and hypoconnectivity across visual pathways, visual association cortex, thalamic/basal-ganglia circuits, attentional systems, and the salience network. Receptor-enriched analyses additionally implicate glutamatergic and serotonergic connectivity patterns. These are group-level research findings, not validated diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"visual perception\"], \"locations\": [\"brain\"]}}, {\"id\": \"Enhanced Activity-Dependent Visual Cortical Plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated visual stimulation produces a steeper increase in gamma power in VSS than in controls despite similar average gamma power and frequency. The finding suggests abnormal experience-dependent response updating rather than a fixed excitation-inhibition imbalance, but independent replication is required.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"visual perception\"], \"locations\": [\"primary visual cortex\"]}}, {\"id\": \"Entoptic Phenomenon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6001103\"}}, {\"id\": \"Heightened Perception of Vitreous Floaters\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100832\"}}, {\"id\": \"Impaired Sensory Gating and Noise Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate integrative mechanism in which irrelevant or subthreshold sensory signals are insufficiently suppressed before reaching perceptual awareness. It connects local response abnormalities and distributed network findings to the persistent positive percepts, but remains inferential.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"]}}, {\"id\": \"Indoor and Fluorescent Lighting\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lamotrigine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Off-label antiseizure pharmacotherapy that produced partial self-reported improvement in a small minority of patients. In the largest cited clinical series, 5 of 26 patients improved partially, none achieved complete remission, and half reported adverse events. These Class IV data do not establish efficacy or confirm a cortical target mechanism.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An eight-week MBCT-vision program was feasible in a 21-participant open-label study and was associated with improved self-rated symptom severity, daily impact, wellbeing, distress, and altered visual-network functional connectivity through week 20. Without a randomized control group, the study supports feasibility and a signal of benefit rather than efficacy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nyctalopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000662\"}}, {\"id\": \"Palinopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0020333\"}}, {\"id\": \"Persistent Positive Visual Perception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The established syndrome-level perceptual state: continuous pan-field visual static accompanied by a variable combination of afterimages or trailing, enhanced entoptic phenomena, photophobia, impaired night vision, and photopsia. This node is a clinical bridge from uncertain upstream mechanisms to observed manifestations rather than a claim about a single molecular lesion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"visual perception\"], \"locations\": [\"visual system\"]}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030786\"}}, {\"id\": \"Tinnitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000360\"}}, {\"id\": \"Visual Snow\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\"}}], \"edges\": [{\"source\": \"Abnormal Primary Visual Cortex Response Dynamics\", \"target\": \"Impaired Sensory Gating and Noise Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal local oscillatory responses could weaken top-down suppression of irrelevant visual activity, but the intervening circuit mechanism has not been demonstrated.\", \"hypothesis_groups\": [\"visual_cortical_dysrhythmia\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enhanced Activity-Dependent Visual Cortical Plasticity\", \"target\": \"Impaired Sensory Gating and Noise Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heightened repetition-dependent plasticity could stabilize or amplify normally suppressed visual signals; this causal bridge is a hypothesis, not a result directly tested in the MEG study.\", \"hypothesis_groups\": [\"enhanced_visual_plasticity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed Visual-Attentional-Salience Network Dysconnectivity\", \"target\": \"Impaired Sensory Gating and Noise Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed disconnection may allow irrelevant ascending signals to escape normal predictive filtering, but directionality cannot be established from functional connectivity alone.\", \"hypothesis_groups\": [\"distributed_network_gating\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Sensory Gating and Noise Suppression\", \"target\": \"Persistent Positive Visual Perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to suppress irrelevant signals is hypothesized to permit continuous positive visual percepts; the exact neural intermediates and direction of effect are unknown.\", \"hypothesis_groups\": [\"distributed_network_gating\", \"visual_cortical_dysrhythmia\", \"enhanced_visual_plasticity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Visual Snow\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Visual static is the defining manifestation of the persistent positive perceptual state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Palinopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palinopsia is a common additional positive visual manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photophobia is a common additional manifestation of the visual-processing state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Nyctalopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired night vision is a common additional manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Entoptic Phenomenon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heightened awareness of entoptic phenomena is a common additional manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Photopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spontaneous photopsia is one component of enhanced entoptic perception.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Heightened Perception of Vitreous Floaters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive awareness of otherwise entoptic vitreous floaters is a common manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Tinnitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tinnitus may reflect a broader sensory-processing vulnerability, but shared causality has not been established from the observed comorbidity.\", \"hypothesis_groups\": [\"distributed_network_gating\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Indoor and Fluorescent Lighting\", \"target\": \"Persistent Positive Visual Perception\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Indoor and fluorescent lighting directly worsened the reported perceptual symptom burden relative to natural outdoor lighting; this edge represents symptom exacerbation rather than disease initiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alcohol and Recreational Drug Exposure\", \"target\": \"Persistent Positive Visual Perception\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Alcohol or recreational-drug exposure was reported to worsen existing visual-snow symptoms in a subset; this is not modeled as a necessary cause of primary VSS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lamotrigine\", \"target\": \"Visual Snow\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Visual Snow\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Photophobia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Palinopsia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Entoptic Phenomenon\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Distributed Visual-Attentional-Salience Network Dysconnectivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Visual Snow\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Anxiety\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Depression\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Primary Visual Cortex Response Dynamics\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human perceptual and MEG experiments demonstrate abnormal visual-cortical responses, but the abnormality is paradigm-dependent. Reduced center-surround suppression, increased stimulus-evoked gamma power, and reduced alpha-gamma coupling support abnormal response regulation; a later MEG study did not reproduce an average gamma or stimulus-intensity effect. This node therefore represents measured response abnormalities, not an established claim of tonic cortical hyperexcitability.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"visual perception\"], \"locations\": [\"primary visual cortex\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Alcohol and Recreational Drug Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Chromatic Filters and Tinted Lenses\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individually selected chromatic filters or tinted lenses may reduce perceived intensity of visual static and associated photophobia, palinopsia, or entoptic phenomena. Evidence is retrospective, nonrandomized, and vulnerable to selection and expectancy effects; standardized long-term trials are lacking.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Distributed Visual-Attentional-Salience Network Dysconnectivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Resting-state and stimulus-related fMRI studies identify hyperconnectivity and hypoconnectivity across visual pathways, visual association cortex, thalamic/basal-ganglia circuits, attentional systems, and the salience network. Receptor-enriched analyses additionally implicate glutamatergic and serotonergic connectivity patterns. These are group-level research findings, not validated diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"visual perception\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Enhanced Activity-Dependent Visual Cortical Plasticity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated visual stimulation produces a steeper increase in gamma power in VSS than in controls despite similar average gamma power and frequency. The finding suggests abnormal experience-dependent response updating rather than a fixed excitation-inhibition imbalance, but independent replication is required.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"visual perception\"], \"locations\": [\"primary visual cortex\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Entoptic Phenomenon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6001103\"}}, {\"id\": \"Heightened Perception of Vitreous Floaters\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100832\"}}, {\"id\": \"Impaired Sensory Gating and Noise Suppression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate integrative mechanism in which irrelevant or subthreshold sensory signals are insufficiently suppressed before reaching perceptual awareness. It connects local response abnormalities and distributed network findings to the persistent positive percepts, but remains inferential.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Indoor and Fluorescent Lighting\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lamotrigine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Off-label antiseizure pharmacotherapy that produced partial self-reported improvement in a small minority of patients. In the largest cited clinical series, 5 of 26 patients improved partially, none achieved complete remission, and half reported adverse events. These Class IV data do not establish efficacy or confirm a cortical target mechanism.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An eight-week MBCT-vision program was feasible in a 21-participant open-label study and was associated with improved self-rated symptom severity, daily impact, wellbeing, distress, and altered visual-network functional connectivity through week 20. Without a randomized control group, the study supports feasibility and a signal of benefit rather than efficacy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nyctalopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000662\"}}, {\"id\": \"Palinopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0020333\"}}, {\"id\": \"Persistent Positive Visual Perception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The established syndrome-level perceptual state: continuous pan-field visual static accompanied by a variable combination of afterimages or trailing, enhanced entoptic phenomena, photophobia, impaired night vision, and photopsia. This node is a clinical bridge from uncertain upstream mechanisms to observed manifestations rather than a claim about a single molecular lesion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"visual perception\"], \"locations\": [\"visual system\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030786\"}}, {\"id\": \"Tinnitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000360\"}}, {\"id\": \"Visual Snow\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\"}}], \"edges\": [{\"source\": \"Abnormal Primary Visual Cortex Response Dynamics\", \"target\": \"Impaired Sensory Gating and Noise Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal local oscillatory responses could weaken top-down suppression of irrelevant visual activity, but the intervening circuit mechanism has not been demonstrated.\", \"hypothesis_groups\": [\"visual_cortical_dysrhythmia\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enhanced Activity-Dependent Visual Cortical Plasticity\", \"target\": \"Impaired Sensory Gating and Noise Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heightened repetition-dependent plasticity could stabilize or amplify normally suppressed visual signals; this causal bridge is a hypothesis, not a result directly tested in the MEG study.\", \"hypothesis_groups\": [\"enhanced_visual_plasticity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed Visual-Attentional-Salience Network Dysconnectivity\", \"target\": \"Impaired Sensory Gating and Noise Suppression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed disconnection may allow irrelevant ascending signals to escape normal predictive filtering, but directionality cannot be established from functional connectivity alone.\", \"hypothesis_groups\": [\"distributed_network_gating\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Sensory Gating and Noise Suppression\", \"target\": \"Persistent Positive Visual Perception\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to suppress irrelevant signals is hypothesized to permit continuous positive visual percepts; the exact neural intermediates and direction of effect are unknown.\", \"hypothesis_groups\": [\"distributed_network_gating\", \"visual_cortical_dysrhythmia\", \"enhanced_visual_plasticity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Visual Snow\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Visual static is the defining manifestation of the persistent positive perceptual state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Palinopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palinopsia is a common additional positive visual manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photophobia is a common additional manifestation of the visual-processing state.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Nyctalopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired night vision is a common additional manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Entoptic Phenomenon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heightened awareness of entoptic phenomena is a common additional manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Photopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Spontaneous photopsia is one component of enhanced entoptic perception.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Heightened Perception of Vitreous Floaters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive awareness of otherwise entoptic vitreous floaters is a common manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Positive Visual Perception\", \"target\": \"Tinnitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tinnitus may reflect a broader sensory-processing vulnerability, but shared causality has not been established from the observed comorbidity.\", \"hypothesis_groups\": [\"distributed_network_gating\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Indoor and Fluorescent Lighting\", \"target\": \"Persistent Positive Visual Perception\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Indoor and fluorescent lighting directly worsened the reported perceptual symptom burden relative to natural outdoor lighting; this edge represents symptom exacerbation rather than disease initiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alcohol and Recreational Drug Exposure\", \"target\": \"Persistent Positive Visual Perception\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Alcohol or recreational-drug exposure was reported to worsen existing visual-snow symptoms in a subset; this is not modeled as a necessary cause of primary VSS.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lamotrigine\", \"target\": \"Visual Snow\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Visual Snow\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Photophobia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Palinopsia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Chromatic Filters and Tinted Lenses\", \"target\": \"Entoptic Phenomenon\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Distributed Visual-Attentional-Salience Network Dysconnectivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Visual Snow\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Anxiety\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mindfulness-Based Cognitive Therapy Adapted for Visual Symptoms\", \"target\": \"Depression\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5801,11 +5878,11 @@ This pathophysiological event occurs in visual system (UBERON:0002104). UBERON:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5843,6 +5920,9 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5920,8 +6000,84 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-palinopsia" data-dismech-node="Palinopsia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Palinopsia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0020333</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palinopsia (HP:0020333). HP:0020333 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Includes afterimages and trailing of moving objects.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33029971" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33029971" target="_blank">PMID:33029971</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Their additional visual symptoms included illusionary palinopsia (61%), enhanced entoptic phenomenon (65%), disturbance of night vision (44%), and photophobia (65%)."</div>
+
+
+                <div class="evidence-explanation">Provides a directly examined neuro-ophthalmology cohort frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5939,15 +6095,18 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000613</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6010,15 +6169,18 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000662</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Subjective impaired night vision.</div>
@@ -6083,15 +6245,18 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6001103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:6001103</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6001103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:6001103</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Entoptic phenomenon (HP:6001103). HP:6001103 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Heightened perception of floaters, blue-field entoptic phenomenon, spontaneous photopsia, or self-light of the eye.</div>
@@ -6156,15 +6321,18 @@ This clinical feature is Entoptic phenomenon (HP:6001103). HP:6001103 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0030786</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030786</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Spontaneous flashes of light occurring as an enhanced entoptic phenomenon.</div>
@@ -6229,15 +6397,18 @@ This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100832" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100832</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100832" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100832</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vitreous floaters (HP:0100832). HP:0100832 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6309,15 +6480,18 @@ This clinical feature is Vitreous floaters (HP:0100832). HP:0100832 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002076</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6380,15 +6554,18 @@ This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000739</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6451,15 +6628,18 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6522,15 +6702,18 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6593,15 +6776,18 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5200217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:5200217</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5200217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:5200217</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depersonalization (HP:5200217). HP:5200217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6664,15 +6850,18 @@ This clinical feature is Depersonalization (HP:5200217). HP:5200217 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5200218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:5200218</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5200218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:5200218</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Derealization (HP:5200218). HP:5200218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6725,7 +6914,7 @@ This clinical feature is Derealization (HP:5200218). HP:5200218 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-visual-snow" data-dismech-node="Visual Snow" data-dismech-type="phenotype">
@@ -6736,6 +6925,9 @@ This clinical feature is Derealization (HP:5200218). HP:5200218 is a phenotype f
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Dynamic, continuous tiny flickering dots across the entire visual field, often compared with television static.</div>
@@ -6769,79 +6961,6 @@ This clinical feature is Derealization (HP:5200218). HP:5200218 is a phenotype f
 
 
                 <div class="evidence-explanation">Defines the obligatory visual symptom.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-palinopsia" data-dismech-node="Palinopsia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Palinopsia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0020333</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Palinopsia (HP:0020333). HP:0020333 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Includes afterimages and trailing of moving objects.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33029971" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33029971" target="_blank">PMID:33029971</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Their additional visual symptoms included illusionary palinopsia (61%), enhanced entoptic phenomenon (65%), disturbance of night vision (44%), and photophobia (65%)."</div>
-
-
-                <div class="evidence-explanation">Provides a directly examined neuro-ophthalmology cohort frequency.</div>
 
 
 

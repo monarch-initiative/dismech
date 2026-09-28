@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cystic%20echinococcosis"
@@ -3974,7 +4016,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3995,7 +4037,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4076,11 +4118,97 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-egg-derived-larval-cyst-establishment" data-dismech-node="Egg-derived larval cyst establishment" data-dismech-type="pathophysiology">
+                <div class="item-name">Egg-derived larval cyst establishment</div>
+
+
+                <div class="item-desc">After humans ingest dog-associated E. granulosus eggs, larval metacestodes establish hydatid cysts in susceptible organs.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatic cyst formation</span>
+
+	                            <span class="crosslink-desc">Most established larval cysts grow in the liver.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pulmonary cyst formation</span>
+
+	                            <span class="crosslink-desc">Some established larval cysts grow in the lungs.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40944955" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40944955" target="_blank">PMID:40944955</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dogs and other canids harboring gut-resident tapeworms readily transmit the tapeworm eggs (and subsequent formation of larval cysts) to humans in close contact with them."</div>
+
+
+                <div class="evidence-explanation">Supports egg transmission followed by the establishment of larval cysts in humans.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-cyst-formation" data-dismech-node="Hepatic cyst formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic cyst formation</div>
+
 
                 <div class="item-desc">Larval cysts commonly develop in the liver.</div>
 
@@ -4103,6 +4231,14 @@
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatic cysts</span>
+
+	                            <span class="crosslink-desc">Larval Echinococcus cysts most commonly develop in the liver.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hepatic Cyst Rupture</span>
@@ -4135,6 +4271,8 @@
 
 
 
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Upon infection with CE, cyst formation mainly occurs in the liver (70%)."</div>
@@ -4153,8 +4291,86 @@
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-cyst-formation" data-dismech-node="Pulmonary cyst formation" data-dismech-type="pathophysiology">
+                <div class="item-name">Pulmonary cyst formation</div>
+
+
+                <div class="item-desc">Larval cysts can also develop in the lung.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pulmonary cysts</span>
+
+	                            <span class="crosslink-desc">Pulmonary larval cyst growth produces lung cysts.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27047771" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27047771" target="_blank">PMID:27047771</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cysts most often occur in the liver (70%) or lungs (20%)"</div>
+
+
+                <div class="evidence-explanation">The abstract reports lung involvement as the second most common site of cystic echinococcosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-cyst-rupture" data-dismech-node="Hepatic Cyst Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Cyst Rupture</div>
+
 
                 <div class="item-desc">Rupture or leakage of a cyst releases hydatid antigens that trigger an IgE-mediated immune response and can also seed viable cystic material beyond the original site.</div>
 
@@ -4233,6 +4449,8 @@
 
 
 
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Cyst rupture or leakage can cause immunologic symptoms from the initiation of an immunoglobulin (Ig)E response, leading to allergic reactions most frequently characterized by hives, flushing, and mucous membrane swelling."</div>
@@ -4253,6 +4471,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-hydatidosis" data-dismech-node="Secondary Hydatidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Hydatidosis</div>
+
 
                 <div class="item-desc">Viable cystic contents and protoscolices released by a ruptured cyst can implant in the peritoneum (or biliary tree), establishing new hydatid foci distinct from the original cyst.</div>
 
@@ -4291,6 +4510,8 @@
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4335,7 +4556,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaphylactic shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100845\"}}, {\"id\": \"Flushing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031284\"}}, {\"id\": \"Hepatic Cyst Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rupture or leakage of a cyst releases hydatid antigens that trigger an IgE-mediated immune response and can also seed viable cystic material beyond the original site.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic cyst formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Larval cysts commonly develop in the liver.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Secondary Hydatidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viable cystic contents and protoscolices released by a ruptured cyst can implant in the peritoneum (or biliary tree), establishing new hydatid foci distinct from the original cyst.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Urticaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hives are the most frequently reported manifestation of the IgE-mediated allergic response to hydatid antigen released by cyst rupture or leakage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"Hepatic cyst formation\", \"target\": \"Hepatic Cyst Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A hepatic cyst can rupture or leak, releasing its contents into surrounding structures and the systemic circulation.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Urticaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The IgE response to released hydatid antigen most frequently presents as hives.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Flushing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same IgE-mediated allergic reaction also presents with flushing.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Anaphylactic shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A major cyst rupture provokes a life-threatening IgE-mediated anaphylactic reaction.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Secondary Hydatidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture releases viable protoscolices and cystic contents that can implant elsewhere and establish new cyst foci.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaphylactic shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100845\"}}, {\"id\": \"Egg-derived larval cyst establishment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After humans ingest dog-associated E. granulosus eggs, larval metacestodes establish hydatid cysts in susceptible organs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Flushing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031284\"}}, {\"id\": \"Hepatic Cyst Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rupture or leakage of a cyst releases hydatid antigens that trigger an IgE-mediated immune response and can also seed viable cystic material beyond the original site.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic cyst formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Larval cysts commonly develop in the liver.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic cysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001407\"}}, {\"id\": \"Pulmonary cyst formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Larval cysts can also develop in the lung.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pulmonary cysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0032445\"}}, {\"id\": \"Secondary Hydatidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viable cystic contents and protoscolices released by a ruptured cyst can implant in the peritoneum (or biliary tree), establishing new hydatid foci distinct from the original cyst.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Urticaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hives are the most frequently reported manifestation of the IgE-mediated allergic response to hydatid antigen released by cyst rupture or leakage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"Egg-derived larval cyst establishment\", \"target\": \"Hepatic cyst formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most established larval cysts grow in the liver.\"}, {\"source\": \"Egg-derived larval cyst establishment\", \"target\": \"Pulmonary cyst formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some established larval cysts grow in the lungs.\"}, {\"source\": \"Hepatic cyst formation\", \"target\": \"Hepatic cysts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Larval Echinococcus cysts most commonly develop in the liver.\"}, {\"source\": \"Hepatic cyst formation\", \"target\": \"Hepatic Cyst Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A hepatic cyst can rupture or leak, releasing its contents into surrounding structures and the systemic circulation.\"}, {\"source\": \"Pulmonary cyst formation\", \"target\": \"Pulmonary cysts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary larval cyst growth produces lung cysts.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Urticaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The IgE response to released hydatid antigen most frequently presents as hives.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Flushing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same IgE-mediated allergic reaction also presents with flushing.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Anaphylactic shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A major cyst rupture provokes a life-threatening IgE-mediated anaphylactic reaction.\"}, {\"source\": \"Hepatic Cyst Rupture\", \"target\": \"Secondary Hydatidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture releases viable protoscolices and cystic contents that can implant elsewhere and establish new cyst foci.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4403,6 +4624,9 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4420,6 +4644,8 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4481,6 +4707,9 @@ This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4498,6 +4727,8 @@ This clinical feature is Hepatic cysts (HP:0001407). HP:0001407 is a phenotype f
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4557,6 +4788,9 @@ This clinical feature is Anaphylactic shock (HP:0100845). HP:0100845 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4574,6 +4808,8 @@ This clinical feature is Anaphylactic shock (HP:0100845). HP:0100845 is a phenot
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4633,6 +4869,9 @@ This clinical feature is Flushing (HP:0031284). HP:0031284 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4650,6 +4889,8 @@ This clinical feature is Flushing (HP:0031284). HP:0031284 is a phenotype from t
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4711,6 +4952,9 @@ This clinical feature is Pulmonary cyst (HP:0032445). HP:0032445 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4728,6 +4972,8 @@ This clinical feature is Pulmonary cyst (HP:0032445). HP:0032445 is a phenotype 
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4836,6 +5082,27 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        albendazole
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16664" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-7">CHEBI:16664</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses albendazole (CHEBI:16664). CHEBI:16664 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
 
 
 
@@ -4843,6 +5110,18 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
 
 
 
@@ -4877,6 +5156,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Treatment methods include chemotherapy with benzimidazole carbamates and/or surgical approaches, including percutaneous aspiration injection and reaspiration."</div>
@@ -4903,7 +5184,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-7">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-7">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-8">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-8">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -4986,6 +5267,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Treatment methods include chemotherapy with benzimidazole carbamates and/or surgical approaches, including percutaneous aspiration injection and reaspiration."</div>
@@ -5059,11 +5342,11 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
         Echinococcus granulosus
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_6210" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-8">NCBITaxon:6210</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_6210" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-9">NCBITaxon:6210</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -5102,6 +5385,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5159,6 +5444,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5363,6 +5650,7 @@ infectious_agent:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Cystic echinococcosis (CE) is a widely endemic helminthic disease caused by infection with metacestodes (larval stage) of the Echinococcus granulosus tapeworm.&#34;
     explanation: The abstract identifies E. granulosus metacestodes as the cause of CE.
 transmission:
@@ -5372,20 +5660,52 @@ transmission:
   - reference: PMID:40944955
     reference_title: &#34;Hydatid Disease.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Dogs and other canids harboring gut-resident tapeworms readily transmit the tapeworm eggs (and subsequent formation of larval cysts) to humans in close contact with them.&#34;
     explanation: The abstract describes transmission of eggs from dogs and other canids to humans.
 pathophysiology:
+- name: Egg-derived larval cyst establishment
+  description: &gt;-
+    After humans ingest dog-associated E. granulosus eggs, larval metacestodes
+    establish hydatid cysts in susceptible organs.
+  evidence:
+  - reference: PMID:40944955
+    reference_title: &#34;Hydatid Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Dogs and other canids harboring gut-resident tapeworms readily transmit the tapeworm eggs (and subsequent formation of larval cysts) to humans in close contact with them.&#34;
+    explanation: Supports egg transmission followed by the establishment of larval cysts in humans.
+  downstream:
+  - target: Hepatic cyst formation
+    description: Most established larval cysts grow in the liver.
+  - target: Pulmonary cyst formation
+    description: Some established larval cysts grow in the lungs.
 - name: Hepatic cyst formation
   description: Larval cysts commonly develop in the liver.
   evidence:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Upon infection with CE, cyst formation mainly occurs in the liver (70%).&#34;
     explanation: The abstract reports predominant liver cyst formation.
   downstream:
+  - target: Hepatic cysts
+    description: Larval Echinococcus cysts most commonly develop in the liver.
   - target: Hepatic Cyst Rupture
     description: A hepatic cyst can rupture or leak, releasing its contents into surrounding structures and the systemic circulation.
+- name: Pulmonary cyst formation
+  description: Larval cysts can also develop in the lung.
+  evidence:
+  - reference: PMID:27047771
+    reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;cysts most often occur in the liver (70%) or lungs (20%)&#34;
+    explanation: The abstract reports lung involvement as the second most common site of cystic echinococcosis.
+  downstream:
+  - target: Pulmonary cysts
+    description: Pulmonary larval cyst growth produces lung cysts.
 - name: Hepatic Cyst Rupture
   description: &gt;-
     Rupture or leakage of a cyst releases hydatid antigens that trigger an IgE-mediated
@@ -5394,6 +5714,7 @@ pathophysiology:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Cyst rupture or leakage can cause immunologic symptoms from the initiation of an immunoglobulin (Ig)E response, leading to allergic reactions most frequently characterized by hives, flushing, and mucous membrane swelling.&#34;
     explanation: The abstract describes the IgE-mediated immunologic response triggered by cyst rupture or leakage.
   downstream:
@@ -5403,6 +5724,7 @@ pathophysiology:
     - reference: PMID:27047771
       reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
       supports: SUPPORT
+      evidence_source: OTHER
       snippet: &#34;Cyst rupture or leakage can cause immunologic symptoms from the initiation of an immunoglobulin (Ig)E response, leading to allergic reactions most frequently characterized by hives, flushing, and mucous membrane swelling.&#34;
       explanation: The abstract links cyst rupture or leakage to an IgE-mediated allergic reaction characterized most frequently by hives.
   - target: Flushing
@@ -5411,6 +5733,7 @@ pathophysiology:
     - reference: PMID:27047771
       reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
       supports: SUPPORT
+      evidence_source: OTHER
       snippet: &#34;Cyst rupture or leakage can cause immunologic symptoms from the initiation of an immunoglobulin (Ig)E response, leading to allergic reactions most frequently characterized by hives, flushing, and mucous membrane swelling.&#34;
       explanation: The abstract names flushing as a characteristic of the post-rupture IgE-mediated reaction.
   - target: Anaphylactic shock
@@ -5419,6 +5742,7 @@ pathophysiology:
     - reference: PMID:27047771
       reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
       supports: SUPPORT
+      evidence_source: OTHER
       snippet: &#34;A major rupture can cause a life-threatening anaphylactic reaction.&#34;
       explanation: The abstract directly links major cyst rupture to anaphylaxis.
   - target: Secondary Hydatidosis
@@ -5432,6 +5756,7 @@ pathophysiology:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Ruptured cysts can release viable cystic contents and protoscolices into the peritoneum, resulting in secondary hyatidosis.&#34;
     explanation: The abstract describes peritoneal seeding by ruptured cyst contents as the mechanism of secondary hydatidosis.
 phenotypes:
@@ -5447,6 +5772,7 @@ phenotypes:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Upon infection with CE, cyst formation mainly occurs in the liver (70%).&#34;
     explanation: The abstract indicates liver cyst formation is common.
 - name: Pulmonary cysts
@@ -5461,6 +5787,7 @@ phenotypes:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;cysts most often occur in the liver (70%) or lungs (20%)&#34;
     explanation: The abstract reports the lung as the second most common cyst site after the liver.
 - name: Urticaria
@@ -5477,6 +5804,7 @@ phenotypes:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Cyst rupture or leakage can cause immunologic symptoms from the initiation of an immunoglobulin (Ig)E response, leading to allergic reactions most frequently characterized by hives, flushing, and mucous membrane swelling.&#34;
     explanation: The abstract names hives as the most frequent characteristic of the allergic reaction following cyst rupture or leakage.
 - name: Flushing
@@ -5490,6 +5818,7 @@ phenotypes:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Cyst rupture or leakage can cause immunologic symptoms from the initiation of an immunoglobulin (Ig)E response, leading to allergic reactions most frequently characterized by hives, flushing, and mucous membrane swelling.&#34;
     explanation: The abstract names flushing among the most frequent characteristics of the post-rupture allergic reaction.
 - name: Anaphylactic shock
@@ -5503,20 +5832,28 @@ phenotypes:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;A major rupture can cause a life-threatening anaphylactic reaction.&#34;
     explanation: The abstract reports anaphylactic shock as a life-threatening consequence of major cyst rupture.
 treatments:
 - name: Benzimidazole chemotherapy
   description: Benzimidazole carbamates are used as chemotherapy.
+  therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: albendazole
+      term:
+        id: CHEBI:16664
+        label: albendazole
   evidence:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Treatment methods include chemotherapy with benzimidazole carbamates and/or surgical approaches, including percutaneous aspiration injection and reaspiration.&#34;
     explanation: The abstract lists benzimidazole chemotherapy among treatments.
 - name: Surgical and percutaneous approaches
@@ -5531,6 +5868,7 @@ treatments:
   - reference: PMID:27047771
     reference_title: &#34;Hepatic Echinococcal Cysts: A Review.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Treatment methods include chemotherapy with benzimidazole carbamates and/or surgical approaches, including percutaneous aspiration injection and reaspiration.&#34;
     explanation: The abstract lists surgical and percutaneous approaches.
 references:
@@ -7573,7 +7911,7 @@ Transmission is driven by egg shedding in canid feces and ingestion by intermedi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cystic echinococcosis", "mondoId": "MONDO:0018408", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystic_echinococcosis", "yamlRevision": "18e9a83f1055"};
+        const OS_CONFIG = {"diseaseName": "Cystic echinococcosis", "mondoId": "MONDO:0018408", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystic_echinococcosis", "yamlRevision": "1d6e4015ba67"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

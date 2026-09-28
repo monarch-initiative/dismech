@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3713,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -5309,6 +5351,13 @@ This experiment is of type genotype-first population cohort study.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-phip-loss-of-function-variation" data-dismech-node="Heterozygous PHIP Loss-of-Function Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous PHIP Loss-of-Function Variation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a heterozygous, usually germline PHIP variant at 6q14.1. The allelic spectrum is broad and shows no clustering hotspot: nonsense and frameshift truncations, splice variants, missense substitutions, and intragenic, whole-gene, or contiguous deletions extending into adjacent genomic regions are all reported. Larger deletions can produce a blended phenotype because neighbouring genes are co-deleted.</div>
 
 
@@ -5404,6 +5453,8 @@ This genetic context concerns PHIP (hgnc:15673). hgnc:15673 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5416,6 +5467,9 @@ This genetic context concerns PHIP (hgnc:15673). hgnc:15673 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous truncating, splice and deletion alleles of PHIP, mostly de novo. Recorded as LOSS_OF_FUNCTION on the basis of the genotype-phenotype analysis attributing the syndrome to PHIP haploinsufficiency.</div>
 
@@ -5536,6 +5590,13 @@ This genetic context concerns PHIP (hgnc:15673). hgnc:15673 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phip-haploinsufficiency" data-dismech-node="PHIP Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">PHIP Haploinsufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of one functional PHIP allele halves the dose of the chromatin-reader / CRL4 substrate receptor. Haploinsufficiency, not a gain of function, is the accepted mechanism, and the genotype-phenotype analysis that delineated the syndrome assigned the causal isoform specifically to PHIP/DCAF14 rather than to the alternative NDRP product of the same locus. The same locus additionally encodes a protein implicated in IGF-1 signalling, so PHIP dosage loss is not confined to the nuclear chromatin arm.</div>
 
@@ -5779,6 +5840,13 @@ This pathophysiological event involves PHIP (hgnc:15673). hgnc:15673 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-trivalent-nucleosome-reading-by-the-phip-tudor-bromodomain-module" data-dismech-node="Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PHIP is a BRD/BRWD-family multivalent chromatin reader. Semisynthetic nucleosomes with defined histone modifications show that its three reader surfaces are non-redundant and combinatorial: a Tudor domain reads H3K4 methylation, the first bromodomain (BD1) reads acetylated H3K14, and the second bromodomain (BD2) reads acetylated H4K12. Because CHUJANS variants occur in each of these domains and in the linker that positions them relative to one another, the primary molecular defect is failure to engage appropriately marked nucleosomes - a reading defect, not a writing or erasing defect. Note the epistemic split within this node: the reader architecture and its mark specificities are measured biochemistry, whereas the impairment of that reading by patient alleles is inferred from variant location and is described by the source as likely rather than demonstrated - hence PROVISIONAL rather than ESTABLISHED confidence.</div>
 
@@ -6041,6 +6109,13 @@ This pathophysiological event involves decreased chromatin binding (GO:0003682).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-crl4-substrate-receptor-recruitment-to-chromatin" data-dismech-node="Failure of CRL4 Substrate-Receptor Recruitment to Chromatin" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CRL4 Substrate-Receptor Recruitment to Chromatin</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">PHIP (as DCAF14) is one of several substrate receptors of the CUL4-DDB1 (CRL4) E3 ubiquitin ligase, and it is specifically the chromatin-associated one - PHIP is required for CRL4 to be recruited to chromatin at all. Reduced PHIP dose therefore removes chromatin-localized CRL4 activity, with consequences for ubiquitin-dependent turnover of chromatin substrates and for chromatin-templated transcription. The clinical corroboration of this node is the phenotypic overlap of PHIP loss with CUL4B deficiency, which likewise causes intellectual disability with central obesity and dysmorphism.</div>
 
 
@@ -6272,6 +6347,13 @@ This pathophysiological event involves CRL4 (CUL4-DDB1) E3 ubiquitin ligase comp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chung-jansen-dna-methylation-episignature" data-dismech-node="Chung-Jansen DNA Methylation Episignature" data-dismech-type="pathophysiology">
                 <div class="item-name">Chung-Jansen DNA Methylation Episignature</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Affected individuals carry a specific and sensitive genome-wide DNA methylation signature detectable on Infinium Methylation EPIC arrays. Two things make this more than a diagnostic convenience. First, it is direct patient-level (not cell-line) evidence that PHIP haploinsufficiency perturbs the epigenome, which is the prediction of the chromatin-reader model. Second, the CHUJANS signature partially overlaps those of White-Kernohan syndrome (DDB1 - the very CRL4 adaptor that PHIP docks onto) and Borjeson-Forssman-Lehmann syndrome (PHF6, another chromatin-associated NDD protein), so the shared episignature independently recovers the functional relationship rather than merely the clinical resemblance.</div>
 
 
@@ -6357,6 +6439,13 @@ This pathophysiological event involves CRL4 (CUL4-DDB1) E3 ubiquitin ligase comp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-replication-fork-destabilization-under-replication-stress" data-dismech-node="Replication Fork Destabilization Under Replication Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Replication Fork Destabilization Under Replication Stress</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A mechanistically separate consequence of PHIP/DCAF14 loss. Two CHUJANS missense variants located in different functional elements of DCAF14 - one in the WD40 repeat domain, one in the pleckstrin-homology-binding region - both cause defective replication fork progression under replication stress and both fail to complete DNA replication after genotoxic exposure, implicating DCAF14 in the protection of stalled forks. The authors accordingly predict replication-associated genome instability in CHUJANS. Note that this is a prediction: no clinical instability phenotype (cancer predisposition, chromosome breakage) has been demonstrated in CHUJANS patients, so this node is modelled as a cellular defect without a curated clinical consequence.</div>
 
@@ -6506,6 +6595,13 @@ This pathophysiological event involves abnormal replication fork processing (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-repressed-pomc-transcription" data-dismech-node="Repressed POMC Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Repressed POMC Transcription</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">PHIP has nuclear and cytoplasmic pools, and it is the nuclear pool that acts on POMC. Nuclear PHIP directly enhances transcription of pro-opiomelanocortin, the precursor from which the anorexigenic melanocortin peptides are cleaved, and obesity-associated PHIP variants repress that transcription. The physiological setting is the hypothalamic arcuate POMC neuron, the first-order anorexigenic node of the leptin-melanocortin pathway; the experimental demonstration, however, was in cells rather than in human hypothalamic neurons, which is the principal limitation of this arm.</div>
 
@@ -6721,6 +6817,13 @@ This pathophysiological event occurs in arcuate nucleus of the hypothalamus, ann
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-central-melanocortin-satiety-signaling" data-dismech-node="Impaired Central Melanocortin Satiety Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Central Melanocortin Satiety Signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Reduced POMC-derived melanocortin tone weakens the central satiety signal downstream of leptin, biasing energy balance toward positive. Clinically this manifests as overweight or obesity that is not usually present at birth but emerges between early childhood and puberty and becomes more prevalent with age - so a normal weight in a young child does not exclude the diagnosis or predict a normal adult weight.</div>
 
 
@@ -6909,6 +7012,13 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neurodevelopmental-gene-expression-program" data-dismech-node="Disrupted Neurodevelopmental Gene Expression Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neurodevelopmental Gene Expression Program</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The route from chromatin-reading failure to the neurodevelopmental phenotype is the least resolved segment of the CHUJANS pathograph. PHIP&#39;s isoforms are implicated in neurodevelopmental processes including neuronal differentiation, and the clinical output (global developmental delay, learning disability or intellectual disability, speech delay, hypotonia, and a behavioral/psychiatric profile) is highly consistent across cohorts. What is missing is any CHUJANS-specific patient-neuron, organoid, or brain transcriptomic dataset identifying the mis-regulated target genes, so the node is curated as a named but mechanistically unresolved intermediate rather than as an established pathway.</div>
 
@@ -7153,6 +7263,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-phip-dependent-kidney-and-urinary-tract-development" data-dismech-node="Disrupted PHIP-Dependent Kidney and Urinary Tract Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted PHIP-Dependent Kidney and Urinary Tract Development</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A distinct developmental arm outside the CNS. Prenatal expression studies in murine and human renal tissue support a role for PHIP in normal kidney and urinary tract development, and systematic ascertainment across CHUJANS and CAKUT cohorts recovered a urorenogenital trait in a substantial minority of individuals. The trait is variably expressive, which is why urorenal anomalies were missed in the original delineation and why the recommendation is now bidirectional: evaluate CHUJANS patients for urorenogenital malformation, and consider PHIP in syndromic CAKUT.</div>
 
 
@@ -7339,7 +7456,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggression is part of the behavioral repertoire but is emphatically not the dominant one, and it is much less frequent than the aggregate behavioral-problem figure. This distinction matters clinically because aggression is the feature most often used to contrast CHUJANS with CUL4B-related Cabezas syndrome, where aggressive outbursts are far more common.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anteverted Nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upturned nose with anteverted nostrils, the third most frequent component of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety was present in the very first reported patients and affects nearly half of the largest cohort.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD is the single most frequent named psychiatric diagnosis in the syndrome, affecting about half of individuals in the largest cohort, and is a specific treatment target.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features are part of the behavioral repertoire and were reported from the earliest cohorts onward, though without a consistent cohort-wide denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Behavioral and Psychiatric Problems\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormality is one of the four cardinal components of the syndrome. The reported repertoire includes hyperactivity, impulsivity, aggression, autistic features, anxiety, and mood disorder. In natural-history data the psychiatric burden is not static: depression becomes significantly more common after age 12, which is the basis for the recommendation to maintain behavioral-health surveillance into adolescence and adulthood. The named component diagnoses - ADHD, anxiety, depression, autistic behavior, and aggression - are curated as separate entries and are listed as sequelae below so the graph shows what this aggregate is made of.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Chung-Jansen DNA Methylation Episignature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals carry a specific and sensitive genome-wide DNA methylation signature detectable on Infinium Methylation EPIC arrays. Two things make this more than a diagnostic convenience. First, it is direct patient-level (not cell-line) evidence that PHIP haploinsufficiency perturbs the epigenome, which is the prediction of the chromatin-reader model. Second, the CHUJANS signature partially overlaps those of White-Kernohan syndrome (DDB1 - the very CRL4 adaptor that PHIP docks onto) and Borjeson-Forssman-Lehmann syndrome (PHF6, another chromatin-associated NDD protein), so the shared episignature independently recovers the functional relationship rather than merely the clinical resemblance.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Congenital Anomalies of the Kidney and Urinary Tract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urorenogenital malformation is a genuine but variably expressive part of the CHUJANS spectrum, recovered only when CHUJANS and CAKUT cohorts were cross-interrogated. Reported anomalies include hypoplastic kidney. The reported frequency range (5-35%) is wide because ascertainment differs sharply between neurodevelopmental and nephrology cohorts; the conservative OCCASIONAL band is assigned on the lower, neurodevelopmental-cohort end. The bound term is the urinary-system abnormality rather than a renal-morphology term, because CAKUT and the source\u0027s \\\"urorenogenital trait\\\" both span the collecting system and not only the kidney; the genital component of that trait is curated separately as cryptorchidism.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000079\"}}, {\"id\": \"Continuous Positive Airway Pressure for Obstructive Sleep Apnea\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the one CHUJANS patient with polysomnographically confirmed severe REM-predominant obstructive sleep apnea, CPAP improved respiratory and sleep quality indices and was well tolerated - which matters because tolerance of positive-airway-pressure therapy cannot be assumed in a population with intellectual disability. Evidence is a single case.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A recognizable facial gestalt comprising large ears and earlobes, prominent eyebrows (often with synophrys), anteverted nares/upturned nose, and a long philtrum. It was present in every individual in the European cohort. Objective facial phenotyping with GestaltMatcher separates PHIP patients from healthy controls and from Prader-Willi and CUL4B-related syndromes, but cannot separate PHIP variant classes from one another - so the gestalt supports recognition, not genotype prediction, and never substitutes for molecular testing. The four named gestalt components (plus synophrys) are curated as separate entries and are listed as sequelae below so the graph shows what the gestalt is made of.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testis affects a substantial minority of affected males. Genital malformation was recognized in CHUJANS before the broader urorenal association was systematically established.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language acquisition is a recurrent early feature and one of the principal targets for early intervention. It is reported consistently across case reports and cohorts but has not been given a single cohort-wide denominator, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is less frequent than anxiety overall but is strongly age-dependent - significantly more common in individuals older than 12 years - making it the clearest example of the syndrome\u0027s evolving psychiatric profile and the main argument for lifelong rather than paediatric-only mental-health follow-up.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The route from chromatin-reading failure to the neurodevelopmental phenotype is the least resolved segment of the CHUJANS pathograph. PHIP\u0027s isoforms are implicated in neurodevelopmental processes including neuronal differentiation, and the clinical output (global developmental delay, learning disability or intellectual disability, speech delay, hypotonia, and a behavioral/psychiatric profile) is highly consistent across cohorts. What is missing is any CHUJANS-specific patient-neuron, organoid, or brain transcriptomic dataset identifying the mis-regulated target genes, so the node is curated as a named but mechanistically unresolved intermediate rather than as an established pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\", \"neuron differentiation\"], \"locations\": [\"brain\"]}}, {\"id\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct developmental arm outside the CNS. Prenatal expression studies in murine and human renal tissue support a role for PHIP in normal kidney and urinary tract development, and systematic ascertainment across CHUJANS and CAKUT cohorts recovered a urorenogenital trait in a substantial minority of individuals. The trait is variably expressive, which is why urorenal anomalies were missed in the original delineation and why the recommendation is now bidirectional: evaluate CHUJANS patients for urorenogenital malformation, and consider PHIP in syndromic CAKUT.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"kidney development\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Early Dietary and Weight-Management Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because overweight and obesity emerge over time rather than being present from birth and become more prevalent after age 12, the natural-history data argue for establishing healthy eating habits early - before weight problems appear - rather than treating obesity reactively. This is the one management recommendation that follows directly from the syndrome\u0027s own mechanistic and longitudinal data (reduced POMC-melanocortin satiety signaling with age-dependent weight gain), and it is preventive in intent.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHIP (as DCAF14) is one of several substrate receptors of the CUL4-DDB1 (CRL4) E3 ubiquitin ligase, and it is specifically the chromatin-associated one - PHIP is required for CRL4 to be recruited to chromatin at all. Reduced PHIP dose therefore removes chromatin-localized CRL4 activity, with consequences for ubiquitin-dependent turnover of chromatin substrates and for chromatin-templated transcription. The clinical corroboration of this node is the phenotypic overlap of PHIP loss with CUL4B deficiency, which likewise causes intellectual disability with central obesity and dysmorphism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin-associated protein ubiquitination\", \"regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed attainment of motor, speech, and cognitive milestones, recognized in infancy or early childhood and present in essentially all variant-confirmed individuals. It is usually the presenting concern that triggers genetic testing.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterozygous PHIP Loss-of-Function Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually germline PHIP variant at 6q14.1. The allelic spectrum is broad and shows no clustering hotspot: nonsense and frameshift truncations, splice variants, missense substitutions, and intragenic, whole-gene, or contiguous deletions extending into adjacent genomic regions are all reported. Larger deletions can produce a blended phenotype because neighbouring genes are co-deleted.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHIP\"], \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous truncating, splice and deletion alleles of PHIP, mostly de novo. Recorded as LOSS_OF_FUNCTION on the basis of the genotype-phenotype analysis attributing the syndrome to PHIP haploinsufficiency.\", \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}]}}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized low muscle tone, often noted in infancy alongside feeding difficulty and contributing to motor delay and impaired balance. It is one of the most frequent non-cognitive features in the largest cohort.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Balance and Coordination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor balance and coordination, plausibly downstream of hypotonia, was among the features shared by the first reported patients, and the European cohort subsequently quantified balance problems at 30% (7/23) - the bottom of the FREQUENT band.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002311\"}}, {\"id\": \"Impaired Central Melanocortin Satiety Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced POMC-derived melanocortin tone weakens the central satiety signal downstream of leptin, biasing energy balance toward positive. Clinically this manifests as overweight or obesity that is not usually present at birth but emerges between early childhood and puberty and becomes more prevalent with age - so a normal weight in a young child does not exclude the diagnosis or predict a normal adult weight.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of feeding behavior\", \"energy homeostasis\"], \"locations\": [\"hypothalamus\"]}}, {\"id\": \"Impaired Glucose Tolerance with Hyperinsulinism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obesity-associated dysglycaemia. In the one CHUJANS patient given a systematic endocrine workup, impaired glucose tolerance with hyperinsulinism was found alongside severe obesity. Single-case evidence only; no frequency asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040270\"}}, {\"id\": \"Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHIP is a BRD/BRWD-family multivalent chromatin reader. Semisynthetic nucleosomes with defined histone modifications show that its three reader surfaces are non-redundant and combinatorial: a Tudor domain reads H3K4 methylation, the first bromodomain (BD1) reads acetylated H3K14, and the second bromodomain (BD2) reads acetylated H4K12. Because CHUJANS variants occur in each of these domains and in the linker that positions them relative to one another, the primary molecular defect is failure to engage appropriately marked nucleosomes - a reading defect, not a writing or erasing defect. Note the epistemic split within this node: the reader architecture and its mark specificities are measured biochemistry, whereas the impairment of that reading by patient alleles is inferred from variant location and is described by the source as likely rather than demonstrated - hence PROVISIONAL rather than ESTABLISHED confidence.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"H3K4-methyl binding Tudor domain reader activity\", \"PHIP bromodomain 1 (BD1) reading of H3K14ac\", \"PHIP bromodomain 2 (BD2) reading of H4K12ac\", \"chromatin binding\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Learning disability or intellectual disability, typically mild to moderate but ranging to moderate-severe. Adaptive functioning measured on the Vineland-3 in the largest cohort was moderately low rather than profoundly impaired, consistent with the observation that some carrier parents are only mildly affected.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Long Philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An elongated philtrum. Although it is one of the four named gestalt components, it is the least frequent of them and is present in well under half of individuals - so its absence does not argue against the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large ears and prominent earlobes, the joint most frequent single component of the facial gestalt.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000400\"}}, {\"id\": \"Multidisciplinary Developmental and Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying or PHIP-targeted therapy. Management is symptomatic, developmental, and anticipatory: early-intervention services, individualized educational support, therapy for hypotonia and motor delay, feeding and gastrointestinal support, ophthalmological assessment, and coordinated behavioral-health care. The distinctive planning message from the natural-history data is that the burden shifts with age - weight and mood problems become more prominent after childhood - so care should be structured for the life course rather than front-loaded into the preschool years.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Obesity and Overweight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overweight or obesity affects a slight majority of individuals and is the feature that gave the syndrome its historical acronyms (DIDOD, BIDOD, ID-overweight syndrome). Crucially it is neither congenital nor obligatory: it emerges between early childhood and puberty, becomes more prevalent in the over-12 age group, and is absent in a sizeable minority - one independent cohort explicitly reported a lower obesity frequency than earlier series. Weight should therefore not be used as a gatekeeping criterion for testing. The bound term is the increased-body-weight parent rather than obesity alone because every cohort denominator behind the frequency band pools overweight with obesity (55.8%, 13/23, \\\"weight problems\\\"). Documented obesity-driven complications - obstructive sleep apnea, impaired glucose tolerance, and oligomenorrhea - are listed as sequelae below.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004324\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea has now been confirmed polysomnographically in Chung-Jansen syndrome for the first time, in an adult with intellectual disability in whom severe REM-predominant OSA prompted the syndromic workup that made the molecular diagnosis. Because sleep complaints are frequent but had never been objectively characterized, the reported case supports proactive OSA screening, particularly in individuals with obesity. No frequency band is asserted - this is a single case, not a prevalence estimate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Occupational therapy addresses fine-motor and daily-living function. It is curated separately from physiotherapy because the adaptive-functioning data give it its own indication: daily-living-skills percentiles were low across the cohort, and socialisation scores were low in every individual assessed, so the functional deficit is not reducible to the motor phenotype physiotherapy addresses.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oligomenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oligomenorrhoea was the presenting complaint in a young woman with severe obesity and CHUJANS, and was worked up as a polycystic-ovarian-type endocrine picture (reported as polyendocrine metabolic ovarian syndrome). The bound term is the menstrual finding actually documented rather than an ovarian-morphology term, since no ovarian morphology is reported. As with the other endocrine findings this rests on a single detailed workup and is curated to motivate reproductive-endocrine assessment, not as an established disease feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000876\"}}, {\"id\": \"PHIP Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of one functional PHIP allele halves the dose of the chromatin-reader / CRL4 substrate receptor. Haploinsufficiency, not a gain of function, is the accepted mechanism, and the genotype-phenotype analysis that delineated the syndrome assigned the causal isoform specifically to PHIP/DCAF14 rather than to the alternative NDRP product of the same locus. The same locus additionally encodes a protein implicated in IGF-1 signalling, so PHIP dosage loss is not confined to the nuclear chromatin arm.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHIP\"], \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}]}}, {\"id\": \"PHIP Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHIP\"], \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy targets the hypotonia, motor delay, and balance/coordination difficulty that affect the large majority of individuals. The rationale is the documented motor phenotype; no CHUJANS-specific rehabilitation trial exists.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Replication Fork Destabilization Under Replication Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mechanistically separate consequence of PHIP/DCAF14 loss. Two CHUJANS missense variants located in different functional elements of DCAF14 - one in the WD40 repeat domain, one in the pleckstrin-homology-binding region - both cause defective replication fork progression under replication stress and both fail to complete DNA replication after genotoxic exposure, implicating DCAF14 in the protection of stalled forks. The authors accordingly predict replication-associated genome instability in CHUJANS. Note that this is a prediction: no clinical instability phenotype (cancer predisposition, chromosome breakage) has been demonstrated in CHUJANS patients, so this node is modelled as a cellular defect without a curated clinical consequence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"replication fork processing\"]}}, {\"id\": \"Repressed POMC Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHIP has nuclear and cytoplasmic pools, and it is the nuclear pool that acts on POMC. Nuclear PHIP directly enhances transcription of pro-opiomelanocortin, the precursor from which the anorexigenic melanocortin peptides are cleaved, and obesity-associated PHIP variants repress that transcription. The physiological setting is the hypothalamic arcuate POMC neuron, the first-order anorexigenic node of the leptin-melanocortin pathway; the experimental demonstration, however, was in cells rather than in human hypothalamic neurons, which is the principal limitation of this arm.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hypothalamic POMC (anorexigenic) neuron\"], \"biological_processes\": [\"positive regulation of POMC transcription by RNA polymerase II\"], \"locations\": [\"arcuate nucleus of the hypothalamus\"]}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep difficulties affect over 40% of individuals. Recent work distinguishes two contributors that should not be conflated: behavioral/neurodevelopmental sleep problems, and true sleep-disordered breathing driven by obesity, which requires polysomnography to identify.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy addresses the delayed speech milestones that are a common early feature and a frequent reason for referral.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synophrys\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Confluent eyebrows across the glabella. Together with the prominent/full eyebrows this is the single facial feature that most drives the clinical confusion with Cornelia de Lange syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000664\"}}, {\"id\": \"Thick Eyebrow\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Full or prominent eyebrows, reported in both the delineating cohorts and the joint most frequent single component of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000574\"}}], \"edges\": [{\"source\": \"Heterozygous PHIP Loss-of-Function Variation\", \"target\": \"PHIP Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Repressed POMC Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"pomc_melanocortin_repression\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Replication Fork Destabilization Under Replication Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"replication_stress_genome_integrity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module\", \"target\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"target\": \"Chung-Jansen DNA Methylation Episignature\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"target\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Repressed POMC Transcription\", \"target\": \"Impaired Central Melanocortin Satiety Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"pomc_melanocortin_repression\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Central Melanocortin Satiety Signaling\", \"target\": \"Obesity and Overweight\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"pomc_melanocortin_repression\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Behavioral and Psychiatric Problems\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Impaired Balance and Coordination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"target\": \"Congenital Anomalies of the Kidney and Urinary Tract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Anxiety\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Depression\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Autistic Behavior\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Aggressive Behavior\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Obesity and Overweight\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity and Overweight\", \"target\": \"Impaired Glucose Tolerance with Hyperinsulinism\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity and Overweight\", \"target\": \"Oligomenorrhea\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Macrotia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Thick Eyebrow\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Synophrys\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Anteverted Nares\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Long Philtrum\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Developmental and Supportive Care\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Occupational Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Early Dietary and Weight-Management Intervention\", \"target\": \"Obesity and Overweight\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Continuous Positive Airway Pressure for Obstructive Sleep Apnea\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PHIP Pathogenic Variants\", \"target\": \"Heterozygous PHIP Loss-of-Function Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHIP Pathogenic Variants\", \"target\": \"PHIP Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aggression is part of the behavioral repertoire but is emphatically not the dominant one, and it is much less frequent than the aggregate behavioral-problem figure. This distinction matters clinically because aggression is the feature most often used to contrast CHUJANS with CUL4B-related Cabezas syndrome, where aggressive outbursts are far more common.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anteverted Nares\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upturned nose with anteverted nostrils, the third most frequent component of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000463\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety was present in the very first reported patients and affects nearly half of the largest cohort.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD is the single most frequent named psychiatric diagnosis in the syndrome, affecting about half of individuals in the largest cohort, and is a specific treatment target.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autistic features are part of the behavioral repertoire and were reported from the earliest cohorts onward, though without a consistent cohort-wide denominator.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Behavioral and Psychiatric Problems\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormality is one of the four cardinal components of the syndrome. The reported repertoire includes hyperactivity, impulsivity, aggression, autistic features, anxiety, and mood disorder. In natural-history data the psychiatric burden is not static: depression becomes significantly more common after age 12, which is the basis for the recommendation to maintain behavioral-health surveillance into adolescence and adulthood. The named component diagnoses - ADHD, anxiety, depression, autistic behavior, and aggression - are curated as separate entries and are listed as sequelae below so the graph shows what this aggregate is made of.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Chung-Jansen DNA Methylation Episignature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals carry a specific and sensitive genome-wide DNA methylation signature detectable on Infinium Methylation EPIC arrays. Two things make this more than a diagnostic convenience. First, it is direct patient-level (not cell-line) evidence that PHIP haploinsufficiency perturbs the epigenome, which is the prediction of the chromatin-reader model. Second, the CHUJANS signature partially overlaps those of White-Kernohan syndrome (DDB1 - the very CRL4 adaptor that PHIP docks onto) and Borjeson-Forssman-Lehmann syndrome (PHF6, another chromatin-associated NDD protein), so the shared episignature independently recovers the functional relationship rather than merely the clinical resemblance.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Congenital Anomalies of the Kidney and Urinary Tract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urorenogenital malformation is a genuine but variably expressive part of the CHUJANS spectrum, recovered only when CHUJANS and CAKUT cohorts were cross-interrogated. Reported anomalies include hypoplastic kidney. The reported frequency range (5-35%) is wide because ascertainment differs sharply between neurodevelopmental and nephrology cohorts; the conservative OCCASIONAL band is assigned on the lower, neurodevelopmental-cohort end. The bound term is the urinary-system abnormality rather than a renal-morphology term, because CAKUT and the source\u0027s \\\"urorenogenital trait\\\" both span the collecting system and not only the kidney; the genital component of that trait is curated separately as cryptorchidism.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000079\"}}, {\"id\": \"Continuous Positive Airway Pressure for Obstructive Sleep Apnea\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the one CHUJANS patient with polysomnographically confirmed severe REM-predominant obstructive sleep apnea, CPAP improved respiratory and sleep quality indices and was well tolerated - which matters because tolerance of positive-airway-pressure therapy cannot be assumed in a population with intellectual disability. Evidence is a single case.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A recognizable facial gestalt comprising large ears and earlobes, prominent eyebrows (often with synophrys), anteverted nares/upturned nose, and a long philtrum. It was present in every individual in the European cohort. Objective facial phenotyping with GestaltMatcher separates PHIP patients from healthy controls and from Prader-Willi and CUL4B-related syndromes, but cannot separate PHIP variant classes from one another - so the gestalt supports recognition, not genotype prediction, and never substitutes for molecular testing. The four named gestalt components (plus synophrys) are curated as separate entries and are listed as sequelae below so the graph shows what the gestalt is made of.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testis affects a substantial minority of affected males. Genital malformation was recognized in CHUJANS before the broader urorenal association was systematically established.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language acquisition is a recurrent early feature and one of the principal targets for early intervention. It is reported consistently across case reports and cohorts but has not been given a single cohort-wide denominator, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depression is less frequent than anxiety overall but is strongly age-dependent - significantly more common in individuals older than 12 years - making it the clearest example of the syndrome\u0027s evolving psychiatric profile and the main argument for lifelong rather than paediatric-only mental-health follow-up.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The route from chromatin-reading failure to the neurodevelopmental phenotype is the least resolved segment of the CHUJANS pathograph. PHIP\u0027s isoforms are implicated in neurodevelopmental processes including neuronal differentiation, and the clinical output (global developmental delay, learning disability or intellectual disability, speech delay, hypotonia, and a behavioral/psychiatric profile) is highly consistent across cohorts. What is missing is any CHUJANS-specific patient-neuron, organoid, or brain transcriptomic dataset identifying the mis-regulated target genes, so the node is curated as a named but mechanistically unresolved intermediate rather than as an established pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"nervous system development\", \"neuron differentiation\"], \"locations\": [\"brain\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct developmental arm outside the CNS. Prenatal expression studies in murine and human renal tissue support a role for PHIP in normal kidney and urinary tract development, and systematic ascertainment across CHUJANS and CAKUT cohorts recovered a urorenogenital trait in a substantial minority of individuals. The trait is variably expressive, which is why urorenal anomalies were missed in the original delineation and why the recommendation is now bidirectional: evaluate CHUJANS patients for urorenogenital malformation, and consider PHIP in syndromic CAKUT.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"kidney development\"], \"locations\": [\"kidney\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Early Dietary and Weight-Management Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because overweight and obesity emerge over time rather than being present from birth and become more prevalent after age 12, the natural-history data argue for establishing healthy eating habits early - before weight problems appear - rather than treating obesity reactively. This is the one management recommendation that follows directly from the syndrome\u0027s own mechanistic and longitudinal data (reduced POMC-melanocortin satiety signaling with age-dependent weight gain), and it is preventive in intent.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHIP (as DCAF14) is one of several substrate receptors of the CUL4-DDB1 (CRL4) E3 ubiquitin ligase, and it is specifically the chromatin-associated one - PHIP is required for CRL4 to be recruited to chromatin at all. Reduced PHIP dose therefore removes chromatin-localized CRL4 activity, with consequences for ubiquitin-dependent turnover of chromatin substrates and for chromatin-templated transcription. The clinical corroboration of this node is the phenotypic overlap of PHIP loss with CUL4B deficiency, which likewise causes intellectual disability with central obesity and dysmorphism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin-associated protein ubiquitination\", \"regulation of transcription by RNA polymerase II\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed attainment of motor, speech, and cognitive milestones, recognized in infancy or early childhood and present in essentially all variant-confirmed individuals. It is usually the presenting concern that triggers genetic testing.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterozygous PHIP Loss-of-Function Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually germline PHIP variant at 6q14.1. The allelic spectrum is broad and shows no clustering hotspot: nonsense and frameshift truncations, splice variants, missense substitutions, and intragenic, whole-gene, or contiguous deletions extending into adjacent genomic regions are all reported. Larger deletions can produce a blended phenotype because neighbouring genes are co-deleted.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHIP\"], \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous truncating, splice and deletion alleles of PHIP, mostly de novo. Recorded as LOSS_OF_FUNCTION on the basis of the genotype-phenotype analysis attributing the syndrome to PHIP haploinsufficiency.\", \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized low muscle tone, often noted in infancy alongside feeding difficulty and contributing to motor delay and impaired balance. It is one of the most frequent non-cognitive features in the largest cohort.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Balance and Coordination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor balance and coordination, plausibly downstream of hypotonia, was among the features shared by the first reported patients, and the European cohort subsequently quantified balance problems at 30% (7/23) - the bottom of the FREQUENT band.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002311\"}}, {\"id\": \"Impaired Central Melanocortin Satiety Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced POMC-derived melanocortin tone weakens the central satiety signal downstream of leptin, biasing energy balance toward positive. Clinically this manifests as overweight or obesity that is not usually present at birth but emerges between early childhood and puberty and becomes more prevalent with age - so a normal weight in a young child does not exclude the diagnosis or predict a normal adult weight.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of feeding behavior\", \"energy homeostasis\"], \"locations\": [\"hypothalamus\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Glucose Tolerance with Hyperinsulinism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obesity-associated dysglycaemia. In the one CHUJANS patient given a systematic endocrine workup, impaired glucose tolerance with hyperinsulinism was found alongside severe obesity. Single-case evidence only; no frequency asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040270\"}}, {\"id\": \"Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHIP is a BRD/BRWD-family multivalent chromatin reader. Semisynthetic nucleosomes with defined histone modifications show that its three reader surfaces are non-redundant and combinatorial: a Tudor domain reads H3K4 methylation, the first bromodomain (BD1) reads acetylated H3K14, and the second bromodomain (BD2) reads acetylated H4K12. Because CHUJANS variants occur in each of these domains and in the linker that positions them relative to one another, the primary molecular defect is failure to engage appropriately marked nucleosomes - a reading defect, not a writing or erasing defect. Note the epistemic split within this node: the reader architecture and its mark specificities are measured biochemistry, whereas the impairment of that reading by patient alleles is inferred from variant location and is described by the source as likely rather than demonstrated - hence PROVISIONAL rather than ESTABLISHED confidence.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"H3K4-methyl binding Tudor domain reader activity\", \"PHIP bromodomain 1 (BD1) reading of H3K14ac\", \"PHIP bromodomain 2 (BD2) reading of H4K12ac\", \"chromatin binding\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Learning disability or intellectual disability, typically mild to moderate but ranging to moderate-severe. Adaptive functioning measured on the Vineland-3 in the largest cohort was moderately low rather than profoundly impaired, consistent with the observation that some carrier parents are only mildly affected.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Long Philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An elongated philtrum. Although it is one of the four named gestalt components, it is the least frequent of them and is present in well under half of individuals - so its absence does not argue against the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000343\"}}, {\"id\": \"Macrotia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large ears and prominent earlobes, the joint most frequent single component of the facial gestalt.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000400\"}}, {\"id\": \"Multidisciplinary Developmental and Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no disease-modifying or PHIP-targeted therapy. Management is symptomatic, developmental, and anticipatory: early-intervention services, individualized educational support, therapy for hypotonia and motor delay, feeding and gastrointestinal support, ophthalmological assessment, and coordinated behavioral-health care. The distinctive planning message from the natural-history data is that the burden shifts with age - weight and mood problems become more prominent after childhood - so care should be structured for the life course rather than front-loaded into the preschool years.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Obesity and Overweight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overweight or obesity affects a slight majority of individuals and is the feature that gave the syndrome its historical acronyms (DIDOD, BIDOD, ID-overweight syndrome). Crucially it is neither congenital nor obligatory: it emerges between early childhood and puberty, becomes more prevalent in the over-12 age group, and is absent in a sizeable minority - one independent cohort explicitly reported a lower obesity frequency than earlier series. Weight should therefore not be used as a gatekeeping criterion for testing. The bound term is the increased-body-weight parent rather than obesity alone because every cohort denominator behind the frequency band pools overweight with obesity (55.8%, 13/23, \\\"weight problems\\\"). Documented obesity-driven complications - obstructive sleep apnea, impaired glucose tolerance, and oligomenorrhea - are listed as sequelae below.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004324\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea has now been confirmed polysomnographically in Chung-Jansen syndrome for the first time, in an adult with intellectual disability in whom severe REM-predominant OSA prompted the syndromic workup that made the molecular diagnosis. Because sleep complaints are frequent but had never been objectively characterized, the reported case supports proactive OSA screening, particularly in individuals with obesity. No frequency band is asserted - this is a single case, not a prevalence estimate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Occupational Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Occupational therapy addresses fine-motor and daily-living function. It is curated separately from physiotherapy because the adaptive-functioning data give it its own indication: daily-living-skills percentiles were low across the cohort, and socialisation scores were low in every individual assessed, so the functional deficit is not reducible to the motor phenotype physiotherapy addresses.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Oligomenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oligomenorrhoea was the presenting complaint in a young woman with severe obesity and CHUJANS, and was worked up as a polycystic-ovarian-type endocrine picture (reported as polyendocrine metabolic ovarian syndrome). The bound term is the menstrual finding actually documented rather than an ovarian-morphology term, since no ovarian morphology is reported. As with the other endocrine findings this rests on a single detailed workup and is curated to motivate reproductive-endocrine assessment, not as an established disease feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000876\"}}, {\"id\": \"PHIP Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of one functional PHIP allele halves the dose of the chromatin-reader / CRL4 substrate receptor. Haploinsufficiency, not a gain of function, is the accepted mechanism, and the genotype-phenotype analysis that delineated the syndrome assigned the causal isoform specifically to PHIP/DCAF14 rather than to the alternative NDRP product of the same locus. The same locus additionally encodes a protein implicated in IGF-1 signalling, so PHIP dosage loss is not confined to the nuclear chromatin arm.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHIP\"], \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"PHIP Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PHIP\"], \"gene_terms\": [{\"label\": \"PHIP\", \"id\": \"hgnc:15673\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy targets the hypotonia, motor delay, and balance/coordination difficulty that affect the large majority of individuals. The rationale is the documented motor phenotype; no CHUJANS-specific rehabilitation trial exists.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Replication Fork Destabilization Under Replication Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mechanistically separate consequence of PHIP/DCAF14 loss. Two CHUJANS missense variants located in different functional elements of DCAF14 - one in the WD40 repeat domain, one in the pleckstrin-homology-binding region - both cause defective replication fork progression under replication stress and both fail to complete DNA replication after genotoxic exposure, implicating DCAF14 in the protection of stalled forks. The authors accordingly predict replication-associated genome instability in CHUJANS. Note that this is a prediction: no clinical instability phenotype (cancer predisposition, chromosome breakage) has been demonstrated in CHUJANS patients, so this node is modelled as a cellular defect without a curated clinical consequence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"replication fork processing\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Repressed POMC Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHIP has nuclear and cytoplasmic pools, and it is the nuclear pool that acts on POMC. Nuclear PHIP directly enhances transcription of pro-opiomelanocortin, the precursor from which the anorexigenic melanocortin peptides are cleaved, and obesity-associated PHIP variants repress that transcription. The physiological setting is the hypothalamic arcuate POMC neuron, the first-order anorexigenic node of the leptin-melanocortin pathway; the experimental demonstration, however, was in cells rather than in human hypothalamic neurons, which is the principal limitation of this arm.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hypothalamic POMC (anorexigenic) neuron\"], \"biological_processes\": [\"positive regulation of POMC transcription by RNA polymerase II\"], \"locations\": [\"arcuate nucleus of the hypothalamus\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep difficulties affect over 40% of individuals. Recent work distinguishes two contributors that should not be conflated: behavioral/neurodevelopmental sleep problems, and true sleep-disordered breathing driven by obesity, which requires polysomnography to identify.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy addresses the delayed speech milestones that are a common early feature and a frequent reason for referral.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synophrys\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Confluent eyebrows across the glabella. Together with the prominent/full eyebrows this is the single facial feature that most drives the clinical confusion with Cornelia de Lange syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000664\"}}, {\"id\": \"Thick Eyebrow\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Full or prominent eyebrows, reported in both the delineating cohorts and the joint most frequent single component of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000574\"}}], \"edges\": [{\"source\": \"Heterozygous PHIP Loss-of-Function Variation\", \"target\": \"PHIP Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Repressed POMC Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"pomc_melanocortin_repression\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Replication Fork Destabilization Under Replication Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"replication_stress_genome_integrity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHIP Haploinsufficiency\", \"target\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Trivalent Nucleosome Reading by the PHIP Tudor-Bromodomain Module\", \"target\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"target\": \"Chung-Jansen DNA Methylation Episignature\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of CRL4 Substrate-Receptor Recruitment to Chromatin\", \"target\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"chromatin_reader_crl4_recruitment\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Repressed POMC Transcription\", \"target\": \"Impaired Central Melanocortin Satiety Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"pomc_melanocortin_repression\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Central Melanocortin Satiety Signaling\", \"target\": \"Obesity and Overweight\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"pomc_melanocortin_repression\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Behavioral and Psychiatric Problems\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Impaired Balance and Coordination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted Neurodevelopmental Gene Expression Program\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"target\": \"Congenital Anomalies of the Kidney and Urinary Tract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted PHIP-Dependent Kidney and Urinary Tract Development\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Anxiety\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Depression\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Autistic Behavior\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Behavioral and Psychiatric Problems\", \"target\": \"Aggressive Behavior\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Obesity and Overweight\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity and Overweight\", \"target\": \"Impaired Glucose Tolerance with Hyperinsulinism\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity and Overweight\", \"target\": \"Oligomenorrhea\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Macrotia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Thick Eyebrow\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Synophrys\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Anteverted Nares\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Craniofacial Dysmorphism\", \"target\": \"Long Philtrum\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Developmental and Supportive Care\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Occupational Therapy\", \"target\": \"Global Developmental Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Early Dietary and Weight-Management Intervention\", \"target\": \"Obesity and Overweight\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Continuous Positive Airway Pressure for Obstructive Sleep Apnea\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PHIP Pathogenic Variants\", \"target\": \"Heterozygous PHIP Loss-of-Function Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PHIP Pathogenic Variants\", \"target\": \"PHIP Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7434,6 +7551,9 @@ This clinical feature is Constipation (HP:0002019), qualified as temporality chr
 
 
                     </div>
+
+
+
 
 
 
@@ -7535,6 +7655,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7601,6 +7724,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7681,6 +7807,9 @@ This clinical feature is Macrotia (HP:0000400). HP:0000400 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7784,6 +7913,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7896,6 +8028,9 @@ This clinical feature is Visual and ophthalmologic problems, annotated with Abno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8001,6 +8136,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8069,6 +8207,9 @@ This clinical feature is Congenital anomaly of the kidney and urinary tract, ann
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8193,6 +8334,9 @@ This clinical feature is Oligomenorrhea (HP:0000876). HP:0000876 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8295,6 +8439,9 @@ This clinical feature is Characteristic facial gestalt, annotated with Abnormal 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8409,6 +8556,9 @@ This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8475,6 +8625,9 @@ This clinical feature is Thick eyebrow (HP:0000574). HP:0000574 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8551,6 +8704,9 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8617,6 +8773,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8697,6 +8856,9 @@ This clinical feature is Tapered finger (HP:0001182). HP:0001182 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8798,6 +8960,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8864,6 +9029,9 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8937,6 +9105,9 @@ This clinical feature is 2-3 toe syndactyly (HP:0004691). HP:0004691 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9020,6 +9191,9 @@ This clinical feature is Impaired glucose tolerance (HP:0040270). HP:0040270 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9095,6 +9269,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9205,6 +9382,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9296,6 +9476,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9420,6 +9603,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9488,6 +9674,9 @@ This clinical feature is Incoordination (HP:0002311). HP:0002311 is a phenotype 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9586,6 +9775,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9702,6 +9894,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9793,6 +9988,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9894,6 +10092,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9985,6 +10186,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10084,6 +10288,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10155,6 +10362,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10221,6 +10431,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10333,6 +10546,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870), qualified as seve
 
 
                     </div>
+
+
+
 
 
 
@@ -10458,6 +10674,9 @@ This clinical feature is Overweight or obesity, annotated with Increased body we
 
 
                     </div>
+
+
+
 
 
 
@@ -10639,6 +10858,9 @@ This disease-associated gene is PHIP (hgnc:15673). hgnc:15673 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

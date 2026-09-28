@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=IPEX%20Syndrome"
@@ -4004,7 +4046,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4298,6 +4340,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxp3-loss-and-regulatory-t-cell-deficiency" data-dismech-node="FOXP3 Loss and Regulatory T Cell Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">FOXP3 Loss and Regulatory T Cell Deficiency</div>
 
+
                 <div class="item-desc">Loss-of-function mutations in FOXP3 (scurfin), the lineage-defining forkhead transcription factor of regulatory T cells, impair the development and suppressive function of CD4+CD25+FOXP3+ Tregs. Most human mutations cluster in the forkhead (FKH) DNA-binding domain and abolish FOXP3 transcriptional output, so Tregs are often present but nonfunctional rather than numerically absent.
 </div>
 
@@ -4385,6 +4428,8 @@ This genetic context concerns FOXP3 (hgnc:6106). hgnc:6106 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4397,6 +4442,9 @@ This genetic context concerns FOXP3 (hgnc:6106). hgnc:6106 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous FOXP3 alleles in males, most often in the forkhead, leucine-zipper and repressor domains. Recorded as LOSS_OF_FUNCTION.</div>
 
@@ -4557,6 +4605,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-peripheral-immune-tolerance" data-dismech-node="Loss of Peripheral Immune Tolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Peripheral Immune Tolerance</div>
+
 
                 <div class="item-desc">Without functional Tregs, dominant peripheral tolerance fails and autoreactive CD4+ effector T cells proliferate uncontrolled. Patient T cells show marked skewing toward the Th2 phenotype, driving the allergic arm (eczema, elevated IgE, eosinophilia).
 </div>
@@ -4765,6 +4814,7 @@ This pathophysiological event involves decreased negative regulation of immune r
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multi-organ-autoimmune-attack" data-dismech-node="Multi-Organ Autoimmune Attack" data-dismech-type="pathophysiology">
                 <div class="item-name">Multi-Organ Autoimmune Attack</div>
+
 
                 <div class="item-desc">Autoreactive lymphocytes and autoantibodies target the intestine, pancreatic islets, skin, thyroid, kidney, liver, and blood cells, producing the enteropathy-endocrinopathy-dermatitis triad plus autoimmune cytopenias. Organ-specific autoantibodies (anti-enterocyte/anti-harmonin/anti-villin, anti-islet, anti-thyroid) mark the affected tissues.
 </div>
@@ -5007,7 +5057,7 @@ This pathophysiological event involves increased cytokine production (GO:0001816
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is the only established curative therapy for IPEX, restoring functional donor-derived Tregs (even mixed chimerism can suffice). Outcome is best when performed early, before organ damage accrues (low organ-involvement score).\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"FOXP3 Loss and Regulatory T Cell Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in FOXP3 (scurfin), the lineage-defining forkhead transcription factor of regulatory T cells, impair the development and suppressive function of CD4+CD25+FOXP3+ Tregs. Most human mutations cluster in the forkhead (FKH) DNA-binding domain and abolish FOXP3 transcriptional output, so Tregs are often present but nonfunctional rather than numerically absent.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4+CD25+ regulatory T cell\"], \"biological_processes\": [\"regulatory T cell differentiation\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous FOXP3 alleles in males, most often in the forkhead, leucine-zipper and repressor domains. Recorded as LOSS_OF_FUNCTION.\", \"gene_terms\": [{\"label\": \"FOXP3\", \"id\": \"hgnc:6106\"}]}}}, {\"id\": \"Loss of Peripheral Immune Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without functional Tregs, dominant peripheral tolerance fails and autoreactive CD4+ effector T cells proliferate uncontrolled. Patient T cells show marked skewing toward the Th2 phenotype, driving the allergic arm (eczema, elevated IgE, eosinophilia).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"activated CD4+ effector T cell\"], \"biological_processes\": [\"tolerance induction\", \"negative regulation of immune response\"]}}, {\"id\": \"Multi-Organ Autoimmune Attack\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive lymphocytes and autoantibodies target the intestine, pancreatic islets, skin, thyroid, kidney, liver, and blood cells, producing the enteropathy-endocrinopathy-dermatitis triad plus autoimmune cytopenias. Organ-specific autoantibodies (anti-enterocyte/anti-harmonin/anti-villin, anti-islet, anti-thyroid) mark the affected tissues.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD4-positive helper T cell\", \"enterocyte (autoimmune target in gut)\", \"pancreatic beta cell (autoimmune target)\"], \"biological_processes\": [\"cytokine production\"]}}, {\"id\": \"Sirolimus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibitor and the preferred T-cell-directed immunosuppressant in IPEX, favored over calcineurin inhibitors because it is relatively Treg-sparing and can restore regulatory T cell function.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"sirolimus\"]}}], \"edges\": [{\"source\": \"FOXP3 Loss and Regulatory T Cell Deficiency\", \"target\": \"Loss of Peripheral Immune Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Treg deficiency removes the dominant brake on autoreactive effector T cells.\"}, {\"source\": \"Loss of Peripheral Immune Tolerance\", \"target\": \"Multi-Organ Autoimmune Attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained autoreactive lymphocytes and autoantibodies attack multiple organs.\"}, {\"source\": \"Sirolimus\", \"target\": \"Loss of Peripheral Immune Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"FOXP3 Loss and Regulatory T Cell Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is the only established curative therapy for IPEX, restoring functional donor-derived Tregs (even mixed chimerism can suffice). Outcome is best when performed early, before organ damage accrues (low organ-involvement score).\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"FOXP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"FOXP3\"], \"gene_terms\": [{\"label\": \"FOXP3\", \"id\": \"hgnc:6106\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FOXP3 Loss and Regulatory T Cell Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in FOXP3 (scurfin), the lineage-defining forkhead transcription factor of regulatory T cells, impair the development and suppressive function of CD4+CD25+FOXP3+ Tregs. Most human mutations cluster in the forkhead (FKH) DNA-binding domain and abolish FOXP3 transcriptional output, so Tregs are often present but nonfunctional rather than numerically absent.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4+CD25+ regulatory T cell\"], \"biological_processes\": [\"regulatory T cell differentiation\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous FOXP3 alleles in males, most often in the forkhead, leucine-zipper and repressor domains. Recorded as LOSS_OF_FUNCTION.\", \"gene_terms\": [{\"label\": \"FOXP3\", \"id\": \"hgnc:6106\"}]}}}, {\"id\": \"Loss of Peripheral Immune Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without functional Tregs, dominant peripheral tolerance fails and autoreactive CD4+ effector T cells proliferate uncontrolled. Patient T cells show marked skewing toward the Th2 phenotype, driving the allergic arm (eczema, elevated IgE, eosinophilia).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"activated CD4+ effector T cell\"], \"biological_processes\": [\"tolerance induction\", \"negative regulation of immune response\"]}}, {\"id\": \"Multi-Organ Autoimmune Attack\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive lymphocytes and autoantibodies target the intestine, pancreatic islets, skin, thyroid, kidney, liver, and blood cells, producing the enteropathy-endocrinopathy-dermatitis triad plus autoimmune cytopenias. Organ-specific autoantibodies (anti-enterocyte/anti-harmonin/anti-villin, anti-islet, anti-thyroid) mark the affected tissues.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD4-positive helper T cell\", \"enterocyte (autoimmune target in gut)\", \"pancreatic beta cell (autoimmune target)\"], \"biological_processes\": [\"cytokine production\"]}}, {\"id\": \"Sirolimus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibitor and the preferred T-cell-directed immunosuppressant in IPEX, favored over calcineurin inhibitors because it is relatively Treg-sparing and can restore regulatory T cell function.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"sirolimus\"]}}], \"edges\": [{\"source\": \"FOXP3 Loss and Regulatory T Cell Deficiency\", \"target\": \"Loss of Peripheral Immune Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Treg deficiency removes the dominant brake on autoreactive effector T cells.\"}, {\"source\": \"Loss of Peripheral Immune Tolerance\", \"target\": \"Multi-Organ Autoimmune Attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained autoreactive lymphocytes and autoantibodies attack multiple organs.\"}, {\"source\": \"Sirolimus\", \"target\": \"Loss of Peripheral Immune Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"FOXP3 Loss and Regulatory T Cell Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXP3\", \"target\": \"FOXP3 Loss and Regulatory T Cell Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5076,6 +5126,9 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5152,6 +5205,9 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5218,6 +5274,9 @@ This clinical feature is Autoimmune neutropenia (HP:0001904). HP:0001904 is a ph
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5291,6 +5350,9 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5389,6 +5451,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5499,6 +5564,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5563,6 +5631,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5661,6 +5732,9 @@ This clinical feature is Secretory diarrhea (HP:0005208), qualified as temporali
 
 
                     </div>
+
+
+
 
 
 
@@ -5787,6 +5861,9 @@ This clinical feature is Villous atrophy (HP:0011473). HP:0011473 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5853,6 +5930,9 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5940,6 +6020,9 @@ This clinical feature is Type 1 diabetes mellitus, annotated with Type I diabete
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6006,6 +6089,9 @@ This clinical feature is Thyroiditis (HP:0100646). HP:0100646 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6091,6 +6177,9 @@ This clinical feature is Nephropathy (HP:0000112). HP:0000112 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6168,6 +6257,9 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6269,6 +6361,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6335,6 +6430,9 @@ This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6440,6 +6538,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6556,6 +6657,9 @@ This disease-associated gene is FOXP3 (hgnc:6106). hgnc:6106 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -8013,10 +8117,10 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
                 </div>
 
-                <div class="evidence-snippet">"After 1 year of age, the disease could also present with nephropathy or hepatitis, otherwise considered atypical at onset"</div>
+                <div class="evidence-snippet">"Immunodysregulation polyendocrinopathy enteropathy x-linked (IPEX) syndrome is a monogenic autoimmune disease caused by FOXP3 mutations. ... Clinical histories of 96 patients with a genetically proven IPEX syndrome were collected from 38 institutions worldwide and retrospectively analyzed. ......"</div>
 
 
-                <div class="evidence-explanation">Documents atypical later-onset presentations during disease evolution.</div>
+                <div class="evidence-explanation">Distinguishes IPEX age-dependent presentation from additional autoimmune findings during disease evolution and new manifestations under immunosuppression. Nephropathy includes autoimmune and secondary causes.</div>
 
 
 
@@ -8439,10 +8543,33 @@ progression:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      After 1 year of age, the disease could also present with nephropathy or
-      hepatitis, otherwise considered atypical at onset
+      Immunodysregulation polyendocrinopathy enteropathy x-linked (IPEX) syndrome is a monogenic
+      autoimmune disease caused by FOXP3 mutations. ... Clinical histories of 96 patients with a
+      genetically proven IPEX syndrome were collected from 38 institutions worldwide and
+      retrospectively analyzed. ... The most common presentation suggestive of the diagnosis of IPEX
+      syndrome remained the classical triad of enteropathy, T1D, and eczema for the majority of the
+      39 of 96 patients who had neonatal onset. Gastrointestinal involvement and eczema, but not
+      T1D, were the dominant features of disease presentation after 1 month of age. However, failure
+      to thrive was a hallmark of the disease and it was sometimes the sole initial manifestation
+      after 1 month of age. After 1 year of age, the disease could also present with nephropathy or
+      hepatitis, otherwise considered atypical at onset (Fig 1, C and D). ... The symptoms observed
+      over the course of the disease and their prevalence are listed (Fig 1, D): with the exception
+      of diarrhea, eczema, and failure to thrive, nephropathy (autoimmune or secondary to
+      malnutrition and medication) was the most common (33 of 96 patients), varying from lithiasis,
+      nephrocalcinosis, or isolated proteinuria to more severe manifestations such as nephrotic
+      syndrome (in some cases with a definite diagnosis of glomerulonephritis) or tubulopathy and
+      interstitial nephritis. Hematological manifestations included autoimmune hemolytic anemia (25
+      of 96 patients), thrombocytopenia (13 of 96 patients), and neutropenia (6 of 96 patients).
+      Other conditions included autoimmune thyroiditis (15 of 96 patients) and hepatitis (19 of 96
+      patients), while food allergies (13 of 96 patients), arthritis (8 of 96 patients), alopecia (8
+      of 96 patients), and lymphadenopathy (9 of 96 patients) were occasionally reported during
+      disease progression. ... In 11 patients new autoimmune manifestations arose while receiving
+      IS, including T1D (4), thyroiditis (3), autoimmune cytopenia (2), autoimmune hepatitis (2),
+      enteropathy (1), adrenal insufficiency (1), and arthritis (1).
     explanation: &gt;-
-      Documents atypical later-onset presentations during disease evolution.
+      Distinguishes IPEX age-dependent presentation from additional autoimmune findings during
+      disease evolution and new manifestations under immunosuppression. Nephropathy includes
+      autoimmune and secondary causes.
 clinical_burden:
   burden_level: HIGH
   rationale: &gt;-
@@ -9974,7 +10101,7 @@ differential_diagnoses:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "IPEX Syndrome", "mondoId": "MONDO:0010580", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IPEX_Syndrome", "yamlRevision": "71d8c7aed7a5"};
+        const OS_CONFIG = {"diseaseName": "IPEX Syndrome", "mondoId": "MONDO:0010580", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IPEX_Syndrome", "yamlRevision": "4136d9e128c7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

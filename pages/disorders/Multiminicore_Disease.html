@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3791,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3833,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Multiminicore%20Disease"
@@ -3970,7 +4012,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3991,7 +4033,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4106,10 +4148,31 @@
                     <div class="item-name">
                         SELENON (SEPN1)-related, classic MmD
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0100100" target="_blank">MONDO:0100100</a>
+
 
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SELENON
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:15999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:15999</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SELENON (hgnc:15999). hgnc:15999 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4130,7 +4193,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4159,6 +4222,31 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_7485529e-a573-4a47-aa0f-7c0d7067ae49-2020-04-27T190000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_7485529e-a573-4a47-aa0f-7c0d7067ae49-2020-04-27T190000.000Z" target="_blank">CGGV:assertion_7485529e-a573-4a47-aa0f-7c0d7067ae49-2020-04-27T190000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SELENON | HGNC:15999 | SELENON-related myopathy | MONDO:0100100 | AR | Definitive | SOP7 | Congenital Myopathies Gene Curation Expert Panel"</div>
+
+
+                <div class="evidence-explanation">The ClinGen Congenital Myopathies Gene Curation Expert Panel curates SELENON against MONDO:0100100, the term bound as this row&#39;s subtype_term, and grades the autosomal recessive gene-disease relationship Definitive.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4176,8 +4264,31 @@
 
 
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009712" target="_blank">MONDO:0009712</a>
+
+
+
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                RYR1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10483</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4186,6 +4297,10 @@
 
                             <span class="subtype-inheritance-tag">Autosomal dominant inheritance</span>
 
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009712" target="_blank">MONDO MONDO:0009712</a>
 
 
 
@@ -4253,6 +4368,42 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                TTN
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:12403</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                MYH7
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7577</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">A small minority of multiminicore / multicore myopathy cases are associated with variants in other sarcomeric or contractile-apparatus genes, principally TTN (titin) and MYH7 (beta-myosin heavy chain). These are far less common than SELENON- and RYR1-related disease.
@@ -4261,6 +4412,68 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A number of distinct phenotypes are seen in multiminicore disease, which is most commonly caused by recessive mutations in the RYR1 and SEPN1 genes. It has been linked to dominant mutations in the gene for beta-myosin heavy chain protein (MYH7) and autosomal recessive mutations of titin (TTN)."</div>
+
+
+                <div class="evidence-explanation">Topaloglu review of core myopathies attributes multiminicore disease to dominant MYH7 variants and to recessive TTN variants, which is the pairing this row collects.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31053406" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31053406" target="_blank">PMID:31053406</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we delineate the phenotype of two female siblings who developed severe congenital multi-minicore disease without cardiac involvement. Genetic investigation by whole exome sequencing demonstrated compound heterozygous TTN mutations"</div>
+
+
+                <div class="evidence-explanation">Ge et al. report two siblings with severe congenital multi-minicore disease carrying compound heterozygous TTN variants, which is the human evidence cited here for the TTN arm of this row.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4284,11 +4497,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selenon-loss-of-function" data-dismech-node="SELENON loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">SELENON loss of function</div>
+
 
                 <div class="item-desc">Biallelic SELENON (SEPN1) variants cause loss of functional selenoprotein N (SelN), a redox-active selenoprotein resident in the endoplasmic reticulum (ER) / sarcoplasmic reticulum (SR) membrane. SelN participates in oxidative and calcium homeostasis and is implicated in regulation of the ryanodine receptor. Loss of SelN is the initiating molecular lesion in the classic rigid-spine / respiratory form of MmD.
 </div>
@@ -4305,11 +4519,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000188</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4335,11 +4549,11 @@ This pathophysiological event involves Skeletal muscle fiber, annotated with cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000594" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000594</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000594" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000594</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle satellite cell (CL:0000594). CL:0000594 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4361,6 +4575,49 @@ This pathophysiological event involves Skeletal muscle satellite cell (CL:000059
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SELENON
+
+
+    <a href="https://bioregistry.io/hgnc:15999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:15999</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SELENON (hgnc:15999). hgnc:15999 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4376,11 +4633,11 @@ This pathophysiological event involves Skeletal muscle satellite cell (CL:000059
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0055074</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves ER calcium and redox regulation, annotated with calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4415,6 +4672,38 @@ This pathophysiological event involves ER calcium and redox regulation, annotate
 	                            <span class="crosslink-meta">ER stress and oxidative dysregulation</span>
 
 	                            <span class="crosslink-desc">Loss of SelN dysregulates ER redox state and calcium handling, leading to ER stress and oxidative stress in muscle.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Axial muscle weakness</span>
+
+	                            <span class="crosslink-desc">SelN deficiency produces muscle weakness with a predilection for the axial muscles.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Spinal rigidity</span>
+
+	                            <span class="crosslink-desc">Axial weakness from SelN deficiency leads to rigidity of the spine.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Scoliosis</span>
+
+	                            <span class="crosslink-desc">Axial weakness from SelN deficiency leads to severe scoliosis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Respiratory insufficiency</span>
+
+	                            <span class="crosslink-desc">Axial muscle weakness in SelN deficiency leads to respiratory insufficiency.</span>
 
 
 	                        </div>
@@ -4515,6 +4804,7 @@ This pathophysiological event involves ER calcium and redox regulation, annotate
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-stress-and-oxidative-dysregulation" data-dismech-node="ER stress and oxidative dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">ER stress and oxidative dysregulation</div>
 
+
                 <div class="item-desc">SelN deficiency dysregulates ER redox state and calcium handling. SEPN1 interacts with the ER-stress-induced oxidoreductase ERO1A; both are enriched in mitochondria-associated membranes (MAMs) and govern redox regulation of proteins. Loss of SEPN1 produces ER stress, perturbed ER calcium, and impaired ER-mitochondria coupling, with ERO1A overexpression observed in patient muscle biopsies.
 </div>
 
@@ -4537,11 +4827,11 @@ This pathophysiological event involves ER calcium and redox regulation, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030968</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030968</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Endoplasmic reticulum unfolded protein response (GO:0030968). GO:0030968 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4567,11 +4857,11 @@ This pathophysiological event involves Endoplasmic reticulum unfolded protein re
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006979</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4681,6 +4971,7 @@ This pathophysiological event involves Response to oxidative stress (GO:0006979)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-bioenergetic-defect-and-muscle-weakness" data-dismech-node="Mitochondrial bioenergetic defect and muscle weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial bioenergetic defect and muscle weakness</div>
 
+
                 <div class="item-desc">Impaired ER-mitochondria coupling and disrupted MAM/calcium homeostasis in SELENON-related disease compromise mitochondrial bioenergetics in muscle. TUDCA, which rescues the SEPN1-null phenotype, improves bioenergetics in patient-derived primary myoblasts, supporting a bioenergetic defect as an intermediary that converges with RYR1-related disease on the common minicore lesion.
 </div>
 
@@ -4696,11 +4987,11 @@ This pathophysiological event involves Response to oxidative stress (GO:0006979)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000188</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4737,11 +5028,11 @@ This pathophysiological event involves Skeletal muscle fiber, annotated with cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042775</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042775</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Mitochondrial ATP synthesis-coupled electron transport, annotated with mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4830,6 +5121,7 @@ This pathophysiological event involves decreased Mitochondrial ATP synthesis-cou
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ryr1-dysfunction-and-abnormal-sr-calcium-release" data-dismech-node="RYR1 dysfunction and abnormal SR calcium release" data-dismech-type="pathophysiology">
                 <div class="item-name">RYR1 dysfunction and abnormal SR calcium release</div>
 
+
                 <div class="item-desc">RYR1 encodes the type 1 ryanodine receptor (RyR1), the sarcoplasmic reticulum calcium release channel that mediates excitation-contraction coupling in skeletal muscle. In RYR1-related MmD, RyR1 sub-conductance, SR calcium leak, reduced RyR1 expression, loss of RyR1-calstabin1 association, and oxidative stress disrupt calcium homeostasis. This abnormal SR calcium handling is thought to drive core/minicore formation with focal loss of oxidative activity and mitochondrial depletion.
 </div>
 
@@ -4845,11 +5137,11 @@ This pathophysiological event involves decreased Mitochondrial ATP synthesis-cou
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000188</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4871,6 +5163,49 @@ This pathophysiological event involves Skeletal muscle fiber, annotated with cel
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RYR1
+
+
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:10483</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4886,11 +5221,11 @@ This pathophysiological event involves Skeletal muscle fiber, annotated with cel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0014808</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0014808</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated SR calcium ion release, annotated with release of sequestered calcium ion into cytosol by sarcoplasmic reticulum (GO:0014808). GO:0014808 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4920,11 +5255,11 @@ This pathophysiological event involves dysregulated SR calcium ion release, anno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0003009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0003009</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Skeletal muscle contraction (GO:0003009). GO:0003009 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4963,6 +5298,22 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 	                            <span class="crosslink-meta">Minicore formation and oxidative depletion</span>
 
 	                            <span class="crosslink-desc">Abnormal SR calcium release produces focal areas of reduced oxidative enzyme activity and mitochondrial paucity (minicores).</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">External ophthalmoplegia</span>
+
+	                            <span class="crosslink-desc">Recessive RYR1 disease can extend to the extraocular muscles, producing external ophthalmoplegia.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Malignant hyperthermia susceptibility</span>
+
+	                            <span class="crosslink-desc">Malignant hyperthermia susceptibility arises in the RYR1-related forms and is an important anaesthetic consideration.</span>
 
 
 	                        </div>
@@ -5060,8 +5411,259 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcomeric-protein-defect-ttn-myh7" data-dismech-node="Sarcomeric protein defect (TTN, MYH7)" data-dismech-type="pathophysiology">
+                <div class="item-name">Sarcomeric protein defect (TTN, MYH7)</div>
+
+
+                <div class="item-desc">A minority of multicore/minicore myopathy is attributed to variants in sarcomeric contractile-apparatus proteins: recessive variants in TTN, which encodes titin, one of the main sarcomere components and a determinant of skeletal and cardiac muscle structure, and dominant variants in MYH7, which encodes beta-myosin heavy chain. The steps between a sarcomeric protein defect and the focal loss of oxidative enzyme activity that defines the minicore are not established, so this node is entered as a separate entry point onto the shared minicore lesion rather than as a characterized pathway.
+</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Skeletal muscle fiber
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000188</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TTN
+
+
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:12403</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MYH7
+
+
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:7577</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Minicore formation and oxidative depletion</span>
+
+	                            <span class="crosslink-desc">Variants in these sarcomeric proteins converge on the same focal loss of oxidative enzyme activity seen in SELENON- and RYR1-related disease, by steps that are not established.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A number of distinct phenotypes are seen in multiminicore disease, which is most commonly caused by recessive mutations in the RYR1 and SEPN1 genes. It has been linked to dominant mutations in the gene for beta-myosin heavy chain protein (MYH7) and autosomal recessive mutations of titin (TTN)."</div>
+
+
+                <div class="evidence-explanation">Establishes that multiminicore disease is attributed to dominant MYH7 and recessive TTN variants, the two genes this node carries.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Minicore myopathy is described in subjects with mutations in MYH7, a gene for beta-myosin heavy chain protein usually associated with Laing distal myopathy"</div>
+
+
+                <div class="evidence-explanation">Gene-specific statement that the minicore lesion occurs in MYH7 mutation carriers, separate from the grouped sentence above.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31053406" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31053406" target="_blank">PMID:31053406</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Titin, encoded by the gene TTN, is one of the main sarcomere components."</div>
+
+
+                <div class="evidence-explanation">States the sarcomeric identity of the TTN product, which is why this node is framed as a sarcomeric protein defect. The sentence is a statement of protein identity rather than a measurement, so it carries no study type.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-minicore-formation-and-oxidative-depletion" data-dismech-node="Minicore formation and oxidative depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Minicore formation and oxidative depletion</div>
+
 
                 <div class="item-desc">The histopathologic hallmark of MmD is the minicore: multifocal, well-circumscribed areas of reduced oxidative staining that extend only a short distance along the longitudinal axis of the fiber and show myofibrillar disruption and a paucity of mitochondria on electron microscopy. Both SELENON- and RYR1-related disease converge on this lesion, which is the common diagnostic substrate of the disease.
 </div>
@@ -5085,11 +5687,11 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006119</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5119,6 +5721,21 @@ This pathophysiological event involves decreased Oxidative phosphorylation (GO:0
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Minicores on muscle biopsy</span>
+
+	                            <span class="crosslink-desc">The minicore lesion is what the diagnostic muscle biopsy shows.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5210,7 +5827,7 @@ This pathophysiological event involves decreased Oxidative phosphorylation (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ER stress and oxidative dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SelN deficiency dysregulates ER redox state and calcium handling. SEPN1 interacts with the ER-stress-induced oxidoreductase ERO1A; both are enriched in mitochondria-associated membranes (MAMs) and govern redox regulation of proteins. Loss of SEPN1 produces ER stress, perturbed ER calcium, and impaired ER-mitochondria coupling, with ERO1A overexpression observed in patient muscle biopsies.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Endoplasmic reticulum unfolded protein response\", \"Response to oxidative stress\"]}}, {\"id\": \"Minicore formation and oxidative depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histopathologic hallmark of MmD is the minicore: multifocal, well-circumscribed areas of reduced oxidative staining that extend only a short distance along the longitudinal axis of the fiber and show myofibrillar disruption and a paucity of mitochondria on electron microscopy. Both SELENON- and RYR1-related disease converge on this lesion, which is the common diagnostic substrate of the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Oxidative phosphorylation\"]}}, {\"id\": \"Mitochondrial bioenergetic defect and muscle weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ER-mitochondria coupling and disrupted MAM/calcium homeostasis in SELENON-related disease compromise mitochondrial bioenergetics in muscle. TUDCA, which rescues the SEPN1-null phenotype, improves bioenergetics in patient-derived primary myoblasts, supporting a bioenergetic defect as an intermediary that converges with RYR1-related disease on the common minicore lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Mitochondrial ATP synthesis-coupled electron transport\"]}}, {\"id\": \"RYR1 dysfunction and abnormal SR calcium release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RYR1 encodes the type 1 ryanodine receptor (RyR1), the sarcoplasmic reticulum calcium release channel that mediates excitation-contraction coupling in skeletal muscle. In RYR1-related MmD, RyR1 sub-conductance, SR calcium leak, reduced RyR1 expression, loss of RyR1-calstabin1 association, and oxidative stress disrupt calcium homeostasis. This abnormal SR calcium handling is thought to drive core/minicore formation with focal loss of oxidative activity and mitochondrial depletion.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"SR calcium ion release\", \"Skeletal muscle contraction\"]}}, {\"id\": \"SELENON loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SELENON (SEPN1) variants cause loss of functional selenoprotein N (SelN), a redox-active selenoprotein resident in the endoplasmic reticulum (ER) / sarcoplasmic reticulum (SR) membrane. SelN participates in oxidative and calcium homeostasis and is implicated in regulation of the ryanodine receptor. Loss of SelN is the initiating molecular lesion in the classic rigid-spine / respiratory form of MmD.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\", \"Skeletal muscle satellite cell\"], \"biological_processes\": [\"ER calcium and redox regulation\"]}}], \"edges\": [{\"source\": \"SELENON loss of function\", \"target\": \"ER stress and oxidative dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SelN dysregulates ER redox state and calcium handling, leading to ER stress and oxidative stress in muscle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ER stress and oxidative dysregulation\", \"target\": \"Mitochondrial bioenergetic defect and muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER stress and disrupted MAM/calcium homeostasis impair mitochondrial bioenergetics, contributing to muscle weakness, especially of the diaphragm.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial bioenergetic defect and muscle weakness\", \"target\": \"Minicore formation and oxidative depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic compromise and disrupted oxidative metabolism contribute to focal loss of oxidative enzyme activity and mitochondrial paucity (minicores), converging with the RYR1-related pathway.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"RYR1 dysfunction and abnormal SR calcium release\", \"target\": \"Minicore formation and oxidative depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal SR calcium release produces focal areas of reduced oxidative enzyme activity and mitochondrial paucity (minicores).\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Axial muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked weakness of axial (trunk and neck) muscles is a defining feature of classic MmD, typically disproportionate to relatively preserved limb strength.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003327\"}}, {\"id\": \"ER stress and oxidative dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SelN deficiency dysregulates ER redox state and calcium handling. SEPN1 interacts with the ER-stress-induced oxidoreductase ERO1A; both are enriched in mitochondria-associated membranes (MAMs) and govern redox regulation of proteins. Loss of SEPN1 produces ER stress, perturbed ER calcium, and impaired ER-mitochondria coupling, with ERO1A overexpression observed in patient muscle biopsies.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Endoplasmic reticulum unfolded protein response\", \"Response to oxidative stress\"]}}, {\"id\": \"External ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"External ophthalmoplegia (ophthalmoparesis) is a characteristic feature of the RYR1-related form of MmD and helps distinguish it from the classic SELENON-related phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RYR1\"], \"term_id\": \"HP:0000602\"}}, {\"id\": \"MYH7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYH7\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}], \"subtypes\": [\"Other\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Malignant hyperthermia susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"RYR1-related multiminicore disease carries a risk of malignant hyperthermia susceptibility (MHS), an important anesthetic consideration. Volatile anesthetic agents and depolarizing muscle relaxants should be avoided, and patients and families should be counseled about this risk before any surgical procedure.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RYR1\"], \"term_id\": \"HP:0002047\"}}, {\"id\": \"Minicore formation and oxidative depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histopathologic hallmark of MmD is the minicore: multifocal, well-circumscribed areas of reduced oxidative staining that extend only a short distance along the longitudinal axis of the fiber and show myofibrillar disruption and a paucity of mitochondria on electron microscopy. Both SELENON- and RYR1-related disease converge on this lesion, which is the common diagnostic substrate of the disease.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Oxidative phosphorylation\"]}}, {\"id\": \"Minicores on muscle biopsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multiple minicores on skeletal muscle biopsy are the defining pathologic feature: multifocal areas of reduced oxidative enzyme activity with sarcomeric disruption and mitochondrial paucity. Multi-minicores were the most common lesion (59.5%) in the SEPN1 cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003789\"}}, {\"id\": \"Mitochondrial bioenergetic defect and muscle weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ER-mitochondria coupling and disrupted MAM/calcium homeostasis in SELENON-related disease compromise mitochondrial bioenergetics in muscle. TUDCA, which rescues the SEPN1-null phenotype, improves bioenergetics in patient-derived primary myoblasts, supporting a bioenergetic defect as an intermediary that converges with RYR1-related disease on the common minicore lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Mitochondrial ATP synthesis-coupled electron transport\"]}}, {\"id\": \"RYR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\"}], \"subtypes\": [\"RYR1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RYR1 dysfunction and abnormal SR calcium release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RYR1 encodes the type 1 ryanodine receptor (RyR1), the sarcoplasmic reticulum calcium release channel that mediates excitation-contraction coupling in skeletal muscle. In RYR1-related MmD, RyR1 sub-conductance, SR calcium leak, reduced RyR1 expression, loss of RyR1-calstabin1 association, and oxidative stress disrupt calcium homeostasis. This abnormal SR calcium handling is thought to drive core/minicore formation with focal loss of oxidative activity and mitochondrial depletion.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"SR calcium ion release\", \"Skeletal muscle contraction\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\"}]}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory impairment is a major determinant of morbidity and prognosis and is often disproportionate to limb weakness. In the SEPN1 cohort all patients developed respiratory failure (from 10.1 years), with 81.7% requiring ventilation while still ambulant.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"SELENON\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SELENON\"], \"gene_terms\": [{\"label\": \"SELENON\", \"id\": \"hgnc:15999\"}], \"subtypes\": [\"SELENON\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SELENON loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SELENON (SEPN1) variants cause loss of functional selenoprotein N (SelN), a redox-active selenoprotein resident in the endoplasmic reticulum (ER) / sarcoplasmic reticulum (SR) membrane. SelN participates in oxidative and calcium homeostasis and is implicated in regulation of the ryanodine receptor. Loss of SelN is the initiating molecular lesion in the classic rigid-spine / respiratory form of MmD.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\", \"Skeletal muscle satellite cell\"], \"biological_processes\": [\"ER calcium and redox regulation\"], \"genes\": [\"SELENON\"], \"gene_terms\": [{\"label\": \"SELENON\", \"id\": \"hgnc:15999\"}]}}, {\"id\": \"Sarcomeric protein defect (TTN, MYH7)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of multicore/minicore myopathy is attributed to variants in sarcomeric contractile-apparatus proteins: recessive variants in TTN, which encodes titin, one of the main sarcomere components and a determinant of skeletal and cardiac muscle structure, and dominant variants in MYH7, which encodes beta-myosin heavy chain. The steps between a sarcomeric protein defect and the focal loss of oxidative enzyme activity that defines the minicore are not established, so this node is entered as a separate entry point onto the shared minicore lesion rather than as a characterized pathway.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\"], \"genes\": [\"TTN\", \"MYH7\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}, {\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset, frequently progressive scoliosis is common, often requiring spinal stabilization surgery in adolescence. In the SEPN1 cohort it occurred in 86.1% with a mean onset of 8.9 years.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Spinal rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rigidity of the spine with limitation of spinal flexion is a hallmark of the classic SELENON-related form (\\\"rigid spine\\\" phenotype), typically of early onset.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003306\"}}, {\"id\": \"TTN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TTN\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}], \"subtypes\": [\"Other\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"SELENON loss of function\", \"target\": \"ER stress and oxidative dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SelN dysregulates ER redox state and calcium handling, leading to ER stress and oxidative stress in muscle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SELENON loss of function\", \"target\": \"Axial muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SelN deficiency produces muscle weakness with a predilection for the axial muscles.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SELENON loss of function\", \"target\": \"Spinal rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial weakness from SelN deficiency leads to rigidity of the spine.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SELENON loss of function\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial weakness from SelN deficiency leads to severe scoliosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"SELENON loss of function\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial muscle weakness in SelN deficiency leads to respiratory insufficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ER stress and oxidative dysregulation\", \"target\": \"Mitochondrial bioenergetic defect and muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER stress and disrupted MAM/calcium homeostasis impair mitochondrial bioenergetics, contributing to muscle weakness, especially of the diaphragm.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial bioenergetic defect and muscle weakness\", \"target\": \"Minicore formation and oxidative depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic compromise and disrupted oxidative metabolism contribute to focal loss of oxidative enzyme activity and mitochondrial paucity (minicores), converging with the RYR1-related pathway.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"RYR1 dysfunction and abnormal SR calcium release\", \"target\": \"Minicore formation and oxidative depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal SR calcium release produces focal areas of reduced oxidative enzyme activity and mitochondrial paucity (minicores).\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"RYR1 dysfunction and abnormal SR calcium release\", \"target\": \"External ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recessive RYR1 disease can extend to the extraocular muscles, producing external ophthalmoplegia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RYR1 dysfunction and abnormal SR calcium release\", \"target\": \"Malignant hyperthermia susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant hyperthermia susceptibility arises in the RYR1-related forms and is an important anaesthetic consideration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sarcomeric protein defect (TTN, MYH7)\", \"target\": \"Minicore formation and oxidative depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variants in these sarcomeric proteins converge on the same focal loss of oxidative enzyme activity seen in SELENON- and RYR1-related disease, by steps that are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Minicore formation and oxidative depletion\", \"target\": \"Minicores on muscle biopsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The minicore lesion is what the diagnostic muscle biopsy shows.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SELENON\", \"target\": \"SELENON loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR1\", \"target\": \"RYR1 dysfunction and abnormal SR calcium release\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TTN\", \"target\": \"Sarcomeric protein defect (TTN, MYH7)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH7\", \"target\": \"Sarcomeric protein defect (TTN, MYH7)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5270,15 +5887,18 @@ This pathophysiological event involves decreased Oxidative phosphorylation (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003115</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003115</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal EKG (HP:0003115). HP:0003115 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5348,15 +5968,18 @@ This clinical feature is Abnormal EKG (HP:0003115). HP:0003115 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000602</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000602</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5426,15 +6049,18 @@ This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malignant hyperthermia susceptibility, annotated with Malignant hyperthermia (HP:0002047). HP:0002047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5506,15 +6132,18 @@ This clinical feature is Malignant hyperthermia susceptibility, annotated with M
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003327</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003327</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5577,15 +6206,18 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003306</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003306</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5648,10 +6280,10 @@ This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650), qualified as course progressive. HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5675,6 +6307,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     </div>
+
+
+
 
 
 
@@ -5735,15 +6370,18 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5808,15 +6446,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Minicore myopathy (HP:0003789). HP:0003789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5879,15 +6520,18 @@ This clinical feature is Minicore myopathy (HP:0003789). HP:0003789 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004349</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5959,10 +6603,10 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory insufficiency (HP:0002093), qualified as course progressive. HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5986,6 +6630,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
                     </div>
+
+
+
 
 
 
@@ -6046,15 +6693,18 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002877</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002877</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nocturnal hypoventilation (HP:0002877). HP:0002877 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6124,15 +6774,18 @@ This clinical feature is Nocturnal hypoventilation (HP:0002877). HP:0002877 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6236,17 +6889,22 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         Gene: SELENON
 
 
-    <a href="https://bioregistry.io/hgnc:15999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:15999</a>
+    <a href="https://bioregistry.io/hgnc:15999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:15999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SELENON (hgnc:15999). hgnc:15999 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6339,17 +6997,22 @@ This disease-associated gene is SELENON (hgnc:15999). hgnc:15999 is a gene from 
                         Gene: RYR1
 
 
-    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:10483</a>
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:10483</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6444,20 +7107,85 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
                         Gene: TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:12403</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
 
 
                 </div>
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31053406" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31053406" target="_blank">PMID:31053406</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we delineate the phenotype of two female siblings who developed severe congenital multi-minicore disease without cardiac involvement. Genetic investigation by whole exome sequencing demonstrated compound heterozygous TTN mutations"</div>
+
+
+                <div class="evidence-explanation">Ge et al. describe two siblings with severe congenital multi-minicore disease who carried compound heterozygous TTN variants.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_41ead80d-f134-43e5-9373-ac55bdcfc0a1-2022-01-11T170000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_41ead80d-f134-43e5-9373-ac55bdcfc0a1-2022-01-11T170000.000Z" target="_blank">CGGV:assertion_41ead80d-f134-43e5-9373-ac55bdcfc0a1-2022-01-11T170000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TTN | HGNC:12403 | TTN-related myopathy | MONDO:0100175 | AR | Definitive"</div>
+
+
+                <div class="evidence-explanation">ClinGen grades the autosomal recessive TTN gene-disease relationship Definitive, against the broader TTN-related myopathy class rather than against multiminicore myopathy specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6481,20 +7209,87 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
                         Gene: MYH7
 
 
-    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7577</a>
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:7577</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
 
 
                 </div>
 
 
 
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Minicore myopathy is described in subjects with mutations in MYH7, a gene for beta-myosin heavy chain protein usually associated with Laing distal myopathy"</div>
+
+
+                <div class="evidence-explanation">Topaloglu review reports the minicore lesion in MYH7 mutation carriers and places MYH7 primarily in Laing distal myopathy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_8974721a-f333-4fb7-b8b7-043233d3d100-2021-05-13T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_8974721a-f333-4fb7-b8b7-043233d3d100-2021-05-13T160000.000Z" target="_blank">CGGV:assertion_8974721a-f333-4fb7-b8b7-043233d3d100-2021-05-13T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MYH7 | HGNC:7577 | MYH7-related skeletal myopathy | MONDO:0008050 | AD | Definitive"</div>
+
+
+                <div class="evidence-explanation">ClinGen grades the autosomal dominant MYH7 gene-disease relationship Definitive, against MYH7-related skeletal myopathy rather than against multiminicore myopathy, which is what this record&#39;s note reports.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6526,7 +7321,7 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">noninvasive ventilation<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">noninvasive ventilation<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6663,7 +7458,7 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6775,7 +7570,7 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6887,7 +7682,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">vitamin D supplementation<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">vitamin D supplementation<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is vitamin D supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6988,7 +7783,7 @@ This treatment is vitamin D supplementation, annotated with Nutritional Suppleme
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7088,7 +7883,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7129,11 +7924,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_80774" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:80774</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_80774" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:80774</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses tauroursodeoxycholic acid (CHEBI:80774). CHEBI:80774 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7246,7 +8041,7 @@ This treatment uses tauroursodeoxycholic acid (CHEBI:80774). CHEBI:80774 is a th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7451,11 +8246,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0012378</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7468,11 +8263,11 @@ This clinical trial targets Fatigue (HP:0012378). HP:0012378 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003701</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003701</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7583,6 +8378,16 @@ has_subtypes:
     respiratory insufficiency that is disproportionate to relatively preserved
     limb strength. Multi-minicores are the most common biopsy lesion. This is
     the form historically equated with &#34;rigid spine muscular dystrophy&#34; (RSMD1).
+  subtype_term:
+    preferred_term: SELENON-related classic multiminicore disease
+    term:
+      id: MONDO:0100100
+      label: congenital myopathy 3 with rigid spine
+  genes:
+  - preferred_term: SELENON
+    term:
+      id: hgnc:15999
+      label: SELENON
   inheritance:
   - name: Autosomal recessive
     inheritance_term:
@@ -7597,6 +8402,15 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the most instantly recognizable classic phenotype characterized by spinal rigidity, early scoliosis and respiratory impairment is due to recessive mutations in the selenoprotein N (SEPN1) gene&#34;
     explanation: Jungbluth review defines the classic SELENON/SEPN1-related MmD subtype.
+  - reference: CGGV:assertion_7485529e-a573-4a47-aa0f-7c0d7067ae49-2020-04-27T190000.000Z
+    reference_title: &#34;SELENON / SELENON-related myopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;SELENON | HGNC:15999 | SELENON-related myopathy | MONDO:0100100 | AR | Definitive | SOP7 | Congenital Myopathies Gene Curation Expert Panel&#34;
+    explanation: &gt;-
+      The ClinGen Congenital Myopathies Gene Curation Expert Panel curates SELENON
+      against MONDO:0100100, the term bound as this row&#39;s subtype_term, and grades
+      the autosomal recessive gene-disease relationship Definitive.
 - name: RYR1
   display_name: RYR1-related, ophthalmoplegic / CCD-overlap MmD
   description: &gt;
@@ -7607,6 +8421,25 @@ has_subtypes:
     histopathologic continuum with CCD due to dominant RYR1 mutations.
     Malignant hyperthermia susceptibility is an important anesthetic
     consideration in RYR1-associated disease.
+  genes:
+  - preferred_term: RYR1
+    term:
+      id: hgnc:10483
+      label: RYR1
+  mappings:
+    mondo_mappings:
+    - term:
+        id: MONDO:0009712
+        label: congenital multicore myopathy with external ophthalmoplegia
+      mapping_predicate: skos:narrowMatch
+      mapping_source: MONDO
+      mapping_justification: &gt;-
+        MONDO:0009712 is the only RYR1-attributed child of this entry&#39;s disease
+        term MONDO:0018948, and its definition is generic recessive RYR1 minicore
+        myopathy rather than an ophthalmoplegia-restricted entity. It is recorded
+        as a narrow match rather than as this row&#39;s subtype_term because the MONDO
+        class is autosomal recessive only, whereas this row also covers the
+        dominant RYR1 variants that produce the central-core-disease continuum.
   inheritance:
   - name: Autosomal recessive
     inheritance_term:
@@ -7634,6 +8467,35 @@ has_subtypes:
     with variants in other sarcomeric or contractile-apparatus genes,
     principally TTN (titin) and MYH7 (beta-myosin heavy chain). These are far
     less common than SELENON- and RYR1-related disease.
+  genes:
+  - preferred_term: TTN
+    term:
+      id: hgnc:12403
+      label: TTN
+  - preferred_term: MYH7
+    term:
+      id: hgnc:7577
+      label: MYH7
+  evidence:
+  - reference: PMID:33458581
+    reference_title: &#34;Core myopathies - a short review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;A number of distinct phenotypes are seen in multiminicore disease, which is most commonly caused by recessive mutations in the RYR1 and SEPN1 genes. It has been linked to dominant mutations in the gene for beta-myosin heavy chain protein (MYH7) and autosomal recessive mutations of titin (TTN).&#34;
+    explanation: &gt;-
+      Topaloglu review of core myopathies attributes multiminicore disease to
+      dominant MYH7 variants and to recessive TTN variants, which is the pairing
+      this row collects.
+  - reference: PMID:31053406
+    reference_title: &#34;Recessive mutations in proximal I-band of TTN gene cause severe congenital multi-minicore disease without cardiac involvement.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here, we delineate the phenotype of two female siblings who developed severe congenital multi-minicore disease without cardiac involvement. Genetic investigation by whole exome sequencing demonstrated compound heterozygous TTN mutations&#34;
+    explanation: &gt;-
+      Ge et al. report two siblings with severe congenital multi-minicore disease
+      carrying compound heterozygous TTN variants, which is the human evidence
+      cited here for the TTN arm of this row.
 
 pathophysiology:
 - name: SELENON loss of function
@@ -7644,6 +8506,11 @@ pathophysiology:
     and calcium homeostasis and is implicated in regulation of the ryanodine
     receptor. Loss of SelN is the initiating molecular lesion in the classic
     rigid-spine / respiratory form of MmD.
+  genes:
+  - preferred_term: SELENON
+    term:
+      id: hgnc:15999
+      label: SELENON
   cell_types:
   - preferred_term: Skeletal muscle fiber
     term:
@@ -7681,6 +8548,46 @@ pathophysiology:
   - target: ER stress and oxidative dysregulation
     description: Loss of SelN dysregulates ER redox state and calcium handling, leading to ER stress and oxidative stress in muscle.
     causal_link_type: DIRECT
+  - target: Axial muscle weakness
+    description: SelN deficiency produces muscle weakness with a predilection for the axial muscles.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22527882
+      reference_title: &#34;Selenoprotein N in skeletal muscle: from diseases to function.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;muscle weakness affecting especially axial muscles and leading to spine rigidity, severe scoliosis, and respiratory insufficiency&#34;
+      explanation: Castets review attributes weakness of the axial muscles specifically to SelN deficiency.
+  - target: Spinal rigidity
+    description: Axial weakness from SelN deficiency leads to rigidity of the spine.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22527882
+      reference_title: &#34;Selenoprotein N in skeletal muscle: from diseases to function.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;muscle weakness affecting especially axial muscles and leading to spine rigidity, severe scoliosis, and respiratory insufficiency&#34;
+      explanation: Castets review states that SelN-deficient axial weakness leads to spine rigidity.
+  - target: Scoliosis
+    description: Axial weakness from SelN deficiency leads to severe scoliosis.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22527882
+      reference_title: &#34;Selenoprotein N in skeletal muscle: from diseases to function.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;muscle weakness affecting especially axial muscles and leading to spine rigidity, severe scoliosis, and respiratory insufficiency&#34;
+      explanation: Castets review states that SelN-deficient axial weakness leads to severe scoliosis.
+  - target: Respiratory insufficiency
+    description: Axial muscle weakness in SelN deficiency leads to respiratory insufficiency.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:22527882
+      reference_title: &#34;Selenoprotein N in skeletal muscle: from diseases to function.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;muscle weakness affecting especially axial muscles and leading to spine rigidity, severe scoliosis, and respiratory insufficiency&#34;
+      explanation: Castets review states that SelN deficiency leads to respiratory insufficiency.
 - name: ER stress and oxidative dysregulation
   description: &gt;
     SelN deficiency dysregulates ER redox state and calcium handling. SEPN1
@@ -7754,6 +8661,11 @@ pathophysiology:
     association, and oxidative stress disrupt calcium homeostasis. This abnormal
     SR calcium handling is thought to drive core/minicore formation with focal
     loss of oxidative activity and mitochondrial depletion.
+  genes:
+  - preferred_term: RYR1
+    term:
+      id: hgnc:10483
+      label: RYR1
   cell_types:
   - preferred_term: Skeletal muscle fiber
     term:
@@ -7793,6 +8705,97 @@ pathophysiology:
   - target: Minicore formation and oxidative depletion
     description: Abnormal SR calcium release produces focal areas of reduced oxidative enzyme activity and mitochondrial paucity (minicores).
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: External ophthalmoplegia
+    description: Recessive RYR1 disease can extend to the extraocular muscles, producing external ophthalmoplegia.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:17631035
+      reference_title: &#34;Multi-minicore Disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;recessive mutations in the skeletal muscle ryanodine receptor (RYR1) gene have been associated with a wider range of clinical features comprising external ophthalmoplegia&#34;
+      explanation: Jungbluth review attributes external ophthalmoplegia to recessive RYR1 mutations in multiminicore disease.
+  - target: Malignant hyperthermia susceptibility
+    description: Malignant hyperthermia susceptibility arises in the RYR1-related forms and is an important anaesthetic consideration.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:17631035
+      reference_title: &#34;Multi-minicore Disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Management is mainly supportive and has to address the risk of marked respiratory impairment in SEPN1-related MmD and the possibility of malignant hyperthermia susceptibility in RYR1-related forms.&#34;
+      explanation: Jungbluth review attributes malignant hyperthermia susceptibility to the RYR1-related forms of multiminicore disease.
+- name: Sarcomeric protein defect (TTN, MYH7)
+  description: &gt;
+    A minority of multicore/minicore myopathy is attributed to variants in
+    sarcomeric contractile-apparatus proteins: recessive variants in TTN, which
+    encodes titin, one of the main sarcomere components and a determinant of
+    skeletal and cardiac muscle structure, and dominant variants in MYH7, which
+    encodes beta-myosin heavy chain. The steps between a sarcomeric protein
+    defect and the focal loss of oxidative enzyme activity that defines the
+    minicore are not established, so this node is entered as a separate entry
+    point onto the shared minicore lesion rather than as a characterized
+    pathway.
+  biological_scale: MOLECULAR
+  genes:
+  - preferred_term: TTN
+    term:
+      id: hgnc:12403
+      label: TTN
+  - preferred_term: MYH7
+    term:
+      id: hgnc:7577
+      label: MYH7
+  cell_types:
+  - preferred_term: Skeletal muscle fiber
+    term:
+      id: CL:0000188
+      label: cell of skeletal muscle
+  evidence:
+  - reference: PMID:33458581
+    reference_title: &#34;Core myopathies - a short review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;A number of distinct phenotypes are seen in multiminicore disease, which is most commonly caused by recessive mutations in the RYR1 and SEPN1 genes. It has been linked to dominant mutations in the gene for beta-myosin heavy chain protein (MYH7) and autosomal recessive mutations of titin (TTN).&#34;
+    explanation: &gt;-
+      Establishes that multiminicore disease is attributed to dominant MYH7 and
+      recessive TTN variants, the two genes this node carries.
+  - reference: PMID:33458581
+    reference_title: &#34;Core myopathies - a short review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Minicore myopathy is described in subjects with mutations in MYH7, a gene for beta-myosin heavy chain protein usually associated with Laing distal myopathy&#34;
+    explanation: &gt;-
+      Gene-specific statement that the minicore lesion occurs in MYH7 mutation
+      carriers, separate from the grouped sentence above.
+  - reference: PMID:31053406
+    reference_title: &#34;Recessive mutations in proximal I-band of TTN gene cause severe congenital multi-minicore disease without cardiac involvement.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &#34;Titin, encoded by the gene TTN, is one of the main sarcomere components.&#34;
+    explanation: &gt;-
+      States the sarcomeric identity of the TTN product, which is why this node
+      is framed as a sarcomeric protein defect. The sentence is a statement of
+      protein identity rather than a measurement, so it carries no study type.
+  downstream:
+  - target: Minicore formation and oxidative depletion
+    description: &gt;-
+      Variants in these sarcomeric proteins converge on the same focal loss of
+      oxidative enzyme activity seen in SELENON- and RYR1-related disease, by
+      steps that are not established.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:31053406
+      reference_title: &#34;Recessive mutations in proximal I-band of TTN gene cause severe congenital multi-minicore disease without cardiac involvement.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Here, we delineate the phenotype of two female siblings who developed severe congenital multi-minicore disease without cardiac involvement. Genetic investigation by whole exome sequencing demonstrated compound heterozygous TTN mutations&#34;
+      explanation: &gt;-
+        Ge et al. report the multiminicore lesion in siblings carrying biallelic
+        TTN variants, linking this node to the shared minicore lesion.
 - name: Minicore formation and oxidative depletion
   description: &gt;
     The histopathologic hallmark of MmD is the minicore: multifocal,
@@ -7820,6 +8823,19 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;characterized by the presence of small cores or areas lacking oxidative enzymes, in skeletal muscle fibres&#34;
     explanation: Zorzato review describes the oxidative-enzyme-depleted minicore lesion in muscle fibers.
+  downstream:
+  - target: Minicores on muscle biopsy
+    description: The minicore lesion is what the diagnostic muscle biopsy shows.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:17365175
+      reference_title: &#34;Functional effects of mutations identified in patients with multiminicore disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;characterized by the presence of small cores or areas lacking oxidative enzymes, in skeletal muscle fibres&#34;
+      explanation: &gt;-
+        Zorzato review identifies the oxidative-enzyme-depleted focal lesion in
+        muscle fibres as the finding that characterizes the disease on biopsy.
 
 phenotypes:
 - name: Axial muscle weakness
@@ -8065,6 +9081,7 @@ genetic:
       id: hgnc:15999
       label: SELENON
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: SELENON
   inheritance:
   - name: Autosomal recessive
@@ -8099,6 +9116,7 @@ genetic:
       id: hgnc:10483
       label: RYR1
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: RYR1
   inheritance:
   - name: Autosomal recessive
@@ -8138,11 +9156,31 @@ genetic:
       id: hgnc:12403
       label: TTN
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: Other
-  notes: &gt;
-    TTN (titin) variants are a rarer cause of multicore/minicore myopathy. Listed
-    here as an established but uncommon genetic subtype; specific cohort-level
-    evidence within the retrieved deep-research sources was limited.
+  notes: &gt;-
+    Biallelic TTN variants are a rarer cause of severe congenital multi-minicore
+    disease. In the reported sibling pair the compound heterozygous variants lay
+    in the Ig domain of the proximal I-band and there was no cardiac
+    involvement.
+  evidence:
+  - reference: PMID:31053406
+    reference_title: &#34;Recessive mutations in proximal I-band of TTN gene cause severe congenital multi-minicore disease without cardiac involvement.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here, we delineate the phenotype of two female siblings who developed severe congenital multi-minicore disease without cardiac involvement. Genetic investigation by whole exome sequencing demonstrated compound heterozygous TTN mutations&#34;
+    explanation: &gt;-
+      Ge et al. describe two siblings with severe congenital multi-minicore
+      disease who carried compound heterozygous TTN variants.
+  - reference: CGGV:assertion_41ead80d-f134-43e5-9373-ac55bdcfc0a1-2022-01-11T170000.000Z
+    reference_title: &#34;TTN / TTN-related myopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;TTN | HGNC:12403 | TTN-related myopathy | MONDO:0100175 | AR | Definitive&#34;
+    explanation: &gt;-
+      ClinGen grades the autosomal recessive TTN gene-disease relationship
+      Definitive, against the broader TTN-related myopathy class rather than
+      against multiminicore myopathy specifically.
 - name: MYH7
   gene_term:
     preferred_term: MYH7
@@ -8150,12 +9188,32 @@ genetic:
       id: hgnc:7577
       label: MYH7
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: Other
-  notes: &gt;
-    MYH7 (beta-myosin heavy chain) variants are a rarer cause of
-    multicore/minicore myopathy. Listed here as an established but uncommon
-    genetic subtype; specific cohort-level evidence within the retrieved
-    deep-research sources was limited.
+  notes: &gt;-
+    Dominant MYH7 variants are a rarer cause of the minicore lesion. MYH7 is
+    more usually associated with Laing distal myopathy, and ClinGen curates it
+    against MYH7-related skeletal myopathy rather than against multiminicore
+    myopathy.
+  evidence:
+  - reference: PMID:33458581
+    reference_title: &#34;Core myopathies - a short review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Minicore myopathy is described in subjects with mutations in MYH7, a gene for beta-myosin heavy chain protein usually associated with Laing distal myopathy&#34;
+    explanation: &gt;-
+      Topaloglu review reports the minicore lesion in MYH7 mutation carriers and
+      places MYH7 primarily in Laing distal myopathy.
+  - reference: CGGV:assertion_8974721a-f333-4fb7-b8b7-043233d3d100-2021-05-13T160000.000Z
+    reference_title: &#34;MYH7 / MYH7-related skeletal myopathy (Definitive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;MYH7 | HGNC:7577 | MYH7-related skeletal myopathy | MONDO:0008050 | AD | Definitive&#34;
+    explanation: &gt;-
+      ClinGen grades the autosomal dominant MYH7 gene-disease relationship
+      Definitive, against MYH7-related skeletal myopathy rather than against
+      multiminicore myopathy, which is what this record&#39;s note reports.
 
 treatments:
 - name: Noninvasive ventilation
@@ -8335,6 +9393,21 @@ clinical_trials:
       explanation: Confirms NCT04141670 as the registered phase 1 ARM210 trial in RYR1-related myopathy.
 
 datasets: []
+
+notes: &gt;-
+  Subtype anchoring against MONDO. This entry&#39;s disease term MONDO:0018948
+  multiminicore myopathy has five children. MONDO:0100100, bound as the SELENON
+  row&#39;s subtype_term, is the SELENON-attributed one, and ClinGen&#39;s Congenital
+  Myopathies Gene Curation Expert Panel curates SELENON against that same class.
+  MONDO:0009712 is the RYR1-attributed one; it is recorded as a narrow match on
+  the RYR1 row rather than as that row&#39;s subtype_term, for the reason given
+  there. Two further children are scheduled for merge by MONDO itself and are
+  therefore left alone: MONDO:0017939 classic multiminicore myopathy is
+  scheduled to be merged into MONDO:0100100, and MONDO:0015793 moderate
+  multiminicore disease with hand involvement into MONDO:0007294 central core
+  myopathy. The fifth, MONDO:0015794 antenatal multiminicore disease with
+  arthrogryposis multiplex congenita, carries neither a definition nor a
+  causal-gene axiom, so no gene can be attached to it from MONDO.
 </pre>
             </div>
         </div>
@@ -8833,7 +9906,7 @@ Prime editing was used to correct a recessive RYR1 point mutation (T4709M) in hu
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multiminicore Disease", "mondoId": "MONDO:0018948", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiminicore_Disease", "yamlRevision": "cf860458a62d"};
+        const OS_CONFIG = {"diseaseName": "Multiminicore Disease", "mondoId": "MONDO:0018948", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiminicore_Disease", "yamlRevision": "69f897c5cc26"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
