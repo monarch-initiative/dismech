@@ -1,0 +1,39 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Fanconi_Anemia
+  path: kb/disorders/Fanconi_Anemia.yaml
+session:
+  id: 2026-09-28T033757Z-claude-code-8512ef
+  timestamp: '2026-09-28T03:37:57Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/12086
+  urls: []
+events:
+- type: REVIEW
+  outcome: no_change
+  sections:
+  - phenotypes
+  summary: Diagnose the 55 snippet failures as the pre-12883 cache re-fetch, fixed
+    by a base merge
+  details: |
+    CI reported 55 validation issues over 445 snippets, all of the form:
+
+      [ERROR] Text part not found as substring: 'Treatment of growth deficiency, limb anomalies, ...'
+      (note: only abstract available for PMID:20301575, full text may contain this excerpt)
+
+    PMID:20301575 is the Fanconi anemia GeneReviews chapter, and the failing quotes come from its Management and Genetic Counseling sections rather than its abstract. The parenthetical is the tell: the validator was reading an abstract-only body for a reference whose committed cache holds the full text.
+
+    No snippet was wrong and no cache file was missing. references_cache/PMID_20301575.md on this branch contains the quoted sentences; the body the validator compared against had been shortened in-run.
+
+    The cause is the same base-branch regression that made #9078 fail, seen from the other side. validate-disorders used to re-fetch a cache entry whose extractor stamp was missing or old. trust_cached_entries (ba7c44dedc, #12883) removed that at 2026-09-26 07:20:18Z; this PR's run was 03:44-03:48Z, before it. That commit's own message lists the symptom explicitly as one of the three failures it closes -- '#12879 64 bodies shortened, so snippets that had verified began failing in a pull request about something else'. This entry is one of those bodies. The other two instances it names are #12672 and #12867.
+
+    Verified on the merged tree: just validate-disorders reports 445 snippets and 453 titles with zero issues, which are the counts the pull request originally claimed, so the 55 failures were entirely the re-fetch and nothing in the branch drifted.
+
+    No entry content was changed; the merge is the fix. Also clean: check-duplicate-keys, check-entity-refs, check-causal-targets (grandfathered dangling targets still 120), check-enum-values, check-qualifier-terms, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-case-collisions, check-coarse-phenotypes.
