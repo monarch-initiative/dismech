@@ -37,40 +37,19 @@ a single-gene entry, and RYR1 alone spans five groups.
 
 ## Decision
 
-Gene classification is its own axis, recorded against the gene.
+Gene classification is its own axis, recorded against the gene rather than
+against a disease entry.
 
-Two independent pieces fall out, because the candidate classifications are not
-all the same kind of statement:
+Note the scope line this draws. Systems that grade *how well established* a
+gene-disease link is -- ClinGen Gene-Disease Validity, GenCC, PanelApp's
+green/amber/red -- are **not** gene classifications and are out of scope here.
+They classify the gene-disease pair, they are an evidence-strength axis rather
+than a taxonomy, and they belong with the evidence model. An earlier draft of
+this design bundled such a slot in; it was stripped before merge, and adding one
+should be argued on its own merits in its own change.
 
-| Statement is about | Example | Home |
-|---|---|---|
-| the gene–disease **pair** | ClinGen validity, PanelApp green/amber/red, GenCC | `Genetic.validity` on a disease entry |
-| the **gene** | Gene Table group, dosage sensitivity, COSMIC oncogene/TSG | `kb/gene_classifications/` |
+## `kb/gene_classifications/`
 
-### A. `Genetic.validity`
-
-`GeneDiseaseRelationshipEnum` says what *kind* of relationship is asserted
-(CAUSATIVE, RISK_FACTOR, MODIFIER). It had no way to say how well established
-that assertion is, so `DISPUTED` had been wedged into it — a validity statement
-sitting among relationship kinds.
-
-New `GeneDiseaseValidityEnum` carries the ClinGen Gene-Disease Validity ladder
-(DEFINITIVE, STRONG, MODERATE, LIMITED, DISPUTED, REFUTED,
-NO_KNOWN_DISEASE_RELATIONSHIP, ANIMAL_MODEL_ONLY), which GenCC also adopts and
-onto which PanelApp's ratings map. `GeneDiseaseRelationshipEnum.DISPUTED` is
-deprecated in favour of it.
-
-The two axes are orthogonal and both are needed: a gene may be `RISK_FACTOR` +
-`DEFINITIVE` (a well-established risk allele) or `CAUSATIVE` + `LIMITED` (a
-claimed monogenic cause resting on one family). Recording only the relationship
-kind loses that.
-
-This is nearly free because the evidence already exists: dismech caches 487
-ClinGen assertions as `CGGV:` structured references, whose rows already state
-the classification. `Alkaptonuria` is the worked example — its HGD evidence
-snippet already read `... | AR | Definitive`; the value simply had nowhere to go.
-
-### B. `kb/gene_classifications/`
 
 A source-level transcription, following the shape of
 `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml`: provenance once in the
@@ -175,7 +154,6 @@ mechanisms, is the clearest case.
 
 ## Follow-ups
 
-- Backfill `validity` from the 487 cached `CGGV:` assertions.
 - Further collections: ClinGen dosage sensitivity (`CGDS:`, already cached),
   COSMIC Cancer Gene Census.
 - Decide whether `Autosomal_Recessive_Limb-Girdle_Muscular_Dystrophy` becomes a

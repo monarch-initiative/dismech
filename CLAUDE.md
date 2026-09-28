@@ -2168,44 +2168,6 @@ phenotype_term:
 Use these first-class slots for common post-composition. Reserve `qualifiers` for
 more complex predicate-value patterns that are not covered by dedicated slots.
 
-### Gene–disease validity vs relationship kind
-
-`Genetic` carries **two orthogonal** controlled vocabularies, and they answer
-different questions. Set both when a source supports both.
-
-| Question | Slot | Enum |
-|---|---|---|
-| What *kind* of relationship is asserted? | `relationship_type` | `GeneDiseaseRelationshipEnum` (CAUSATIVE, RISK_FACTOR, MODIFIER, SOMATIC_DRIVER, …) |
-| How well *established* is it? | `validity` | `GeneDiseaseValidityEnum` (DEFINITIVE, STRONG, MODERATE, LIMITED, DISPUTED, REFUTED, NO_KNOWN_DISEASE_RELATIONSHIP, ANIMAL_MODEL_ONLY) |
-
-They are independent: a gene may be `RISK_FACTOR` + `DEFINITIVE` (a
-well-established risk allele) or `CAUSATIVE` + `LIMITED` (a claimed monogenic
-cause resting on a single family).
-
-`validity` is the ClinGen Gene-Disease Validity ladder, which GenCC also adopts
-and onto which PanelApp green/amber/red maps. **Assign it from a citable source,
-not curator impression** — dismech caches ClinGen assertions as `CGGV:`
-structured references whose rows state the classification directly:
-
-```yaml
-genetic:
-- name: HGD variants
-  gene_term:
-    preferred_term: HGD
-    term: {id: hgnc:4892, label: HGD}
-  relationship_type: CAUSATIVE
-  validity: DEFINITIVE
-  evidence:
-  - reference: CGGV:assertion_5186836d-...
-    snippet: HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive
-```
-
-Leave `validity` absent when no source states one — that is **not** the same as
-`NO_KNOWN_DISEASE_RELATIONSHIP`, which means the pair was assessed and nothing
-was found. `GeneDiseaseRelationshipEnum.DISPUTED` is deprecated; use
-`validity: DISPUTED` (or `REFUTED`) and keep `relationship_type` for the kind.
-Worked example: `Alkaptonuria`.
-
 ### Gene Classifications (`kb/gene_classifications/`)
 
 Transcriptions of external systems that classify **genes** (as opposed to
