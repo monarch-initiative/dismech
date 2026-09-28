@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4234,6 +4302,7 @@ SCOPE AND CONTRAST. The defect is strictly B-cell intrinsic. This is the key dis
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4324,7 @@ SCOPE AND CONTRAST. The defect is strictly B-cell intrinsic. This is the key dis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4328,6 +4398,7 @@ SCOPE AND CONTRAST. The defect is strictly B-cell intrinsic. This is the key dis
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4349,6 +4420,7 @@ SCOPE AND CONTRAST. The defect is strictly B-cell intrinsic. This is the key dis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4488,7 +4560,8 @@ SCOPE AND CONTRAST. The defect is strictly B-cell intrinsic. This is the key dis
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aid-enzymatic-loss-of-function" data-dismech-node="AID Enzymatic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">AID Enzymatic Loss of Function</div>
 
-                <div class="item-desc">Activation-induced cytidine deaminase is a member of the cytidine deaminase family whose expression is restricted to germinal center B cells. It initiates antibody diversification by deaminating cytosine to uracil in single-stranded DNA at the immunoglobulin switch and variable regions, creating the U:G mismatches that downstream repair pathways convert into either switch-region double-strand breaks or point mutations. Biallelic loss-of-function AICDA variants abolish this enzymatic activity, removing the single upstream trigger for both antibody-diversification programs.</div>
+
+                <div class="item-desc">Activation-induced cytidine deaminase is a member of the cytidine deaminase family whose expression is restricted to germinal center B cells. It initiates antibody diversification by deaminating cytosine to uracil in single-stranded DNA at the immunoglobulin switch and variable regions, creating the U:G mismatches that downstream repair pathways convert into either switch-region double-strand breaks or point mutations. Biallelic loss-of-function AICDA variants abolish this enzymatic activity, removing the single upstream trigger for both antibody-diversification programs. Anchors the module&#39;s conformance here rather than on either downstream node (Failed Immunoglobulin Class-Switch Recombination, Failed Somatic Hypermutation) because this is the molecular lesion that causes both of them: neither downstream node alone covers the module&#39;s bundled &#34;Germinal Center Reaction&#34; claim, but this one node, read alongside its two direct downstream edges, does.</div>
 
 
 
@@ -4533,6 +4606,78 @@ This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0
 
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Somatic Hypermutation of Immunoglobulin Genes
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016446" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016446</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves absent Somatic Hypermutation of Immunoglobulin Genes (GO:0016446). GO:0016446 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ∅ ABSENT
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Class Switch Recombination
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0045190</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves absent Class Switch Recombination, annotated with isotype switching (GO:0045190). GO:0045190 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ∅ ABSENT
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -4544,11 +4689,11 @@ This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004126" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0004126</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004126" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0004126</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves cytidine deaminase activity (GO:0004126), qualified as loss of function. GO:0004126 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4620,6 +4765,7 @@ This pathophysiological event involves cytidine deaminase activity (GO:0004126),
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4643,6 +4789,7 @@ This pathophysiological event involves cytidine deaminase activity (GO:0004126),
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-immunoglobulin-class-switch-recombination" data-dismech-node="Failed Immunoglobulin Class-Switch Recombination" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Immunoglobulin Class-Switch Recombination</div>
 
+
                 <div class="item-desc">Class-switch recombination replaces the IgM/IgD constant region with a downstream constant region, converting a naive B cell&#39;s output to IgG, IgA, or IgE without altering antigen specificity. In AID deficiency this recombination does not occur. The block is B-cell intrinsic: germline switch transcripts are still produced and the upstream T-cell help signal is intact, so the lesion lies at the DNA-modification step itself.</div>
 
 
@@ -4657,11 +4804,11 @@ This pathophysiological event involves cytidine deaminase activity (GO:0004126),
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000844</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000844</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4698,11 +4845,11 @@ This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0045190</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045190</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Immunoglobulin isotype switching, annotated with isotype switching (GO:0045190), qualified as loss of function. GO:0045190 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4775,6 +4922,7 @@ This pathophysiological event involves Immunoglobulin isotype switching, annotat
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4796,6 +4944,7 @@ This pathophysiological event involves Immunoglobulin isotype switching, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4822,6 +4971,7 @@ This pathophysiological event involves Immunoglobulin isotype switching, annotat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-somatic-hypermutation" data-dismech-node="Failed Somatic Hypermutation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Somatic Hypermutation</div>
 
+
                 <div class="item-desc">Somatic hypermutation introduces point mutations into immunoglobulin variable-region genes, generating the sequence variation on which affinity-based selection acts in the germinal center. AID deficiency abolishes it. Memory B cells are still generated in normal numbers but carry unmutated variable regions. This arm is independent of the CSR arm: C-terminal AICDA variants can spare it while still blocking CSR.</div>
 
 
@@ -4836,11 +4986,11 @@ This pathophysiological event involves Immunoglobulin isotype switching, annotat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000844</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000844</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4866,11 +5016,11 @@ This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000787</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Memory B cell (CL:0000787). CL:0000787 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4907,11 +5057,11 @@ This pathophysiological event involves Memory B cell (CL:0000787). CL:0000787 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016446" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0016446</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016446" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0016446</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Somatic hypermutation of immunoglobulin genes (GO:0016446), qualified as loss of function. GO:0016446 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4984,6 +5134,7 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5005,6 +5156,7 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5031,6 +5183,7 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-igm-restricted-antibody-repertoire" data-dismech-node="IgM-Restricted Antibody Repertoire" data-dismech-type="pathophysiology">
                 <div class="item-name">IgM-Restricted Antibody Repertoire</div>
 
+
                 <div class="item-desc">The systemic consequence of the switching block is a humoral compartment that produces only IgM. Serum IgM is normal or elevated — partly because unswitched B cells continue to be driven by antigen — while IgG, IgA, and IgE are absent or very low. Circulating B-cell numbers are normal, which distinguishes HIGM2 from the agammaglobulinemias, where the lesion is a developmental block upstream of B-cell egress.</div>
 
 
@@ -5045,11 +5198,11 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000786</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5075,11 +5228,11 @@ This pathophysiological event involves Plasma cell (CL:0000786). CL:0000786 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000236</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5116,11 +5269,11 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0002377</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5185,6 +5338,7 @@ This pathophysiological event involves decreased Immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5206,6 +5360,7 @@ This pathophysiological event involves decreased Immunoglobulin production (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5232,6 +5387,7 @@ This pathophysiological event involves decreased Immunoglobulin production (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-affinity-maturation" data-dismech-node="Absent Affinity Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Affinity Maturation</div>
 
+
                 <div class="item-desc">Memory B cells are produced but their variable regions remain in germline configuration, so the antibody repertoire never improves in affinity across repeated antigen encounters. Secondary responses are therefore no better than primary ones, compounding the isotype deficit.</div>
 
 
@@ -5246,11 +5402,11 @@ This pathophysiological event involves decreased Immunoglobulin production (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000787</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Memory B cell (CL:0000787). CL:0000787 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5287,11 +5443,11 @@ This pathophysiological event involves Memory B cell (CL:0000787). CL:0000787 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016446" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0016446</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016446" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0016446</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Somatic hypermutation of immunoglobulin genes (GO:0016446), qualified as loss of function. GO:0016446 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5356,6 +5512,7 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5379,6 +5536,7 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-opsonizing-and-mucosal-antibody-function" data-dismech-node="Loss of Opsonizing and Mucosal Antibody Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Opsonizing and Mucosal Antibody Function</div>
 
+
                 <div class="item-desc">The two arms converge here. The patient retains antibody, but it is of the wrong isotype and of germline affinity: no IgG to opsonize encapsulated bacteria and fix complement efficiently in tissue, no secretory IgA to exclude organisms at respiratory and gastrointestinal mucosal surfaces, and no affinity-matured binding to compensate. Humoral protection against extracellular bacteria is therefore lost, while cellular immunity is untouched.</div>
 
 
@@ -5400,11 +5558,11 @@ This pathophysiological event involves Somatic hypermutation of immunoglobulin g
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Complement activation and opsonization by antibody, annotated with complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5469,6 +5627,7 @@ This pathophysiological event involves decreased Complement activation and opson
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5491,6 +5650,7 @@ This pathophysiological event involves decreased Complement activation and opson
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-bacterial-sinopulmonary-and-mucosal-infection" data-dismech-node="Recurrent Bacterial Sinopulmonary and Mucosal Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Bacterial Sinopulmonary and Mucosal Infection</div>
+
 
                 <div class="item-desc">Clinically the infections are bacterial and mucosal — recurrent sinusitis, otitis media, and pneumonia progressing to bronchiectasis, with gastrointestinal involvement. The spectrum is narrower than in the CD40L/CD40 hyper-IgM syndromes: because AID acts only in B cells and leaves T-cell and macrophage effector function intact, HIGM2 patients do not show the Pneumocystis, Cryptosporidium, and other opportunistic infections that characterize the CD40 pathway defects. Immunoglobulin replacement markedly reduces infection frequency.</div>
 
@@ -5529,6 +5689,7 @@ This pathophysiological event involves decreased Complement activation and opson
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5550,6 +5711,7 @@ This pathophysiological event involves decreased Complement activation and opson
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5576,6 +5738,7 @@ This pathophysiological event involves decreased Complement activation and opson
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-giant-germinal-center-formation" data-dismech-node="Giant Germinal Center Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Giant Germinal Center Formation</div>
 
+
                 <div class="item-desc">The histological hallmark of AID deficiency. B cells that cannot complete the diversification program are repeatedly restimulated and re-enter the germinal center rather than exiting as switched or affinity-matured progeny. Germinal centers consequently become greatly enlarged and are packed with strongly activated B cells — the &#34;giant germinal centers&#34; described in the original report and reproduced in AID-null mice.</div>
 
 
@@ -5590,11 +5753,11 @@ This pathophysiological event involves decreased Complement activation and opson
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000844</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000844</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5631,11 +5794,11 @@ This pathophysiological event involves Germinal center B cell (CL:0000844). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002467</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0002467</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Germinal center formation (GO:0002467). GO:0002467 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5700,6 +5863,7 @@ This pathophysiological event involves increased Germinal center formation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5722,6 +5886,7 @@ This pathophysiological event involves increased Germinal center formation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-massive-lymphoid-hyperplasia" data-dismech-node="Massive Lymphoid Hyperplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Massive Lymphoid Hyperplasia</div>
+
 
                 <div class="item-desc">Generalized enlargement of secondary lymphoid tissue — lymphadenopathy and tonsillar enlargement — is present in the majority of patients and is disproportionate to that seen in other primary antibody deficiencies. It can regress on immunoglobulin replacement but persists in a minority.</div>
 
@@ -5760,6 +5925,7 @@ This pathophysiological event involves increased Germinal center formation (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5783,6 +5949,7 @@ This pathophysiological event involves increased Germinal center formation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-breakdown-of-b-cell-self-tolerance" data-dismech-node="Breakdown of B-Cell Self-Tolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Breakdown of B-Cell Self-Tolerance</div>
 
+
                 <div class="item-desc">AID has a role in B-cell tolerance that is separable from its diversification role. In AID-deficient patients both the central checkpoint (new emigrant/transitional B cells) and the peripheral checkpoint (mature naive B cells) fail to remove autoreactive clones, and anti-nuclear IgM is detectable in serum. This provides the mechanistic explanation for the autoimmunity seen in a disease that is otherwise one of immune deficiency.</div>
 
 
@@ -5797,11 +5964,11 @@ This pathophysiological event involves increased Germinal center formation (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000236</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5838,11 +6005,11 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0002514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0002514</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves B cell tolerance induction (GO:0002514), qualified as loss of function. GO:0002514 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5907,6 +6074,7 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5929,6 +6097,7 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-and-inflammatory-disease" data-dismech-node="Autoimmune and Inflammatory Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune and Inflammatory Disease</div>
+
 
                 <div class="item-desc">A substantial minority of AID-deficient patients develop autoimmune or inflammatory disease. The reported spectrum is broad and not confined to one organ — autoimmune cytopenias (hemolytic anemia, immune thrombocytopenia), polyarthritis, autoimmune hepatitis, type 1 diabetes, Crohn&#39;s disease, and chronic uveitis have all been described in a single cohort.</div>
 
@@ -5964,6 +6133,7 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6012,7 +6182,7 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AICDA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AICDA\"], \"gene_terms\": [{\"label\": \"AICDA\", \"id\": \"hgnc:13203\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"AICDA C-terminal heterozygous variants (autosomal dominant HIGM2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"AICDA\"], \"gene_terms\": [{\"label\": \"AICDA\", \"id\": \"hgnc:13203\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"AICDA R190X\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous C-terminal nonsense variant removing the AID nuclear export signal. Causes a class-switch-recombination defect with preserved somatic hypermutation, inherited as an autosomal dominant trait.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AICDA\"], \"gene_terms\": [{\"label\": \"AICDA\", \"id\": \"hgnc:13203\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"AID Enzymatic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activation-induced cytidine deaminase is a member of the cytidine deaminase family whose expression is restricted to germinal center B cells. It initiates antibody diversification by deaminating cytosine to uracil in single-stranded DNA at the immunoglobulin switch and variable regions, creating the U:G mismatches that downstream repair pathways convert into either switch-region double-strand breaks or point mutations. Biallelic loss-of-function AICDA variants abolish this enzymatic activity, removing the single upstream trigger for both antibody-diversification programs.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Germinal center B cell\"], \"molecular_functions\": [\"cytidine deaminase activity\"]}}, {\"id\": \"Absent Affinity Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Memory B cells are produced but their variable regions remain in germline configuration, so the antibody repertoire never improves in affinity across repeated antigen encounters. Secondary responses are therefore no better than primary ones, compounding the isotype deficit.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Memory B cell\"], \"biological_processes\": [\"Somatic hypermutation of immunoglobulin genes\"]}}, {\"id\": \"Antibiotic Therapy and Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibiotics treat the recurrent bacterial sinopulmonary and mucosal infections, and prophylactic regimens are used alongside immunoglobulin replacement in patients with continuing infection or established bronchiectasis.\"}, {\"id\": \"Autoimmune and Inflammatory Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial minority of AID-deficient patients develop autoimmune or inflammatory disease. The reported spectrum is broad and not confined to one organ \\u2014 autoimmune cytopenias (hemolytic anemia, immune thrombocytopenia), polyarthritis, autoimmune hepatitis, type 1 diabetes, Crohn\u0027s disease, and chronic uveitis have all been described in a single cohort.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Breakdown of B-Cell Self-Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AID has a role in B-cell tolerance that is separable from its diversification role. In AID-deficient patients both the central checkpoint (new emigrant/transitional B cells) and the peripheral checkpoint (mature naive B cells) fail to remove autoreactive clones, and anti-nuclear IgM is detectable in serum. This provides the mechanistic explanation for the autoimmunity seen in a disease that is otherwise one of immune deficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B cell tolerance induction\"]}}, {\"id\": \"Failed Immunoglobulin Class-Switch Recombination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Class-switch recombination replaces the IgM/IgD constant region with a downstream constant region, converting a naive B cell\u0027s output to IgG, IgA, or IgE without altering antigen specificity. In AID deficiency this recombination does not occur. The block is B-cell intrinsic: germline switch transcripts are still produced and the upstream T-cell help signal is intact, so the lesion lies at the DNA-modification step itself.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Germinal center B cell\"], \"biological_processes\": [\"Immunoglobulin isotype switching\"]}}, {\"id\": \"Failed Somatic Hypermutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic hypermutation introduces point mutations into immunoglobulin variable-region genes, generating the sequence variation on which affinity-based selection acts in the germinal center. AID deficiency abolishes it. Memory B cells are still generated in normal numbers but carry unmutated variable regions. This arm is independent of the CSR arm: C-terminal AICDA variants can spare it while still blocking CSR.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Germinal center B cell\", \"Memory B cell\"], \"biological_processes\": [\"Somatic hypermutation of immunoglobulin genes\"]}}, {\"id\": \"Giant Germinal Center Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histological hallmark of AID deficiency. B cells that cannot complete the diversification program are repeatedly restimulated and re-enter the germinal center rather than exiting as switched or affinity-matured progeny. Germinal centers consequently become greatly enlarged and are packed with strongly activated B cells \\u2014 the \\\"giant germinal centers\\\" described in the original report and reproduced in AID-null mice.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Germinal center B cell\"], \"biological_processes\": [\"Germinal center formation\"]}}, {\"id\": \"IgM-Restricted Antibody Repertoire\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The systemic consequence of the switching block is a humoral compartment that produces only IgM. Serum IgM is normal or elevated \\u2014 partly because unswitched B cells continue to be driven by antigen \\u2014 while IgG, IgA, and IgE are absent or very low. Circulating B-cell numbers are normal, which distinguishes HIGM2 from the agammaglobulinemias, where the lesion is a developmental block upstream of B-cell egress.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Plasma cell\", \"B cell\"], \"biological_processes\": [\"Immunoglobulin production\"]}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular intravenous or subcutaneous immunoglobulin replacement is the cornerstone of management. It supplies the IgG that patients cannot make and produces a marked reduction in infection frequency; early initiation may also prevent the lymphoid hyperplasia. It does not correct the underlying enzymatic defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The two arms converge here. The patient retains antibody, but it is of the wrong isotype and of germline affinity: no IgG to opsonize encapsulated bacteria and fix complement efficiently in tissue, no secretory IgA to exclude organisms at respiratory and gastrointestinal mucosal surfaces, and no affinity-matured binding to compensate. Humoral protection against extracellular bacteria is therefore lost, while cellular immunity is untouched.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Complement activation and opsonization by antibody\"]}}, {\"id\": \"Massive Lymphoid Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Generalized enlargement of secondary lymphoid tissue \\u2014 lymphadenopathy and tonsillar enlargement \\u2014 is present in the majority of patients and is disproportionate to that seen in other primary antibody deficiencies. It can regress on immunoglobulin replacement but persists in a minority.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Bacterial Sinopulmonary and Mucosal Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clinically the infections are bacterial and mucosal \\u2014 recurrent sinusitis, otitis media, and pneumonia progressing to bronchiectasis, with gastrointestinal involvement. The spectrum is narrower than in the CD40L/CD40 hyper-IgM syndromes: because AID acts only in B cells and leaves T-cell and macrophage effector function intact, HIGM2 patients do not show the Pneumocystis, Cryptosporidium, and other opportunistic infections that characterize the CD40 pathway defects. Immunoglobulin replacement markedly reduces infection frequency.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"AID Enzymatic Loss of Function\", \"target\": \"Failed Immunoglobulin Class-Switch Recombination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without AID-mediated deamination of switch regions, the DNA lesions that initiate class-switch recombination are never generated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AID Enzymatic Loss of Function\", \"target\": \"Failed Somatic Hypermutation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deamination step seeds the point mutations of somatic hypermutation in immunoglobulin variable regions, so SHM fails in parallel with CSR rather than as a consequence of it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Immunoglobulin Class-Switch Recombination\", \"target\": \"IgM-Restricted Antibody Repertoire\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With switching blocked, plasma cells can only secrete the IgM isotype encoded by the unrearranged constant region.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Immunoglobulin Class-Switch Recombination\", \"target\": \"Giant Germinal Center Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B cells that cannot complete the switching program continue to be stimulated and re-enter the germinal center reaction instead of exiting it as switched memory or plasma cells, so germinal centers enlarge rather than resolve.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Somatic Hypermutation\", \"target\": \"Absent Affinity Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without variable-region mutation there is no sequence variation for germinal-center selection to act on, so antibody affinity cannot improve with successive antigen exposure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Somatic Hypermutation\", \"target\": \"Breakdown of B-Cell Self-Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond diversification, AID is separately required to purge developing autoreactive B cells. Its loss leaves an abnormal repertoire enriched for self-reactive specificities at both the central and peripheral tolerance checkpoints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"IgM-Restricted Antibody Repertoire\", \"target\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IgM is a poor opsonin relative to IgG and cannot be transported across mucosal epithelium in place of secretory IgA, so an IgM-only repertoire cannot perform the effector functions those isotypes provide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Affinity Maturation\", \"target\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low-affinity germline-encoded antibody binds pathogens poorly, further degrading the protective quality of the residual IgM response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"target\": \"Recurrent Bacterial Sinopulmonary and Mucosal Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent opsonizing and mucosal antibody permits recurrent infection by extracellular and encapsulated bacteria at respiratory and gastrointestinal surfaces.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Giant Germinal Center Formation\", \"target\": \"Massive Lymphoid Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlargement of germinal centers throughout secondary lymphoid tissue produces clinically apparent lymph node and tonsillar enlargement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Breakdown of B-Cell Self-Tolerance\", \"target\": \"Autoimmune and Inflammatory Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained autoreactive B-cell clones provide the substrate from which clinical autoimmune and inflammatory disease develops in a substantial minority of patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Massive Lymphoid Hyperplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy and Prophylaxis\", \"target\": \"Recurrent Bacterial Sinopulmonary and Mucosal Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AICDA R190X\", \"target\": \"AICDA\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"AICDA R190X\", \"target\": \"AICDA C-terminal heterozygous variants (autosomal dominant HIGM2)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AICDA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AICDA\"], \"gene_terms\": [{\"label\": \"AICDA\", \"id\": \"hgnc:13203\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"AICDA C-terminal heterozygous variants (autosomal dominant HIGM2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"AICDA\"], \"gene_terms\": [{\"label\": \"AICDA\", \"id\": \"hgnc:13203\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"AICDA R190X\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous C-terminal nonsense variant removing the AID nuclear export signal. Causes a class-switch-recombination defect with preserved somatic hypermutation, inherited as an autosomal dominant trait.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AICDA\"], \"gene_terms\": [{\"label\": \"AICDA\", \"id\": \"hgnc:13203\"}], \"variant_type\": \"nonsense\"}}, {\"id\": \"AID Enzymatic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activation-induced cytidine deaminase is a member of the cytidine deaminase family whose expression is restricted to germinal center B cells. It initiates antibody diversification by deaminating cytosine to uracil in single-stranded DNA at the immunoglobulin switch and variable regions, creating the U:G mismatches that downstream repair pathways convert into either switch-region double-strand breaks or point mutations. Biallelic loss-of-function AICDA variants abolish this enzymatic activity, removing the single upstream trigger for both antibody-diversification programs. Anchors the module\u0027s conformance here rather than on either downstream node (Failed Immunoglobulin Class-Switch Recombination, Failed Somatic Hypermutation) because this is the molecular lesion that causes both of them: neither downstream node alone covers the module\u0027s bundled \\\"Germinal Center Reaction\\\" claim, but this one node, read alongside its two direct downstream edges, does.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Germinal center B cell\"], \"biological_processes\": [\"Somatic Hypermutation of Immunoglobulin Genes\", \"Class Switch Recombination\"], \"molecular_functions\": [\"cytidine deaminase activity\"]}}, {\"id\": \"Absent Affinity Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Memory B cells are produced but their variable regions remain in germline configuration, so the antibody repertoire never improves in affinity across repeated antigen encounters. Secondary responses are therefore no better than primary ones, compounding the isotype deficit.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Memory B cell\"], \"biological_processes\": [\"Somatic hypermutation of immunoglobulin genes\"]}}, {\"id\": \"Antibiotic Therapy and Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibiotics treat the recurrent bacterial sinopulmonary and mucosal infections, and prophylactic regimens are used alongside immunoglobulin replacement in patients with continuing infection or established bronchiectasis.\"}, {\"id\": \"Autoimmune and Inflammatory Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial minority of AID-deficient patients develop autoimmune or inflammatory disease. The reported spectrum is broad and not confined to one organ \\u2014 autoimmune cytopenias (hemolytic anemia, immune thrombocytopenia), polyarthritis, autoimmune hepatitis, type 1 diabetes, Crohn\u0027s disease, and chronic uveitis have all been described in a single cohort.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Breakdown of B-Cell Self-Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AID has a role in B-cell tolerance that is separable from its diversification role. In AID-deficient patients both the central checkpoint (new emigrant/transitional B cells) and the peripheral checkpoint (mature naive B cells) fail to remove autoreactive clones, and anti-nuclear IgM is detectable in serum. This provides the mechanistic explanation for the autoimmunity seen in a disease that is otherwise one of immune deficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B cell tolerance induction\"]}}, {\"id\": \"Failed Immunoglobulin Class-Switch Recombination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Class-switch recombination replaces the IgM/IgD constant region with a downstream constant region, converting a naive B cell\u0027s output to IgG, IgA, or IgE without altering antigen specificity. In AID deficiency this recombination does not occur. The block is B-cell intrinsic: germline switch transcripts are still produced and the upstream T-cell help signal is intact, so the lesion lies at the DNA-modification step itself.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Germinal center B cell\"], \"biological_processes\": [\"Immunoglobulin isotype switching\"]}}, {\"id\": \"Failed Somatic Hypermutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic hypermutation introduces point mutations into immunoglobulin variable-region genes, generating the sequence variation on which affinity-based selection acts in the germinal center. AID deficiency abolishes it. Memory B cells are still generated in normal numbers but carry unmutated variable regions. This arm is independent of the CSR arm: C-terminal AICDA variants can spare it while still blocking CSR.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Germinal center B cell\", \"Memory B cell\"], \"biological_processes\": [\"Somatic hypermutation of immunoglobulin genes\"]}}, {\"id\": \"Giant Germinal Center Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histological hallmark of AID deficiency. B cells that cannot complete the diversification program are repeatedly restimulated and re-enter the germinal center rather than exiting as switched or affinity-matured progeny. Germinal centers consequently become greatly enlarged and are packed with strongly activated B cells \\u2014 the \\\"giant germinal centers\\\" described in the original report and reproduced in AID-null mice.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Germinal center B cell\"], \"biological_processes\": [\"Germinal center formation\"]}}, {\"id\": \"IgM-Restricted Antibody Repertoire\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The systemic consequence of the switching block is a humoral compartment that produces only IgM. Serum IgM is normal or elevated \\u2014 partly because unswitched B cells continue to be driven by antigen \\u2014 while IgG, IgA, and IgE are absent or very low. Circulating B-cell numbers are normal, which distinguishes HIGM2 from the agammaglobulinemias, where the lesion is a developmental block upstream of B-cell egress.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Plasma cell\", \"B cell\"], \"biological_processes\": [\"Immunoglobulin production\"]}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular intravenous or subcutaneous immunoglobulin replacement is the cornerstone of management. It supplies the IgG that patients cannot make and produces a marked reduction in infection frequency; early initiation may also prevent the lymphoid hyperplasia. It does not correct the underlying enzymatic defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The two arms converge here. The patient retains antibody, but it is of the wrong isotype and of germline affinity: no IgG to opsonize encapsulated bacteria and fix complement efficiently in tissue, no secretory IgA to exclude organisms at respiratory and gastrointestinal mucosal surfaces, and no affinity-matured binding to compensate. Humoral protection against extracellular bacteria is therefore lost, while cellular immunity is untouched.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Complement activation and opsonization by antibody\"]}}, {\"id\": \"Massive Lymphoid Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Generalized enlargement of secondary lymphoid tissue \\u2014 lymphadenopathy and tonsillar enlargement \\u2014 is present in the majority of patients and is disproportionate to that seen in other primary antibody deficiencies. It can regress on immunoglobulin replacement but persists in a minority.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Bacterial Sinopulmonary and Mucosal Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clinically the infections are bacterial and mucosal \\u2014 recurrent sinusitis, otitis media, and pneumonia progressing to bronchiectasis, with gastrointestinal involvement. The spectrum is narrower than in the CD40L/CD40 hyper-IgM syndromes: because AID acts only in B cells and leaves T-cell and macrophage effector function intact, HIGM2 patients do not show the Pneumocystis, Cryptosporidium, and other opportunistic infections that characterize the CD40 pathway defects. Immunoglobulin replacement markedly reduces infection frequency.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"AID Enzymatic Loss of Function\", \"target\": \"Failed Immunoglobulin Class-Switch Recombination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without AID-mediated deamination of switch regions, the DNA lesions that initiate class-switch recombination are never generated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AID Enzymatic Loss of Function\", \"target\": \"Failed Somatic Hypermutation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same deamination step seeds the point mutations of somatic hypermutation in immunoglobulin variable regions, so SHM fails in parallel with CSR rather than as a consequence of it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Immunoglobulin Class-Switch Recombination\", \"target\": \"IgM-Restricted Antibody Repertoire\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With switching blocked, plasma cells can only secrete the IgM isotype encoded by the unrearranged constant region.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Immunoglobulin Class-Switch Recombination\", \"target\": \"Giant Germinal Center Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"B cells that cannot complete the switching program continue to be stimulated and re-enter the germinal center reaction instead of exiting it as switched memory or plasma cells, so germinal centers enlarge rather than resolve.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Somatic Hypermutation\", \"target\": \"Absent Affinity Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without variable-region mutation there is no sequence variation for germinal-center selection to act on, so antibody affinity cannot improve with successive antigen exposure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Somatic Hypermutation\", \"target\": \"Breakdown of B-Cell Self-Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond diversification, AID is separately required to purge developing autoreactive B cells. Its loss leaves an abnormal repertoire enriched for self-reactive specificities at both the central and peripheral tolerance checkpoints.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"IgM-Restricted Antibody Repertoire\", \"target\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IgM is a poor opsonin relative to IgG and cannot be transported across mucosal epithelium in place of secretory IgA, so an IgM-only repertoire cannot perform the effector functions those isotypes provide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Affinity Maturation\", \"target\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low-affinity germline-encoded antibody binds pathogens poorly, further degrading the protective quality of the residual IgM response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"target\": \"Recurrent Bacterial Sinopulmonary and Mucosal Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent opsonizing and mucosal antibody permits recurrent infection by extracellular and encapsulated bacteria at respiratory and gastrointestinal surfaces.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Giant Germinal Center Formation\", \"target\": \"Massive Lymphoid Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlargement of germinal centers throughout secondary lymphoid tissue produces clinically apparent lymph node and tonsillar enlargement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Breakdown of B-Cell Self-Tolerance\", \"target\": \"Autoimmune and Inflammatory Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained autoreactive B-cell clones provide the substrate from which clinical autoimmune and inflammatory disease develops in a substantial minority of patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Loss of Opsonizing and Mucosal Antibody Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Massive Lymphoid Hyperplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy and Prophylaxis\", \"target\": \"Recurrent Bacterial Sinopulmonary and Mucosal Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AICDA R190X\", \"target\": \"AICDA\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"AICDA R190X\", \"target\": \"AICDA C-terminal heterozygous variants (autosomal dominant HIGM2)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6035,7 +6205,7 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Ear<span class="pill-count">(1)</span></button>
 
@@ -6044,8 +6214,6 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6074,15 +6242,18 @@ This pathophysiological event involves B cell tolerance induction (GO:0002514), 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034839" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0034839</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034839" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0034839</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphoid hyperplasia (HP:0034839). HP:0034839 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6102,6 +6273,7 @@ This clinical feature is Lymphoid hyperplasia (HP:0034839). HP:0034839 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6146,15 +6318,18 @@ This clinical feature is Lymphoid hyperplasia (HP:0034839). HP:0034839 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003496</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003496</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased circulating IgM level (HP:0003496). HP:0003496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6174,6 +6349,7 @@ This clinical feature is Increased circulating IgM level (HP:0003496). HP:000349
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6218,15 +6394,18 @@ This clinical feature is Increased circulating IgM level (HP:0003496). HP:000349
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating IgG concentration (HP:0004315). HP:0004315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6246,6 +6425,7 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6290,15 +6470,18 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002720</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002720</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased circulating IgA concentration (HP:0002720). HP:0002720 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6318,6 +6501,7 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6358,15 +6542,18 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001890</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6386,6 +6573,7 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6426,15 +6614,18 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001973</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001973</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6454,6 +6645,7 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6503,15 +6695,18 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6531,6 +6726,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6555,6 +6751,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6595,15 +6792,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030812</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0030812</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Enlarged tonsils (HP:0030812). HP:0030812 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6623,6 +6823,7 @@ This clinical feature is Enlarged tonsils (HP:0030812). HP:0030812 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6655,12 +6856,12 @@ This clinical feature is Enlarged tonsils (HP:0030812). HP:0030812 is a phenotyp
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-crohn-s-disease" data-dismech-node="Crohn&#39;s Disease" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-hepatitis" data-dismech-node="Autoimmune Hepatitis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Crohn&#39;s Disease
+                        Autoimmune Hepatitis
 
 
 
@@ -6672,15 +6873,18 @@ This clinical feature is Enlarged tonsils (HP:0030812). HP:0030812 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5210421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:5210421</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Crohn&#39;s disease (HP:0100280). HP:0100280 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Autoimmune hepatitis (HP:5210421). HP:5210421 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6700,6 +6904,79 @@ This clinical feature is Crohn&#39;s disease (HP:0100280). HP:0100280 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is striking to note that six patients developed autoimmune or inflammatory disorders including diabetes mellitus, polyarthritis, autoimmune hepatitis, hemolytic anemia, immune thrombocytopenia, Crohn&#39;s disease and chronic uveitis."</div>
+
+
+                <div class="evidence-explanation">Autoimmune hepatitis is named among the autoimmune disorders in the cohort. Reported in one or two patients, so no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-crohn-s-disease" data-dismech-node="Crohn&#39;s Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Crohn&#39;s Disease
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100280</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Crohn&#39;s disease (HP:0100280). HP:0100280 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14962793" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14962793" target="_blank">PMID:14962793</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6749,15 +7026,18 @@ This clinical feature is Crohn&#39;s disease (HP:0100280). HP:0100280 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000388</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000388</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic suppurative otitis media, annotated with Otitis media (HP:0000388). HP:0000388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6777,6 +7057,7 @@ This clinical feature is Chronic suppurative otitis media, annotated with Otitis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6828,15 +7109,18 @@ This clinical feature is Chronic suppurative otitis media, annotated with Otitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6856,6 +7140,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6880,6 +7165,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6924,15 +7210,18 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune and inflammatory disease, annotated with Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6952,6 +7241,7 @@ This clinical feature is Autoimmune and inflammatory disease, annotated with Aut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7001,15 +7291,18 @@ This clinical feature is Autoimmune and inflammatory disease, annotated with Aut
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001369</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001369</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polyarthritis, annotated with Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7029,6 +7322,7 @@ This clinical feature is Polyarthritis, annotated with Arthritis (HP:0001369). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7078,15 +7372,18 @@ This clinical feature is Polyarthritis, annotated with Arthritis (HP:0001369). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7109,6 +7406,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7117,83 +7415,6 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                 <div class="evidence-explanation">Bilateral bronchiectasis in a genetically confirmed HIGM2 patient. Single case report, so no frequency band is asserted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-hepatitis" data-dismech-node="Autoimmune Hepatitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autoimmune Hepatitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_5210421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:5210421</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Autoimmune hepatitis (HP:5210421). HP:5210421 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:14962793" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14962793" target="_blank">PMID:14962793</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is striking to note that six patients developed autoimmune or inflammatory disorders including diabetes mellitus, polyarthritis, autoimmune hepatitis, hemolytic anemia, immune thrombocytopenia, Crohn&#39;s disease and chronic uveitis."</div>
-
-
-                <div class="evidence-explanation">Autoimmune hepatitis is named among the autoimmune disorders in the cohort. Reported in one or two patients, so no frequency band is asserted.</div>
 
 
 
@@ -7266,10 +7487,10 @@ This clinical feature is Autoimmune hepatitis (HP:5210421). HP:5210421 is a phen
                         Gene: AICDA
 
 
-    <a href="https://bioregistry.io/hgnc:13203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:13203</a>
+    <a href="https://bioregistry.io/hgnc:13203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:13203</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7281,6 +7502,9 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7299,6 +7523,7 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7323,6 +7548,7 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7365,10 +7591,10 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
                         Gene: AICDA
 
 
-    <a href="https://bioregistry.io/hgnc:13203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:13203</a>
+    <a href="https://bioregistry.io/hgnc:13203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:13203</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7380,6 +7606,9 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7398,6 +7627,7 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7425,6 +7655,7 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7446,6 +7677,7 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7479,6 +7711,7 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7489,13 +7722,14 @@ This disease-associated gene is AICDA (hgnc:13203). hgnc:13203 is a gene from th
             Gene: AICDA
 
 
-    <a href="https://bioregistry.io/hgnc:13203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:13203</a>
+    <a href="https://bioregistry.io/hgnc:13203" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:13203</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in AICDA (hgnc:13203). hgnc:13203 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
@@ -7503,6 +7737,11 @@ This variant is in AICDA (hgnc:13203). hgnc:13203 is a gene from the HUGO Gene N
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous C-terminal nonsense variant removing the AID nuclear export signal. Causes a class-switch-recombination defect with preserved somatic hypermutation, inherited as an autosomal dominant trait.</div>
@@ -7529,6 +7768,7 @@ This variant is in AICDA (hgnc:13203). hgnc:13203 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7584,7 +7824,7 @@ This variant is in AICDA (hgnc:13203). hgnc:13203 is a gene from the HUGO Gene N
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">immunoglobulin replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">immunoglobulin replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunoglobulin replacement therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7620,6 +7860,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7630,6 +7873,9 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
     </div>
+
+
+
 
 
 
@@ -7666,6 +7912,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7716,6 +7963,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7759,6 +8007,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7787,7 +8036,7 @@ This treatment is immunoglobulin replacement therapy, annotated with Immunoglobu
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7823,6 +8072,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7833,6 +8085,9 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7875,7 +8130,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">hematopoietic cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">hematopoietic cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7911,6 +8166,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7921,6 +8179,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -7948,6 +8209,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8011,11 +8273,11 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
         serum immunoglobulin measurement
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C18020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C18020</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8053,6 +8315,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8098,11 +8361,11 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8143,6 +8406,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8164,6 +8428,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8234,6 +8499,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8255,6 +8521,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8326,6 +8593,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8347,6 +8615,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8416,6 +8685,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8437,6 +8707,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8479,12 +8750,11 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-hyper-igm-syndrome-type-1-cd40-ligand-deficiency">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Hyper-IgM syndrome type 1 (CD40 ligand deficiency)</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Hyper-IgM_Syndrome_Type_1.html">Hyper-IgM syndrome type 1 (CD40 ligand deficiency)</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0010626" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0010626" target="_blank">
                             MONDO:0010626
                         </a>
                     </span>
@@ -8528,6 +8798,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8838,6 +9109,7 @@ prevalence:
       an already rare syndrome.
 pathophysiology:
 - name: AID Enzymatic Loss of Function
+  conforms_to: &#34;germinal_center_reaction#Germinal Center Reaction&#34;
   biological_scale: MOLECULAR
   description: &gt;-
     Activation-induced cytidine deaminase is a member of the cytidine deaminase
@@ -8848,6 +9120,12 @@ pathophysiology:
     either switch-region double-strand breaks or point mutations. Biallelic
     loss-of-function AICDA variants abolish this enzymatic activity, removing
     the single upstream trigger for both antibody-diversification programs.
+    Anchors the module&#39;s conformance here rather than on either downstream
+    node (Failed Immunoglobulin Class-Switch Recombination, Failed Somatic
+    Hypermutation) because this is the molecular lesion that causes both of
+    them: neither downstream node alone covers the module&#39;s bundled
+    &#34;Germinal Center Reaction&#34; claim, but this one node, read alongside its
+    two direct downstream edges, does.
   cell_types:
   - preferred_term: Germinal center B cell
     term:
@@ -8859,6 +9137,17 @@ pathophysiology:
       id: GO:0004126
       label: cytidine deaminase activity
     modifier: LOSS_OF_FUNCTION
+  biological_processes:
+  - preferred_term: Somatic Hypermutation of Immunoglobulin Genes
+    term:
+      id: GO:0016446
+      label: somatic hypermutation of immunoglobulin genes
+    modifier: ABSENT
+  - preferred_term: Class Switch Recombination
+    term:
+      id: GO:0045190
+      label: isotype switching
+    modifier: ABSENT
   evidence:
   - reference: PMID:11007475
     reference_title: &#34;Activation-induced cytidine deaminase (AID) deficiency causes the autosomal recessive form of the Hyper-IgM syndrome (HIGM2).&#34;
@@ -9214,6 +9503,7 @@ pathophysiology:
         The IUIS Table 3 associated-features column for AID deficiency lists
         bacterial infections as the cardinal clinical consequence.
 - name: Recurrent Bacterial Sinopulmonary and Mucosal Infection
+  conforms_to: &#34;germinal_center_reaction#Clinical Susceptibility to Infection&#34;
   biological_scale: ORGANISM
   description: &gt;-
     Clinically the infections are bacterial and mucosal — recurrent sinusitis,
@@ -10395,7 +10685,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hyper-IgM Syndrome Type 2", "mondoId": "MONDO:0011528", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyper-IgM_Syndrome_Type_2", "yamlRevision": "b9f3d89e12cd"};
+        const OS_CONFIG = {"diseaseName": "Hyper-IgM Syndrome Type 2", "mondoId": "MONDO:0011528", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyper-IgM_Syndrome_Type_2", "yamlRevision": "02fedba5e4dd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

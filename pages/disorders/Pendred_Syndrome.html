@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4128,6 +4196,7 @@ The second thing worth stating plainly is that this is the syndromic end of a sp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4149,6 +4218,7 @@ The second thing worth stating plainly is that this is the syndromic end of a sp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4269,6 +4339,7 @@ The second thing worth stating plainly is that this is the syndromic end of a sp
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4370,6 +4441,7 @@ This is recorded as a HUMAN_MODEL_MISMATCH rather than a plain knowledge gap bec
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4394,6 +4466,7 @@ This is recorded as a HUMAN_MODEL_MISMATCH rather than a plain knowledge gap bec
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4415,6 +4488,7 @@ This is recorded as a HUMAN_MODEL_MISMATCH rather than a plain knowledge gap bec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4501,6 +4575,7 @@ This is why the entry curates the two routes inside one pathophysiology node rat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4582,6 +4657,7 @@ Distinguishing the two matters for counselling, since one implies a predictable 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4616,6 +4692,13 @@ Distinguishing the two matters for counselling, since one implies a predictable 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-slc26a4-loss-of-function" data-dismech-node="Biallelic SLC26A4 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SLC26A4 Loss of Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of functional pendrin. Two distinct routes get there and they matter therapeutically rather than only descriptively: variants at the anion-binding site or the transport gate abolish exchange in a protein that reaches the membrane, whereas variants such as p.His723Arg fold badly and are retained in the endoplasmic reticulum, so the protein is competent but absent from the surface. Only the second class is addressable by a chaperone.</div>
 
@@ -4674,9 +4757,14 @@ This genetic context concerns SLC26A4 (hgnc:8818). hgnc:8818 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4743,6 +4831,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4764,6 +4853,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4791,6 +4881,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4813,6 +4904,13 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-apical-anion-exchange" data-dismech-node="Loss of Apical Anion Exchange" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Apical Anion Exchange</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The transport step that both organ phenotypes share. Pendrin exchanges chloride for bicarbonate, iodide and other anions across the apical membrane; what the loss costs depends entirely on which epithelium is being asked to do what.</div>
 
@@ -4979,6 +5077,7 @@ This pathophysiological event involves apical plasma membrane (GO:0016324). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5001,6 +5100,13 @@ This pathophysiological event involves apical plasma membrane (GO:0016324). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endolymphatic-acidification" data-dismech-node="Endolymphatic Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Endolymphatic Acidification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Without bicarbonate secretion the endolymph becomes acidic. In the conditional mouse this is the measured proximate consequence of withdrawing pendrin, and it appears within the developmental window rather than accumulating over years.</div>
 
@@ -5093,6 +5199,7 @@ This pathophysiological event occurs in endolymphatic sac (UBERON:0002223). UBER
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5115,6 +5222,13 @@ This pathophysiological event occurs in endolymphatic sac (UBERON:0002223). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-endocochlear-potential" data-dismech-node="Loss of Endocochlear Potential" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Endocochlear Potential</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The endocochlear potential is the battery that drives transduction current through the hair cells. It collapses when endolymph composition fails, and without it the hair cells cannot do their job however intact they are.</div>
 
@@ -5210,6 +5324,13 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endolymphatic-compartment-enlargement" data-dismech-node="Endolymphatic Compartment Enlargement" data-dismech-type="pathophysiology">
                 <div class="item-name">Endolymphatic Compartment Enlargement</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Dilation of the endolymphatic duct and sac, seen radiologically as the enlarged vestibular aqueduct that gives the phenotype its imaging name. It is a fixed structural malformation rather than a progressive lesion, which is why the imaging is stable while the hearing is not.</div>
 
 
@@ -5297,6 +5418,7 @@ This pathophysiological event occurs in vestibular aqueduct (UBERON:0002279). UB
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5319,6 +5441,13 @@ This pathophysiological event occurs in vestibular aqueduct (UBERON:0002279). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thyroid-iodide-organification" data-dismech-node="Impaired Thyroid Iodide Organification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Thyroid Iodide Organification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Iodide reaches the follicular lumen less efficiently, so organification onto thyroglobulin is partial. The defect is partial rather than complete, and the entry does not claim pendrin is the only apical route - other channels can carry iodide, which is why the thyroid phenotype is variable where the inner-ear phenotype is not.</div>
 
@@ -5447,6 +5576,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5468,6 +5598,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5493,6 +5624,13 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-local-thyroid-hormone-during-inner-ear-development" data-dismech-node="Reduced Local Thyroid Hormone During Inner Ear Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Local Thyroid Hormone During Inner Ear Development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A second, parallel route from the same protein to the same deafness. Thyroid hormone is required for cochlear maturation, and a mouse allele with a normal-sized thyroid and normal circulating hormone nevertheless showed atrophic follicles and inner-ear defects that resemble hypothyroidism - a thickened tectorial membrane, absent BK channel expression in inner hair cells, reduced inner-ear bone calcification. PROVISIONAL because it rests on one mouse allele and is proposed rather than established for human disease, and because it is a contributing route rather than a substitute for the endolymph mechanism.</div>
 
@@ -5566,6 +5704,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5587,6 +5726,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5612,6 +5752,13 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-thyroid-stimulation-and-goitre" data-dismech-node="Compensatory Thyroid Stimulation and Goitre" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Thyroid Stimulation and Goitre</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Rising TSH drives glandular enlargement, typically appearing in the second decade and typically with preserved or only mildly reduced thyroid function. Penetrance depends on iodine intake, so the same genotype gives goitre more often in a population without salt iodisation.</div>
 
@@ -5651,6 +5798,13 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-acquire-normal-hearing" data-dismech-node="Failure to Acquire Normal Hearing" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Acquire Normal Hearing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint of both inner-ear routes. Two features distinguish it from most congenital hearing loss and both follow from the mechanism: some newborns pass screening, because the deficit is not always complete at birth; and the loss is characteristically fluctuating and step-wise rather than smoothly progressive.</div>
 
@@ -5721,7 +5875,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV SLC26A4 Gene Replacement (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Delivery of SLC26A4 to the endolymphatic sac and cochlear lateral wall. The result that matters is that it worked postnatally in a mouse whose auditory phenotype resembles the human one, with effects persisting into adulthood - because the mouse critical-window data had made prenatal delivery look necessary. Whether a comparable postnatal window exists in humans is the central open question and is recorded as a knowledge gap.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic SLC26A4 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional pendrin. Two distinct routes get there and they matter therapeutically rather than only descriptively: variants at the anion-binding site or the transport gate abolish exchange in a protein that reaches the membrane, whereas variants such as p.His723Arg fold badly and are retained in the endoplasmic reticulum, so the protein is competent but absent from the surface. Only the second class is addressable by a chaperone.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"SLC26A4\", \"id\": \"hgnc:8818\"}]}}}, {\"id\": \"CRISPR Exon Skipping (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Editing to skip a premature termination codon arising from the c.919-2A\u003eG splice variant. Recorded here because its result is informative and negative: the edit restored the protein and normal vestibular function, and hearing did not improve, with hair cell loss and elevated thresholds on pathology. That is a direct counterexample to the assumption that restoring pendrin restores hearing whenever it is done, and it concerns the same variant as the family in this entry\u0027s intrafamilial-variability discussion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered where hearing aids have had limited benefit. It carries a specific and predictable perioperative issue in this disorder - a perilymph gusher - which is a consequence of the inner-ear malformation itself rather than of surgical technique, and is the reason the surgeon needs the diagnosis beforehand rather than afterwards.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Compensatory Thyroid Stimulation and Goitre\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rising TSH drives glandular enlargement, typically appearing in the second decade and typically with preserved or only mildly reduced thyroid function. Penetrance depends on iodine intake, so the same genotype gives goitre more often in a population without salt iodisation.\"}, {\"id\": \"Dietary iodine intake\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Iodine status modifies the thyroid phenotype without touching the inner-ear one. Adequate dietary iodine lets a partially defective organification step keep up, so goitre is less frequent and less severe where salt is iodised; where it is not, the same genotypes present with the goitre that named the syndrome. This is why goitre frequency in a cohort describes a food policy as much as a gene, and why the syndromic/nonsyndromic label can differ between populations carrying identical variants.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Doxycycline-inducible Slc26a4 transgenic mouse on the Slc26a4-null background\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that turned pendrin\u0027s requirement into a time interval. All functional pendrin comes from the transgene, so expression can be started and stopped, and the hearing outcome read against when it was present.\"}, {\"id\": \"Endolymphatic Acidification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without bicarbonate secretion the endolymph becomes acidic. In the conditional mouse this is the measured proximate consequence of withdrawing pendrin, and it appears within the developmental window rather than accumulating over years.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"endolymphatic sac\"], \"animal_models\": [{\"name\": \"Doxycycline-inducible Slc26a4 transgenic mouse on the Slc26a4-null background\", \"species\": \"Mouse\", \"genotype\": \"Slc26a4-null carrying a doxycycline-inducible Slc26a4 transgene\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Withdrawing pendrin acidifies endolymph and collapses the endocochlear potential, establishing the sequence rather than inferring it from a constitutive null.\"}]}}, {\"id\": \"Endolymphatic Compartment Enlargement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dilation of the endolymphatic duct and sac, seen radiologically as the enlarged vestibular aqueduct that gives the phenotype its imaging name. It is a fixed structural malformation rather than a progressive lesion, which is why the imaging is stable while the hearing is not.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"vestibular aqueduct\"]}}, {\"id\": \"Enlarged Vestibular Aqueduct\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The radiological hallmark, usually bilateral but sometimes unilateral. Laterality does not predict hearing severity, which is worth stating because the intuition runs the other way.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011387\"}}, {\"id\": \"Failure to Acquire Normal Hearing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of both inner-ear routes. Two features distinguish it from most congenital hearing loss and both follow from the mechanism: some newborns pass screening, because the deficit is not always complete at birth; and the loss is characteristically fluctuating and step-wise rather than smoothly progressive.\"}, {\"id\": \"Goitre\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid enlargement, appearing gradually and typically in the second decade. It is the feature that names the syndrome and the one whose frequency depends on the population\u0027s iodine intake - which is why a cohort frequency for it describes a health system as much as a genotype.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pendred syndrome\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000853\"}}, {\"id\": \"Hearing Habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification and multidisciplinary hearing habilitation, which is the mainstay and is habilitation rather than treatment of the disease. Early auditory intervention is what protects speech and language development, and the fluctuating course means the fitting has to be revisited rather than set once.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most patients are euthyroid; a minority are hypothyroid. The organification defect is partial, so thyroid function is often maintained at the cost of a larger gland.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Pendred syndrome\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"IVS15+5G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A splice-site variant that abolishes expression rather than producing a defective protein. It is the counterpart class to p.His723Arg and the reason the two are curated separately: there is nothing for a chaperone to rescue here, so a gene-replacement approach is the only one with a target.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Impaired Thyroid Iodide Organification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iodide reaches the follicular lumen less efficiently, so organification onto thyroglobulin is partial. The defect is partial rather than complete, and the entry does not claim pendrin is the only apical route - other channels can carry iodide, which is why the thyroid phenotype is variable where the inner-ear phenotype is not.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Incomplete Partition of the Cochlea Type II\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A cochlear malformation with a deficient interscalar septum, accompanying the enlarged vestibular aqueduct in the same imaging spectrum. Often reported together with modiolar hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000376\"}}, {\"id\": \"Iodide Organification Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial failure to incorporate iodide onto thyroglobulin, demonstrated by a positive perchlorate discharge test. This is the discriminating feature of the syndrome: it is what separates Pendred syndrome from DFNB4 in patients whose inner-ear disease is identical, and it is the reason this entry curates the two as subtypes of one disease rather than as one disease with an incidental thyroid finding.\\nGraded OBLIGATE because the subtype is defined by it: a patient without a demonstrable defect is DFNB4 by definition. That is a statement about the definition, not about test sensitivity - the defect is partial and a confirmed patient can discharge normally, which is why the diagnosis entry records the perchlorate test\u0027s limits separately.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Pendred syndrome\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008263\"}}, {\"id\": \"Levothyroxine for Thyroid Insufficiency\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement where thyroid function is inadequate or to suppress goitre growth. It addresses the thyroid arm only; there is no evidence here that it alters the hearing, and the developmental window for the inner ear has closed long before the goitre appears.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levothyroxine\"]}}, {\"id\": \"Loss of Apical Anion Exchange\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transport step that both organ phenotypes share. Pendrin exchanges chloride for bicarbonate, iodide and other anions across the apical membrane; what the loss costs depends entirely on which epithelium is being asked to do what.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"bicarbonate secretion into endolymph\"], \"molecular_functions\": [\"apical chloride/bicarbonate and chloride/iodide exchange\"]}}, {\"id\": \"Loss of Endocochlear Potential\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The endocochlear potential is the battery that drives transduction current through the hair cells. It collapses when endolymph composition fails, and without it the hair cells cannot do their job however intact they are.\", \"meta\": {\"cell_types\": [\"cochlear inner hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"Pendrin Corrector (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A small-molecule chaperone that restores surface expression of misfolded pendrin. In cells, PC2-1 restored both surface expression and anion-exchange activity of p.His723Arg, the most common variant in East Asian patients, and reached micromolar concentrations in cochlear perilymph in vivo. Preclinical only, and by construction it can only help the trafficking class of variants.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prenatal SLC26A4 Gene Transfer (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Electroporation of SLC26A4 cDNA into the otocyst of Slc26a4-knockout mice before birth. It prevented endolymphatic enlargement and rescued both hearing and vestibular function - the strongest demonstration that the inner-ear lesion is preventable if the protein arrives early enough, and the reason the therapeutic window is the question the entry\u0027s central discussion turns on. Prenatal otocyst electroporation is not a route available in human patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, parallel route from the same protein to the same deafness. Thyroid hormone is required for cochlear maturation, and a mouse allele with a normal-sized thyroid and normal circulating hormone nevertheless showed atrophic follicles and inner-ear defects that resemble hypothyroidism - a thickened tectorial membrane, absent BK channel expression in inner hair cells, reduced inner-ear bone calcification. PROVISIONAL because it rests on one mouse allele and is proposed rather than established for human disease, and because it is a contributing route rather than a substitute for the endolymph mechanism.\", \"meta\": {\"evidence_count\": 2, \"animal_models\": [{\"name\": \"Slc26a4 loop/loop mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc26a4 loop/loop\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Shows atrophic thyroid follicles with normal circulating hormone alongside inner-ear defects characteristic of hypothyroidism - the observation the cochlear-hypothyroidism reading rests on.\"}]}}, {\"id\": \"SLC26A4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"SLC26A4\"], \"gene_terms\": [{\"label\": \"SLC26A4\", \"id\": \"hgnc:8818\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 2}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral in most, and severe to profound in most children by age three. It is progressive and characteristically fluctuating - patients describe step-wise drops, sometimes after minor head trauma. A substantial minority pass newborn hearing screening, which is a practical reason the diagnosis is delayed.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"Slc26a4 loop/loop mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse that is profoundly deaf with a normal-sized thyroid gland, modelling the nonsyndromic end of the spectrum, and in which the thyroid nevertheless turns out to be histologically abnormal.\"}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vestibular dysfunction is common and under-studied relative to the hearing loss. In children it can present as head-tilting, vomiting or new clumsiness rather than as reported dizziness, and it may precede the hearing fluctuations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"p.His723Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The trafficking-class allele, and the most prevalent variant causing Pendred syndrome and DFNB4 in East Asian populations. The protein folds badly and is retained in the endoplasmic reticulum rather than reaching the apical membrane, so the transport machinery itself is competent - which is why restoring its surface expression restores anion exchange, and why this is the one allele class a small-molecule chaperone can address. In an Okinawan cohort it accounted, with IVS15+5G\u003eA, for about two thirds of alleles. Which emerging therapy is relevant to a patient is therefore partly a question of ancestry.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic SLC26A4 Loss of Function\", \"target\": \"Loss of Apical Anion Exchange\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical Anion Exchange\", \"target\": \"Endolymphatic Acidification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the inner ear, where the anion moved is bicarbonate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical Anion Exchange\", \"target\": \"Endolymphatic Compartment Enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural consequence of disturbed endolymph handling, giving the enlarged vestibular aqueduct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical Anion Exchange\", \"target\": \"Impaired Thyroid Iodide Organification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the thyrocyte, where the anion moved is iodide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endolymphatic Acidification\", \"target\": \"Loss of Endocochlear Potential\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Endocochlear Potential\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endolymphatic Compartment Enlargement\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The enlargement accompanies the hearing loss and marks the same underlying failure, but the step from a dilated compartment to a specific hearing deficit is not resolved separately from the endolymph-composition route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Endolymphatic Compartment Enlargement\", \"target\": \"Enlarged Vestibular Aqueduct\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endolymphatic Compartment Enlargement\", \"target\": \"Incomplete Partition of the Cochlea Type II\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cochlear partition anomaly accompanies the aqueduct enlargement in the same malformation spectrum; whether it arises from the same endolymph disturbance or from an independent developmental effect of pendrin loss is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Compensatory Thyroid Stimulation and Goitre\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced hormone output raises TSH, which drives follicular hyperplasia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Iodide Organification Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Only where compensation fails; most patients remain euthyroid at the cost of a larger gland.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Through the cochlear maturation defects that thyroid hormone deficiency produces.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Thyroid Stimulation and Goitre\", \"target\": \"Goitre\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Acquire Normal Hearing\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Acquire Normal Hearing\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vestibular dysfunction accompanies the cochlear failure and shares the endolymph disturbance, but is not caused by the hearing loss itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dietary iodine intake\", \"target\": \"Compensatory Thyroid Stimulation and Goitre\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Sufficient iodide supply raises the substrate available to a partially impaired organification step, reducing the TSH drive that produces glandular enlargement. Recorded as MODULATES rather than PROTECTS_AGAINST because the sources state that the thyroid phenotype is modified by iodine intake, not that iodine prevents the goitre.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hearing Habilitation\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cochlear Implantation\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levothyroxine for Thyroid Insufficiency\", \"target\": \"Compensatory Thyroid Stimulation and Goitre\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pendrin Corrector (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prenatal SLC26A4 Gene Transfer (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR Exon Skipping (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV SLC26A4 Gene Replacement (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-inducible Slc26a4 transgenic mouse on the Slc26a4-null background\", \"target\": \"Endolymphatic Acidification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Withdrawing pendrin acidifies endolymph and collapses the endocochlear potential, establishing the sequence rather than inferring it from a constitutive null.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The developmental timing is mouse timing. Mapping E16.5-P2 onto a human gestational interval is exactly the step this model cannot make, and it is why the therapeutic window in humans is an open question rather than a converted date. The constitutive Slc26a4-null mouse, by contrast, is profoundly deaf with malformations more severe than the human phenotype, so severity in either mouse should not be read across to patients.\"}, {\"source\": \"Slc26a4 loop/loop mouse\", \"target\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Shows atrophic thyroid follicles with normal circulating hormone alongside inner-ear defects characteristic of hypothyroidism - the observation the cochlear-hypothyroidism reading rests on.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Circulating thyroid hormone was within the normal range, so the model demonstrates a histological thyroid abnormality and an inner-ear phenotype resembling hypothyroidism, not a measured local hormone deficit in the cochlea. The causal step from one to the other is the authors\u0027 proposal. The mouse also lacks goitre entirely, so it does not model the syndromic thyroid phenotype at all.\"}, {\"source\": \"p.His723Arg\", \"target\": \"SLC26A4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"IVS15+5G\u003eA\", \"target\": \"SLC26A4\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV SLC26A4 Gene Replacement (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Delivery of SLC26A4 to the endolymphatic sac and cochlear lateral wall. The result that matters is that it worked postnatally in a mouse whose auditory phenotype resembles the human one, with effects persisting into adulthood - because the mouse critical-window data had made prenatal delivery look necessary. Whether a comparable postnatal window exists in humans is the central open question and is recorded as a knowledge gap.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Biallelic SLC26A4 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of functional pendrin. Two distinct routes get there and they matter therapeutically rather than only descriptively: variants at the anion-binding site or the transport gate abolish exchange in a protein that reaches the membrane, whereas variants such as p.His723Arg fold badly and are retained in the endoplasmic reticulum, so the protein is competent but absent from the surface. Only the second class is addressable by a chaperone.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"SLC26A4\", \"id\": \"hgnc:8818\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CRISPR Exon Skipping (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Editing to skip a premature termination codon arising from the c.919-2A\u003eG splice variant. Recorded here because its result is informative and negative: the edit restored the protein and normal vestibular function, and hearing did not improve, with hair cell loss and elevated thresholds on pathology. That is a direct counterexample to the assumption that restoring pendrin restores hearing whenever it is done, and it concerns the same variant as the family in this entry\u0027s intrafamilial-variability discussion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered where hearing aids have had limited benefit. It carries a specific and predictable perioperative issue in this disorder - a perilymph gusher - which is a consequence of the inner-ear malformation itself rather than of surgical technique, and is the reason the surgeon needs the diagnosis beforehand rather than afterwards.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Compensatory Thyroid Stimulation and Goitre\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rising TSH drives glandular enlargement, typically appearing in the second decade and typically with preserved or only mildly reduced thyroid function. Penetrance depends on iodine intake, so the same genotype gives goitre more often in a population without salt iodisation.\", \"meta\": {\"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dietary iodine intake\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Iodine status modifies the thyroid phenotype without touching the inner-ear one. Adequate dietary iodine lets a partially defective organification step keep up, so goitre is less frequent and less severe where salt is iodised; where it is not, the same genotypes present with the goitre that named the syndrome. This is why goitre frequency in a cohort describes a food policy as much as a gene, and why the syndromic/nonsyndromic label can differ between populations carrying identical variants.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Doxycycline-inducible Slc26a4 transgenic mouse on the Slc26a4-null background\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The model that turned pendrin\u0027s requirement into a time interval. All functional pendrin comes from the transgene, so expression can be started and stopped, and the hearing outcome read against when it was present.\"}, {\"id\": \"Endolymphatic Acidification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without bicarbonate secretion the endolymph becomes acidic. In the conditional mouse this is the measured proximate consequence of withdrawing pendrin, and it appears within the developmental window rather than accumulating over years.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"endolymphatic sac\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Doxycycline-inducible Slc26a4 transgenic mouse on the Slc26a4-null background\", \"species\": \"Mouse\", \"genotype\": \"Slc26a4-null carrying a doxycycline-inducible Slc26a4 transgene\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Withdrawing pendrin acidifies endolymph and collapses the endocochlear potential, establishing the sequence rather than inferring it from a constitutive null.\"}]}}, {\"id\": \"Endolymphatic Compartment Enlargement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dilation of the endolymphatic duct and sac, seen radiologically as the enlarged vestibular aqueduct that gives the phenotype its imaging name. It is a fixed structural malformation rather than a progressive lesion, which is why the imaging is stable while the hearing is not.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"vestibular aqueduct\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Enlarged Vestibular Aqueduct\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The radiological hallmark, usually bilateral but sometimes unilateral. Laterality does not predict hearing severity, which is worth stating because the intuition runs the other way.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011387\"}}, {\"id\": \"Failure to Acquire Normal Hearing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of both inner-ear routes. Two features distinguish it from most congenital hearing loss and both follow from the mechanism: some newborns pass screening, because the deficit is not always complete at birth; and the loss is characteristically fluctuating and step-wise rather than smoothly progressive.\", \"meta\": {\"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Goitre\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid enlargement, appearing gradually and typically in the second decade. It is the feature that names the syndrome and the one whose frequency depends on the population\u0027s iodine intake - which is why a cohort frequency for it describes a health system as much as a genotype.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pendred syndrome\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000853\"}}, {\"id\": \"Hearing Habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification and multidisciplinary hearing habilitation, which is the mainstay and is habilitation rather than treatment of the disease. Early auditory intervention is what protects speech and language development, and the fluctuating course means the fitting has to be revisited rather than set once.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most patients are euthyroid; a minority are hypothyroid. The organification defect is partial, so thyroid function is often maintained at the cost of a larger gland.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Pendred syndrome\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000821\"}}, {\"id\": \"IVS15+5G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A splice-site variant that abolishes expression rather than producing a defective protein. It is the counterpart class to p.His723Arg and the reason the two are curated separately: there is nothing for a chaperone to rescue here, so a gene-replacement approach is the only one with a target.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Impaired Thyroid Iodide Organification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iodide reaches the follicular lumen less efficiently, so organification onto thyroglobulin is partial. The defect is partial rather than complete, and the entry does not claim pendrin is the only apical route - other channels can carry iodide, which is why the thyroid phenotype is variable where the inner-ear phenotype is not.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"locations\": [\"thyroid gland\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Incomplete Partition of the Cochlea Type II\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A cochlear malformation with a deficient interscalar septum, accompanying the enlarged vestibular aqueduct in the same imaging spectrum. Often reported together with modiolar hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000376\"}}, {\"id\": \"Iodide Organification Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial failure to incorporate iodide onto thyroglobulin, demonstrated by a positive perchlorate discharge test. This is the discriminating feature of the syndrome: it is what separates Pendred syndrome from DFNB4 in patients whose inner-ear disease is identical, and it is the reason this entry curates the two as subtypes of one disease rather than as one disease with an incidental thyroid finding.\\nGraded OBLIGATE because the subtype is defined by it: a patient without a demonstrable defect is DFNB4 by definition. That is a statement about the definition, not about test sensitivity - the defect is partial and a confirmed patient can discharge normally, which is why the diagnosis entry records the perchlorate test\u0027s limits separately.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Pendred syndrome\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008263\"}}, {\"id\": \"Levothyroxine for Thyroid Insufficiency\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement where thyroid function is inadequate or to suppress goitre growth. It addresses the thyroid arm only; there is no evidence here that it alters the hearing, and the developmental window for the inner ear has closed long before the goitre appears.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levothyroxine\"]}}, {\"id\": \"Loss of Apical Anion Exchange\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transport step that both organ phenotypes share. Pendrin exchanges chloride for bicarbonate, iodide and other anions across the apical membrane; what the loss costs depends entirely on which epithelium is being asked to do what.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"bicarbonate secretion into endolymph\"], \"molecular_functions\": [\"apical chloride/bicarbonate and chloride/iodide exchange\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Endocochlear Potential\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The endocochlear potential is the battery that drives transduction current through the hair cells. It collapses when endolymph composition fails, and without it the hair cells cannot do their job however intact they are.\", \"meta\": {\"cell_types\": [\"cochlear inner hair cell\"], \"locations\": [\"cochlea\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Pendrin Corrector (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A small-molecule chaperone that restores surface expression of misfolded pendrin. In cells, PC2-1 restored both surface expression and anion-exchange activity of p.His723Arg, the most common variant in East Asian patients, and reached micromolar concentrations in cochlear perilymph in vivo. Preclinical only, and by construction it can only help the trafficking class of variants.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prenatal SLC26A4 Gene Transfer (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Electroporation of SLC26A4 cDNA into the otocyst of Slc26a4-knockout mice before birth. It prevented endolymphatic enlargement and rescued both hearing and vestibular function - the strongest demonstration that the inner-ear lesion is preventable if the protein arrives early enough, and the reason the therapeutic window is the question the entry\u0027s central discussion turns on. Prenatal otocyst electroporation is not a route available in human patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, parallel route from the same protein to the same deafness. Thyroid hormone is required for cochlear maturation, and a mouse allele with a normal-sized thyroid and normal circulating hormone nevertheless showed atrophic follicles and inner-ear defects that resemble hypothyroidism - a thickened tectorial membrane, absent BK channel expression in inner hair cells, reduced inner-ear bone calcification. PROVISIONAL because it rests on one mouse allele and is proposed rather than established for human disease, and because it is a contributing route rather than a substitute for the endolymph mechanism.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Slc26a4 loop/loop mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc26a4 loop/loop\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Shows atrophic thyroid follicles with normal circulating hormone alongside inner-ear defects characteristic of hypothyroidism - the observation the cochlear-hypothyroidism reading rests on.\"}]}}, {\"id\": \"SLC26A4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"SLC26A4\"], \"gene_terms\": [{\"label\": \"SLC26A4\", \"id\": \"hgnc:8818\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 2}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral in most, and severe to profound in most children by age three. It is progressive and characteristically fluctuating - patients describe step-wise drops, sometimes after minor head trauma. A substantial minority pass newborn hearing screening, which is a practical reason the diagnosis is delayed.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008619\"}}, {\"id\": \"Slc26a4 loop/loop mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A mouse that is profoundly deaf with a normal-sized thyroid gland, modelling the nonsyndromic end of the spectrum, and in which the thyroid nevertheless turns out to be histologically abnormal.\"}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vestibular dysfunction is common and under-studied relative to the hearing loss. In children it can present as head-tilting, vomiting or new clumsiness rather than as reported dizziness, and it may precede the hearing fluctuations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"p.His723Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The trafficking-class allele, and the most prevalent variant causing Pendred syndrome and DFNB4 in East Asian populations. The protein folds badly and is retained in the endoplasmic reticulum rather than reaching the apical membrane, so the transport machinery itself is competent - which is why restoring its surface expression restores anion exchange, and why this is the one allele class a small-molecule chaperone can address. In an Okinawan cohort it accounted, with IVS15+5G\u003eA, for about two thirds of alleles. Which emerging therapy is relevant to a patient is therefore partly a question of ancestry.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic SLC26A4 Loss of Function\", \"target\": \"Loss of Apical Anion Exchange\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical Anion Exchange\", \"target\": \"Endolymphatic Acidification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the inner ear, where the anion moved is bicarbonate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical Anion Exchange\", \"target\": \"Endolymphatic Compartment Enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural consequence of disturbed endolymph handling, giving the enlarged vestibular aqueduct.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical Anion Exchange\", \"target\": \"Impaired Thyroid Iodide Organification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the thyrocyte, where the anion moved is iodide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endolymphatic Acidification\", \"target\": \"Loss of Endocochlear Potential\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Endocochlear Potential\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endolymphatic Compartment Enlargement\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The enlargement accompanies the hearing loss and marks the same underlying failure, but the step from a dilated compartment to a specific hearing deficit is not resolved separately from the endolymph-composition route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Endolymphatic Compartment Enlargement\", \"target\": \"Enlarged Vestibular Aqueduct\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endolymphatic Compartment Enlargement\", \"target\": \"Incomplete Partition of the Cochlea Type II\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cochlear partition anomaly accompanies the aqueduct enlargement in the same malformation spectrum; whether it arises from the same endolymph disturbance or from an independent developmental effect of pendrin loss is not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Compensatory Thyroid Stimulation and Goitre\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced hormone output raises TSH, which drives follicular hyperplasia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Iodide Organification Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thyroid Iodide Organification\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Only where compensation fails; most patients remain euthyroid at the cost of a larger gland.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Through the cochlear maturation defects that thyroid hormone deficiency produces.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Compensatory Thyroid Stimulation and Goitre\", \"target\": \"Goitre\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Acquire Normal Hearing\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Acquire Normal Hearing\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vestibular dysfunction accompanies the cochlear failure and shares the endolymph disturbance, but is not caused by the hearing loss itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dietary iodine intake\", \"target\": \"Compensatory Thyroid Stimulation and Goitre\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Sufficient iodide supply raises the substrate available to a partially impaired organification step, reducing the TSH drive that produces glandular enlargement. Recorded as MODULATES rather than PROTECTS_AGAINST because the sources state that the thyroid phenotype is modified by iodine intake, not that iodine prevents the goitre.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hearing Habilitation\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cochlear Implantation\", \"target\": \"Failure to Acquire Normal Hearing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levothyroxine for Thyroid Insufficiency\", \"target\": \"Compensatory Thyroid Stimulation and Goitre\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pendrin Corrector (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prenatal SLC26A4 Gene Transfer (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR Exon Skipping (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AAV SLC26A4 Gene Replacement (Investigational)\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline-inducible Slc26a4 transgenic mouse on the Slc26a4-null background\", \"target\": \"Endolymphatic Acidification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Withdrawing pendrin acidifies endolymph and collapses the endocochlear potential, establishing the sequence rather than inferring it from a constitutive null.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The developmental timing is mouse timing. Mapping E16.5-P2 onto a human gestational interval is exactly the step this model cannot make, and it is why the therapeutic window in humans is an open question rather than a converted date. The constitutive Slc26a4-null mouse, by contrast, is profoundly deaf with malformations more severe than the human phenotype, so severity in either mouse should not be read across to patients.\"}, {\"source\": \"Slc26a4 loop/loop mouse\", \"target\": \"Reduced Local Thyroid Hormone During Inner Ear Development\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Shows atrophic thyroid follicles with normal circulating hormone alongside inner-ear defects characteristic of hypothyroidism - the observation the cochlear-hypothyroidism reading rests on.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Circulating thyroid hormone was within the normal range, so the model demonstrates a histological thyroid abnormality and an inner-ear phenotype resembling hypothyroidism, not a measured local hormone deficit in the cochlea. The causal step from one to the other is the authors\u0027 proposal. The mouse also lacks goitre entirely, so it does not model the syndromic thyroid phenotype at all.\"}, {\"source\": \"SLC26A4\", \"target\": \"Biallelic SLC26A4 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.His723Arg\", \"target\": \"SLC26A4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"IVS15+5G\u003eA\", \"target\": \"SLC26A4\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5805,6 +5959,9 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5819,6 +5976,7 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5843,6 +6001,7 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5899,6 +6058,9 @@ This clinical feature is Enlarged vestibular aqueduct (HP:0011387). HP:0011387 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5913,6 +6075,7 @@ This clinical feature is Enlarged vestibular aqueduct (HP:0011387). HP:0011387 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5937,6 +6100,7 @@ This clinical feature is Enlarged vestibular aqueduct (HP:0011387). HP:0011387 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5993,6 +6157,9 @@ This clinical feature is Incomplete partition of the cochlea type II (HP:0000376
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6007,6 +6174,7 @@ This clinical feature is Incomplete partition of the cochlea type II (HP:0000376
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6081,6 +6249,9 @@ This clinical feature is Vertigo (HP:0002321), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6095,6 +6266,7 @@ This clinical feature is Vertigo (HP:0002321), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6119,6 +6291,7 @@ This clinical feature is Vertigo (HP:0002321), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6186,6 +6359,9 @@ This clinical feature is Thyroid defect in oxidation and organification of iodid
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6200,6 +6376,7 @@ This clinical feature is Thyroid defect in oxidation and organification of iodid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6227,6 +6404,7 @@ This clinical feature is Thyroid defect in oxidation and organification of iodid
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6248,6 +6426,7 @@ This clinical feature is Thyroid defect in oxidation and organification of iodid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6324,6 +6503,9 @@ This clinical feature is Goiter (HP:0000853), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6338,6 +6520,7 @@ This clinical feature is Goiter (HP:0000853), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6545,7 @@ This clinical feature is Goiter (HP:0000853), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6418,6 +6602,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6432,6 +6619,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6530,6 +6718,9 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6544,6 +6735,7 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6571,6 +6763,7 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6592,6 +6785,7 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6630,6 +6824,12 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The trafficking-class allele, and the most prevalent variant causing Pendred syndrome and DFNB4 in East Asian populations. The protein folds badly and is retained in the endoplasmic reticulum rather than reaching the apical membrane, so the transport machinery itself is competent - which is why restoring its surface expression restores anion exchange, and why this is the one allele class a small-molecule chaperone can address. In an Okinawan cohort it accounted, with IVS15+5G&gt;A, for about two thirds of alleles. Which emerging therapy is relevant to a patient is therefore partly a question of ancestry.</div>
 
 
@@ -6664,6 +6864,7 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6685,6 +6886,7 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6721,6 +6923,12 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A splice-site variant that abolishes expression rather than producing a defective protein. It is the counterpart class to p.His723Arg and the reason the two are curated separately: there is nothing for a chaperone to rescue here, so a gene-replacement approach is the only one with a target.</div>
 
 
@@ -6745,6 +6953,7 @@ This disease-associated gene is SLC26A4 (hgnc:8818). hgnc:8818 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6836,6 +7045,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6846,6 +7058,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6873,6 +7088,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6940,6 +7156,9 @@ This treatment is hearing habilitation, annotated with Rehabilitation (NCIT:C153
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6950,6 +7169,9 @@ This treatment is hearing habilitation, annotated with Rehabilitation (NCIT:C153
 
 
     </div>
+
+
+
 
 
 
@@ -6995,6 +7217,7 @@ This treatment is hearing habilitation, annotated with Rehabilitation (NCIT:C153
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7062,6 +7285,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7072,6 +7298,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -7117,6 +7346,7 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7205,6 +7435,9 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7215,6 +7448,9 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -7260,6 +7496,7 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7326,6 +7563,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7336,6 +7576,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7381,6 +7624,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7448,6 +7692,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7458,6 +7705,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7503,6 +7753,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7570,6 +7821,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7580,6 +7834,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7625,6 +7882,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7692,6 +7950,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7702,6 +7963,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -7747,6 +8011,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7835,6 +8100,7 @@ This environmental factor is exposure to iodine (ECTO:9000084). ECTO:9000084 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7856,6 +8122,7 @@ This environmental factor is exposure to iodine (ECTO:9000084). ECTO:9000084 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7910,6 +8177,7 @@ This environmental factor is exposure to iodine (ECTO:9000084). ECTO:9000084 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7931,6 +8199,7 @@ This environmental factor is exposure to iodine (ECTO:9000084). ECTO:9000084 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8040,6 +8309,7 @@ This environmental factor is exposure to iodine (ECTO:9000084). ECTO:9000084 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8124,6 +8394,7 @@ This environmental factor is exposure to iodine (ECTO:9000084). ECTO:9000084 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8215,6 +8486,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8236,6 +8508,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8316,6 +8589,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8480,6 +8754,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8532,6 +8807,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8553,6 +8829,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8680,6 +8957,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8729,6 +9007,7 @@ Two limits are worth stating. The defect is partial, so the test can be negative
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10522,6 +10801,31 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. Pendred syndrome and DFNB4 are curated here as subtypes of one entry rather than as two entries. They share the gene, the inner-ear mechanism and the allelic spectrum; what separates the labels is whether a thyroid organification defect is demonstrable, and that is modified by dietary iodine. Splitting them would duplicate the whole pathograph to record one branch.
+Frequencies. The cohort numbers quoted here come from a 2774-patient Chinese EVA cohort and are labelled as such in their evidence explanations rather than presented as disease frequencies. The 6.4% goitre figure in particular is graded PARTIAL: it measures goitre in an EVA cohort in a salt-iodised population, which is close to the opposite of the population in which Pendred syndrome&#39;s thyroid phenotype is most penetrant.
+Ontology terms. GO has no term for the endocochlear potential or for endolymph composition, so those nodes carry no descriptor binding and the claims live in the node description. The transport node carries the antiporter activity as a molecular function (GO:0140829) and the bicarbonate secretion as a biological process (GO:0015701); the iodide arm is captured by the chemical_entities binding rather than by a second process term.
+Two terms had to be changed because they exist but are not members of the schema&#39;s dynamic enum for the slot, which is a distinct failure from a term not existing. GO:0015701 is a real term and a wrong molecular function, since bicarbonate transport is a process; it was moved to biological_processes and the molecular function rebound to GO:0140829. NCIT:C157820 (Cochlear Implant) is a real term for the device, not for the clinical action, so it is not reachable from NCIT:C25218 and fails the TreatmentActionTerm enum; the implantation treatment is bound to NCIT:C15329 (Surgical Procedure) with preferred_term carrying the specific reading. Both were caught by just validate-terms rather than by inspection.
+Deep research. An openscientist run was commissioned and was substantially useful: all thirteen PMIDs taken from it resolved to the titles the report gave them when fetched with just fetch-reference, and its independently-derived causal model matched the one curated here, including the dual inner-ear route through cochlear hypothyroidism.
+What the report got wrong, and it is worth recording because these are the failure modes a curator has to catch. Its own term-validation section flagged one invented CL identifier, CL:1000722 for a beta-intercalated cell, which does not exist. It also proposed UBERON:0002518 for the endolymphatic sac; that CURIE resolves, but to &#34;otolith organ&#34;, so nothing in the validation output marked it as wrong. The correct term, UBERON:0002223, was found by searching the ontology rather than by trusting the report. That is the more dangerous of the two errors: a fabricated identifier fails validation, whereas a real identifier for the wrong concept passes every automated check there is.
+Three off-topic caches. references_cache/PMID_11734249.md (the American Red Cross), PMID_15347930.md (dental veneering composites) and PMID_17997835.md (riboswitches) are committed here and have nothing to do with this disease. They came from an early attempt to fetch remembered PMIDs for known Pendred papers - the identifiers were wrong, the fetch returned whatever those numbers actually point at, and the titles made that obvious immediately. They are recorded here so they read as checked and discarded rather than overlooked, and as the reason every PMID in this entry was afterwards located by search rather than from memory.
+A snippet self-check that the gates caught. The intrafamilial-variability evidence item initially quoted only the paper&#39;s title phrase, with an explanation admitting it was weak. just check-snippet-length and just check-title-snippets both rejected it, correctly and without a grandfathering escape, and re-reading the cache showed the abstract carries a proper sentence stating the finding. The lesson is the reverse of the usual one: the defect was not that the source was inadequate but that the cache had not been read carefully enough before writing the snippet.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Pendred Syndrome</strong> · 2026-08-28T17:05:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pendred_Syndrome/2026-08-28T170539Z-claude-code-897e99.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of Pendred syndrome, MONDO:0010134, as biallelic SLC26A4 loss of pendrin-mediated apical anion exchange acting in two epithelia. DFNB4 is curated as a subtype rather than a separate entry, since the gene, inner-ear mechanism and allelic spectrum are shared and only the thyroid organification defect separates the labels. The inner-ear arm is modelled as developmental and window-bounded, which is what the HUMAN_MODEL_MISMATCH discussion on the human therapeutic window turns on. Twelve references. An openscientist deep-research run was commissioned and was accurate on citations - all thirteen PMIDs taken from it resolved to the titles it gave - but proposed one nonexistent CL identifier and one real UBERON identifier for the wrong concept, the latter passing every automated existence check. Validated: schema, terms, 39 of 39 reference snippets, plus the duplicate-key, entity-ref, folded-hyphen, snippet-length, title-snippet, snippet-grading and environmental-evidence gates. Two enum-membership failures and one title-derived snippet were caught by those gates and fixed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

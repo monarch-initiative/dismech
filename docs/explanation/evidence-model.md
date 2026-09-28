@@ -14,7 +14,7 @@ the direction in which we would like to extend it.
 
 ## What an evidence item is
 
-An `EvidenceItem` is a **validated pointer into the literature**. Its eight fields are:
+An `EvidenceItem` is a **validated pointer into the literature**. Its nine fields are:
 
 ```yaml
 evidence:
@@ -22,19 +22,24 @@ evidence:
   reference_title: "Molecular genetics of the LDL receptor gene …"
   supports: SUPPORT                  # direction: SUPPORT / REFUTE / NO_EVIDENCE
   directness: DIRECT                 # optional: DIRECT / INDIRECT / UNKNOWN
+  quote_role: PRIMARY_RESULT         # optional: PRIMARY_RESULT / BACKGROUND / REVIEW_SYNTHESIS
   evidence_source: HUMAN_CLINICAL    # study type reported in the paper (see below)
   snippet: "…mediates the uptake and lysosomal degradation of plasma LDL…"
   explanation: "When LDLR function is impaired, the core hepatic LDL uptake step fails."
   images: [...]                      # optional figures from deep-research artifacts
 ```
 
-Three of those fields carry the evidence *semantics*:
+Four of those fields carry the evidence *semantics*:
 
 - **`supports`** records the **direction** the reference points relative to the claim —
   whether it supports it, contradicts it, or does not bear on it at all.
 - **`directness`** (optional) records **how directly** the quoted text bears on the claim —
   whether the quote asserts the claim itself, or asserts something from which the claim
   follows by an inference step. It is not a strength grade.
+- **`quote_role`** (optional) records **where in the cited paper's own argument** the
+  quoted sentence sits: a finding that paper produced, background it restates from
+  elsewhere, or its synthesis of a literature. It is a fact about the document, not a
+  grade of the evidence.
 - **`evidence_source`** records the **type of study reported in the publication** —
   `HUMAN_CLINICAL`, `MODEL_ORGANISM`, `IN_VITRO`, `COMPUTATIONAL`, or `OTHER`. It
   describes the cited paper, *not* how the entry was curated: an AI-assisted curation of a
@@ -64,6 +69,60 @@ caveat would quietly turn it into the strength grade it was defined not to be.
 The two can co-occur — a single-animal study quoted for a human claim is `INDIRECT` *and*
 weak — but only the first is recordable today. The second belongs in the `explanation`.
 
+### Deciding `quote_role`: whose observation is this?
+
+`reference` records provenance of the **sentence**. `quote_role` records provenance of the
+**finding**, which is a different object:
+
+> Did the paper I am citing *produce* this, or is it repeating somebody else's work?
+
+The case that forced the slot is a chick-embryo study whose introduction states the human
+clinical picture, perinatal mortality from an inadequate thorax, before reporting its
+own bead-implantation experiments. Quote that sentence and no `evidence_source` value is
+true. `MODEL_ORGANISM` says a chick measured human perinatal mortality. `HUMAN_CLINICAL`
+says the paper ran a human study. `OTHER`, which review pressure tends to settle on, says
+nothing, and files this case next to the unrelated "quoted from a review" one.
+
+`HUMAN_CLINICAL` + `quote_role: BACKGROUND` is true and queryable, and that combination is
+the point: the two fields answer different questions and neither substitutes for the other.
+
+- **`PRIMARY_RESULT`**: the cited publication produced this observation, measurement,
+  analysis, or conclusion.
+- **`BACKGROUND`**: it is restating something established elsewhere, such as an introduction, a
+  framing sentence, a motivation.
+- **`REVIEW_SYNTHESIS`**: it is the publication's synthesis of work it did not perform, such as a
+  review, commentary, editorial, or consensus statement.
+
+**Leave it off unless you have assessed it**, exactly as with `directness`. There is no
+`UNKNOWN`; absent already says nobody has judged it, which is the state of almost the whole
+knowledge base.
+
+**It is partly derivable, and that is why it is authorable.** The standing objection to new
+evidence metadata in this project is that a freely-authored grade reopens the fabrication
+surface the grounding layer closes. `quote_role` is not a grade, and for a reference whose
+cached body carries NLM structured-abstract labels the answer is a string containment
+rather than a judgement:
+
+```bash
+just list-background-citations                  # the worklist, three tiers
+just list-background-citations --format tsv     # one row per candidate
+just list-background-citations --tier A         # the deterministic tier alone
+```
+
+Report-only, and deliberately not an autofill. The deterministic tier covers a minority of
+the corpus, a structured `BACKGROUND:` paragraph routinely closes with the authors' own
+framing of what *they* did, and the MeSH tier is a heuristic whose count is a lower bound
+on a narrow slice rather than a measure of the problem. Read the sentence.
+
+Two things the enum deliberately does not cover. A quoted **aim** statement ("the aim of
+the present study was to…") is neither a finding nor somebody else's fact; the report flags
+those separately rather than the enum growing a value for them. And a quote taken from a
+**full text**, such as a Discussion paragraph, a figure legend or a guideline recommendation box,
+has no NLM labels to sit between, so the deterministic tier declines to classify it rather
+than guessing. That is the `quoted_section` question in
+[#9711](https://github.com/monarch-initiative/dismech/issues/9711), and it needs a section
+parser this does not have.
+
 ## Two layers: grounding and appraisal
 
 It helps to read the model as two layers.
@@ -87,9 +146,9 @@ text actually appear in it?"* That is **citation integrity**.
 
 **The appraisal layer is thin.** What the model does *not* yet capture is how *strong* the
 evidence is, *what experiment* produced it, and *how* the mechanistic claim was inferred
-from that experiment. `supports` is direction and `directness` is inferential distance —
-neither is strength, so a single case report and a human natural-knockout study both
-collapse to `SUPPORT`. `evidence_source` is a coarse
+from that experiment. `supports` is direction, `directness` is inferential distance and
+`quote_role` is document provenance; none is strength, so a single case report and a
+human natural-knockout study both collapse to `SUPPORT`. `evidence_source` is a coarse
 organism bucket — every human observation from an n=1 case report to a large randomised
 trial is one value, and it says nothing about study design or inferential power.
 

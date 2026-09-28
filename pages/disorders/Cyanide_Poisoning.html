@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4268,6 +4336,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4289,6 +4358,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4389,6 +4459,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4453,6 +4524,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4477,6 +4549,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4498,6 +4571,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4560,6 +4634,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4661,6 +4736,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4685,6 +4761,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4706,6 +4783,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4788,6 +4866,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4822,6 +4901,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-cyanide-burden" data-dismech-node="Systemic Cyanide Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Cyanide Burden</div>
+
 
                 <div class="item-desc">Cyanide reaches the systemic circulation by inhalation of hydrogen cyanide gas, gastric absorption of ingested cyanide salts, enzymatic hydrolysis of ingested cyanogenic glycosides, dermal absorption, or metabolic release from infused nitroprusside. Inhaled hydrogen cyanide acts fastest because it crosses the alveolar membrane directly.</div>
 
@@ -4903,6 +4983,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4925,6 +5006,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytochrome-c-oxidase-inhibition" data-dismech-node="Cytochrome c Oxidase Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytochrome c Oxidase Inhibition</div>
+
 
                 <div class="item-desc">Cyanide binds with high affinity to the ferric heme a3 centre of cytochrome c oxidase (mitochondrial Complex IV), the oxygen-reducing terminus of the electron transport chain, and reversibly arrests the transfer of electrons to molecular oxygen. Nitric oxide modulates this in a dose-dependent and two-directional way: constitutive, low-level mitochondrial NO potentiates the inhibition, which is part of why onset is so fast, while high exogenous NO attenuates it - which is why the same molecule appears here as an aggravating factor and under Sodium Nitrite as the antidotal one.</div>
 
@@ -5037,6 +5119,7 @@ This pathophysiological event involves mitochondrial respiratory chain complex I
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5058,6 +5141,7 @@ This pathophysiological event involves mitochondrial respiratory chain complex I
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5085,6 +5169,7 @@ This pathophysiological event involves mitochondrial respiratory chain complex I
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5107,6 +5192,7 @@ This pathophysiological event involves mitochondrial respiratory chain complex I
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rhodanese-mediated-cyanide-detoxification" data-dismech-node="Rhodanese-Mediated Cyanide Detoxification" data-dismech-type="pathophysiology">
                 <div class="item-name">Rhodanese-Mediated Cyanide Detoxification</div>
+
 
                 <div class="item-desc">Mitochondrial rhodanese (thiosulfate sulfurtransferase, TST) transfers sulfur from thiosulfate to cyanide, yielding thiocyanate that is excreted renally. 3-mercaptopyruvate sulfurtransferase provides a complementary cytosolic route. The pathway is limited by sulfur-donor supply and is overwhelmed at high cyanide loads, which is exactly why supplying exogenous thiosulfate is an antidote rather than merely a supplement.</div>
 
@@ -5179,6 +5265,7 @@ This pathophysiological event involves thiosulfate-cyanide sulfurtransferase act
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5200,6 +5287,7 @@ This pathophysiological event involves thiosulfate-cyanide sulfurtransferase act
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5225,6 +5313,7 @@ This pathophysiological event involves thiosulfate-cyanide sulfurtransferase act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-phosphorylation-failure-and-atp-depletion" data-dismech-node="Oxidative Phosphorylation Failure and ATP Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Phosphorylation Failure and ATP Depletion</div>
+
 
                 <div class="item-desc">With Complex IV blocked, the mitochondrial proton-motive force collapses and oxidative phosphorylation ceases, depleting cellular ATP within minutes despite adequate arterial oxygen content and delivery.</div>
 
@@ -5366,6 +5455,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5388,6 +5478,7 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anaerobic-glycolytic-shift" data-dismech-node="Anaerobic Glycolytic Shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Anaerobic Glycolytic Shift</div>
+
 
                 <div class="item-desc">Anaerobic glycolysis becomes the only remaining ATP source and is grossly insufficient, generating pyruvate that is converted to lactate. The systemic consequence - a severe high-anion-gap metabolic acidosis whose magnitude tracks the cyanide burden closely enough to serve as a surrogate assay - is modelled as the downstream Lactic acidosis and Elevated serum anion gap phenotypes rather than bundled into this cellular node.</div>
 
@@ -5511,6 +5602,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5532,6 +5624,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5557,6 +5650,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-energy-failure" data-dismech-node="Myocardial Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Energy Failure</div>
+
 
                 <div class="item-desc">Cardiomyocyte ATP failure produces progressive myocardial depression. This node is the cellular lesion in the heart; its organism-level consequence is modelled separately as Cardiovascular Collapse.</div>
 
@@ -5665,6 +5759,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5686,6 +5781,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5711,6 +5807,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiovascular-collapse" data-dismech-node="Cardiovascular Collapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiovascular Collapse</div>
+
 
                 <div class="item-desc">An early catecholamine-driven hypertensive phase gives way to hypotension, bradyarrhythmia and atrioventricular block, and in severe poisoning to ventricular dysrhythmia and asystole.</div>
 
@@ -5795,6 +5892,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5817,6 +5915,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-energy-failure" data-dismech-node="Cerebral Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral Energy Failure</div>
+
 
                 <div class="item-desc">Neuronal ATP failure disables the sodium/potassium exchangers that maintain membrane potential and the transporters that clear synaptic glutamate. The clinical expression is immediate and graded, from headache and vertigo through confusion to seizures and coma.</div>
 
@@ -5969,6 +6068,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5991,6 +6091,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitotoxic-neuronal-injury" data-dismech-node="Excitotoxic Neuronal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitotoxic Neuronal Injury</div>
+
 
                 <div class="item-desc">Extracellular glutamate over-activates NMDA receptors, admitting calcium and driving neuronal death, amplified by reactive oxygen species and lipid peroxidation. Sustained injury in the most metabolically demanding grey matter progresses to frank necrosis.</div>
 
@@ -6078,6 +6179,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6100,6 +6202,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-necrosis" data-dismech-node="Basal Ganglia Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia Necrosis</div>
+
 
                 <div class="item-desc">The globus pallidus and putamen sustain bilateral, often haemorrhagic necrosis, visible as altered signal on MRI within weeks. The lesion is not confined there: the sensorimotor cortex can show pseudolaminar necrosis for the same reason - high oxygen dependency - and imaging series also report cerebellar and cortical involvement. The node is named for the basal ganglia because that is the consistent and clinically decisive site, and it is the substrate of the delayed dystonic-parkinsonian syndrome.</div>
 
@@ -6195,6 +6298,7 @@ This pathophysiological event occurs in putamen (UBERON:0001874). UBERON:0001874
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6219,6 +6323,7 @@ This pathophysiological event occurs in putamen (UBERON:0001874). UBERON:0001874
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6240,6 +6345,7 @@ This pathophysiological event occurs in putamen (UBERON:0001874). UBERON:0001874
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6374,6 +6480,9 @@ This clinical feature is Hypotension (HP:0002615), qualified as temporality acut
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6388,6 +6497,7 @@ This clinical feature is Hypotension (HP:0002615), qualified as temporality acut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6412,6 +6522,7 @@ This clinical feature is Hypotension (HP:0002615), qualified as temporality acut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6484,6 +6595,9 @@ This clinical feature is Ventricular bigeminy (HP:0034306), qualified as tempora
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6498,6 +6612,7 @@ This clinical feature is Ventricular bigeminy (HP:0034306), qualified as tempora
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6570,6 +6685,9 @@ This clinical feature is Cardiac arrest (HP:0001695), qualified as temporality a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6584,6 +6702,7 @@ This clinical feature is Cardiac arrest (HP:0001695), qualified as temporality a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6647,6 +6766,9 @@ This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6661,6 +6783,7 @@ This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6742,6 +6865,9 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6756,6 +6882,7 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6780,6 +6907,7 @@ This clinical feature is Lactic acidosis (HP:0003128), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6834,6 +6962,9 @@ This clinical feature is Elevated serum anion gap (HP:0031962). HP:0031962 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6848,6 +6979,7 @@ This clinical feature is Elevated serum anion gap (HP:0031962). HP:0031962 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6929,6 +7061,9 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6943,6 +7078,7 @@ This clinical feature is Coma (HP:0001259), qualified as temporality acute. HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7015,6 +7151,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality acute. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7029,6 +7168,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality acute. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7101,6 +7241,9 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7115,6 +7258,7 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7169,6 +7313,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7183,6 +7330,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7237,6 +7385,9 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7251,6 +7402,7 @@ This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7323,6 +7475,9 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7337,6 +7492,7 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7361,6 +7517,7 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7415,6 +7572,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7429,6 +7589,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7456,6 +7617,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7477,6 +7639,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7558,6 +7721,9 @@ This clinical feature is Tachypnea (HP:0002789), qualified as temporality acute.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7572,6 +7738,7 @@ This clinical feature is Tachypnea (HP:0002789), qualified as temporality acute.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7644,6 +7811,9 @@ This clinical feature is Respiratory failure (HP:0002878), qualified as temporal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7658,6 +7828,7 @@ This clinical feature is Respiratory failure (HP:0002878), qualified as temporal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7756,6 +7927,9 @@ This disease-associated gene is TST (hgnc:12388). hgnc:12388 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7770,6 +7944,7 @@ This disease-associated gene is TST (hgnc:12388). hgnc:12388 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7794,6 +7969,7 @@ This disease-associated gene is TST (hgnc:12388). hgnc:12388 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7901,6 +8077,9 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7911,6 +8090,9 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -7947,6 +8129,7 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7993,6 +8176,7 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8017,6 +8201,7 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8038,6 +8223,7 @@ This treatment uses hydroxocobalamin (CHEBI:27786). CHEBI:27786 is a therapeutic
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8126,6 +8312,9 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8136,6 +8325,9 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
     </div>
+
+
+
 
 
 
@@ -8172,6 +8364,7 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8218,6 +8411,7 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8239,6 +8433,7 @@ This treatment uses sodium thiosulfate (CHEBI:132112). CHEBI:132112 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8327,6 +8522,9 @@ This treatment uses sodium nitrite (CHEBI:78870). CHEBI:78870 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8337,6 +8535,9 @@ This treatment uses sodium nitrite (CHEBI:78870). CHEBI:78870 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -8373,6 +8574,7 @@ This treatment uses sodium nitrite (CHEBI:78870). CHEBI:78870 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8416,6 +8618,7 @@ This treatment uses sodium nitrite (CHEBI:78870). CHEBI:78870 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8504,6 +8707,9 @@ This treatment uses amyl nitrite (CHEBI:755931). CHEBI:755931 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8514,6 +8720,9 @@ This treatment uses amyl nitrite (CHEBI:755931). CHEBI:755931 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -8562,6 +8771,7 @@ This treatment uses amyl nitrite (CHEBI:755931). CHEBI:755931 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8583,6 +8793,7 @@ This treatment uses amyl nitrite (CHEBI:755931). CHEBI:755931 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8671,6 +8882,9 @@ This treatment uses dicobalt edetate (CHEBI:755930). CHEBI:755930 is a therapeut
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8681,6 +8895,9 @@ This treatment uses dicobalt edetate (CHEBI:755930). CHEBI:755930 is a therapeut
 
 
     </div>
+
+
+
 
 
 
@@ -8729,6 +8946,7 @@ This treatment uses dicobalt edetate (CHEBI:755930). CHEBI:755930 is a therapeut
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8753,6 +8971,7 @@ This treatment uses dicobalt edetate (CHEBI:755930). CHEBI:755930 is a therapeut
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8774,6 +8993,7 @@ This treatment uses dicobalt edetate (CHEBI:755930). CHEBI:755930 is a therapeut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8840,6 +9060,9 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8850,6 +9073,9 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -8898,6 +9124,7 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8919,6 +9146,7 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8985,6 +9213,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8995,6 +9226,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9031,6 +9265,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9074,6 +9309,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9162,6 +9398,7 @@ This environmental factor is exposure to hydrogen cyanide (ECTO:9001137). ECTO:9
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9186,6 +9423,7 @@ This environmental factor is exposure to hydrogen cyanide (ECTO:9001137). ECTO:9
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9207,6 +9445,7 @@ This environmental factor is exposure to hydrogen cyanide (ECTO:9001137). ECTO:9
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9260,6 +9499,7 @@ This environmental factor is exposure to hydrogen cyanide (ECTO:9001137). ECTO:9
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9340,6 +9580,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9364,6 +9605,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9385,6 +9627,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9436,6 +9679,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9516,6 +9760,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9540,6 +9785,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9561,6 +9807,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9612,6 +9859,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9692,6 +9940,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9713,6 +9962,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9764,6 +10014,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9832,6 +10083,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9853,6 +10105,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9905,6 +10158,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9926,6 +10180,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10028,6 +10283,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10052,6 +10308,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10073,6 +10330,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10163,6 +10421,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10230,6 +10489,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10279,6 +10539,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10334,6 +10595,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10358,6 +10620,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10379,6 +10642,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -10491,6 +10755,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10512,6 +10777,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10645,6 +10911,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10719,6 +10986,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10838,6 +11106,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10879,6 +11148,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11001,6 +11271,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11040,6 +11311,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11086,6 +11358,7 @@ This environmental factor is exposure to cyanide (ECTO:9000449). ECTO:9000449 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13118,6 +13391,61 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry covers acute cyanide poisoning and its delayed neurological sequelae. Chronic dietary cyanogen exposure produces distinct, separately curated entities: konzo (kb/disorders/Konzo.yaml) and lathyrism-adjacent tropical neuropathies. Cyanide-induced parkinsonism has its own MONDO term (MONDO:0017640) but is curated here as the &#34;Delayed Neurological Sequelae&#34; subtype rather than as a separate entry, since it is a sequela of the acute poisoning modelled by this pathograph rather than an independently acquired disease. The cross-link to Konzo is one-directional: `Konzo.yaml` does not point back here. Adding that would be an edit to a second entry needing its own history record, so it is left for a follow-up rather than folded in.
+Contested exposure weight. The prominence of fire smoke as a cause of clinically decisive cyanide poisoning is genuinely disputed in the literature, and both sides are recorded rather than reconciled: PMID:1944484 measured elevated blood cyanide at the scene in fire victims and PMID:29939573 calls fire smoke the commonest inhalational source, while PMID:8150843 concludes from 364 fire fatalities that cyanide poisoning is infrequent and inseparable from carboxyhaemoglobinaemia. The REFUTE evidence item on the structure-fire environmental entry is that disagreement, not an error.
+Frequencies deliberately omitted. The deep-research report quoted per-symptom frequencies (78% unresponsive, 54% hypotensive, and so on) attributed to a systematic review of 102 patients across 65 articles, but named no identifier for that review, so nothing here could be quote-verified against it. Those frequencies are left out rather than curated from an unsourced figure. They would be worth adding if the review is identified.
+Prevalence deliberately absent. No `prevalence:` block is curated. Acute cyanide poisoning has no authoritative population figure: US poison-centre totals (of the order of 150 single-substance exposures a year) count only what is reported to poison centres, and systematically miss the fatal exposures - suicide, homicide, undiagnosed fire deaths, mass-casualty industrial events - that never reach one. Fire-related figures are worse still, since what fraction of fire deaths cyanide causes is the very question this entry records as contested. A rate curated from any of these would be a number without a denominator, so none is given.
+Cardiac and cutaneous signs not curated. Cyanosis, bradycardia and atrioventricular block are reported in the literature and are described in the Cardiovascular Collapse node&#39;s prose, but no reference cached for this entry states any of them, and a targeted PubMed search for a citable source returned nothing usable. They are left uncurated rather than cited to a source that does not carry them.
+Cell types left at `neuron`. The neuronal nodes bind CL:0000540 (neuron) rather than a striatal projection-neuron term. Two reasons: no cited source here names the cell type, and Basal Ganglia Necrosis spans globus pallidus as well as putamen, so a medium spiny neuron binding would be wrong for half the node. Note the CURIE offered for this in review, CL:0000842, is *mononuclear leukocyte*; the medium spiny neuron term is CL:1001474.
+Evidence grading where a paper is quoted for background rather than for its own result. Three references here are quoted both ways or only that way, and the grade follows what the quoted sentence is, not what the paper is: PMID:25692407 is a rodent and iPSC study quoted only for its summary of the human case literature, so all five items are OTHER; PMID:31389254 is a porcine study quoted both for its own data (MODEL_ORGANISM) and for two background sentences about clinical antidote practice (OTHER); PMID:8440119 is a narrative review that explicitly pooled animal and human studies, so its four items are OTHER rather than HUMAN_CLINICAL, one of them because the quoted sentence itself spans &#34;animals and surgical patients&#34; and no single source value describes it. A paper carrying two values is what CLAUDE.md means by splitting evidence items when a paper mixes sources.
+Terms not bound. No HPO term was found for elevated central or mixed venous oxygen saturation, the &#34;arterialised venous blood&#34; sign that is pathognomonically useful in cyanide poisoning, nor for the bitter-almond breath odour. Both are described in the pathophysiology and description prose and left unbound rather than forced onto an approximate term.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Edit: Cyanide Poisoning - respiratory failure phenotype and two antidotes, from PR #11588 review</strong> · 2026-09-10T03:22:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cyanide_Poisoning/2026-09-10T032201Z-claude-code-60c919.yaml">View source</a></p>
+                        <p class="research-review-text">Addresses the changes-requested review on PR #11588.
+
+BLOCKING ITEM, taken. Added a Respiratory failure phenotype bound to HP:0002878, evidenced by PMID:41204534 with a verified exact quote, and wired in with a downstream edge from Cerebral Energy Failure so it does not orphan. The reviewer was right that Tachypnea does not cover this: the two sit at opposite ends of the respiratory course, tachypnea being respiratory compensation for the metabolic acidosis and respiratory failure being late brainstem depression. Both the quote and the HP term were verified against the local cache before use rather than taken from the review; both checked out.
+
+OPTIONAL ITEMS TAKEN. Added Amyl Nitrite and Dicobalt Edetate as treatments, both quotable from references already cached for this entry. Amyl nitrite carries two evidence items from PMID:41204534, its clinical use and the methaemoglobin ceiling that limits both nitrite antidotes. Dicobalt edetate carries three, from PMID:31389254 and PMID:8989894, including the adverse-effect profile that explains why hydroxocobalamin is preferred where both are available. One dicobalt snippet had to be trimmed to end before the source&#39;s inline citation marker, which the snippet matcher strips.
+
+OPTIONAL ITEMS DECLINED, each recorded in the entry notes rather than left silent.
+
+Cell-type granularity: declined, and the suggested CURIE is wrong. The review proposed CL:0000842 for striatal medium spiny neurons. CL:0000842 is *mononuclear leukocyte* - a white blood cell. The medium spiny neuron term is CL:1001474. That CURIE came from the deep-research report, which offered it in the same list as the ten mislabelled identifiers already flagged on this PR, so this is that failure mode reaching one step further. Beyond the wrong identifier, the binding would be wrong on the merits: no cited source here names the cell type, and Basal Ganglia Necrosis spans globus pallidus as well as putamen, so a medium spiny neuron term would be wrong for half the node. Nodes stay at CL:0000540 (neuron).
+
+Cyanosis, bradycardia and atrioventricular block: declined for now. Confirmed by grep that none of the 24 references cached for this entry mentions any of them, and a targeted PubMed search for a citable source returned nothing usable. Recorded in notes as uncurated rather than cited to a source that does not carry them.
+
+Node name &#39;Oxidative Phosphorylation Failure and ATP Depletion&#39;: left as is. The reviewer judged it atomic and said leaving it is defensible; proton-motive-force collapse and ATP fall are not separable in time here, so renaming would churn edge targets for no semantic gain.
+
+MPST as secondary detoxifying enzyme: left uncurated, as the reviewer agreed.
+
+VALIDATION: just validate-disorders passed, 113/113 snippets verified against the cache (up from 107). All eleven offline gates green. Graph re-checked directly: no unresolved targets and no node without an incoming edge.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Cyanide Poisoning</strong> · 2026-09-10T02:16:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Cyanide_Poisoning/2026-09-10T021614Z-claude-code-3bd294.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Cyanide_Poisoning.yaml (MONDO:0018754), a new exposure-related entry covering acute cyanide poisoning and its delayed neurological sequelae.
+
+Deep research: one provider, claude_code (just research-disorder claude_code Cyanide_Poisoning), 340 s, 14 web searches, 16 turns, 37 citations. The run emitted no validation sections, so both retro-fits were applied: just validate-research-reference reported 26/26 references resolved, 0 unresolved, 0 off topic; just validate-research-terms reported 58 terms checked, 55 resolved, 0 unresolved, 1 obsolete (GO:0005751, superseded by GO:0045277) and 10 named as a different term. Nothing was bound from the report. Every CURIE in the entry was looked up independently through ols:/sqlite:obo: adapters at the moment it was written, which is what caught the report&#39;s wrong bindings: it offered UBERON:0001873 for globus pallidus (that is caudate nucleus; correct is UBERON:0001875), HGNC:12362 for TST (correct hgnc:12388), HGNC:7386 for MPST, CHEBI:75504 for sodium cyanide (that is pyranoside), CHEBI:9539 for sodium nitroprusside (Thiarubrine B) and CHEBI:15672 for linamarin (D-tartaric acid).
+
+Content: an eight-node causal chain from systemic absorption through cytochrome c oxidase inhibition, oxidative-phosphorylation failure and anaerobic glycolytic shift to myocardial and cerebral energy failure and basal ganglia necrosis, with a parallel rhodanese detoxification node that the thiosulfate antidote targets; 15 phenotypes; three subtypes (acute, delayed dystonic-parkinsonian, nitroprusside-associated); four pathograph-linked environmental exposures (fire smoke, occupational salts, cyanogenic glycosides, nitroprusside); five treatments; TST as a MODIFIER gene; two biochemical markers; two animal models with modeled_mechanisms; two datasets; two KNOWLEDGE_GAP discussions.
+
+Deliberate omissions, recorded in the entry notes: per-symptom frequencies quoted by the report were attributed to a systematic review it did not identify, so they were left out rather than curated from an unsourced figure; no HPO term exists for elevated venous oxygen saturation or bitter-almond breath odour, so both are prose only; PMID:41627127 was fetched but has no abstract in the cache and is not cited. The oxygen-to-Complex-IV treatment edge is recorded as MODULATES and explicitly left uncited because no cited source states the mass-action mechanism. A REFUTE evidence item (PMID:8150843) and a REFUTE item on hydroxocobalamin (PMID:41497958) record genuine, live disagreements rather than resolving them.
+
+Validation: just validate passed (schema, terms, 89/89 snippets verified against the cache). just validate-disorders run over the changed file. Offline gates all green: check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence, check-reference-titles, check-source-defect-claims. just verify-datasets resolved both geo: accessions and their GEO_*.md cache files are committed. Compliance 93.3 percent. No GeneReviews article exists for this disease (PubMed search returned zero), as expected for a non-Mendelian toxidrome. No stub existed to delete.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

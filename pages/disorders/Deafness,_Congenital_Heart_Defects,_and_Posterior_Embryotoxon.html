@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4296,6 +4364,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4317,6 +4386,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4502,6 +4572,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4523,6 +4594,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4727,6 +4799,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4751,6 +4824,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4772,6 +4846,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4935,6 +5010,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5106,6 +5182,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5127,6 +5204,7 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5164,6 +5242,13 @@ The mechanism of that dissociation is NOT a milder molecular lesion. p.Cys234Tyr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jag1-first-egf-like-repeat-cysteine-substitution" data-dismech-node="JAG1 First EGF-Like Repeat Cysteine Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">JAG1 First EGF-Like Repeat Cysteine Substitution</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The disease-initiating lesion is a heterozygous germline JAG1 missense variant, p.Cys234Tyr, that replaces the first cysteine of the first epidermal-growth-factor(EGF)-like repeat of Jagged1. EGF-like repeats are small, disulfide-stapled modules whose fold depends on a fixed pattern of six cysteines; losing one of them leaves an unpaired partner and destabilises the module. Missense variants in JAG1 are non-randomly distributed and cluster in exactly these regions - the amino-terminal region, the DSL domain, and two clusters within the EGF repeats - which is the structural context in which this substitution should be read.</div>
 
@@ -5259,6 +5344,8 @@ This genetic context concerns JAG1 (hgnc:6188). hgnc:6188 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -5274,6 +5361,9 @@ This genetic context concerns JAG1 (hgnc:6188). hgnc:6188 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline JAG1 p.Cys234Tyr (C234Y). Classified LOSS_OF_FUNCTION on direct functional assay of this allele: the mutant protein is EndoH-sensitive, absent from the cell surface, and unable to activate Notch signalling, i.e. complete haploinsufficiency. No dominant-negative activity has been demonstrated for the JAG1 missense proteins assayed to date.</div>
 
@@ -5323,6 +5413,7 @@ This genetic context concerns JAG1 (hgnc:6188). hgnc:6188 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5344,6 +5435,7 @@ This genetic context concerns JAG1 (hgnc:6188). hgnc:6188 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5371,6 +5463,7 @@ This genetic context concerns JAG1 (hgnc:6188). hgnc:6188 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5395,6 +5488,13 @@ This genetic context concerns JAG1 (hgnc:6188). hgnc:6188 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-misfolding-and-endoplasmic-reticulum-retention-of-mutant-jagged1" data-dismech-node="Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1" data-dismech-type="pathophysiology">
                 <div class="item-name">Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Improperly folded Jagged1 is recognised by the ER quality-control machinery, is abnormally glycosylated, and accumulates intracellularly instead of transiting to the plasma membrane. For p.Cys234Tyr specifically this has been demonstrated directly and by two independent methods: the protein remains endoglycosidase-H sensitive, meaning its N-glycans were never processed in the Golgi, and immunofluorescence shows no cell-surface staining at all. Across the wider JAG1 missense class, ER-retained mutants bind the lectin chaperones calnexin and calreticulin more avidly than wild-type Jagged1 does, which is the quality-control step that holds them there. Importantly, no dominant-negative activity has been detected for the JAG1 missense proteins assayed to date, so the mutant allele subtracts function rather than poisoning the wild-type product.</div>
 
@@ -5541,6 +5641,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5562,6 +5663,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,6 +5691,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5613,6 +5716,13 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cell-surface-jagged1-and-failure-of-notch-trans-activation" data-dismech-node="Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Jagged1 is a membrane-tethered ligand that must be displayed on the surface of the signal-sending cell to activate Notch receptors on the adjacent signal-receiving cell. Because the p.Cys234Tyr product never reaches the surface, it contributes nothing to trans-activation: in a CBF-dependent luciferase reporter it behaves like the known null allele p.Leu37Ser and cannot initiate Notch signalling at all. The carrier is therefore left with only the wild-type allele&#39;s ligand on the cell surface - complete haploinsufficiency, not a graded hypomorphic reduction. This distinction is load-bearing for this entry, because a hypomorphic &#34;leaky allele&#34; model was the leading explanation for liver-sparing JAG1 phenotypes until this allele was assayed and found to be null.</div>
 
@@ -5704,6 +5814,7 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5725,6 +5836,7 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5752,6 +5864,7 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5776,6 +5889,13 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-modifier-dependent-organ-selectivity-of-jag1-haploinsufficiency" data-dismech-node="Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">This node is the mechanistic hinge that separates this entity from Alagille syndrome, and it is deliberately curated as an unsolved step rather than an explanation. Every cell in a p.Cys234Tyr carrier has the same half-dose of functional Jagged1, yet the heart, inner ear, middle ear and anterior ocular segment malform while the intrahepatic biliary tree does not. The obvious candidate explanation - that the allele is hypomorphic and leaves enough ligand for the less demanding tissues - was proposed for the leaky p.Gly274Asp allele and then specifically ruled out for p.Cys234Tyr, which is functionally null and still spares the liver. What remains is that unidentified modifying factors, not residual ligand, determine the organ set. The clinical corollary is unchanged and important: the absence of cholestasis does not exclude a JAG1 disorder, and JAG1 variants are recovered from individuals presenting with only one or two of the Alagille organ systems.</div>
 
@@ -5891,6 +6011,7 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5912,6 +6033,7 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5939,6 +6061,7 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5963,6 +6086,13 @@ This pathophysiological event involves decreased Notch signaling pathway (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-notch-dependent-inner-ear-sensory-patterning" data-dismech-node="Impaired Notch-Dependent Inner Ear Sensory Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Notch-Dependent Inner Ear Sensory Patterning</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Jagged1 marks the prosensory patches of the developing inner ear well before hair-cell versus supporting-cell fate is settled, and continues to be expressed by supporting cells into adulthood. Reduced Jagged1 therefore has two separable auditory consequences in model systems: an early patterning failure (loss of sensory cristae and their housing ampullae, and altered inner/outer hair-cell specification) that maps onto the vestibular and sensorineural components of the phenotype, and a later maturation failure of inner-hair-cell stereocilia that produces an auditory-neuropathy-like deafness with preserved hair-cell number. Both routes yield a sensorineural deficit without requiring hair-cell death.</div>
 
@@ -6268,6 +6398,7 @@ This pathophysiological event involves abnormal semicircular canal morphogenesis
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6289,6 +6420,7 @@ This pathophysiological event involves abnormal semicircular canal morphogenesis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6316,6 +6448,7 @@ This pathophysiological event involves abnormal semicircular canal morphogenesis
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6340,6 +6473,13 @@ This pathophysiological event involves abnormal semicircular canal morphogenesis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-jagged1-notch2-patterning-of-the-middle-ear-ossicles" data-dismech-node="Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The stapes and incus derive from the first two pharyngeal arches and are patterned by Jagged1-Notch2 signalling in arch neural crest cells. Reduced Jagged1 dose malforms the stapes cartilage template early in development, and the resulting ossicular malformation impairs sound conduction across all frequencies. This is the arm of the mechanism that accounts for the conductive component of the combined (mixed) hearing loss recorded in this kindred, and it is why the hearing phenotype here is mixed rather than purely sensorineural.</div>
 
@@ -6525,6 +6665,7 @@ This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6546,6 +6687,7 @@ This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6571,6 +6713,13 @@ This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-second-heart-field-and-cardiac-neural-crest-outflow-tract-development" data-dismech-node="Disrupted Second Heart Field and Cardiac Neural Crest Outflow Tract Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Second Heart Field and Cardiac Neural Crest Outflow Tract Development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Jagged1-Notch signalling in second heart field progenitors sustains Fgf8 and Bmp4 expression, and through them coordinates two neighbouring tissues: migrating cardiac neural crest and the endothelial-to-mesenchymal transition that populates the outflow-tract endocardial cushions. Loss of that signal produces aortic arch artery and outflow-tract anomalies of exactly the right-sided class seen in this kindred - tetralogy of Fallot, ventricular septal defect, and peripheral pulmonic stenosis. In the peripheral pulmonary arteries the corresponding structural lesion in JAG1 disease is a tunica media depleted of smooth muscle cells and thickened by collagen and elastic fibres.</div>
 
@@ -6770,6 +6919,7 @@ This pathophysiological event occurs in cardiac outflow tract, annotated with ou
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6791,6 +6941,7 @@ This pathophysiological event occurs in cardiac outflow tract, annotated with ou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6818,6 +6969,7 @@ This pathophysiological event occurs in cardiac outflow tract, annotated with ou
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6840,6 +6992,13 @@ This pathophysiological event occurs in cardiac outflow tract, annotated with ou
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-anterior-segment-development-in-periocular-neural-crest" data-dismech-node="Disrupted Anterior Segment Development in Periocular Neural Crest" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Anterior Segment Development in Periocular Neural Crest</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The trabecular meshwork, corneal endothelium and Schwalbe line derive from neural-crest-derived periocular mesenchyme. Posterior embryotoxon - an anteriorly displaced, prominent Schwalbe line visible at the slit lamp - is a recognised consequence of reduced JAG1/NOTCH2 signalling in humans and is one of the two features this entity shares with Alagille syndrome. The developmental step is curated as HYPOTHETICAL rather than established: no Jagged1-specific study of anterior-segment morphogenesis was identified, so the tissue-level mechanism is inferred from the neural-crest origin of the affected structures and from the human phenotype association rather than demonstrated.</div>
 
@@ -6971,6 +7130,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6992,6 +7152,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7040,7 +7201,7 @@ This pathophysiological event occurs in anterior segment of eyeball (UBERON:0001
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Audiological assessment and hearing rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the hearing loss is mixed and mid-frequency-predominant, it is not reliably caught by a screen tuned to high-frequency sensorineural loss, and full audiometry (with tympanometry to characterise the conductive component) is warranted in any carrier or at-risk relative. Amplification and language-development support follow standard paediatric audiology practice; no DCHE-specific rehabilitation evidence exists.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted Anterior Segment Development in Periocular Neural Crest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trabecular meshwork, corneal endothelium and Schwalbe line derive from neural-crest-derived periocular mesenchyme. Posterior embryotoxon - an anteriorly displaced, prominent Schwalbe line visible at the slit lamp - is a recognised consequence of reduced JAG1/NOTCH2 signalling in humans and is one of the two features this entity shares with Alagille syndrome. The developmental step is curated as HYPOTHETICAL rather than established: no Jagged1-specific study of anterior-segment morphogenesis was identified, so the tissue-level mechanism is inferred from the neural-crest origin of the affected structures and from the human phenotype association rather than demonstrated.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"periocular neural crest cell\"], \"biological_processes\": [\"eye development\"], \"locations\": [\"anterior segment of eyeball\"]}}, {\"id\": \"Disrupted Second Heart Field and Cardiac Neural Crest Outflow Tract Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Jagged1-Notch signalling in second heart field progenitors sustains Fgf8 and Bmp4 expression, and through them coordinates two neighbouring tissues: migrating cardiac neural crest and the endothelial-to-mesenchymal transition that populates the outflow-tract endocardial cushions. Loss of that signal produces aortic arch artery and outflow-tract anomalies of exactly the right-sided class seen in this kindred - tetralogy of Fallot, ventricular septal defect, and peripheral pulmonic stenosis. In the peripheral pulmonary arteries the corresponding structural lesion in JAG1 disease is a tunica media depleted of smooth muscle cells and thickened by collagen and elastic fibres.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac neural crest cell\", \"pulmonary artery smooth muscle cell\"], \"biological_processes\": [\"outflow tract morphogenesis\", \"neural crest cell migration involved in heart formation\"], \"locations\": [\"cardiac outflow tract\"]}}, {\"id\": \"Heterozygous Jagged1 knockout mouse (middle ear)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The heterozygous Jag1 null mouse, used as an Alagille syndrome model, carries the conductive arm of the mechanism: it malforms the stapes and incus, and the stapes malformation tracks with hearing loss across all frequencies.\"}, {\"id\": \"Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The stapes and incus derive from the first two pharyngeal arches and are patterned by Jagged1-Notch2 signalling in arch neural crest cells. Reduced Jagged1 dose malforms the stapes cartilage template early in development, and the resulting ossicular malformation impairs sound conduction across all frequencies. This is the arm of the mechanism that accounts for the conductive component of the combined (mixed) hearing loss recorded in this kindred, and it is why the hearing phenotype here is mixed rather than purely sensorineural.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pharyngeal arch neural crest cell\"], \"biological_processes\": [\"neural crest cell development in the pharyngeal arches\", \"sensory perception of sound\"], \"locations\": [\"middle ear\"], \"animal_models\": [{\"name\": \"Heterozygous Jagged1 knockout mouse (middle ear)\", \"species\": \"Mouse\", \"genotype\": \"Jag1 +/- heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces ossicular malformation from a heterozygous reduction in Jagged1 dose, matching the dominant human inheritance.\"}]}}, {\"id\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Jagged1 marks the prosensory patches of the developing inner ear well before hair-cell versus supporting-cell fate is settled, and continues to be expressed by supporting cells into adulthood. Reduced Jagged1 therefore has two separable auditory consequences in model systems: an early patterning failure (loss of sensory cristae and their housing ampullae, and altered inner/outer hair-cell specification) that maps onto the vestibular and sensorineural components of the phenotype, and a later maturation failure of inner-hair-cell stereocilia that produces an auditory-neuropathy-like deafness with preserved hair-cell number. Both routes yield a sensorineural deficit without requiring hair-cell death.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"cochlear inner hair cell\", \"cochlear outer hair cell\", \"cochlear supporting cell\"], \"biological_processes\": [\"inner ear development\", \"cochlea development\", \"inner ear receptor cell development\", \"semicircular canal morphogenesis\"], \"animal_models\": [{\"name\": \"headturner (Htu) Jag1 missense mouse\", \"species\": \"Mouse\", \"genotype\": \"Jag1 Htu/+ (dominant missense allele)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the inner-ear sensory arm of the mechanism - loss of vestibular ampullae and reduced outer hair cells - from a heterozygous Jag1 missense allele.\"}, {\"name\": \"Jag1 Nodder (Jag1 Ndr/Ndr) mouse\", \"species\": \"Mouse\", \"genotype\": \"Jag1 Ndr/Ndr (hypomorphic Alagille syndrome model)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces dose-dependent cochlear mis-patterning with combined auditory and vestibular deficits.\"}]}}, {\"id\": \"JAG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"JAG1\"], \"gene_terms\": [{\"label\": \"JAG1\", \"id\": \"hgnc:6188\"}], \"frequency\": \"OBLIGATE\", \"association\": \"Causal heterozygous missense variant p.Cys234Tyr in the first EGF-like repeat\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"JAG1 First EGF-Like Repeat Cysteine Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease-initiating lesion is a heterozygous germline JAG1 missense variant, p.Cys234Tyr, that replaces the first cysteine of the first epidermal-growth-factor(EGF)-like repeat of Jagged1. EGF-like repeats are small, disulfide-stapled modules whose fold depends on a fixed pattern of six cysteines; losing one of them leaves an unpaired partner and destabilises the module. Missense variants in JAG1 are non-randomly distributed and cluster in exactly these regions - the amino-terminal region, the DSL domain, and two clusters within the EGF repeats - which is the structural context in which this substitution should be read.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"JAG1\"], \"gene_terms\": [{\"label\": \"JAG1\", \"id\": \"hgnc:6188\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline JAG1 p.Cys234Tyr (C234Y). Classified LOSS_OF_FUNCTION on direct functional assay of this allele: the mutant protein is EndoH-sensitive, absent from the cell surface, and unable to activate Notch signalling, i.e. complete haploinsufficiency. No dominant-negative activity has been demonstrated for the JAG1 missense proteins assayed to date.\", \"gene_terms\": [{\"label\": \"JAG1\", \"id\": \"hgnc:6188\"}]}}}, {\"id\": \"Jag1 Nodder (Jag1 Ndr/Ndr) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A hypomorphic Jag1 mouse used as an Alagille syndrome model, with cochlear morphology plus single-cell RNA sequencing of the organ of Corti. It establishes that the cochlear phenotype is Jag1 dose dependent, which is what makes a heterozygous human loss-of-function allele a sufficient explanation for hearing loss. This speaks to the ear arm only: it is not support for a graded-dose account of the organ selectivity, which was tested and ruled out for p.Cys234Tyr.\"}, {\"id\": \"Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Jagged1 is a membrane-tethered ligand that must be displayed on the surface of the signal-sending cell to activate Notch receptors on the adjacent signal-receiving cell. Because the p.Cys234Tyr product never reaches the surface, it contributes nothing to trans-activation: in a CBF-dependent luciferase reporter it behaves like the known null allele p.Leu37Ser and cannot initiate Notch signalling at all. The carrier is therefore left with only the wild-type allele\u0027s ligand on the cell surface - complete haploinsufficiency, not a graded hypomorphic reduction. This distinction is load-bearing for this entry, because a hypomorphic \\\"leaky allele\\\" model was the leading explanation for liver-sparing JAG1 phenotypes until this allele was assayed and found to be null.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Notch signaling pathway\"]}}, {\"id\": \"Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Improperly folded Jagged1 is recognised by the ER quality-control machinery, is abnormally glycosylated, and accumulates intracellularly instead of transiting to the plasma membrane. For p.Cys234Tyr specifically this has been demonstrated directly and by two independent methods: the protein remains endoglycosidase-H sensitive, meaning its N-glycans were never processed in the Golgi, and immunofluorescence shows no cell-surface staining at all. Across the wider JAG1 missense class, ER-retained mutants bind the lectin chaperones calnexin and calreticulin more avidly than wild-type Jagged1 does, which is the quality-control step that holds them there. Importantly, no dominant-negative activity has been detected for the JAG1 missense proteins assayed to date, so the mutant allele subtracts function rather than poisoning the wild-type product.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"protein folding in the endoplasmic reticulum\", \"delivery of Jagged1 to the plasma membrane\"]}}, {\"id\": \"Mixed hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-severe combined (mixed) hearing loss - that is, with both conductive and sensorineural components - affected six of the seven available affected members of the index kindred. This is the feature that names the entity and that distinguishes it from Alagille syndrome, in which hearing loss is not a cardinal diagnostic criterion. Mechanistically the two components have separate substrates: middle-ear ossicular malformation for the conductive part and cochlear sensory mis-patterning for the sensorineural part.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000410\"}}, {\"id\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node is the mechanistic hinge that separates this entity from Alagille syndrome, and it is deliberately curated as an unsolved step rather than an explanation. Every cell in a p.Cys234Tyr carrier has the same half-dose of functional Jagged1, yet the heart, inner ear, middle ear and anterior ocular segment malform while the intrahepatic biliary tree does not. The obvious candidate explanation - that the allele is hypomorphic and leaves enough ligand for the less demanding tissues - was proposed for the leaky p.Gly274Asp allele and then specifically ruled out for p.Cys234Tyr, which is functionally null and still spares the liver. What remains is that unidentified modifying factors, not residual ligand, determine the organ set. The clinical corollary is unchanged and important: the absence of cholestasis does not exclude a JAG1 disorder, and JAG1 variants are recovered from individuals presenting with only one or two of the Alagille organ systems.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"Notch signaling pathway\"]}}, {\"id\": \"Surgical repair of the congenital heart defect\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of the cardiac component follows standard congenital-cardiac practice for the specific lesion; there is no DCHE-specific cardiac protocol. Tetralogy of Fallot requires operative repair, whereas isolated peripheral pulmonic stenosis may need only surveillance - so the same allele in two relatives can imply completely different cardiac management, which is the practical consequence of the variable expressivity recorded here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tetralogy of Fallot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three cardiac lesions observed in the index kindred. Tetralogy of Fallot is also the presentation in which JAG1 variants are found among apparently non-syndromic individuals with right-sided congenital heart disease, which is the wider phenotype class this entity sits inside.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001636\"}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three cardiac lesions observed in the index kindred, consistent with failure of outflow-tract and endocardial-cushion development downstream of reduced Jagged1-Notch signalling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001629\"}}, {\"id\": \"headturner (Htu) Jag1 missense mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A dominant, ENU-derived Jag1 missense allele - the same lesion class as the human p.Cys234Tyr - assessed in the heterozygous state, matching the dominant human inheritance. Its value here is that it links a heterozygous Jag1 missense change to both vestibular and cochlear sensory deficits.\"}], \"edges\": [{\"source\": \"JAG1 First EGF-Like Repeat Cysteine Substitution\", \"target\": \"Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a structurally required cysteine prevents correct disulfide-bonded folding of the EGF module, which is what commits the nascent protein to the ER quality-control fate rather than the secretory route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1\", \"target\": \"Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ligand retained in the ER cannot engage Notch receptors on neighbouring cells. For p.Cys234Tyr the retention is complete rather than partial, so the functional consequence is the absence of mutant ligand from the surface pool, not merely its reduction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation\", \"target\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Half-dose Jagged1 is uniform across every tissue in the carrier, yet only some organs malform. The step from the uniform molecular deficit to a selective set of malformations is therefore not itself explained by the deficit, and is marked INDIRECT_UNKNOWN_INTERMEDIATES because the factors that make one tissue decompensate and another not are unidentified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in the developing otic epithelium is the route to the sensorineural and vestibular arm of the phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in pharyngeal-arch neural crest is the route to the conductive component of the combined hearing loss.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Disrupted Second Heart Field and Cardiac Neural Crest Outflow Tract Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in second heart field tissue is the route to the right-sided outflow-tract lesions seen in this kindred.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Disrupted Anterior Segment Development in Periocular Neural Crest\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in neural-crest-derived periocular mesenchyme is the presumed route to posterior embryotoxon. The step is marked INDIRECT_UNKNOWN_INTERMEDIATES because, unlike the ear and heart arms, no Jagged1-specific anterior-segment developmental study was identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Surgical repair of the congenital heart defect\", \"target\": \"Tetralogy of Fallot\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical repair of the congenital heart defect\", \"target\": \"Ventricular septal defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Audiological assessment and hearing rehabilitation\", \"target\": \"Mixed hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"headturner (Htu) Jag1 missense mouse\", \"target\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the inner-ear sensory arm of the mechanism - loss of vestibular ampullae and reduced outer hair cells - from a heterozygous Jag1 missense allele.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The Htu allele is not p.Cys234Tyr and lies in a different part of the protein; the mouse was not reported to model the cardiac or ocular arms of the human phenotype, and gross ampullar agenesis is more severe than anything documented in the human kindred.\"}, {\"source\": \"Jag1 Nodder (Jag1 Ndr/Ndr) mouse\", \"target\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces dose-dependent cochlear mis-patterning with combined auditory and vestibular deficits.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A homozygous hypomorph rather than a heterozygous missense carrier, and not the p.Cys234Tyr allele; the cardiac and ocular arms of the human phenotype are not addressed by this study.\"}, {\"source\": \"Heterozygous Jagged1 knockout mouse (middle ear)\", \"target\": \"Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces ossicular malformation from a heterozygous reduction in Jagged1 dose, matching the dominant human inheritance.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A null allele rather than the human missense allele, so the ligand reduction is a clean 50%. That is now known to be the right dose for p.Cys234Tyr, which is functionally null, so the mismatch here is one of allele mechanism and species rather than of dose; the audiological correlate is still inferred from mouse thresholds rather than measured in a DCHE carrier.\"}, {\"source\": \"JAG1\", \"target\": \"JAG1 First EGF-Like Repeat Cysteine Substitution\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Audiological assessment and hearing rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because the hearing loss is mixed and mid-frequency-predominant, it is not reliably caught by a screen tuned to high-frequency sensorineural loss, and full audiometry (with tympanometry to characterise the conductive component) is warranted in any carrier or at-risk relative. Amplification and language-development support follow standard paediatric audiology practice; no DCHE-specific rehabilitation evidence exists.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disrupted Anterior Segment Development in Periocular Neural Crest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trabecular meshwork, corneal endothelium and Schwalbe line derive from neural-crest-derived periocular mesenchyme. Posterior embryotoxon - an anteriorly displaced, prominent Schwalbe line visible at the slit lamp - is a recognised consequence of reduced JAG1/NOTCH2 signalling in humans and is one of the two features this entity shares with Alagille syndrome. The developmental step is curated as HYPOTHETICAL rather than established: no Jagged1-specific study of anterior-segment morphogenesis was identified, so the tissue-level mechanism is inferred from the neural-crest origin of the affected structures and from the human phenotype association rather than demonstrated.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"periocular neural crest cell\"], \"biological_processes\": [\"eye development\"], \"locations\": [\"anterior segment of eyeball\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Disrupted Second Heart Field and Cardiac Neural Crest Outflow Tract Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Jagged1-Notch signalling in second heart field progenitors sustains Fgf8 and Bmp4 expression, and through them coordinates two neighbouring tissues: migrating cardiac neural crest and the endothelial-to-mesenchymal transition that populates the outflow-tract endocardial cushions. Loss of that signal produces aortic arch artery and outflow-tract anomalies of exactly the right-sided class seen in this kindred - tetralogy of Fallot, ventricular septal defect, and peripheral pulmonic stenosis. In the peripheral pulmonary arteries the corresponding structural lesion in JAG1 disease is a tunica media depleted of smooth muscle cells and thickened by collagen and elastic fibres.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac neural crest cell\", \"pulmonary artery smooth muscle cell\"], \"biological_processes\": [\"outflow tract morphogenesis\", \"neural crest cell migration involved in heart formation\"], \"locations\": [\"cardiac outflow tract\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Heterozygous Jagged1 knockout mouse (middle ear)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The heterozygous Jag1 null mouse, used as an Alagille syndrome model, carries the conductive arm of the mechanism: it malforms the stapes and incus, and the stapes malformation tracks with hearing loss across all frequencies.\"}, {\"id\": \"Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The stapes and incus derive from the first two pharyngeal arches and are patterned by Jagged1-Notch2 signalling in arch neural crest cells. Reduced Jagged1 dose malforms the stapes cartilage template early in development, and the resulting ossicular malformation impairs sound conduction across all frequencies. This is the arm of the mechanism that accounts for the conductive component of the combined (mixed) hearing loss recorded in this kindred, and it is why the hearing phenotype here is mixed rather than purely sensorineural.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pharyngeal arch neural crest cell\"], \"biological_processes\": [\"neural crest cell development in the pharyngeal arches\", \"sensory perception of sound\"], \"locations\": [\"middle ear\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Heterozygous Jagged1 knockout mouse (middle ear)\", \"species\": \"Mouse\", \"genotype\": \"Jag1 +/- heterozygous null\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces ossicular malformation from a heterozygous reduction in Jagged1 dose, matching the dominant human inheritance.\"}]}}, {\"id\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Jagged1 marks the prosensory patches of the developing inner ear well before hair-cell versus supporting-cell fate is settled, and continues to be expressed by supporting cells into adulthood. Reduced Jagged1 therefore has two separable auditory consequences in model systems: an early patterning failure (loss of sensory cristae and their housing ampullae, and altered inner/outer hair-cell specification) that maps onto the vestibular and sensorineural components of the phenotype, and a later maturation failure of inner-hair-cell stereocilia that produces an auditory-neuropathy-like deafness with preserved hair-cell number. Both routes yield a sensorineural deficit without requiring hair-cell death.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"cochlear inner hair cell\", \"cochlear outer hair cell\", \"cochlear supporting cell\"], \"biological_processes\": [\"inner ear development\", \"cochlea development\", \"inner ear receptor cell development\", \"semicircular canal morphogenesis\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"headturner (Htu) Jag1 missense mouse\", \"species\": \"Mouse\", \"genotype\": \"Jag1 Htu/+ (dominant missense allele)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the inner-ear sensory arm of the mechanism - loss of vestibular ampullae and reduced outer hair cells - from a heterozygous Jag1 missense allele.\"}, {\"name\": \"Jag1 Nodder (Jag1 Ndr/Ndr) mouse\", \"species\": \"Mouse\", \"genotype\": \"Jag1 Ndr/Ndr (hypomorphic Alagille syndrome model)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces dose-dependent cochlear mis-patterning with combined auditory and vestibular deficits.\"}]}}, {\"id\": \"JAG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"JAG1\"], \"gene_terms\": [{\"label\": \"JAG1\", \"id\": \"hgnc:6188\"}], \"frequency\": \"OBLIGATE\", \"association\": \"Causal heterozygous missense variant p.Cys234Tyr in the first EGF-like repeat\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"JAG1 First EGF-Like Repeat Cysteine Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease-initiating lesion is a heterozygous germline JAG1 missense variant, p.Cys234Tyr, that replaces the first cysteine of the first epidermal-growth-factor(EGF)-like repeat of Jagged1. EGF-like repeats are small, disulfide-stapled modules whose fold depends on a fixed pattern of six cysteines; losing one of them leaves an unpaired partner and destabilises the module. Missense variants in JAG1 are non-randomly distributed and cluster in exactly these regions - the amino-terminal region, the DSL domain, and two clusters within the EGF repeats - which is the structural context in which this substitution should be read.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"JAG1\"], \"gene_terms\": [{\"label\": \"JAG1\", \"id\": \"hgnc:6188\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline JAG1 p.Cys234Tyr (C234Y). Classified LOSS_OF_FUNCTION on direct functional assay of this allele: the mutant protein is EndoH-sensitive, absent from the cell surface, and unable to activate Notch signalling, i.e. complete haploinsufficiency. No dominant-negative activity has been demonstrated for the JAG1 missense proteins assayed to date.\", \"gene_terms\": [{\"label\": \"JAG1\", \"id\": \"hgnc:6188\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Jag1 Nodder (Jag1 Ndr/Ndr) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A hypomorphic Jag1 mouse used as an Alagille syndrome model, with cochlear morphology plus single-cell RNA sequencing of the organ of Corti. It establishes that the cochlear phenotype is Jag1 dose dependent, which is what makes a heterozygous human loss-of-function allele a sufficient explanation for hearing loss. This speaks to the ear arm only: it is not support for a graded-dose account of the organ selectivity, which was tested and ruled out for p.Cys234Tyr.\"}, {\"id\": \"Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Jagged1 is a membrane-tethered ligand that must be displayed on the surface of the signal-sending cell to activate Notch receptors on the adjacent signal-receiving cell. Because the p.Cys234Tyr product never reaches the surface, it contributes nothing to trans-activation: in a CBF-dependent luciferase reporter it behaves like the known null allele p.Leu37Ser and cannot initiate Notch signalling at all. The carrier is therefore left with only the wild-type allele\u0027s ligand on the cell surface - complete haploinsufficiency, not a graded hypomorphic reduction. This distinction is load-bearing for this entry, because a hypomorphic \\\"leaky allele\\\" model was the leading explanation for liver-sparing JAG1 phenotypes until this allele was assayed and found to be null.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Notch signaling pathway\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Improperly folded Jagged1 is recognised by the ER quality-control machinery, is abnormally glycosylated, and accumulates intracellularly instead of transiting to the plasma membrane. For p.Cys234Tyr specifically this has been demonstrated directly and by two independent methods: the protein remains endoglycosidase-H sensitive, meaning its N-glycans were never processed in the Golgi, and immunofluorescence shows no cell-surface staining at all. Across the wider JAG1 missense class, ER-retained mutants bind the lectin chaperones calnexin and calreticulin more avidly than wild-type Jagged1 does, which is the quality-control step that holds them there. Importantly, no dominant-negative activity has been detected for the JAG1 missense proteins assayed to date, so the mutant allele subtracts function rather than poisoning the wild-type product.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"protein folding in the endoplasmic reticulum\", \"delivery of Jagged1 to the plasma membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Mixed hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-severe combined (mixed) hearing loss - that is, with both conductive and sensorineural components - affected six of the seven available affected members of the index kindred. This is the feature that names the entity and that distinguishes it from Alagille syndrome, in which hearing loss is not a cardinal diagnostic criterion. Mechanistically the two components have separate substrates: middle-ear ossicular malformation for the conductive part and cochlear sensory mis-patterning for the sensorineural part.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000410\"}}, {\"id\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node is the mechanistic hinge that separates this entity from Alagille syndrome, and it is deliberately curated as an unsolved step rather than an explanation. Every cell in a p.Cys234Tyr carrier has the same half-dose of functional Jagged1, yet the heart, inner ear, middle ear and anterior ocular segment malform while the intrahepatic biliary tree does not. The obvious candidate explanation - that the allele is hypomorphic and leaves enough ligand for the less demanding tissues - was proposed for the leaky p.Gly274Asp allele and then specifically ruled out for p.Cys234Tyr, which is functionally null and still spares the liver. What remains is that unidentified modifying factors, not residual ligand, determine the organ set. The clinical corollary is unchanged and important: the absence of cholestasis does not exclude a JAG1 disorder, and JAG1 variants are recovered from individuals presenting with only one or two of the Alagille organ systems.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"Notch signaling pathway\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Surgical repair of the congenital heart defect\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management of the cardiac component follows standard congenital-cardiac practice for the specific lesion; there is no DCHE-specific cardiac protocol. Tetralogy of Fallot requires operative repair, whereas isolated peripheral pulmonic stenosis may need only surveillance - so the same allele in two relatives can imply completely different cardiac management, which is the practical consequence of the variable expressivity recorded here.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tetralogy of Fallot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three cardiac lesions observed in the index kindred. Tetralogy of Fallot is also the presentation in which JAG1 variants are found among apparently non-syndromic individuals with right-sided congenital heart disease, which is the wider phenotype class this entity sits inside.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001636\"}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One of the three cardiac lesions observed in the index kindred, consistent with failure of outflow-tract and endocardial-cushion development downstream of reduced Jagged1-Notch signalling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001629\"}}, {\"id\": \"headturner (Htu) Jag1 missense mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A dominant, ENU-derived Jag1 missense allele - the same lesion class as the human p.Cys234Tyr - assessed in the heterozygous state, matching the dominant human inheritance. Its value here is that it links a heterozygous Jag1 missense change to both vestibular and cochlear sensory deficits.\"}], \"edges\": [{\"source\": \"JAG1 First EGF-Like Repeat Cysteine Substitution\", \"target\": \"Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a structurally required cysteine prevents correct disulfide-bonded folding of the EGF module, which is what commits the nascent protein to the ER quality-control fate rather than the secretory route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Misfolding and Endoplasmic-Reticulum Retention of Mutant Jagged1\", \"target\": \"Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ligand retained in the ER cannot engage Notch receptors on neighbouring cells. For p.Cys234Tyr the retention is complete rather than partial, so the functional consequence is the absence of mutant ligand from the surface pool, not merely its reduction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cell-Surface Jagged1 and Failure of Notch Trans-Activation\", \"target\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Half-dose Jagged1 is uniform across every tissue in the carrier, yet only some organs malform. The step from the uniform molecular deficit to a selective set of malformations is therefore not itself explained by the deficit, and is marked INDIRECT_UNKNOWN_INTERMEDIATES because the factors that make one tissue decompensate and another not are unidentified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in the developing otic epithelium is the route to the sensorineural and vestibular arm of the phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in pharyngeal-arch neural crest is the route to the conductive component of the combined hearing loss.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Disrupted Second Heart Field and Cardiac Neural Crest Outflow Tract Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in second heart field tissue is the route to the right-sided outflow-tract lesions seen in this kindred.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Modifier-Dependent Organ Selectivity of JAG1 Haploinsufficiency\", \"target\": \"Disrupted Anterior Segment Development in Periocular Neural Crest\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Jagged1 dose in neural-crest-derived periocular mesenchyme is the presumed route to posterior embryotoxon. The step is marked INDIRECT_UNKNOWN_INTERMEDIATES because, unlike the ear and heart arms, no Jagged1-specific anterior-segment developmental study was identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Surgical repair of the congenital heart defect\", \"target\": \"Tetralogy of Fallot\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical repair of the congenital heart defect\", \"target\": \"Ventricular septal defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Audiological assessment and hearing rehabilitation\", \"target\": \"Mixed hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"headturner (Htu) Jag1 missense mouse\", \"target\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the inner-ear sensory arm of the mechanism - loss of vestibular ampullae and reduced outer hair cells - from a heterozygous Jag1 missense allele.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The Htu allele is not p.Cys234Tyr and lies in a different part of the protein; the mouse was not reported to model the cardiac or ocular arms of the human phenotype, and gross ampullar agenesis is more severe than anything documented in the human kindred.\"}, {\"source\": \"Jag1 Nodder (Jag1 Ndr/Ndr) mouse\", \"target\": \"Impaired Notch-Dependent Inner Ear Sensory Patterning\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces dose-dependent cochlear mis-patterning with combined auditory and vestibular deficits.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A homozygous hypomorph rather than a heterozygous missense carrier, and not the p.Cys234Tyr allele; the cardiac and ocular arms of the human phenotype are not addressed by this study.\"}, {\"source\": \"Heterozygous Jagged1 knockout mouse (middle ear)\", \"target\": \"Impaired Jagged1-Notch2 Patterning of the Middle Ear Ossicles\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces ossicular malformation from a heterozygous reduction in Jagged1 dose, matching the dominant human inheritance.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A null allele rather than the human missense allele, so the ligand reduction is a clean 50%. That is now known to be the right dose for p.Cys234Tyr, which is functionally null, so the mismatch here is one of allele mechanism and species rather than of dose; the audiological correlate is still inferred from mouse thresholds rather than measured in a DCHE carrier.\"}, {\"source\": \"JAG1\", \"target\": \"JAG1 First EGF-Like Repeat Cysteine Substitution\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7108,6 +7269,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7122,6 +7286,7 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7176,6 +7341,9 @@ This clinical feature is Tetralogy of Fallot (HP:0001636). HP:0001636 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7190,6 +7358,7 @@ This clinical feature is Tetralogy of Fallot (HP:0001636). HP:0001636 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7214,6 +7383,7 @@ This clinical feature is Tetralogy of Fallot (HP:0001636). HP:0001636 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7268,6 +7438,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7282,6 +7455,7 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7336,6 +7510,9 @@ This clinical feature is Isolated peripheral pulmonic stenosis, annotated with P
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7350,6 +7527,7 @@ This clinical feature is Isolated peripheral pulmonic stenosis, annotated with P
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7374,6 +7552,7 @@ This clinical feature is Isolated peripheral pulmonic stenosis, annotated with P
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7439,6 +7618,9 @@ This clinical feature is Combined (mixed) hearing loss, annotated with Mixed hea
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7453,6 +7635,7 @@ This clinical feature is Combined (mixed) hearing loss, annotated with Mixed hea
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7477,6 +7660,7 @@ This clinical feature is Combined (mixed) hearing loss, annotated with Mixed hea
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7531,6 +7715,9 @@ This clinical feature is Mid-frequency hearing loss (HP:0012781). HP:0012781 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7545,6 +7732,7 @@ This clinical feature is Mid-frequency hearing loss (HP:0012781). HP:0012781 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7601,6 +7789,9 @@ This clinical feature is Vestibular pathology, annotated with Abnormal vestibula
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7615,6 +7806,7 @@ This clinical feature is Vestibular pathology, annotated with Abnormal vestibula
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7639,6 +7831,7 @@ This clinical feature is Vestibular pathology, annotated with Abnormal vestibula
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7704,6 +7897,9 @@ This clinical feature is Posterior embryotoxon (HP:0000627). HP:0000627 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7718,6 +7914,7 @@ This clinical feature is Posterior embryotoxon (HP:0000627). HP:0000627 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7820,6 +8017,9 @@ This disease-associated gene is JAG1 (hgnc:6188). hgnc:6188 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7834,6 +8034,7 @@ This disease-associated gene is JAG1 (hgnc:6188). hgnc:6188 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7861,6 +8062,7 @@ This disease-associated gene is JAG1 (hgnc:6188). hgnc:6188 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7882,6 +8084,7 @@ This disease-associated gene is JAG1 (hgnc:6188). hgnc:6188 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7969,6 +8172,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7979,6 +8185,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8009,6 +8218,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8030,6 +8240,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8098,6 +8309,9 @@ This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8108,6 +8322,9 @@ This treatment is Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -8177,6 +8394,7 @@ This treatment targets Ventricular septal defect (HP:0001629). HP:0001629 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8243,6 +8461,9 @@ This treatment is audiological support and hearing amplification, annotated with
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8253,6 +8474,9 @@ This treatment is audiological support and hearing amplification, annotated with
 
 
     </div>
+
+
+
 
 
 
@@ -8302,6 +8526,7 @@ This treatment targets Combined (mixed) hearing loss, annotated with Mixed heari
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8371,6 +8596,9 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8381,6 +8609,9 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
     </div>
+
+
+
 
 
 
@@ -8411,6 +8642,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8432,6 +8664,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8544,6 +8777,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8565,6 +8799,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8652,6 +8887,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8746,6 +8982,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8837,6 +9074,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8858,6 +9096,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8948,6 +9187,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8969,6 +9209,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9059,6 +9300,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9146,6 +9388,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9167,6 +9410,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9241,6 +9485,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9349,6 +9594,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9373,6 +9619,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9394,6 +9641,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9462,6 +9710,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9535,6 +9784,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9559,6 +9809,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9580,6 +9831,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9648,6 +9900,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9775,6 +10028,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9816,6 +10070,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9921,6 +10176,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9962,6 +10218,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10067,6 +10324,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10108,6 +10366,7 @@ This treatment is ophthalmic surveillance, annotated with Supportive Care (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12813,6 +13072,42 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">NEC (Named Entity Confusion) preflight, recorded because this entity is a high-risk case: &#34;posterior embryotoxon plus congenital heart defects&#34; is a cardinal Alagille syndrome pairing, kb/disorders/Alagille_syndrome.yaml already exists, and the two disorders share a causal gene, so a gene-frequency check cannot discriminate between them.
+`just preflight-dr &lt;report&gt; MONDO:0060713` returned SKIP - MONDO records no RO:0004003 causal gene for this term - and additionally reported an OMIM mismatch (report 118450 versus MONDO xref 617992). The manual OMIM/synonym preflight was therefore run, and the mismatch was resolved as a false positive: OMIM 118450 appears in the report only inside a correctly labelled contrastive paragraph about classic Alagille syndrome, while the report&#39;s target entity is named as MONDO:0060713 throughout. Identity anchors all agree - MONDO:0060713 xrefs OMIM:617992 with the related synonym DCHE; the index publication PMID:12022040 (fetched directly from PubMed before the deep-research report was read) names JAG1 p.Cys234Tyr in the triad kindred; and JAG1 dominates the report&#39;s gene mentions (61, versus NOTCH2 6). Manual verdict: PASS.
+Independence note: the phenotype and genetic content of this entry was anchored on primary literature retrieved directly from PubMed before the falcon report was opened.
+Evidence-source note: PMID:20437614 (Bauer 2010) is cached as full text, not abstract only, and the allele-level functional evidence for p.Cys234Tyr - EndoH sensitivity, absence from the cell surface by trypsin shaving and by immunofluorescence, failure to activate a CBF-dependent Notch reporter, and the authors&#39; conclusion of complete haploinsufficiency - is quoted from that cached body. An earlier draft of this entry wrongly treated that evidence as unavailable and built the mechanism on a graded &#34;leaky allele&#34; dose model extrapolated from the p.Gly274Asp allele of PMID:12649809. Bauer 2010 explicitly tested and rejected that model for this allele, so the mechanism chain here is haploinsufficiency plus unidentified modifiers, and PMID:12649809 is retained only as the labelled contrasting hypothesis.
+GeneReviews: no GeneReviews chapter exists for this entity. The Alagille syndrome chapter (PMID:20301450) is tagged in `references:` and used only for the allelic-disorder differential, not as a phenotype baseline for this entry.
+Datasets: `just discover-datasets` was run and returned no relevant accession. Every candidate was a GENE_ONLY match reached through JAG1 - breast cancer lymph-node metastasis, glioma, pancreatic islet, embryonic haematopoietic stem cell - i.e. whatever JAG1 is famous for, which is exactly the Named Entity Confusion pattern the dataset-curation SOP warns about. No cochlear, anterior-segment or outflow-tract dataset was found for this gene, and none exists for this entity. `datasets:` is therefore deliberately empty rather than populated with a resolvable but irrelevant accession.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Deafness, Congenital Heart Defects, and Posterior Embryotoxon (DCHE, JAG1)</strong> · 2026-08-19T16:36:55Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Deafness_Congenital_Heart_Defects_And_Posterior_Embryotoxon/2026-08-19T163655Z-claude-code-f7c9a6.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for MONDO:0060713 (DCHE, OMIM 617992), the autosomal dominant JAG1 p.Cys234Tyr disorder delineated by Le Caignec et al. 2002 (PMID:12022040). Deep research provider: falcon (research/Deafness_Congenital_Heart_Defects_And_Posterior_Embryotoxon-deep-research-falcon.md; reference_validation reported 5/5 references resolved, confabulation_rate 0.0).
+
+NEC preflight (high risk: &#34;posterior embryotoxon plus congenital heart defects&#34; is a cardinal Alagille pairing, kb/disorders/Alagille_syndrome.yaml already exists, and both disorders share JAG1 so a gene-frequency check cannot discriminate). &#34;just preflight-dr &lt;report&gt; MONDO:0060713&#34; returned SKIP (MONDO records no RO:0004003 causal gene for this term) and additionally flagged an OMIM mismatch (report 118450 vs MONDO xref 617992). The manual OMIM/synonym preflight was therefore run per CLAUDE.md. The mismatch resolved as a false positive: OMIM 118450 appears in the report only inside a correctly labelled contrastive paragraph about classic Alagille syndrome, while the report names MONDO:0060713 as its target entity throughout. Identity anchors all agree (MONDO:0060713 xrefs OMIM:617992 with synonym DCHE; PMID:12022040 names JAG1 p.Cys234Tyr in the triad kindred; JAG1 dominates report gene mentions at 61 vs NOTCH2 6). Manual verdict: PASS. The primary literature was fetched directly from PubMed and read BEFORE the falcon report was opened, so the phenotype and genetic content is independently anchored rather than derived from the report.
+
+MECHANISM CORRECTION made during curation, recorded because it changed the entry&#39;s central claim. A first draft assumed the allele-level functional data for p.Cys234Tyr was unavailable in an indexed abstract, and therefore built the mechanism on a graded &#34;leaky allele&#34; dose-threshold model extrapolated from the hypomorphic JAG1 p.Gly274Asp allele of PMID:12649809 (developing heart more dose-sensitive than developing liver). A pre-PR self-review found that PMID:20437614 (Bauer 2010) is cached as FULL TEXT, not abstract only, and that it assays p.Cys234Tyr directly: the protein is EndoH-sensitive, absent from the cell surface by both trypsin shaving and immunofluorescence, and unable to activate a CBF-dependent Notch reporter - complete haploinsufficiency. The same paper explicitly states the leaky-allele hypothesis and then reports the result that defeats it for this allele. The mechanism chain was rewritten accordingly: nodes 2 and 3 upgraded from PROVISIONAL to ESTABLISHED on direct allele-level evidence; the organ-selectivity node reframed from dose thresholds to unidentified modifying factors and downgraded to HYPOTHETICAL; PMID:12649809 retained only as an explicitly labelled contrasting hypothesis carrying supports: PARTIAL, plus one supports: REFUTE evidence item against the graded-dose explanation. The knowledge-gap discussion was replaced: the old one asked whether the allele was leaky or null (now answered) and the new one (dche_organ_selectivity_modifiers) asks what the modifiers are. Full-text snippets from PMID:20437614 were confirmed to validate under &#34;just validate-disorders&#34;, which runs with --no-full-text; that flag governs downloading, not matching against an already-cached body.
+
+Alagille differentiation is explicit throughout: a differential_diagnoses entry bound to MONDO:0007318 listing the three absent Alagille criteria (bile duct paucity with cholestasis, butterfly vertebrae, characteristic facies) and carrying independent liver-sparing evidence from PMID:20437614 (&#34;yet all carriers have normal liver function&#34;; &#34;the lack of any liver dysfunction in the nine family members studied by Le Caignec et al. is unusual&#34;); a mechanism node whose entire purpose is the organ dissociation; and an OPEN_QUESTION discussion recording the competing reading that DCHE is the liver-sparing tail of the JAG1 continuum rather than a discrete disorder. No Alagille cohort frequency was imported into this entry.
+
+Content curated: 8 pathophysiology nodes forming an explicit chain (JAG1 EGF-repeat-1 cysteine substitution -&gt; misfolding and ER retention -&gt; loss of cell-surface Jagged1 and failure of Notch trans-activation -&gt; modifier-dependent organ selectivity -&gt; four tissue arms: inner ear sensory patterning, middle ear ossicle patterning, second heart field and cardiac neural crest outflow tract, periocular neural crest anterior segment); 8 phenotypes with HPO bindings; a JAG1 genetic block with GeneticContext; 4 differential diagnoses (Alagille syndrome, non-syndromic JAG1 right-sided CHD, Axenfeld-Rieger anomaly/syndrome spectrum, atypical/oligosymptomatic Alagille); 3 mouse models with modeled_mechanisms links carrying both evidence layers; 3 treatments; 4 discussions (1 OPEN_QUESTION, 2 KNOWLEDGE_GAP, 1 HUMAN_MODEL_MISMATCH); prevalence, inheritance and classifications blocks.
+
+GeneReviews baseline: no GeneReviews chapter exists for this entity. The Alagille syndrome chapter (PMID:20301450) is tagged GeneReviews in the top-level references block and is used only for the allelic-disorder differential, not as a phenotype baseline for this entry.
+
+Datasets: &#34;just discover-datasets&#34; was run and returned no relevant accession. Every candidate was a GENE_ONLY match reached through JAG1 (breast cancer lymph node metastasis, glioma, pancreatic islet, embryonic haematopoietic stem cell), which is the Named Entity Confusion pattern the dataset-curation SOP warns about, so the datasets block is deliberately empty.
+
+Validation, all run to completion with output read: &#34;just validate&#34; passed schema and term validation with 91/91 snippets verified against cached references; &#34;just count-verified-snippets&#34; 87/87 at the time it was run separately, rising to 91/91 after the Axenfeld-Rieger differential was added; &#34;just validate-terms&#34; passed; &#34;just validate-disorders&#34; (the batched, --no-full-text check CI runs) passed; &#34;scripts/check_snippet_length.py --against-ref origin/main&#34; OK, no new snippets under 5 words; &#34;just check-duplicate-keys&#34; OK; &#34;just check-title-snippets&#34; OK, no new title-quoting snippets; &#34;just check-reference-cache-frontmatter&#34; and &#34;just check-term-cache-integrity&#34; OK; pytest tests/test_data.py -k Deafness_Congenital passed 16/16. One unrelated pre-existing failure in Travelers_Diarrhea.yaml was confirmed present on origin/main with these changes stashed.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

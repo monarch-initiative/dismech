@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4239,6 +4307,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4263,6 +4332,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4284,6 +4354,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4382,6 +4453,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4456,6 +4528,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4477,6 +4550,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4551,6 +4625,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4675,6 +4750,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4709,6 +4785,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intronic-ggcctg-repeat-expansion-in-nop56" data-dismech-node="Intronic GGCCTG Repeat Expansion in NOP56" data-dismech-type="pathophysiology">
                 <div class="item-name">Intronic GGCCTG Repeat Expansion in NOP56</div>
+
 
                 <div class="item-desc">The initiating lesion is a heterozygous expansion of a GGCCTG hexanucleotide repeat in intron 1 of NOP56, which encodes a core scaffold protein of the box C/D small nucleolar ribonucleoprotein complex. Normal alleles carry 3-14 repeats; typical pathogenic alleles carry roughly 650-2500, although expansions as short as 25-31 repeats have been shown to cause the disease. This is the disorder-specific molecular insult substituted for the generic trigger node of the Purkinje degeneration module.</div>
 
@@ -4821,6 +4898,7 @@ This pathophysiological event involves NOP56 (hgnc:15911). hgnc:15911 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4842,6 +4920,7 @@ This pathophysiological event involves NOP56 (hgnc:15911). hgnc:15911 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4867,6 +4946,7 @@ This pathophysiological event involves NOP56 (hgnc:15911). hgnc:15911 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nop56-intron-1-retention-and-nuclear-ggccug-rna-foci" data-dismech-node="NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci" data-dismech-type="pathophysiology">
                 <div class="item-name">NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci</div>
+
 
                 <div class="item-desc">Retained (GGCCUG)n repeat RNA accumulates as discrete nuclear foci. Foci are demonstrable by fluorescence in situ hybridization in patient lymphoblastoid cells, patient iPSCs and iPSC-derived neurons, and in autopsied brain, where sense but not antisense foci are found. In autopsy tissue the foci occur in neuronal nuclei of cerebrum, cerebellum, inferior olive, spinal cord and temporal muscle, and include giant foci nearly 10 micrometres across in Purkinje cells and spinal motor neurons.</div>
 
@@ -5057,6 +5137,7 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5078,6 +5159,7 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5105,6 +5187,7 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5127,6 +5210,7 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-srsf2-sequestration-by-ggccug-repeat-rna" data-dismech-node="SRSF2 Sequestration by GGCCUG Repeat RNA" data-dismech-type="pathophysiology">
                 <div class="item-name">SRSF2 Sequestration by GGCCUG Repeat RNA</div>
+
 
                 <div class="item-desc">Expanded (GGCCUG)n RNA binds SRSF2 specifically, and the resulting sequestration of an essential splicing factor into nuclear foci is the canonical RNA gain-of-function model for SCA36, by analogy with the MBNL-sequestration mechanism of myotonic dystrophy. NOP56 mRNA and protein levels and Cajal body number are not appreciably reduced in patient lymphoblastoid cells, which is why haploinsufficiency of NOP56 itself is not the favored explanation.</div>
 
@@ -5226,6 +5310,7 @@ This pathophysiological event involves abnormal mRNA binding (GO:0003729). GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5247,6 +5332,7 @@ This pathophysiological event involves abnormal mRNA binding (GO:0003729). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5272,6 +5358,13 @@ This pathophysiological event involves abnormal mRNA binding (GO:0003729). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dipeptide-repeat-protein-production-from-the-expanded-repeat" data-dismech-node="Dipeptide Repeat Protein Production from the Expanded Repeat" data-dismech-type="pathophysiology">
                 <div class="item-name">Dipeptide Repeat Protein Production from the Expanded Repeat</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The intron-retained GGCCTG repeat transcript is translated into dipeptide repeat proteins. In patient tissue poly(GP) is produced abundantly by canonical AUG-mediated translation reading through the retained intron, while the antisense product poly(PR) indicates that repeat-associated non-AUG (RAN) translation also occurs. Unlike in C9orf72 disease, SCA36 poly(GP) remains soluble and TDP-43 pathology is absent. Whether the DPRs are pathogenic in SCA36 or a comparatively inert byproduct is not settled — a Neuro2A model found RAN-derived DPR formation from expanded GGCCTG to be rare.</div>
 
@@ -5383,6 +5476,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5404,6 +5498,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5431,6 +5526,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5453,6 +5549,13 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mir1292-downregulation" data-dismech-node="MIR1292 Downregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">MIR1292 Downregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The MIR1292 gene lies 19 bp downstream of the repeat, and its transcription is reduced in lymphoblastoid cells from expansion carriers in two independent cohorts. In the Han Chinese cohort, four of seven predicted targets were unchanged and three were unmeasurable in lymphoblastoid cells, and the authors raised the possibility that reduced MIR1292 is an epiphenomenon of the expansion. No downstream target has been demonstrated in cerebellar or motor neuron tissue, so this node is deliberately left with no outgoing edge; see the mir1292_contribution discussion.</div>
 
@@ -5491,6 +5594,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5512,6 +5616,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5539,6 +5644,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5561,6 +5667,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-degeneration" data-dismech-node="Purkinje Cell Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Degeneration</div>
+
 
                 <div class="item-desc">Purkinje cells degenerate, and their loss is the central effector event linking the molecular repeat toxicity to the cerebellar syndrome. Purkinje involvement is demonstrable even in a presymptomatic expansion carrier, indicating that it precedes clinical ataxia.</div>
 
@@ -5717,6 +5824,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5738,6 +5846,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5763,6 +5872,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lower-motor-neuron-degeneration" data-dismech-node="Lower Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Lower Motor Neuron Degeneration</div>
+
 
                 <div class="item-desc">Lower motor neurons degenerate, most conspicuously the hypoglossal neurons supplying the tongue. Involvement is largely restricted to lower motor neurons of the caudal brainstem and spinal cord rather than the widespread upper and lower motor neuron loss of amyotrophic lateral sclerosis, which is why SCA36 does not progress to an ALS-like course.</div>
 
@@ -5886,6 +5996,7 @@ This pathophysiological event involves increased motor neuron apoptotic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5907,6 +6018,7 @@ This pathophysiological event involves increased motor neuron apoptotic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5934,6 +6046,7 @@ This pathophysiological event involves increased motor neuron apoptotic process 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5956,6 +6069,7 @@ This pathophysiological event involves increased motor neuron apoptotic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-and-olivopontocerebellar-atrophy" data-dismech-node="Cerebellar and Olivopontocerebellar Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar and Olivopontocerebellar Atrophy</div>
+
 
                 <div class="item-desc">Cerebellar tissue loss follows the cellular degeneration in a stereotyped sequence: cerebellar glucose hypometabolism in the vermis and right hemisphere before symptoms, superior vermis atrophy early in the ataxic stage, diffuse cerebellar atrophy some years later, and an olivopontocerebellar pattern in the oldest patients.</div>
 
@@ -6046,6 +6160,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6068,6 +6183,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bulbar-and-limb-denervation" data-dismech-node="Bulbar and Limb Denervation" data-dismech-type="pathophysiology">
                 <div class="item-name">Bulbar and Limb Denervation</div>
+
 
                 <div class="item-desc">Denervation of tongue and limb musculature follows lower motor neuron loss, producing fasciculation and then atrophy. Tongue involvement predominates and is the clinical marker that separates SCA36 from pure cerebellar ataxias.</div>
 
@@ -6166,6 +6282,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6188,6 +6305,13 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-and-peripheral-auditory-dysfunction" data-dismech-node="Cochlear and Peripheral Auditory Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear and Peripheral Auditory Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Hearing loss in SCA36 is sensorineural and worst at high frequencies. Brainstem auditory evoked potentials point to the inner ear or the peripheral auditory pathway rather than to a central lesion, but the molecular route from the NOP56 expansion to auditory dysfunction has not been worked out.</div>
 
@@ -6262,6 +6386,7 @@ This pathophysiological event occurs in inner ear, annotated with internal ear (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6284,6 +6409,13 @@ This pathophysiological event occurs in inner ear, annotated with internal ear (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nop56-box-c-d-snornp-function" data-dismech-node="Impaired NOP56 Box C/D snoRNP Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NOP56 Box C/D snoRNP Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The alternative loss-of-function branch. NOP56 is a core scaffold of the box C/D small nucleolar ribonucleoprotein complex that directs 2&#39;-O-methylation of ribosomal RNA, so reduced NOP56 dosage would be expected to impair rRNA processing and ribosome biogenesis. This node is deliberately left with no incoming or outgoing causal edge, because the branch is not supported as the patient mechanism: NOP56 mRNA and protein are not appreciably reduced in patient cells, and the zebrafish nop56 null shows what complete loss of the gene actually produces — an embryonic-lethal failure of cerebellar development, not a late-onset selective degeneration. It is recorded so the hypothesis is visible and falsifiable rather than surviving only as prose. See the nop56_dosage_branch discussion.</div>
 
@@ -6423,6 +6555,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6444,6 +6577,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6506,6 +6640,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6550,6 +6685,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6600,6 +6736,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6621,6 +6758,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6666,7 +6804,7 @@ This pathophysiological event involves decreased rRNA processing (GO:0006364). G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only in vivo demonstration that the SCA36 repeat itself is sufficient to kill Purkinje cells. Expressing a 62-unit TG3C2 repeat throughout the mouse CNS reproduces the SCA36 pattern of selective vulnerability \\u2014 Purkinje cell loss and locomotor impairment \\u2014 while the near-identical C9orf72 G4C2 repeat in the same paradigm instead produces cortical loss and pTDP-43 pathology. The contrast is the point: the two repeats differ by one nucleotide, so the divergence localizes the pathomechanism to the repeat sequence rather than to its host gene.\"}, {\"id\": \"Antisense oligonucleotides targeting the expanded NOP56 repeat (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. Antisense oligonucleotides directed at the expanded repeat or at NOP56 intron 1 reduce RNA foci in patient iPSCs and iPSC-derived neurons and reduce poly(GP) in patient fibroblasts and lymphoblastoid cells. Because NOP56 is an essential protein, the therapeutic window depends on suppressing the repeat-containing transcript without lowering total NOP56, which has been achieved at low ASO doses. No clinical trial in SCA36 has been reported.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Apathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apathy is reported alongside depression as part of the frontal-subcortical affective profile.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000741\"}}, {\"id\": \"Ataxic dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar dysarthria develops in all patients and is one of the two universal features of the original cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Bulbar and Limb Denervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Denervation of tongue and limb musculature follows lower motor neuron loss, producing fasciculation and then atrophy. Tongue involvement predominates and is the clinical marker that separates SCA36 from pure cerebellar ataxias.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebellar tissue loss follows the cellular degeneration in a stereotyped sequence: cerebellar glucose hypometabolism in the vermis and right hemisphere before symptoms, superior vermis atrophy early in the ataxic stage, diffuse cerebellar atrophy some years later, and an olivopontocerebellar pattern in the oldest patients.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\"]}}, {\"id\": \"Cochlear and Peripheral Auditory Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hearing loss in SCA36 is sensorineural and worst at high frequencies. Brainstem auditory evoked potentials point to the inner ear or the peripheral auditory pathway rather than to a central lesion, but the molecular route from the NOP56 expansion to auditory dysfunction has not been worked out.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"inner ear\"]}}, {\"id\": \"Cognitive therapy and psychological support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cognitive therapy, treatment of depression, and psychological support for the frontal-subcortical cognitive and affective decline that accumulates as the disease progresses.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild depressive symptoms accompany the frontal-executive changes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The intron-retained GGCCTG repeat transcript is translated into dipeptide repeat proteins. In patient tissue poly(GP) is produced abundantly by canonical AUG-mediated translation reading through the retained intron, while the antisense product poly(PR) indicates that repeat-associated non-AUG (RAN) translation also occurs. Unlike in C9orf72 disease, SCA36 poly(GP) remains soluble and TDP-43 pathology is absent. Whether the DPRs are pathogenic in SCA36 or a comparatively inert byproduct is not settled \\u2014 a Neuro2A model found RAN-derived DPR formation from expanded GGCCTG to be rare.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"translation\"], \"animal_models\": [{\"name\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"species\": \"Mouse\", \"genotype\": \"Wild-type C57BL/6 mice given intracerebroventricular AAV9-NOP56-(TG3C2)62 at postnatal day 0; AAV9-NOP56-(TG3C2)6 as the control construct\", \"background\": \"C57BL/6\", \"category\": \"Somatic brain transgenesis\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse reproduces the specific DPR biology curated at this node, including the feature that distinguishes SCA36 from C9orf72 disease: poly(GP) is produced but stays soluble rather than forming inclusions.\"}]}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing difficulty is a management concern in SCA36 because of the risk of aspiration, although a videofluoroscopic comparison found swallowing function better preserved than in amyotrophic lateral sclerosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Feeding and swallowing management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary assessment and feeding therapy to manage the swallowing difficulty and reduce aspiration risk that follow bulbar denervation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing aids and cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification or cochlear implantation with audiologic rehabilitation for the sensorineural hearing loss, with annual or biannual otolaryngology surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired NOP56 Box C/D snoRNP Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative loss-of-function branch. NOP56 is a core scaffold of the box C/D small nucleolar ribonucleoprotein complex that directs 2\u0027-O-methylation of ribosomal RNA, so reduced NOP56 dosage would be expected to impair rRNA processing and ribosome biogenesis. This node is deliberately left with no incoming or outgoing causal edge, because the branch is not supported as the patient mechanism: NOP56 mRNA and protein are not appreciably reduced in patient cells, and the zebrafish nop56 null shows what complete loss of the gene actually produces \\u2014 an embryonic-lethal failure of cerebellar development, not a late-onset selective degeneration. It is recorded so the hypothesis is visible and falsifiable rather than surviving only as prose. See the nop56_dosage_branch discussion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"rRNA processing\"], \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"animal_models\": [{\"name\": \"nop56 loss-of-function zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"nop56sa12582 homozygous loss-of-function\", \"category\": \"Germline null\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"The model is the direct experimental perturbation of the hypothetical dosage branch: it removes nop56 function outright and measures what follows, including expression of box C/D complex genes.\"}]}}, {\"id\": \"Impaired executive functioning\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild frontal-executive decline measurable on the frontal assessment battery and MoCA, with global measures such as MMSE preserved. The decline tracks disease duration and ataxia severity, and SPECT shows reduced regional cerebral blood flow in anterior cingulate and inferolateral prefrontal cortex.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033051\"}}, {\"id\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous expansion of a GGCCTG hexanucleotide repeat in intron 1 of NOP56, which encodes a core scaffold protein of the box C/D small nucleolar ribonucleoprotein complex. Normal alleles carry 3-14 repeats; typical pathogenic alleles carry roughly 650-2500, although expansions as short as 25-31 repeats have been shown to cause the disease. This is the disorder-specific molecular insult substituted for the generic trigger node of the Purkinje degeneration module.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"role\": \"trigger\"}}, {\"id\": \"Limb ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular ataxia affecting the limbs, reported in 93% of the original Japanese cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002070\"}}, {\"id\": \"Lower Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lower motor neurons degenerate, most conspicuously the hypoglossal neurons supplying the tongue. Involvement is largely restricted to lower motor neurons of the caudal brainstem and spinal cord rather than the widespread upper and lower motor neuron loss of amyotrophic lateral sclerosis, which is why SCA36 does not progress to an ALS-like course.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"lower motor neuron\"], \"biological_processes\": [\"motor neuron apoptotic process\"]}}, {\"id\": \"MIR1292 Downregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The MIR1292 gene lies 19 bp downstream of the repeat, and its transcription is reduced in lymphoblastoid cells from expansion carriers in two independent cohorts. In the Han Chinese cohort, four of seven predicted targets were unchanged and three were unmeasurable in lymphoblastoid cells, and the authors raised the possibility that reduced MIR1292 is an epiphenomenon of the expansion. No downstream target has been demonstrated in cerebellar or motor neuron tissue, so this node is deliberately left with no outgoing edge; see the mir1292_contribution discussion.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"NOP56\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"presence\": \"Positive\", \"association\": \"GGCCTG hexanucleotide repeat expansion in intron 1\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained (GGCCUG)n repeat RNA accumulates as discrete nuclear foci. Foci are demonstrable by fluorescence in situ hybridization in patient lymphoblastoid cells, patient iPSCs and iPSC-derived neurons, and in autopsied brain, where sense but not antisense foci are found. In autopsy tissue the foci occur in neuronal nuclei of cerebrum, cerebellum, inferior olive, spinal cord and temporal muscle, and include giant foci nearly 10 micrometres across in Purkinje cells and spinal motor neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar Purkinje cell\", \"spinal motor neuron\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\"], \"experimental_models\": [{\"name\": \"SCA36 patient iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient-derived neurons carrying the endogenous expansion form intranuclear sense RNA foci at significantly higher frequency than control neurons, reproducing the hallmark molecular lesion in a human neuronal context.\"}, {\"name\": \"Neuro2A cells expressing expanded GGCCTG/CAGGCC repeats\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Transfected expanded repeats produce sense but not antisense RNA foci, matching the strand asymmetry seen in patient autopsy tissue.\"}]}}, {\"id\": \"NOP56 intron 1 GGCCTG hexanucleotide repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Non-coding hexanucleotide repeat expansion in intron 1 of NOP56. Normal alleles carry 3-14 repeats. Typical pathogenic alleles carry roughly 650 or more, up to about 2500, but three affected individuals in a multicentre cohort carried only 25, 30 and 31 repeats with clinical features indistinguishable from carriers of long expansions, so a short expansion does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"variant_type\": \"hexanucleotide_repeat_expansion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Neuro2A cells expressing expanded GGCCTG/CAGGCC repeats\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Murine Neuro2A neuroblastoma cells transfected with expanded SCA36 repeats, used to screen candidate compounds and RNA-directed interventions against foci formation and cytotoxicity.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:30610877\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Routine exercise and physical therapy directed at gait and balance, with walking aids as ambulation declines.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Porphyrin derivatives targeting repeat RNA G-quadruplexes (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. The GGCCUG repeat can adopt G-quadruplex structures, and porphyrin derivatives that distort such structures were screened in SCA36 cell models. Sodium copper chlorophyllin and hemin chloride reduced expansion-mediated cytotoxicity and improved viability. No human data exist.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sodium copper chlorophyllin\", \"hemin chloride\"]}}, {\"id\": \"Purkinje Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purkinje cells degenerate, and their loss is the central effector event linking the molecular repeat toxicity to the cerebellar syndrome. Purkinje involvement is demonstrable even in a presymptomatic expansion carrier, indicating that it precedes clinical ataxia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"species\": \"Mouse\", \"genotype\": \"Wild-type C57BL/6 mice given intracerebroventricular AAV9-NOP56-(TG3C2)62 at postnatal day 0; AAV9-NOP56-(TG3C2)6 as the control construct\", \"background\": \"C57BL/6\", \"category\": \"Somatic brain transgenesis\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Repeat-expressing mice lose cerebellar Purkinje cells and show the dendritic and locomotor consequences of that loss, matching the central effector node of this entry.\"}, {\"name\": \"nop56 loss-of-function zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"nop56sa12582 homozygous loss-of-function\", \"category\": \"Germline null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Complete loss of nop56 does not reproduce the adult-onset, selective Purkinje degeneration of SCA36. It produces an embryonic-lethal failure of cerebellar development instead \\u2014 the cerebellum is absent rather than degenerating \\u2014 which is the structural argument against dosage loss being the SCA36 mechanism.\"}]}}, {\"id\": \"SCA36 patient iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cells reprogrammed from SCA36 patient fibroblasts and peripheral blood mononuclear cells, differentiated into neurons including Islet1-positive motor neurons. The model reproduces the sense RNA foci of patient tissue and was used to test ethylene-bridged nucleic acid antisense oligonucleotides.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:28918022\"}}, {\"id\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expanded (GGCCUG)n RNA binds SRSF2 specifically, and the resulting sequestration of an essential splicing factor into nuclear foci is the canonical RNA gain-of-function model for SCA36, by analogy with the MBNL-sequestration mechanism of myotonic dystrophy. NOP56 mRNA and protein levels and Cajal body number are not appreciably reduced in patient lymphoblastoid cells, which is why haploinsufficiency of NOP56 itself is not the favored explanation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"mRNA binding\"]}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss, most marked at high frequencies (4000 and 8000 Hz), is a characteristic extracerebellar feature. Pure tone average is significantly worse in SCA36 than in other degenerative ataxias, and hearing loss severity correlates with ataxia severity. It is not obligate: the British series found a low rate of hearing loss, so its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal muscle fasciculation and atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasciculation and wasting of limb and truncal muscles, confirmed by EMG and muscle biopsy, in a little over half of patients in the original cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003202\"}}, {\"id\": \"Speech and occupational therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Occupational therapy for fine motor coordination and speech therapy with communication devices for progressive dysarthria.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tongue atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy of the tongue follows the fasciculation phase and reflects denervation of the lingual musculature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012473\"}}, {\"id\": \"Tongue fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasciculation of the tongue, later followed by tongue atrophy, is the clinical signature of hypoglossal motor neuron involvement in SCA36 and one of the features that most clearly separates it from pure cerebellar ataxias. It is duration-dependent, appearing predominantly in patients with long-standing disease, and its prevalence varies markedly between cohorts.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001308\"}}, {\"id\": \"Transcription elongation suppression (Supt4a knockdown, erythromycin) (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. Knocking down Supt4a, the murine ortholog of the yeast transcription elongation factor Spt4, and treating with erythromycin both reduced repeat RNA foci, dipeptide repeat protein formation and cytotoxicity in an SCA36 cell model, by acting on transcription of the expanded repeat rather than on its downstream products. This is a cell-model result only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"erythromycin\"]}}, {\"id\": \"Truncal ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive truncal ataxia is present in every reported patient in the original Japanese cohort and is the usual presenting feature; it was also the initial manifestation in the Han Chinese pedigrees.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002078\"}}, {\"id\": \"nop56 loss-of-function zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A complete loss-of-function model of the SCA36 host gene, made to ask what losing NOP56 actually does \\u2014 the question the haploinsufficiency hypothesis turns on, and one no repeat-expansion model can answer. The answer is that it is not SCA36: homozygous nulls fail to form a cerebellum at all and die before 7 days post-fertilization.\"}], \"edges\": [{\"source\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanded repeat is transcribed and retained rather than efficiently spliced out, so repeat RNA accumulates in the nucleus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"target\": \"MIR1292 Downregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcription of MIR1292, whose gene lies 19 bp downstream of the repeat, is reduced in cells from expansion carriers. Whether this is a cis consequence of the expansion and whether it contributes to neurodegeneration is unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"target\": \"Cochlear and Peripheral Auditory Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is a genotype-associated feature of SCA36, but no molecular intermediate between the repeat expansion and auditory involvement has been established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"target\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The repeat RNA binds the SR-family splicing factor SRSF2, the proposed route by which foci become toxic.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"target\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intron-retained repeat transcripts are translated, producing dipeptide repeat proteins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The steps between splicing-factor sequestration and neuronal death have not been resolved; the original report frames the disorder overall as RNA gain of function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same RNA gain-of-function mechanism is invoked for the motor neuron arm of the disease, and foci are present in spinal motor neurons, but the causal relationship between foci and degeneration has not been shown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DPR toxicity is proposed as a contributor to neurodegeneration in SCA36 by analogy with C9orf72 disease, but has not been shown to cause Purkinje cell loss in SCA36 itself. This edge is deliberately left uncited; see the dpr_pathogenicity discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Purkinje Cell Degeneration\", \"target\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Bulbar and Limb Denervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"target\": \"Truncal ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cerebellar cortical output from the degenerating vermis produces the truncal ataxia that opens the clinical syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"target\": \"Limb ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemispheric cerebellar atrophy produces appendicular incoordination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"target\": \"Ataxic dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar degeneration produces the ataxic dysarthria found in every patient of the original Japanese cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Tongue fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation of the lingual musculature by hypoglossal neuron loss produces the tongue fasciculation that is the clinical signature of SCA36.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Tongue atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained denervation progresses from fasciculation to wasting of the tongue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Skeletal muscle fasciculation and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same denervation affects limb and truncal muscle, confirmed by EMG and muscle biopsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar denervation impairs swallowing, though a videofluoroscopic study found swallowing better preserved in SCA36 than in amyotrophic lateral sclerosis, so the link is weaker than for the tongue phenotypes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear and Peripheral Auditory Dysfunction\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysfunction of the inner ear or peripheral auditory pathway is what the audiometric and BAEP findings measure as sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Physical therapy\", \"target\": \"Truncal ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and occupational therapy\", \"target\": \"Ataxic dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aids and cochlear implantation\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and swallowing management\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cognitive therapy and psychological support\", \"target\": \"Impaired executive functioning\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cognitive therapy and psychological support\", \"target\": \"Depression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cognitive therapy and psychological support\", \"target\": \"Apathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antisense oligonucleotides targeting the expanded NOP56 repeat (investigational)\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Porphyrin derivatives targeting repeat RNA G-quadruplexes (investigational)\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcription elongation suppression (Supt4a knockdown, erythromycin) (investigational)\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SCA36 patient iPSC-derived neurons\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived neurons carrying the endogenous expansion form intranuclear sense RNA foci at significantly higher frequency than control neurons, reproducing the hallmark molecular lesion in a human neuronal context.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model captures foci formation but not the decades-long degenerative course, and iPSC-derived neurons are developmentally immature relative to the adult Purkinje cells and motor neurons that degenerate in patients.\"}, {\"source\": \"Neuro2A cells expressing expanded GGCCTG/CAGGCC repeats\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Transfected expanded repeats produce sense but not antisense RNA foci, matching the strand asymmetry seen in patient autopsy tissue.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"An overexpression construct in a murine neuroblastoma line, not the endogenous NOP56 locus, and DPR production in this system was rare, so it models repeat RNA behavior rather than the full SCA36 lesion.\"}, {\"source\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Repeat-expressing mice lose cerebellar Purkinje cells and show the dendritic and locomotor consequences of that loss, matching the central effector node of this entry.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The construct carries 62 repeats against the 650-2500 of a typical patient allele, and is delivered from an AAV vector rather than expressed from the endogenous NOP56 locus, so dosage and regulation both differ from the human disease. The study assessed cerebellar and cortical outcomes and does not address the lower motor neuron involvement or the sensorineural hearing loss that distinguish SCA36 clinically, so it models the cerebellar arm of the disease only.\"}, {\"source\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"target\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse reproduces the specific DPR biology curated at this node, including the feature that distinguishes SCA36 from C9orf72 disease: poly(GP) is produced but stays soluble rather than forming inclusions.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Poly(PR), detected in human SCA36 granule cells, was not robustly reproduced in this model, so the antisense RAN-translation arm of the node is not covered by it.\"}, {\"source\": \"nop56 loss-of-function zebrafish\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete loss of nop56 does not reproduce the adult-onset, selective Purkinje degeneration of SCA36. It produces an embryonic-lethal failure of cerebellar development instead \\u2014 the cerebellum is absent rather than degenerating \\u2014 which is the structural argument against dosage loss being the SCA36 mechanism.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The comparison is not like-for-like in three ways at once: a homozygous germline null against a heterozygous repeat expansion, zebrafish against human, and embryonic development against adult maintenance. The model therefore bounds what NOP56 loss can look like; it does not by itself prove that dosage plays no part in SCA36, and the patient-cell expression data remain the direct evidence for that.\"}, {\"source\": \"nop56 loss-of-function zebrafish\", \"target\": \"Impaired NOP56 Box C/D snoRNP Function\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"The model is the direct experimental perturbation of the hypothetical dosage branch: it removes nop56 function outright and measures what follows, including expression of box C/D complex genes.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\"}, {\"source\": \"NOP56\", \"target\": \"Impaired NOP56 Box C/D snoRNP Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOP56\", \"target\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOP56 intron 1 GGCCTG hexanucleotide repeat expansion\", \"target\": \"NOP56\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only in vivo demonstration that the SCA36 repeat itself is sufficient to kill Purkinje cells. Expressing a 62-unit TG3C2 repeat throughout the mouse CNS reproduces the SCA36 pattern of selective vulnerability \\u2014 Purkinje cell loss and locomotor impairment \\u2014 while the near-identical C9orf72 G4C2 repeat in the same paradigm instead produces cortical loss and pTDP-43 pathology. The contrast is the point: the two repeats differ by one nucleotide, so the divergence localizes the pathomechanism to the repeat sequence rather than to its host gene.\"}, {\"id\": \"Antisense oligonucleotides targeting the expanded NOP56 repeat (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. Antisense oligonucleotides directed at the expanded repeat or at NOP56 intron 1 reduce RNA foci in patient iPSCs and iPSC-derived neurons and reduce poly(GP) in patient fibroblasts and lymphoblastoid cells. Because NOP56 is an essential protein, the therapeutic window depends on suppressing the repeat-containing transcript without lowering total NOP56, which has been achieved at low ASO doses. No clinical trial in SCA36 has been reported.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Apathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apathy is reported alongside depression as part of the frontal-subcortical affective profile.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000741\"}}, {\"id\": \"Ataxic dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar dysarthria develops in all patients and is one of the two universal features of the original cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Bulbar and Limb Denervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Denervation of tongue and limb musculature follows lower motor neuron loss, producing fasciculation and then atrophy. Tongue involvement predominates and is the clinical marker that separates SCA36 from pure cerebellar ataxias.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebellar tissue loss follows the cellular degeneration in a stereotyped sequence: cerebellar glucose hypometabolism in the vermis and right hemisphere before symptoms, superior vermis atrophy early in the ataxic stage, diffuse cerebellar atrophy some years later, and an olivopontocerebellar pattern in the oldest patients.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\"]}}, {\"id\": \"Cochlear and Peripheral Auditory Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hearing loss in SCA36 is sensorineural and worst at high frequencies. Brainstem auditory evoked potentials point to the inner ear or the peripheral auditory pathway rather than to a central lesion, but the molecular route from the NOP56 expansion to auditory dysfunction has not been worked out.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"inner ear\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Cognitive therapy and psychological support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cognitive therapy, treatment of depression, and psychological support for the frontal-subcortical cognitive and affective decline that accumulates as the disease progresses.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild depressive symptoms accompany the frontal-executive changes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The intron-retained GGCCTG repeat transcript is translated into dipeptide repeat proteins. In patient tissue poly(GP) is produced abundantly by canonical AUG-mediated translation reading through the retained intron, while the antisense product poly(PR) indicates that repeat-associated non-AUG (RAN) translation also occurs. Unlike in C9orf72 disease, SCA36 poly(GP) remains soluble and TDP-43 pathology is absent. Whether the DPRs are pathogenic in SCA36 or a comparatively inert byproduct is not settled \\u2014 a Neuro2A model found RAN-derived DPR formation from expanded GGCCTG to be rare.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"translation\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"species\": \"Mouse\", \"genotype\": \"Wild-type C57BL/6 mice given intracerebroventricular AAV9-NOP56-(TG3C2)62 at postnatal day 0; AAV9-NOP56-(TG3C2)6 as the control construct\", \"background\": \"C57BL/6\", \"category\": \"Somatic brain transgenesis\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse reproduces the specific DPR biology curated at this node, including the feature that distinguishes SCA36 from C9orf72 disease: poly(GP) is produced but stays soluble rather than forming inclusions.\"}]}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing difficulty is a management concern in SCA36 because of the risk of aspiration, although a videofluoroscopic comparison found swallowing function better preserved than in amyotrophic lateral sclerosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Feeding and swallowing management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary assessment and feeding therapy to manage the swallowing difficulty and reduce aspiration risk that follow bulbar denervation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing aids and cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amplification or cochlear implantation with audiologic rehabilitation for the sensorineural hearing loss, with annual or biannual otolaryngology surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired NOP56 Box C/D snoRNP Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative loss-of-function branch. NOP56 is a core scaffold of the box C/D small nucleolar ribonucleoprotein complex that directs 2\u0027-O-methylation of ribosomal RNA, so reduced NOP56 dosage would be expected to impair rRNA processing and ribosome biogenesis. This node is deliberately left with no incoming or outgoing causal edge, because the branch is not supported as the patient mechanism: NOP56 mRNA and protein are not appreciably reduced in patient cells, and the zebrafish nop56 null shows what complete loss of the gene actually produces \\u2014 an embryonic-lethal failure of cerebellar development, not a late-onset selective degeneration. It is recorded so the hypothesis is visible and falsifiable rather than surviving only as prose. See the nop56_dosage_branch discussion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"rRNA processing\"], \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"nop56 loss-of-function zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"nop56sa12582 homozygous loss-of-function\", \"category\": \"Germline null\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"The model is the direct experimental perturbation of the hypothetical dosage branch: it removes nop56 function outright and measures what follows, including expression of box C/D complex genes.\"}]}}, {\"id\": \"Impaired executive functioning\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild frontal-executive decline measurable on the frontal assessment battery and MoCA, with global measures such as MMSE preserved. The decline tracks disease duration and ataxia severity, and SPECT shows reduced regional cerebral blood flow in anterior cingulate and inferolateral prefrontal cortex.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033051\"}}, {\"id\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous expansion of a GGCCTG hexanucleotide repeat in intron 1 of NOP56, which encodes a core scaffold protein of the box C/D small nucleolar ribonucleoprotein complex. Normal alleles carry 3-14 repeats; typical pathogenic alleles carry roughly 650-2500, although expansions as short as 25-31 repeats have been shown to cause the disease. This is the disorder-specific molecular insult substituted for the generic trigger node of the Purkinje degeneration module.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"role\": \"trigger\"}}, {\"id\": \"Limb ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Appendicular ataxia affecting the limbs, reported in 93% of the original Japanese cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002070\"}}, {\"id\": \"Lower Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lower motor neurons degenerate, most conspicuously the hypoglossal neurons supplying the tongue. Involvement is largely restricted to lower motor neurons of the caudal brainstem and spinal cord rather than the widespread upper and lower motor neuron loss of amyotrophic lateral sclerosis, which is why SCA36 does not progress to an ALS-like course.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"lower motor neuron\"], \"biological_processes\": [\"motor neuron apoptotic process\"]}}, {\"id\": \"MIR1292 Downregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The MIR1292 gene lies 19 bp downstream of the repeat, and its transcription is reduced in lymphoblastoid cells from expansion carriers in two independent cohorts. In the Han Chinese cohort, four of seven predicted targets were unchanged and three were unmeasurable in lymphoblastoid cells, and the authors raised the possibility that reduced MIR1292 is an epiphenomenon of the expansion. No downstream target has been demonstrated in cerebellar or motor neuron tissue, so this node is deliberately left with no outgoing edge; see the mir1292_contribution discussion.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"NOP56\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"presence\": \"Positive\", \"association\": \"GGCCTG hexanucleotide repeat expansion in intron 1\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained (GGCCUG)n repeat RNA accumulates as discrete nuclear foci. Foci are demonstrable by fluorescence in situ hybridization in patient lymphoblastoid cells, patient iPSCs and iPSC-derived neurons, and in autopsied brain, where sense but not antisense foci are found. In autopsy tissue the foci occur in neuronal nuclei of cerebrum, cerebellum, inferior olive, spinal cord and temporal muscle, and include giant foci nearly 10 micrometres across in Purkinje cells and spinal motor neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar Purkinje cell\", \"spinal motor neuron\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\"], \"experimental_models\": [{\"name\": \"SCA36 patient iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient-derived neurons carrying the endogenous expansion form intranuclear sense RNA foci at significantly higher frequency than control neurons, reproducing the hallmark molecular lesion in a human neuronal context.\"}, {\"name\": \"Neuro2A cells expressing expanded GGCCTG/CAGGCC repeats\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Transfected expanded repeats produce sense but not antisense RNA foci, matching the strand asymmetry seen in patient autopsy tissue.\"}]}}, {\"id\": \"NOP56 intron 1 GGCCTG hexanucleotide repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Non-coding hexanucleotide repeat expansion in intron 1 of NOP56. Normal alleles carry 3-14 repeats. Typical pathogenic alleles carry roughly 650 or more, up to about 2500, but three affected individuals in a multicentre cohort carried only 25, 30 and 31 repeats with clinical features indistinguishable from carriers of long expansions, so a short expansion does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"NOP56\"], \"gene_terms\": [{\"label\": \"NOP56\", \"id\": \"hgnc:15911\"}], \"variant_type\": \"hexanucleotide_repeat_expansion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Neuro2A cells expressing expanded GGCCTG/CAGGCC repeats\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Murine Neuro2A neuroblastoma cells transfected with expanded SCA36 repeats, used to screen candidate compounds and RNA-directed interventions against foci formation and cytotoxicity.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:30610877\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Routine exercise and physical therapy directed at gait and balance, with walking aids as ambulation declines.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Porphyrin derivatives targeting repeat RNA G-quadruplexes (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. The GGCCUG repeat can adopt G-quadruplex structures, and porphyrin derivatives that distort such structures were screened in SCA36 cell models. Sodium copper chlorophyllin and hemin chloride reduced expansion-mediated cytotoxicity and improved viability. No human data exist.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sodium copper chlorophyllin\", \"hemin chloride\"]}}, {\"id\": \"Purkinje Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purkinje cells degenerate, and their loss is the central effector event linking the molecular repeat toxicity to the cerebellar syndrome. Purkinje involvement is demonstrable even in a presymptomatic expansion carrier, indicating that it precedes clinical ataxia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"species\": \"Mouse\", \"genotype\": \"Wild-type C57BL/6 mice given intracerebroventricular AAV9-NOP56-(TG3C2)62 at postnatal day 0; AAV9-NOP56-(TG3C2)6 as the control construct\", \"background\": \"C57BL/6\", \"category\": \"Somatic brain transgenesis\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Repeat-expressing mice lose cerebellar Purkinje cells and show the dendritic and locomotor consequences of that loss, matching the central effector node of this entry.\"}, {\"name\": \"nop56 loss-of-function zebrafish\", \"species\": \"Zebrafish\", \"genotype\": \"nop56sa12582 homozygous loss-of-function\", \"category\": \"Germline null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Complete loss of nop56 does not reproduce the adult-onset, selective Purkinje degeneration of SCA36. It produces an embryonic-lethal failure of cerebellar development instead \\u2014 the cerebellum is absent rather than degenerating \\u2014 which is the structural argument against dosage loss being the SCA36 mechanism.\"}]}}, {\"id\": \"SCA36 patient iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cells reprogrammed from SCA36 patient fibroblasts and peripheral blood mononuclear cells, differentiated into neurons including Islet1-positive motor neurons. The model reproduces the sense RNA foci of patient tissue and was used to test ethylene-bridged nucleic acid antisense oligonucleotides.\", \"meta\": {\"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:28918022\"}}, {\"id\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expanded (GGCCUG)n RNA binds SRSF2 specifically, and the resulting sequestration of an essential splicing factor into nuclear foci is the canonical RNA gain-of-function model for SCA36, by analogy with the MBNL-sequestration mechanism of myotonic dystrophy. NOP56 mRNA and protein levels and Cajal body number are not appreciably reduced in patient lymphoblastoid cells, which is why haploinsufficiency of NOP56 itself is not the favored explanation.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"mRNA binding\"]}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss, most marked at high frequencies (4000 and 8000 Hz), is a characteristic extracerebellar feature. Pure tone average is significantly worse in SCA36 than in other degenerative ataxias, and hearing loss severity correlates with ataxia severity. It is not obligate: the British series found a low rate of hearing loss, so its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal muscle fasciculation and atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasciculation and wasting of limb and truncal muscles, confirmed by EMG and muscle biopsy, in a little over half of patients in the original cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003202\"}}, {\"id\": \"Speech and occupational therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Occupational therapy for fine motor coordination and speech therapy with communication devices for progressive dysarthria.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tongue atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy of the tongue follows the fasciculation phase and reflects denervation of the lingual musculature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012473\"}}, {\"id\": \"Tongue fasciculations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasciculation of the tongue, later followed by tongue atrophy, is the clinical signature of hypoglossal motor neuron involvement in SCA36 and one of the features that most clearly separates it from pure cerebellar ataxias. It is duration-dependent, appearing predominantly in patients with long-standing disease, and its prevalence varies markedly between cohorts.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001308\"}}, {\"id\": \"Transcription elongation suppression (Supt4a knockdown, erythromycin) (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical only. Knocking down Supt4a, the murine ortholog of the yeast transcription elongation factor Spt4, and treating with erythromycin both reduced repeat RNA foci, dipeptide repeat protein formation and cytotoxicity in an SCA36 cell model, by acting on transcription of the expanded repeat rather than on its downstream products. This is a cell-model result only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"erythromycin\"]}}, {\"id\": \"Truncal ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive truncal ataxia is present in every reported patient in the original Japanese cohort and is the usual presenting feature; it was also the initial manifestation in the Han Chinese pedigrees.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002078\"}}, {\"id\": \"nop56 loss-of-function zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A complete loss-of-function model of the SCA36 host gene, made to ask what losing NOP56 actually does \\u2014 the question the haploinsufficiency hypothesis turns on, and one no repeat-expansion model can answer. The answer is that it is not SCA36: homozygous nulls fail to form a cerebellum at all and die before 7 days post-fertilization.\"}], \"edges\": [{\"source\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanded repeat is transcribed and retained rather than efficiently spliced out, so repeat RNA accumulates in the nucleus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"target\": \"MIR1292 Downregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcription of MIR1292, whose gene lies 19 bp downstream of the repeat, is reduced in cells from expansion carriers. Whether this is a cis consequence of the expansion and whether it contributes to neurodegeneration is unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"target\": \"Cochlear and Peripheral Auditory Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is a genotype-associated feature of SCA36, but no molecular intermediate between the repeat expansion and auditory involvement has been established.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"target\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The repeat RNA binds the SR-family splicing factor SRSF2, the proposed route by which foci become toxic.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"target\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intron-retained repeat transcripts are translated, producing dipeptide repeat proteins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The steps between splicing-factor sequestration and neuronal death have not been resolved; the original report frames the disorder overall as RNA gain of function.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SRSF2 Sequestration by GGCCUG Repeat RNA\", \"target\": \"Lower Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same RNA gain-of-function mechanism is invoked for the motor neuron arm of the disease, and foci are present in spinal motor neurons, but the causal relationship between foci and degeneration has not been shown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DPR toxicity is proposed as a contributor to neurodegeneration in SCA36 by analogy with C9orf72 disease, but has not been shown to cause Purkinje cell loss in SCA36 itself. This edge is deliberately left uncited; see the dpr_pathogenicity discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Purkinje Cell Degeneration\", \"target\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lower Motor Neuron Degeneration\", \"target\": \"Bulbar and Limb Denervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"target\": \"Truncal ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cerebellar cortical output from the degenerating vermis produces the truncal ataxia that opens the clinical syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"target\": \"Limb ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemispheric cerebellar atrophy produces appendicular incoordination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Olivopontocerebellar Atrophy\", \"target\": \"Ataxic dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar degeneration produces the ataxic dysarthria found in every patient of the original Japanese cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Tongue fasciculations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Denervation of the lingual musculature by hypoglossal neuron loss produces the tongue fasciculation that is the clinical signature of SCA36.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Tongue atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained denervation progresses from fasciculation to wasting of the tongue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Skeletal muscle fasciculation and atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same denervation affects limb and truncal muscle, confirmed by EMG and muscle biopsy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and Limb Denervation\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar denervation impairs swallowing, though a videofluoroscopic study found swallowing better preserved in SCA36 than in amyotrophic lateral sclerosis, so the link is weaker than for the tongue phenotypes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cochlear and Peripheral Auditory Dysfunction\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysfunction of the inner ear or peripheral auditory pathway is what the audiometric and BAEP findings measure as sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Physical therapy\", \"target\": \"Truncal ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and occupational therapy\", \"target\": \"Ataxic dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aids and cochlear implantation\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Feeding and swallowing management\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cognitive therapy and psychological support\", \"target\": \"Impaired executive functioning\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cognitive therapy and psychological support\", \"target\": \"Depression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cognitive therapy and psychological support\", \"target\": \"Apathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antisense oligonucleotides targeting the expanded NOP56 repeat (investigational)\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Porphyrin derivatives targeting repeat RNA G-quadruplexes (investigational)\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcription elongation suppression (Supt4a knockdown, erythromycin) (investigational)\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SCA36 patient iPSC-derived neurons\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient-derived neurons carrying the endogenous expansion form intranuclear sense RNA foci at significantly higher frequency than control neurons, reproducing the hallmark molecular lesion in a human neuronal context.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model captures foci formation but not the decades-long degenerative course, and iPSC-derived neurons are developmentally immature relative to the adult Purkinje cells and motor neurons that degenerate in patients.\"}, {\"source\": \"Neuro2A cells expressing expanded GGCCTG/CAGGCC repeats\", \"target\": \"NOP56 Intron 1 Retention and Nuclear GGCCUG RNA Foci\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Transfected expanded repeats produce sense but not antisense RNA foci, matching the strand asymmetry seen in patient autopsy tissue.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"An overexpression construct in a murine neuroblastoma line, not the endogenous NOP56 locus, and DPR production in this system was rare, so it models repeat RNA behavior rather than the full SCA36 lesion.\"}, {\"source\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Repeat-expressing mice lose cerebellar Purkinje cells and show the dendritic and locomotor consequences of that loss, matching the central effector node of this entry.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The construct carries 62 repeats against the 650-2500 of a typical patient allele, and is delivered from an AAV vector rather than expressed from the endogenous NOP56 locus, so dosage and regulation both differ from the human disease. The study assessed cerebellar and cortical outcomes and does not address the lower motor neuron involvement or the sensorineural hearing loss that distinguish SCA36 clinically, so it models the cerebellar arm of the disease only.\"}, {\"source\": \"AAV-delivered (TG3C2)62 repeat-expressing mouse\", \"target\": \"Dipeptide Repeat Protein Production from the Expanded Repeat\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mouse reproduces the specific DPR biology curated at this node, including the feature that distinguishes SCA36 from C9orf72 disease: poly(GP) is produced but stays soluble rather than forming inclusions.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Poly(PR), detected in human SCA36 granule cells, was not robustly reproduced in this model, so the antisense RAN-translation arm of the node is not covered by it.\"}, {\"source\": \"nop56 loss-of-function zebrafish\", \"target\": \"Purkinje Cell Degeneration\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Complete loss of nop56 does not reproduce the adult-onset, selective Purkinje degeneration of SCA36. It produces an embryonic-lethal failure of cerebellar development instead \\u2014 the cerebellum is absent rather than degenerating \\u2014 which is the structural argument against dosage loss being the SCA36 mechanism.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"The comparison is not like-for-like in three ways at once: a homozygous germline null against a heterozygous repeat expansion, zebrafish against human, and embryonic development against adult maintenance. The model therefore bounds what NOP56 loss can look like; it does not by itself prove that dosage plays no part in SCA36, and the patient-cell expression data remain the direct evidence for that.\"}, {\"source\": \"nop56 loss-of-function zebrafish\", \"target\": \"Impaired NOP56 Box C/D snoRNP Function\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"The model is the direct experimental perturbation of the hypothetical dosage branch: it removes nop56 function outright and measures what follows, including expression of box C/D complex genes.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\"}, {\"source\": \"NOP56\", \"target\": \"Impaired NOP56 Box C/D snoRNP Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOP56\", \"target\": \"Intronic GGCCTG Repeat Expansion in NOP56\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOP56 intron 1 GGCCTG hexanucleotide repeat expansion\", \"target\": \"NOP56\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6736,6 +6874,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6750,6 +6891,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6817,6 +6959,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6831,6 +6976,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6858,6 +7004,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6879,6 +7026,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6944,6 +7092,9 @@ This clinical feature is Abnormal saccadic eye movements (HP:0000570). HP:000057
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6958,6 +7109,7 @@ This clinical feature is Abnormal saccadic eye movements (HP:0000570). HP:000057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7012,6 +7164,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7026,6 +7181,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7091,6 +7247,9 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7105,6 +7264,7 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7129,6 +7289,7 @@ This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7203,6 +7364,9 @@ This clinical feature is Tongue atrophy (HP:0012473), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7217,6 +7381,7 @@ This clinical feature is Tongue atrophy (HP:0012473), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7241,6 +7406,7 @@ This clinical feature is Tongue atrophy (HP:0012473), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7308,6 +7474,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7322,6 +7491,7 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7405,6 +7575,9 @@ This clinical feature is Truncal ataxia (HP:0002078), qualified as course progre
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7419,6 +7592,7 @@ This clinical feature is Truncal ataxia (HP:0002078), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7443,6 +7617,7 @@ This clinical feature is Truncal ataxia (HP:0002078), qualified as course progre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7499,6 +7674,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7513,6 +7691,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7569,6 +7748,9 @@ This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7583,6 +7765,7 @@ This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7639,6 +7822,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7653,6 +7839,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7677,6 +7864,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7733,6 +7921,9 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7747,6 +7938,7 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7771,6 +7963,7 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7825,6 +8018,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7839,6 +8035,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7893,6 +8090,9 @@ This clinical feature is Apathy (HP:0000741). HP:0000741 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7907,6 +8107,7 @@ This clinical feature is Apathy (HP:0000741). HP:0000741 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7961,6 +8162,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7975,6 +8179,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8029,6 +8234,9 @@ This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8043,6 +8251,7 @@ This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8145,6 +8354,9 @@ This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8159,6 +8371,7 @@ This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8186,6 +8399,7 @@ This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8207,6 +8421,7 @@ This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8244,6 +8459,7 @@ This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8263,11 +8479,17 @@ This variant is in NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">hexanucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Non-coding hexanucleotide repeat expansion in intron 1 of NOP56. Normal alleles carry 3-14 repeats. Typical pathogenic alleles carry roughly 650 or more, up to about 2500, but three affected individuals in a multicentre cohort carried only 25, 30 and 31 repeats with clinical features indistinguishable from carriers of long expansions, so a short expansion does not exclude the diagnosis.</div>
@@ -8297,6 +8519,7 @@ This variant is in NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8321,6 +8544,7 @@ This variant is in NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8342,6 +8566,7 @@ This variant is in NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8432,6 +8657,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8442,6 +8670,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8469,6 +8700,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8536,6 +8768,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8546,6 +8781,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -8595,6 +8833,7 @@ This treatment targets Truncal ataxia (HP:0002078). HP:0002078 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8662,6 +8901,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8672,6 +8914,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -8721,6 +8966,7 @@ This treatment targets Dysarthria (HP:0001260). HP:0001260 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8788,6 +9034,9 @@ This treatment is hearing rehabilitation with amplification or cochlear implanta
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8798,6 +9047,9 @@ This treatment is hearing rehabilitation with amplification or cochlear implanta
 
 
     </div>
+
+
+
 
 
 
@@ -8847,6 +9099,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8914,6 +9167,9 @@ This treatment is dietary assessment and feeding therapy, annotated with Dietary
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8924,6 +9180,9 @@ This treatment is dietary assessment and feeding therapy, annotated with Dietary
 
 
     </div>
+
+
+
 
 
 
@@ -8973,6 +9232,7 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9040,6 +9300,9 @@ This treatment is cognitive therapy and psychological support, annotated with Ps
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9050,6 +9313,9 @@ This treatment is cognitive therapy and psychological support, annotated with Ps
 
 
     </div>
+
+
+
 
 
 
@@ -9136,6 +9402,7 @@ This treatment targets Apathy (HP:0000741). HP:0000741 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9172,6 +9439,9 @@ This treatment targets Apathy (HP:0000741). HP:0000741 is a phenotype from the H
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9182,6 +9452,9 @@ This treatment targets Apathy (HP:0000741). HP:0000741 is a phenotype from the H
 
 
     </div>
+
+
+
 
 
 
@@ -9212,6 +9485,7 @@ This treatment targets Apathy (HP:0000741). HP:0000741 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9233,6 +9507,7 @@ This treatment targets Apathy (HP:0000741). HP:0000741 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9299,6 +9574,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9309,6 +9587,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9336,6 +9617,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9371,6 +9653,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9383,10 +9668,13 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: Unformulated (free uptake)</span>
 
 
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: Unconjugated</span>
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: Unconjugated</span>
 
 
     </div>
+
+
+
 
 
     <div class="item-meta">
@@ -9474,6 +9762,7 @@ This treatment base-pairs with the transcript of NOP56 (hgnc:15911). hgnc:15911 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9514,6 +9803,7 @@ This treatment base-pairs with the transcript of NOP56 (hgnc:15911). hgnc:15911 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9619,6 +9909,9 @@ This treatment uses hemin chloride, annotated with hemin (CHEBI:50385). CHEBI:50
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9629,6 +9922,9 @@ This treatment uses hemin chloride, annotated with hemin (CHEBI:50385). CHEBI:50
 
 
     </div>
+
+
+
 
 
 
@@ -9665,6 +9961,7 @@ This treatment uses hemin chloride, annotated with hemin (CHEBI:50385). CHEBI:50
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9708,6 +10005,7 @@ This treatment uses hemin chloride, annotated with hemin (CHEBI:50385). CHEBI:50
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9796,6 +10094,9 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9806,6 +10107,9 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9842,6 +10146,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9885,6 +10190,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9960,6 +10266,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9984,6 +10291,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10005,6 +10313,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10122,6 +10431,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10143,6 +10453,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10243,6 +10554,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10350,6 +10662,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10414,6 +10727,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10464,6 +10778,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10485,6 +10800,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10540,6 +10856,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10561,6 +10878,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10632,6 +10950,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10682,6 +11001,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10738,6 +11058,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10788,6 +11109,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10844,6 +11166,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10865,6 +11188,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10931,6 +11255,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11003,6 +11328,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11024,6 +11350,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11082,6 +11409,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11103,6 +11431,7 @@ This treatment uses erythromycin (CHEBI:48923). CHEBI:48923 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11260,6 +11589,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11299,6 +11629,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11450,6 +11781,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11489,6 +11821,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11699,6 +12032,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11755,6 +12089,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11817,6 +12152,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11856,6 +12192,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11935,6 +12272,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11974,6 +12312,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12165,6 +12504,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12204,6 +12544,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -12281,6 +12622,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12320,6 +12662,7 @@ This experimental model concerns NOP56 (hgnc:15911). hgnc:15911 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14756,6 +15099,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Spinocerebellar Ataxia Type 36</strong> · 2026-09-02T13:48:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spinocerebellar_Ataxia_Type_36/2026-09-02T134828Z-claude-code-8765ed.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of SCA36 (Asidan / Costa da Morte ataxia, MONDO:0013594), the NOP56 intronic GGCCTG hexanucleotide repeat expansion disorder. Deep research: falcon (research/Spinocerebellar_Ataxia_Type_36-deep-research-falcon.md); its reference_validation reported 12/12 citations resolved with a 0.0 confabulation rate, and term_validation flagged only one obsolete GO term (GO:0030529, which was not used here) and the unresolvable ORPHA prefix. just preflight-dr returned PASS against MONDO:0013594 with NOP56 mentioned 34 times. The retired GeneReviews chapter (PMID:25101480) was fetched and used as the phenotype and management baseline and is tagged in the top-level references block; its retired status is recorded in the entry notes. Content is built on primary cohort reports: Kobayashi 2011 (PMID:21683323) for the gene and the RNA gain-of-function mechanism, Ikeda 2012 (PMID:22744658) for the Japanese clinical series and neuropathology, Garcia-Murias 2012 (PMID:22492559) for the Galician founder kindreds, Obayashi 2015 (PMID:25476002) for the multicentre screen and short expansions, Lee 2016 (PMID:27123487) for the Han Chinese founder cohort and the MIR1292 replication, Lam 2023 (PMID:37810464) for the British cohort where hearing loss is uncommon, plus mechanism and therapeutic papers (PMID:24985895, PMID:32375063, PMID:30610877, PMID:28918022, PMID:33705846, PMID:23140984, PMID:22353375, PMID:27862279, PMID:35309140). Pathophysiology is curated as a causal chain from the expansion through intron 1 retention and nuclear GGCCUG RNA foci to SRSF2 sequestration and DPR production, converging on Purkinje cell and lower motor neuron degeneration and then on cerebellar atrophy and bulbar/limb denervation; two nodes conform to the cerebellar_purkinje_degeneration module. Three uncertainties are curated explicitly rather than smoothed over: the MIR1292 node carries HYPOTHETICAL confidence and no outgoing edge because its only data are in lymphoblastoid cells and the target-gene test was negative; the DPR node is PROVISIONAL with a CONTROVERSY discussion because a Neuro2A model found RAN-derived DPR formation rare; and the auditory node has an UNKNOWN-typed incoming edge with a KNOWLEDGE_GAP discussion. Validation run in this worktree: just validate (schema, no issues), just validate-terms (passed), just count-verified-snippets (103/103 verified), just check-duplicate-keys, just check-entity-refs, just check-folded-hyphens, just check-snippet-length, just check-title-snippets, just check-snippet-grading, just check-reference-titles (all OK), and the batched just validate-disorders (schema + terms + references all passed, 103/103 snippets). No DOI-keyed evidence was used, so no --unskip-prefix run was needed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4200,6 +4268,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4224,6 +4293,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4245,6 +4315,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4355,6 +4426,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4376,6 +4448,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4444,6 +4517,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4465,6 +4539,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4505,6 +4580,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-troponin-t-thin-filament-regulatory-defect" data-dismech-node="Cardiac Troponin T Thin Filament Regulatory Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Troponin T Thin Filament Regulatory Defect</div>
+
 
                 <div class="item-desc">TNNT2 encodes cardiac troponin T, which anchors the troponin complex to tropomyosin on the thin filament and couples calcium binding by troponin C to the azimuthal movement of tropomyosin that exposes or occludes the myosin-binding sites on actin. Disease-associated TNNT2 missense variants concentrate in the tropomyosin-binding region, most classically Arg92Gln and Arg92Trp, and act as dominant poison peptides that are incorporated into the thin filament - even at low mutant fraction - rather than acting through simple loss of protein. This is the primary cardiomyocyte insult of CMH2.</div>
 
@@ -4824,6 +4900,7 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4845,6 +4922,7 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4872,6 +4950,7 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4894,6 +4973,7 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-myofilament-calcium-sensitivity-and-loss-of-pka-mediated-desensitization" data-dismech-node="Increased Myofilament Calcium Sensitivity and Loss of PKA-Mediated Desensitization" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Myofilament Calcium Sensitivity and Loss of PKA-Mediated Desensitization</div>
+
 
                 <div class="item-desc">Mutant cardiac troponin T shifts the thin filament toward the calcium-bound, open regulatory state at lower calcium concentrations than wild type, raising myofilament calcium sensitivity - a consistent finding across the TNNT2 HCM alleles studied by in vitro motility, skinned-fibre, and hiPSC-cardiomyocyte assays. A second, mutation-recurring abnormality is uncoupling of calcium sensitivity from troponin I phosphorylation by protein kinase A, which normally lowers calcium sensitivity as part of the beta-adrenergic lusitropic response; several TNNT2 mutant troponins are unresponsive to this modulation, removing the physiological desensitization reserve.</div>
 
@@ -5063,6 +5143,7 @@ This pathophysiological event involves increased calcium ion binding (GO:0005509
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5084,6 +5165,7 @@ This pathophysiological event involves increased calcium ion binding (GO:0005509
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5111,6 +5193,7 @@ This pathophysiological event involves increased calcium ion binding (GO:0005509
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5133,6 +5216,7 @@ This pathophysiological event involves increased calcium ion binding (GO:0005509
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beat-to-beat-calcium-and-electrophysiological-instability" data-dismech-node="Beat-to-Beat Calcium and Electrophysiological Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Beat-to-Beat Calcium and Electrophysiological Instability</div>
+
 
                 <div class="item-desc">Because the calcium-sensitized thin filament buffers cytosolic calcium more avidly, the beat-to-beat cytosolic calcium transient is reduced and its decay altered, which destabilizes cardiomyocyte electrophysiology independent of any structural change. In human CRISPR-edited I79N hiPSC cardiomyocytes and in transgenic I79N/F110I/R278C mouse hearts, this manifests as beat-to-beat instability, action potential triangulation, and - at increasing pacing frequency - alternans of both membrane voltage and calcium transients, together with increased dispersion of ventricular conduction velocity. This electrophysiological branch is the direct mechanistic link between the calcium-handling lesion and the malignant arrhythmic phenotype, distinct from and largely independent of the degree of structural hypertrophy.</div>
 
@@ -5290,6 +5374,7 @@ This pathophysiological event involves abnormal Regulation of cytosolic calcium 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5311,6 +5396,7 @@ This pathophysiological event involves abnormal Regulation of cytosolic calcium 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5338,6 +5424,7 @@ This pathophysiological event involves abnormal Regulation of cytosolic calcium 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5360,6 +5447,7 @@ This pathophysiological event involves abnormal Regulation of cytosolic calcium 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypercontractility-and-energetic-inefficiency" data-dismech-node="Cardiomyocyte Hypercontractility and Energetic Inefficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Hypercontractility and Energetic Inefficiency</div>
+
 
                 <div class="item-desc">The calcium-sensitized, uncoupled thin filament produces cardiomyocyte hypercontractility with a disproportionate rise in the energetic cost of tension generation: mutant fibres develop increased force per unit calcium but consume ATP inefficiently relative to the tension produced, and the magnitude of this energetic penalty scales with the fraction of mutant protein incorporated into the sarcomere. Downstream, mutation-specific secondary changes in excitation-contraction coupling (blunted inotropic reserve, slowed calcium-transient decay, altered SERCA function and CaMKII activity for the R92Q allele) compound the primary myofilament lesion, so cellular dysfunction in CMH2 is not attributable to the thin-filament defect alone.</div>
 
@@ -5517,6 +5605,7 @@ This pathophysiological event involves abnormal ATP metabolic process (GO:004603
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5538,6 +5627,7 @@ This pathophysiological event involves abnormal ATP metabolic process (GO:004603
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5565,6 +5655,7 @@ This pathophysiological event involves abnormal ATP metabolic process (GO:004603
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5587,6 +5678,7 @@ This pathophysiological event involves abnormal ATP metabolic process (GO:004603
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypertrophy-with-disarray-and-fibrosis-often-disproportionately-mild" data-dismech-node="Cardiomyocyte Hypertrophy with Disarray and Fibrosis, Often Disproportionately Mild" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Hypertrophy with Disarray and Fibrosis, Often Disproportionately Mild</div>
+
 
                 <div class="item-desc">Chronic myofilament hypercontractility and calcium-dependent hypertrophic signaling drive cardiomyocyte hypertrophy, myofiber disarray, and interstitial fibrosis, the histological substrate common to hypertrophic cardiomyopathy generally. The distinguishing feature of CMH2 is that this remodeling is frequently mild or subclinical on echocardiography relative to carriers of MYH7 variants, even though the underlying myofilament defect and downstream arrhythmic risk are severe - the wall-thickness measurement systematically understates disease severity for many TNNT2 alleles.</div>
 
@@ -5818,6 +5910,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5839,6 +5932,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5864,6 +5958,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-arrhythmogenic-substrate-despite-mild-hypertrophy" data-dismech-node="Malignant Arrhythmogenic Substrate Despite Mild Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Arrhythmogenic Substrate Despite Mild Hypertrophy</div>
+
 
                 <div class="item-desc">The clinical hallmark of CMH2, first described for the Arg92 hotspot and confirmed in independent pedigrees, is a dissociation between the degree of left ventricular hypertrophy and the risk of sudden cardiac death: carriers of malignant TNNT2 alleles have a high incidence of sudden death, often at a young age, despite mild or even subclinical hypertrophy on imaging. This &#34;malignant but mild&#34; pattern means that wall-thickness-based risk stratification alone systematically underestimates risk for these carriers, and it is why genetic testing and genotype-specific counselling are emphasized for TNNT2 families. The pattern is allele-dependent rather than gene-wide: the founder variant p.Asn271Ile instead produces late-onset, low-risk disease, so risk assessment must be made at the level of the specific variant.</div>
 
@@ -5917,6 +6012,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5938,6 +6034,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5965,6 +6062,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5987,6 +6085,7 @@ This pathophysiological event occurs in interventricular septum (UBERON:0002094)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diastolic-dysfunction" data-dismech-node="Diastolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Diastolic Dysfunction</div>
+
 
                 <div class="item-desc">Impaired relaxation from the calcium-sensitized, hypercontractile myofilament and (in the R92Q-type allelic branch) secondary alterations in calcium-transient decay together produce diastolic dysfunction, with prolonged twitch relaxation demonstrated directly in TNNT2 mutant mouse myocardium and trabeculae and impaired relaxation seen in human TNNT2-mutant cardiomyocytes.</div>
 
@@ -6072,6 +6171,7 @@ This pathophysiological event involves Cardiomyocyte, annotated with cardiac mus
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6093,6 +6193,7 @@ This pathophysiological event involves Cardiomyocyte, annotated with cardiac mus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6118,6 +6219,7 @@ This pathophysiological event involves Cardiomyocyte, annotated with cardiac mus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-heart-failure" data-dismech-node="Progressive Heart Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Heart Failure</div>
+
 
                 <div class="item-desc">In carriers who do not experience a sudden arrhythmic event, sustained hypercontractility, diastolic dysfunction, and interstitial fibrosis progress over years to structural cardiac impairment and congestive heart failure, following the same generic maladaptive-remodeling trajectory shared with hypertrophic cardiomyopathy generally and detailed on the umbrella Hypertrophic Cardiomyopathy entry.</div>
 
@@ -6156,6 +6258,7 @@ This pathophysiological event involves Cardiomyocyte, annotated with cardiac mus
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6177,6 +6280,7 @@ This pathophysiological event involves Cardiomyocyte, annotated with cardiac mus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6269,6 +6373,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6283,6 +6390,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6337,6 +6445,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6351,6 +6462,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6403,6 +6515,9 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6417,6 +6532,7 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6469,6 +6585,9 @@ This clinical feature is Left ventricular diastolic dysfunction (HP:0025168). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6483,6 +6602,7 @@ This clinical feature is Left ventricular diastolic dysfunction (HP:0025168). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6535,6 +6655,9 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6549,6 +6672,7 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6573,6 +6697,7 @@ This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6627,6 +6752,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6641,6 +6769,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6693,6 +6822,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6707,6 +6839,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6779,6 +6912,9 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6793,6 +6929,7 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6820,6 +6957,7 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6841,6 +6979,7 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6966,6 +7105,7 @@ The wider diagnostic workup - echocardiographic and CMR wall-thickness criteria,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6990,6 +7130,7 @@ The wider diagnostic workup - echocardiographic and CMR wall-thickness criteria,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7011,6 +7152,7 @@ The wider diagnostic workup - echocardiographic and CMR wall-thickness criteria,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7085,6 +7227,7 @@ The wider diagnostic workup - echocardiographic and CMR wall-thickness criteria,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8412,6 +8555,39 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope note: this entry is the TNNT2 gene-specific entity (MONDO:0007266), not the HCM umbrella. The umbrella entry Hypertrophic_Cardiomyopathy (MONDO:0005045) carries the cross-gene phenotype and treatment picture (mavacamten, beta-blockers, ICD implantation, septal reduction therapy); content here is deliberately restricted to what is specific to TNNT2 thin-filament biology and to the malignant-but-mild genotype-phenotype pattern that most distinguishes CMH2 from the other numbered CMH entries.
+ClinGen classification note: the TNNT2-hypertrophic cardiomyopathy gene-disease validity assertion (CGGV:assertion_ef922dc4-4e41-422b-ac3d-605fea375005-2021-02-04T050000.000Z) is classified Moderate under the older SOP7 framework (2021), in contrast to the Definitive classifications now recorded for MYH7, MYBPC3, and TPM1 under SOP9. This is a curation-vintage artifact, not a statement that TNNT2 causality is weaker than the founding 1994 discovery and the extensive subsequent genotype-phenotype literature would suggest; it is recorded here rather than silently upgraded.
+Named Entity Confusion (NEC) preflight: the CMH numbered series is a documented high-NEC-risk class (numbered disease-by-gene series). The requested falcon (Edison) deep-research provider was run (research/Hypertrophic_Cardiomyopathy_2-deep-research-falcon.md, reference validation: 11/11 references resolved, 0 confabulated) and `just preflight-dr research/Hypertrophic_Cardiomyopathy_2-deep-research-falcon.md MONDO:0007266` was run before any of its content was used for curation. Automated verdict was SKIP (MONDO:0007266 records no RO:0004003 causal-gene relationship for the automated gene-identity check to key on, even though the earlier `runoak ... -O obo` lookup used to source this entry&#39;s disease_term does show that relationship), so the manual fallback in the SOP was applied: gene check - TNNT2 dominates the report&#39;s gene mentions (89 occurrences versus 4 each for NPPA/NPPB, the next most frequent); OMIM check - the report&#39;s cited OMIM (115195) matches the MONDO xref exactly; synonym check - the report&#39;s own framing statement explicitly disambiguates CMH2/TNNT2 from other TNNT2-associated phenotypes (dilated cardiomyopathy, left ventricular noncompaction) rather than conflating them. All three checks passed, so the report was used as a lead-generation source. Three PMIDs it surfaced were independently verified and incorporated: PMID:37929589 (a larger, contemporary penetrance meta-analysis corroborating PMID:32731933), PMID:34977031 (human iPSC-cardiomyocyte and transgenic-mouse evidence for the electrophysiological arrhythmia mechanism, added as its own pathophysiology node), and the report&#39;s TNNT2 case-fraction and hotspot-variant framing, which matched what independent PubMed search had already produced. All PMIDs cited in this entry - both those the report surfaced and those found independently via PubMed search - were fetched with `just fetch-reference` and every snippet was verified against the cached abstract; none were taken from the report&#39;s own quotes without independent re-verification against the primary source.
+Unsourced/limited-evidence items intentionally omitted: no population-based prevalence for the TNNT2-specific entity exists, so prevalence is recorded as NOT_YET_DOCUMENTED rather than estimated. The 2024 AHA/ACC guideline (PMID:38718139) is carried in the top-level references for provenance but is deliberately not mined for an evidence snippet, because its cached PubMed record contains only AIM/METHODS/STRUCTURE sections with no quotable clinical recommendation text - the same limitation noted on the sibling Hypertrophic_Cardiomyopathy_4 entry. Mavacamten and other genotype-agnostic HCM pharmacotherapy are left to the umbrella entry rather than duplicated here without TNNT2-specific mechanistic evidence.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review fixes: ventricular arrhythmia phenotype; DIAGNOSTIC item moved to diagnosis:</strong> · 2026-08-18T10:17:54Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypertrophic_Cardiomyopathy_2/2026-08-18T101754Z-claude-code-0f97fc.yaml">View source</a></p>
+                        <p class="research-review-text">PR-shepherd pass addressing the two blocking IMPORTANT findings on PR #8808.
+
+(1) Added a Ventricular Arrhythmia phenotype (HP:0004308) between the arrhythmogenic-substrate node and Sudden Cardiac Death. Human evidence: PMID:40310325 (3.2% malignant ventricular arrhythmia in the low-risk p.Asn271Ile cohort, versus a 34.3% composite endpoint in codon-92 carriers). Model-organism corroboration: PMID:34977031 (I79N mice susceptible to ventricular tachycardia in the absence of structural abnormality). frequency: is deliberately omitted because the two quoted rates are not comparable bands - one is an isolated arrhythmia rate, the other a composite that also includes end-stage heart failure. The reviewer&#39;s term caution was followed: the deep-research report&#39;s HP:0001680 resolves to Coarctation of aorta and its HP:0005179 does not exist; HP:0004308 was checked against cache/hp/terms.csv and the phenotypeterm enum cache before use.
+
+(2) The sole treatments: item carried action_category: DIAGNOSTIC. It was moved into a new diagnosis: section with all three evidence items unchanged, retermed from NCIT:C15240 Genetic Counseling to NCIT:C15709 Genetic Testing, given a results: value, and its notes: rewritten to record why the entry now carries no treatments: section (cross-gene HCM therapy is curated on the umbrella entry) and why the wider imaging/ECG workup is not modeled (PMID:38718139 caches as an abstract-only AIM/METHODS/STRUCTURE stub and PMID:20301725 as its purpose statement alone, so neither is minable).
+
+Validation: just validate (46/46 snippets verified, up from 44/44), just validate-terms, just check-duplicate-keys, just check-title-snippets, just check-cache-order all pass. Phenotype connectivity remains 0/7 - it was 0/6 before this change, so the gap is pre-existing rather than introduced.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hypertrophic Cardiomyopathy 2 (TNNT2)</strong> · 2026-08-18T04:32:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypertrophic_Cardiomyopathy_2/2026-08-18T043235Z-claude-code-0a3fc9.yaml">View source</a></p>
+                        <p class="research-review-text">Created the TNNT2 gene-specific hypertrophic cardiomyopathy entry (CMH2, MONDO:0007266, OMIM:115195), closing issue #8741. Modeled the &#39;malignant but mild&#39; genotype-phenotype pattern distinctive to TNNT2 (disproportionately high sudden-cardiac-death risk relative to often-mild/subclinical hypertrophy), with a 7-node pathophysiology chain: thin-filament regulatory defect -&gt; myofilament calcium sensitization and PKA-uncoupling -&gt; two parallel branches (cardiomyocyte hypercontractility/energetic inefficiency leading to hypertrophy+fibrosis, and beat-to-beat electrophysiological instability/alternans leading directly to the malignant arrhythmic substrate) -&gt; diastolic dysfunction -&gt; progressive heart failure. Conforms to cardiomyopathy_maladaptive_remodeling at Primary Cardiomyocyte Insult, Ventricular Remodeling, Progressive Contractile Dysfunction, and Structural Cardiac Impairment and Heart Failure. Two mechanistic_hypotheses groups (canonical calcium-sensitization/uncoupling; alternative mutation-specific myofilament-vs-E-C-coupling divergence). Used the falcon (Edison) deep-research provider as requested on the issue; research/Hypertrophic_Cardiomyopathy_2-deep-research-falcon.md (11/11 references resolved, 0 confabulated). Ran the mandatory NEC preflight (just preflight-dr against MONDO:0007266) given the CMH numbered series is a documented high-NEC-risk class: automated verdict was SKIP (MONDO records no RO:0004003 causal-gene edge for the automated check), so the manual fallback was applied and passed (TNNT2 dominates gene mentions 89:4, OMIM 115195 matches exactly, and the report&#39;s own text correctly disambiguates CMH2 from other TNNT2 phenotypes) before using any of its content. Incorporated three falcon-surfaced PMIDs after independent verification: PMID:37929589 (contemporary penetrance meta-analysis, ~60% TNNT2 penetrance), PMID:34977031 (human iPSC-CM and transgenic-mouse electrophysiological arrhythmia mechanism for I79N), and PMID:35861968 (fetched but not ultimately cited). All other evidence (PMID:8205619, 7898523, 9060892, 40310325, 11600691, 27036851, 28735292, 37159677, 32731933) was located independently via PubMed search and fetched with just fetch-reference. Reused the umbrella&#39;s existing ClinGen CGGV assertion for TNNT2 (Moderate/SOP7, flagged in notes as a curation-vintage artifact relative to the Definitive SOP9 classifications on sibling MYH7/MYBPC3/TPM1 entries). Cross-references rather than duplicates the umbrella Hypertrophic_Cardiomyopathy entry (MONDO:0005045) for generic HCM treatment (mavacamten, beta-blockers, ICD, septal reduction); this entry&#39;s sole treatment node is genotype-informed risk stratification/cascade genetic testing, the TNNT2-specific management point. Validation: just validate (schema+terms+references) passed with 44/44 snippets verified; just count-verified-snippets 44/44; just check-duplicate-keys clean; relevant pytest test_data.py subset (conforms_to/foreign-key/duplicate-name checks) passed. just validate-disorders run once before opening the PR.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

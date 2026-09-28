@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4128,6 +4196,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4198,6 +4267,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4219,6 +4289,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4289,6 +4360,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4381,6 +4453,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4440,6 +4513,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4548,6 +4622,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4569,6 +4644,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4661,6 +4737,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4749,6 +4826,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4859,6 +4937,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5024,6 +5103,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5167,6 +5247,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5201,6 +5282,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-scn5a-sodium-channel-loss-of-function" data-dismech-node="SCN5A Sodium-Channel Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">SCN5A Sodium-Channel Loss of Function</div>
+
 
                 <div class="item-desc">Loss-of-function SCN5A variants reduce atrial sodium current and impair initiation or propagation of the atrial cardiomyocyte action potential. This decreases atrial excitability and can produce progressive atrial standstill.</div>
 
@@ -5374,6 +5456,44 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        cardiac Nav1.5 voltage-gated sodium channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005248</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased cardiac Nav1.5 voltage-gated sodium channel activity, annotated with voltage-gated sodium channel activity (GO:0005248). GO:0005248 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -5425,6 +5545,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5446,6 +5567,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5472,6 +5594,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-connexin-40-modifier-of-atrial-conduction-reserve" data-dismech-node="Connexin 40 Modifier of Atrial Conduction Reserve" data-dismech-type="pathophysiology">
                 <div class="item-name">Connexin 40 Modifier of Atrial Conduction Reserve</div>
 
+
                 <div class="item-desc">GJA5-encoded connexin 40 polymorphisms are reported as possible modifiers in SCN5A-associated atrial standstill, reducing atrial conduction reserve and contributing to incomplete penetrance.</div>
 
 
@@ -5497,11 +5620,11 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0002129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves atrial cardiac myocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5539,11 +5662,11 @@ This pathophysiological event involves atrial cardiac myocyte, annotated with re
         GJA5
 
 
-    <a href="https://bioregistry.io/hgnc:4279" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:4279</a>
+    <a href="https://bioregistry.io/hgnc:4279" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:4279</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GJA5 (hgnc:4279). hgnc:4279 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5581,11 +5704,11 @@ This pathophysiological event involves GJA5 (hgnc:4279). hgnc:4279 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5661,6 +5784,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5683,6 +5807,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myl4-loss-of-function" data-dismech-node="MYL4 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">MYL4 Loss of Function</div>
+
 
                 <div class="item-desc">Pathogenic MYL4 loss of function disrupts an atrial-selective myosin light chain required for contractile, electrical, and structural integrity. A p.E11K variant cosegregated with atrial standstill in a large dominant family, and engineered rats recapitulated progressive atrial dysfunction.</div>
 
@@ -5716,11 +5841,11 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves atrial cardiac myocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5758,11 +5883,11 @@ This pathophysiological event involves atrial cardiac myocyte, annotated with re
         MYL4
 
 
-    <a href="https://bioregistry.io/hgnc:7585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:7585</a>
+    <a href="https://bioregistry.io/hgnc:7585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:7585</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MYL4 (hgnc:7585). hgnc:7585 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5800,11 +5925,11 @@ This pathophysiological event involves MYL4 (hgnc:7585). hgnc:7585 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0045214</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal sarcomere organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5834,11 +5959,11 @@ This pathophysiological event involves abnormal sarcomere organization (GO:00452
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0060048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0060048</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cardiac muscle contraction (GO:0060048). GO:0060048 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5933,6 +6058,7 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5954,6 +6080,7 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5980,6 +6107,7 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-cardiomyocyte-autophagic-and-survival-dysfunction" data-dismech-node="Atrial Cardiomyocyte Autophagic and Survival Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial Cardiomyocyte Autophagic and Survival Dysfunction</div>
 
+
                 <div class="item-desc">In MYL4-mutant models, impaired autophagic flux, lysosomal dysfunction, and proapoptotic signaling injure atrial cardiomyocytes. This node is explicitly model-based; confirmation in human atrial tissue is lacking.</div>
 
 
@@ -6005,11 +6133,11 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves atrial cardiac myocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6046,11 +6174,11 @@ This pathophysiological event involves atrial cardiac myocyte, annotated with re
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006914</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6080,11 +6208,11 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006915</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6160,6 +6288,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6181,6 +6310,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6207,6 +6337,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-fibrosis-and-low-voltage-scar" data-dismech-node="Atrial Fibrosis and Low-Voltage Scar" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial Fibrosis and Low-Voltage Scar</div>
 
+
                 <div class="item-desc">In MYL4-related primary atrial cardiomyopathy and in several secondary disorders, atrial fibrosis and scar create a low-voltage substrate and reduce atrial excitability. A fibrotic final common pathway is plausible but is not required for SCN5A-mediated electrical standstill.</div>
 
 
@@ -6221,11 +6352,11 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002548</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6251,11 +6382,11 @@ This pathophysiological event involves cardiac fibroblast, annotated with fibrob
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves atrial cardiac myocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6292,11 +6423,11 @@ This pathophysiological event involves atrial cardiac myocyte, annotated with re
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6326,11 +6457,11 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6411,6 +6542,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6432,6 +6564,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6459,6 +6592,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6482,6 +6616,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-electrical-silence" data-dismech-node="Atrial Electrical Silence" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial Electrical Silence</div>
 
+
                 <div class="item-desc">The final common electrophysiologic state is absence of atrial electrical activity, absent P waves, and failure to capture atrial tissue by pacing.</div>
 
 
@@ -6496,11 +6631,11 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves atrial cardiac myocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6537,11 +6672,11 @@ This pathophysiological event involves atrial cardiac myocyte, annotated with re
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6578,11 +6713,11 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002078" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002078</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002078" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002078</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in right cardiac atrium (UBERON:0002078). UBERON:0002078 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6595,11 +6730,11 @@ This pathophysiological event occurs in right cardiac atrium (UBERON:0002078). U
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002079" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002079</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002079" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002079</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UBERON:0002079 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6660,6 +6795,7 @@ This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UB
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6683,6 +6819,7 @@ This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-atrial-mechanical-contraction" data-dismech-node="Loss of Atrial Mechanical Contraction" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Atrial Mechanical Contraction</div>
 
+
                 <div class="item-desc">Loss of atrial contraction abolishes Doppler A waves, reduces atrial contribution to ventricular filling, and promotes atrial blood stasis.</div>
 
 
@@ -6697,11 +6834,11 @@ This pathophysiological event occurs in left cardiac atrium (UBERON:0002079). UB
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0002129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves atrial cardiac myocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6738,11 +6875,11 @@ This pathophysiological event involves atrial cardiac myocyte, annotated with re
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0060048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0060048</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cardiac muscle contraction (GO:0060048). GO:0060048 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6807,6 +6944,7 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6830,6 +6968,7 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thromboembolic-risk-from-atrial-stasis" data-dismech-node="Thromboembolic Risk from Atrial Stasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Thromboembolic Risk from Atrial Stasis</div>
 
+
                 <div class="item-desc">Absence of coordinated atrial contraction can promote atrial blood stasis, intracardiac thrombus formation, and systemic thromboembolism. Risk is not confined to EMD/LVNC: it was substantial in a pediatric primary-standstill cohort, especially when effective atrial pacing was not possible.</div>
 
 
@@ -6851,11 +6990,11 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0007596</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6920,6 +7059,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6941,6 +7081,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,6 +7108,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-escape-rhythm-bradycardia" data-dismech-node="Escape Rhythm Bradycardia" data-dismech-type="pathophysiology">
                 <div class="item-name">Escape Rhythm Bradycardia</div>
 
+
                 <div class="item-desc">Junctional or ventricular escape rhythm can produce symptomatic bradycardia, pauses, presyncope, or syncope.</div>
 
 
@@ -6988,11 +7130,11 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0002027</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased regulation of heart rate (GO:0002027). GO:0002027 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -7065,6 +7207,7 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7110,7 +7253,7 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent P wave\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Surface ECG lacks atrial P waves because atrial depolarization is absent.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Atrial Electrical Silence\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The absent P wave is an ECG readout of absent atrial depolarization, not a separate causal step in disease progression.\"}], \"term_id\": \"HP:0033122\"}}, {\"id\": \"Anticoagulant therapy for thromboembolic risk\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticoagulation is used to reduce thromboembolism from atrial mechanical standstill. The strongest disease-specific evidence is a retrospective pediatric cohort in which events clustered among patients without effective atrial pacing; there is no randomized atrial-standstill trial defining agent, threshold, or duration.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Atrial Cardiomyocyte Autophagic and Survival Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In MYL4-mutant models, impaired autophagic flux, lysosomal dysfunction, and proapoptotic signaling injure atrial cardiomyocytes. This node is explicitly model-based; confirmation in human atrial tissue is lacking.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"autophagy\", \"apoptotic process\"]}}, {\"id\": \"Atrial Electrical Silence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The final common electrophysiologic state is absence of atrial electrical activity, absent P waves, and failure to capture atrial tissue by pacing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac conduction\"], \"locations\": [\"right cardiac atrium\", \"left cardiac atrium\"]}}, {\"id\": \"Atrial Fibrosis and Low-Voltage Scar\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In MYL4-related primary atrial cardiomyopathy and in several secondary disorders, atrial fibrosis and scar create a low-voltage substrate and reduce atrial excitability. A fibrotic final common pathway is plausible but is not required for SCN5A-mediated electrical standstill.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac fibroblast\", \"atrial cardiac myocyte\"], \"biological_processes\": [\"extracellular matrix organization\", \"cardiac conduction\"]}}, {\"id\": \"Atrial standstill\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of atrial electrical and mechanical activity is the defining disease phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025478\"}}, {\"id\": \"Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bradycardia occurs when atrial activation is absent and rhythm depends on junctional or ventricular escape activity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001662\"}}, {\"id\": \"Connexin 40 Modifier of Atrial Conduction Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GJA5-encoded connexin 40 polymorphisms are reported as possible modifiers in SCN5A-associated atrial standstill, reducing atrial conduction reserve and contributing to incomplete penetrance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac conduction\"], \"genes\": [\"GJA5\"], \"gene_terms\": [{\"label\": \"GJA5\", \"id\": \"hgnc:4279\"}]}}, {\"id\": \"Coronary sinus atrial lead placement for partial atrial standstill\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In partial atrial standstill, EP mapping may identify residual excitable tissue in the coronary sinus, allowing atrial lead placement and atrioventricular synchronous pacing.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Escape Rhythm Bradycardia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Junctional or ventricular escape rhythm can produce symptomatic bradycardia, pauses, presyncope, or syncope.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of heart rate\"]}}, {\"id\": \"Left atrial enlargement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left atrial enlargement can occur alongside right atrial dilation in advanced or partial atrial standstill.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031295\"}}, {\"id\": \"Loss of Atrial Mechanical Contraction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of atrial contraction abolishes Doppler A waves, reduces atrial contribution to ventricular filling, and promotes atrial blood stasis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"]}}, {\"id\": \"MYL4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYL4\"], \"gene_terms\": [{\"label\": \"MYL4\", \"id\": \"hgnc:7585\"}], \"presence\": \"Positive\", \"association\": \"Established causative gene for progressive heritable atrial cardiomyopathy with atrial standstill\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MYL4 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic MYL4 loss of function disrupts an atrial-selective myosin light chain required for contractile, electrical, and structural integrity. A p.E11K variant cosegregated with atrial standstill in a large dominant family, and engineered rats recapitulated progressive atrial dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"sarcomere organization\", \"cardiac muscle contraction\"], \"genes\": [\"MYL4\"], \"gene_terms\": [{\"label\": \"MYL4\", \"id\": \"hgnc:7585\"}]}}, {\"id\": \"Permanent pacemaker implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Persistent or symptomatic atrial standstill often requires permanent pacing, commonly ventricular pacing when atrial capture is absent. Physiologic ventricular pacing such as left bundle branch area pacing has been reported to reduce pacing dyssynchrony risk in selected cases.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Right atrial enlargement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right atrial enlargement can occur as part of atrial structural remodeling in atrial standstill.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030718\"}}, {\"id\": \"SCN5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"presence\": \"Positive\", \"association\": \"Established causative gene in familial atrial standstill\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SCN5A Sodium-Channel Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function SCN5A variants reduce atrial sodium current and impair initiation or propagation of the atrial cardiomyocyte action potential. This decreases atrial excitability and can produce progressive atrial standstill.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}]}}, {\"id\": \"Syncope and presyncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe bradycardia or pauses may cause transient cerebral hypoperfusion, resulting in presyncope or syncope.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Thromboembolic Risk from Atrial Stasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence of coordinated atrial contraction can promote atrial blood stasis, intracardiac thrombus formation, and systemic thromboembolism. Risk is not confined to EMD/LVNC: it was substantial in a pediatric primary-standstill cohort, especially when effective atrial pacing was not possible.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Thromboembolic stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thromboembolic stroke is a serious complication of atrial mechanical standstill and blood stasis. Broader cardiomyopathy features can add risk but are not required.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001297\"}}], \"edges\": [{\"source\": \"SCN5A Sodium-Channel Loss of Function\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced sodium-channel-dependent action-potential initiation prevents effective atrial depolarization.\", \"hypothesis_groups\": [\"scn5a_atrial_excitability_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Connexin 40 Modifier of Atrial Conduction Reserve\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced conduction reserve can increase susceptibility to atrial inexcitability when sodium-channel function is impaired.\", \"hypothesis_groups\": [\"gja5_conduction_reserve_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced atrial gap-junction conduction reserve\", \"SCN5A sodium-channel dysfunction\"]}, {\"source\": \"MYL4 Loss of Function\", \"target\": \"Loss of Atrial Mechanical Contraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of an atrial-selective sarcomeric light chain impairs atrial contraction.\", \"hypothesis_groups\": [\"myl4_atrial_cardiomyopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYL4 Loss of Function\", \"target\": \"Atrial Cardiomyocyte Autophagic and Survival Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYL4-dependent lysosomal and autophagic dysfunction is a model-supported route to atrial-myocyte injury.\", \"hypothesis_groups\": [\"myl4_autophagy_fibrosis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered lysosomal mobility and acidification\", \"impaired autophagic flux\"]}, {\"source\": \"Atrial Cardiomyocyte Autophagic and Survival Dysfunction\", \"target\": \"Atrial Fibrosis and Low-Voltage Scar\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic atrial-myocyte injury and profibrotic signaling promote fibrotic atrial remodeling in the MYL4 model.\", \"hypothesis_groups\": [\"myl4_autophagy_fibrosis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial cardiomyocyte injury and death\", \"profibrotic signaling\"]}, {\"source\": \"Atrial Fibrosis and Low-Voltage Scar\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scarred atrial myocardium loses recordable electrical activity and pacing capture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Fibrosis and Low-Voltage Scar\", \"target\": \"Right atrial enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive atrial structural remodeling can dilate the right atrium in advanced atrial standstill.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial structural remodeling\", \"atrial dilation\"]}, {\"source\": \"Atrial Fibrosis and Low-Voltage Scar\", \"target\": \"Left atrial enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive atrial structural remodeling can dilate the left atrium in advanced atrial standstill.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial structural remodeling\", \"atrial dilation\"]}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Atrial standstill\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrical silence of atrial myocardium is the defining electrophysiologic component of atrial standstill.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Loss of Atrial Mechanical Contraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent atrial depolarization eliminates coordinated atrial contraction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Escape Rhythm Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When atrial activity is absent, cardiac output depends on junctional or ventricular escape rhythms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Atrial Mechanical Contraction\", \"target\": \"Thromboembolic Risk from Atrial Stasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ineffective atrial contraction can promote stasis and thromboembolic stroke risk, especially in genetic cardiomyopathy contexts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thromboembolic Risk from Atrial Stasis\", \"target\": \"Thromboembolic stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased thromboembolic risk can manifest clinically as ischemic stroke.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape Rhythm Bradycardia\", \"target\": \"Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dependence on slow escape rhythms manifests clinically as bradycardia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape Rhythm Bradycardia\", \"target\": \"Syncope and presyncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Slow escape rhythm or pauses can reduce cerebral perfusion enough to cause presyncope or syncope.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"symptomatic bradycardia\", \"long pauses\", \"transient cerebral hypoperfusion\"]}, {\"source\": \"Permanent pacemaker implantation\", \"target\": \"Escape Rhythm Bradycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Permanent pacemaker implantation\", \"target\": \"Bradycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Coronary sinus atrial lead placement for partial atrial standstill\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticoagulant therapy for thromboembolic risk\", \"target\": \"Thromboembolic Risk from Atrial Stasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticoagulant therapy for thromboembolic risk\", \"target\": \"Thromboembolic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Absent P wave\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The absent P wave is an ECG readout of absent atrial depolarization, not a separate causal step in disease progression.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SCN5A\", \"target\": \"SCN5A Sodium-Channel Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL4\", \"target\": \"MYL4 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent P wave\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Surface ECG lacks atrial P waves because atrial depolarization is absent.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Atrial Electrical Silence\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The absent P wave is an ECG readout of absent atrial depolarization, not a separate causal step in disease progression.\"}], \"term_id\": \"HP:0033122\"}}, {\"id\": \"Anticoagulant therapy for thromboembolic risk\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticoagulation is used to reduce thromboembolism from atrial mechanical standstill. The strongest disease-specific evidence is a retrospective pediatric cohort in which events clustered among patients without effective atrial pacing; there is no randomized atrial-standstill trial defining agent, threshold, or duration.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Atrial Cardiomyocyte Autophagic and Survival Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In MYL4-mutant models, impaired autophagic flux, lysosomal dysfunction, and proapoptotic signaling injure atrial cardiomyocytes. This node is explicitly model-based; confirmation in human atrial tissue is lacking.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"autophagy\", \"apoptotic process\"]}}, {\"id\": \"Atrial Electrical Silence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The final common electrophysiologic state is absence of atrial electrical activity, absent P waves, and failure to capture atrial tissue by pacing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac conduction\"], \"locations\": [\"right cardiac atrium\", \"left cardiac atrium\"]}}, {\"id\": \"Atrial Fibrosis and Low-Voltage Scar\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In MYL4-related primary atrial cardiomyopathy and in several secondary disorders, atrial fibrosis and scar create a low-voltage substrate and reduce atrial excitability. A fibrotic final common pathway is plausible but is not required for SCN5A-mediated electrical standstill.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac fibroblast\", \"atrial cardiac myocyte\"], \"biological_processes\": [\"extracellular matrix organization\", \"cardiac conduction\"]}}, {\"id\": \"Atrial standstill\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of atrial electrical and mechanical activity is the defining disease phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025478\"}}, {\"id\": \"Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bradycardia occurs when atrial activation is absent and rhythm depends on junctional or ventricular escape activity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001662\"}}, {\"id\": \"Connexin 40 Modifier of Atrial Conduction Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GJA5-encoded connexin 40 polymorphisms are reported as possible modifiers in SCN5A-associated atrial standstill, reducing atrial conduction reserve and contributing to incomplete penetrance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac conduction\"], \"genes\": [\"GJA5\"], \"gene_terms\": [{\"label\": \"GJA5\", \"id\": \"hgnc:4279\"}]}}, {\"id\": \"Coronary sinus atrial lead placement for partial atrial standstill\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In partial atrial standstill, EP mapping may identify residual excitable tissue in the coronary sinus, allowing atrial lead placement and atrioventricular synchronous pacing.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Escape Rhythm Bradycardia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Junctional or ventricular escape rhythm can produce symptomatic bradycardia, pauses, presyncope, or syncope.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of heart rate\"]}}, {\"id\": \"Left atrial enlargement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left atrial enlargement can occur alongside right atrial dilation in advanced or partial atrial standstill.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031295\"}}, {\"id\": \"Loss of Atrial Mechanical Contraction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of atrial contraction abolishes Doppler A waves, reduces atrial contribution to ventricular filling, and promotes atrial blood stasis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"]}}, {\"id\": \"MYL4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYL4\"], \"gene_terms\": [{\"label\": \"MYL4\", \"id\": \"hgnc:7585\"}], \"presence\": \"Positive\", \"association\": \"Established causative gene for progressive heritable atrial cardiomyopathy with atrial standstill\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MYL4 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic MYL4 loss of function disrupts an atrial-selective myosin light chain required for contractile, electrical, and structural integrity. A p.E11K variant cosegregated with atrial standstill in a large dominant family, and engineered rats recapitulated progressive atrial dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"sarcomere organization\", \"cardiac muscle contraction\"], \"genes\": [\"MYL4\"], \"gene_terms\": [{\"label\": \"MYL4\", \"id\": \"hgnc:7585\"}]}}, {\"id\": \"Permanent pacemaker implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Persistent or symptomatic atrial standstill often requires permanent pacing, commonly ventricular pacing when atrial capture is absent. Physiologic ventricular pacing such as left bundle branch area pacing has been reported to reduce pacing dyssynchrony risk in selected cases.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Right atrial enlargement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right atrial enlargement can occur as part of atrial structural remodeling in atrial standstill.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030718\"}}, {\"id\": \"SCN5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"presence\": \"Positive\", \"association\": \"Established causative gene in familial atrial standstill\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"SCN5A Sodium-Channel Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function SCN5A variants reduce atrial sodium current and impair initiation or propagation of the atrial cardiomyocyte action potential. This decreases atrial excitability and can produce progressive atrial standstill.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"atrial cardiac myocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"molecular_functions\": [\"cardiac Nav1.5 voltage-gated sodium channel activity\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}]}}, {\"id\": \"Syncope and presyncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe bradycardia or pauses may cause transient cerebral hypoperfusion, resulting in presyncope or syncope.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Thromboembolic Risk from Atrial Stasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absence of coordinated atrial contraction can promote atrial blood stasis, intracardiac thrombus formation, and systemic thromboembolism. Risk is not confined to EMD/LVNC: it was substantial in a pediatric primary-standstill cohort, especially when effective atrial pacing was not possible.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Thromboembolic stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thromboembolic stroke is a serious complication of atrial mechanical standstill and blood stasis. Broader cardiomyopathy features can add risk but are not required.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001297\"}}], \"edges\": [{\"source\": \"SCN5A Sodium-Channel Loss of Function\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced sodium-channel-dependent action-potential initiation prevents effective atrial depolarization.\", \"hypothesis_groups\": [\"scn5a_atrial_excitability_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Connexin 40 Modifier of Atrial Conduction Reserve\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced conduction reserve can increase susceptibility to atrial inexcitability when sodium-channel function is impaired.\", \"hypothesis_groups\": [\"gja5_conduction_reserve_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced atrial gap-junction conduction reserve\", \"SCN5A sodium-channel dysfunction\"]}, {\"source\": \"MYL4 Loss of Function\", \"target\": \"Loss of Atrial Mechanical Contraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of an atrial-selective sarcomeric light chain impairs atrial contraction.\", \"hypothesis_groups\": [\"myl4_atrial_cardiomyopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYL4 Loss of Function\", \"target\": \"Atrial Cardiomyocyte Autophagic and Survival Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYL4-dependent lysosomal and autophagic dysfunction is a model-supported route to atrial-myocyte injury.\", \"hypothesis_groups\": [\"myl4_autophagy_fibrosis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered lysosomal mobility and acidification\", \"impaired autophagic flux\"]}, {\"source\": \"Atrial Cardiomyocyte Autophagic and Survival Dysfunction\", \"target\": \"Atrial Fibrosis and Low-Voltage Scar\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic atrial-myocyte injury and profibrotic signaling promote fibrotic atrial remodeling in the MYL4 model.\", \"hypothesis_groups\": [\"myl4_autophagy_fibrosis\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial cardiomyocyte injury and death\", \"profibrotic signaling\"]}, {\"source\": \"Atrial Fibrosis and Low-Voltage Scar\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scarred atrial myocardium loses recordable electrical activity and pacing capture.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Fibrosis and Low-Voltage Scar\", \"target\": \"Right atrial enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive atrial structural remodeling can dilate the right atrium in advanced atrial standstill.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial structural remodeling\", \"atrial dilation\"]}, {\"source\": \"Atrial Fibrosis and Low-Voltage Scar\", \"target\": \"Left atrial enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive atrial structural remodeling can dilate the left atrium in advanced atrial standstill.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial structural remodeling\", \"atrial dilation\"]}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Atrial standstill\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrical silence of atrial myocardium is the defining electrophysiologic component of atrial standstill.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Loss of Atrial Mechanical Contraction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent atrial depolarization eliminates coordinated atrial contraction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Escape Rhythm Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When atrial activity is absent, cardiac output depends on junctional or ventricular escape rhythms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Atrial Mechanical Contraction\", \"target\": \"Thromboembolic Risk from Atrial Stasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ineffective atrial contraction can promote stasis and thromboembolic stroke risk, especially in genetic cardiomyopathy contexts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thromboembolic Risk from Atrial Stasis\", \"target\": \"Thromboembolic stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased thromboembolic risk can manifest clinically as ischemic stroke.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape Rhythm Bradycardia\", \"target\": \"Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dependence on slow escape rhythms manifests clinically as bradycardia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Escape Rhythm Bradycardia\", \"target\": \"Syncope and presyncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Slow escape rhythm or pauses can reduce cerebral perfusion enough to cause presyncope or syncope.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"symptomatic bradycardia\", \"long pauses\", \"transient cerebral hypoperfusion\"]}, {\"source\": \"Permanent pacemaker implantation\", \"target\": \"Escape Rhythm Bradycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Permanent pacemaker implantation\", \"target\": \"Bradycardia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Coronary sinus atrial lead placement for partial atrial standstill\", \"target\": \"Atrial Electrical Silence\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticoagulant therapy for thromboembolic risk\", \"target\": \"Thromboembolic Risk from Atrial Stasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anticoagulant therapy for thromboembolic risk\", \"target\": \"Thromboembolic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atrial Electrical Silence\", \"target\": \"Absent P wave\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The absent P wave is an ECG readout of absent atrial depolarization, not a separate causal step in disease progression.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"SCN5A\", \"target\": \"SCN5A Sodium-Channel Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL4\", \"target\": \"MYL4 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7142,15 +7285,18 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025478</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0025478</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial standstill (HP:0025478). HP:0025478 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7170,6 +7316,7 @@ This clinical feature is Atrial standstill (HP:0025478). HP:0025478 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,15 +7357,18 @@ This clinical feature is Atrial standstill (HP:0025478). HP:0025478 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0033122</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0033122</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent P wave (HP:0033122). HP:0033122 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7238,6 +7388,7 @@ This clinical feature is Absent P wave (HP:0033122). HP:0033122 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7278,15 +7429,18 @@ This clinical feature is Absent P wave (HP:0033122). HP:0033122 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001662</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7306,6 +7460,7 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7346,15 +7501,18 @@ This clinical feature is Bradycardia (HP:0001662). HP:0001662 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001279</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7374,6 +7532,7 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7398,6 +7557,7 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7438,15 +7598,18 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004756</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7466,6 +7629,7 @@ This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7506,15 +7670,18 @@ This clinical feature is Ventricular tachycardia (HP:0004756). HP:0004756 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001695</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001695</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7534,6 +7701,7 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7574,15 +7742,18 @@ This clinical feature is Cardiac arrest (HP:0001695). HP:0001695 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0030718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Right atrial enlargement (HP:0030718). HP:0030718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7602,6 +7773,7 @@ This clinical feature is Right atrial enlargement (HP:0030718). HP:0030718 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7642,15 +7814,18 @@ This clinical feature is Right atrial enlargement (HP:0030718). HP:0030718 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031295" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0031295</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031295" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0031295</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Left atrial enlargement (HP:0031295). HP:0031295 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7670,6 +7845,7 @@ This clinical feature is Left atrial enlargement (HP:0031295). HP:0031295 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7710,15 +7886,18 @@ This clinical feature is Left atrial enlargement (HP:0031295). HP:0031295 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -7738,6 +7917,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7765,6 +7945,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7786,6 +7967,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7843,10 +8025,10 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
                         Gene: SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:10593</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7858,6 +8040,9 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7876,6 +8061,7 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7903,6 +8089,7 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7924,6 +8111,7 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7966,10 +8154,10 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
                         Gene: GJA5
 
 
-    <a href="https://bioregistry.io/hgnc:4279" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:4279</a>
+    <a href="https://bioregistry.io/hgnc:4279" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:4279</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GJA5 (hgnc:4279). hgnc:4279 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7981,6 +8169,9 @@ This disease-associated gene is GJA5 (hgnc:4279). hgnc:4279 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7999,6 +8190,7 @@ This disease-associated gene is GJA5 (hgnc:4279). hgnc:4279 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8023,6 +8215,7 @@ This disease-associated gene is GJA5 (hgnc:4279). hgnc:4279 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8065,10 +8258,10 @@ This disease-associated gene is GJA5 (hgnc:4279). hgnc:4279 is a gene from the H
                         Gene: MYL4
 
 
-    <a href="https://bioregistry.io/hgnc:7585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:7585</a>
+    <a href="https://bioregistry.io/hgnc:7585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:7585</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MYL4 (hgnc:7585). hgnc:7585 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8080,6 +8273,9 @@ This disease-associated gene is MYL4 (hgnc:7585). hgnc:7585 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -8098,6 +8294,7 @@ This disease-associated gene is MYL4 (hgnc:7585). hgnc:7585 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8122,6 +8319,7 @@ This disease-associated gene is MYL4 (hgnc:7585). hgnc:7585 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8172,7 +8370,7 @@ This disease-associated gene is MYL4 (hgnc:7585). hgnc:7585 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">pacemaker implantation<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">pacemaker implantation<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is pacemaker implantation, annotated with Pacemaker Placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8208,6 +8406,9 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8218,6 +8419,9 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
     </div>
+
+
+
 
 
 
@@ -8257,11 +8461,11 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001662</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8285,6 +8489,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8312,6 +8517,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8333,6 +8539,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8364,7 +8571,7 @@ This treatment targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">pacemaker implantation<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">pacemaker implantation<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is pacemaker implantation, annotated with Pacemaker Placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8400,6 +8607,9 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8410,6 +8620,9 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
     </div>
+
+
+
 
 
 
@@ -8458,6 +8671,7 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8479,6 +8693,7 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8510,7 +8725,7 @@ This treatment is pacemaker implantation, annotated with Pacemaker Placement (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">anticoagulant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">anticoagulant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is anticoagulant agent therapy, annotated with Anticoagulation Therapy (NCIT:C63341). NCIT:C63341 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8546,6 +8761,9 @@ This treatment is anticoagulant agent therapy, annotated with Anticoagulation Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8556,6 +8774,9 @@ This treatment is anticoagulant agent therapy, annotated with Anticoagulation Th
 
 
     </div>
+
+
+
 
 
 
@@ -8595,11 +8816,11 @@ This treatment is anticoagulant agent therapy, annotated with Anticoagulation Th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001297</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8626,6 +8847,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8647,6 +8869,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8710,11 +8933,11 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
         electrocardiography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38053" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C38053</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38053" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C38053</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8754,6 +8977,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8799,11 +9023,11 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
         echocardiography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C16525</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C16525</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8843,6 +9067,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8888,11 +9113,11 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
         clinical cardiac electrophysiologist evaluation
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80414" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C80414</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80414" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C80414</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8935,6 +9160,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8956,6 +9182,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9001,11 +9228,11 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
         magnetic resonance imaging procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C16809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C16809</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9045,6 +9272,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9090,11 +9318,11 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9137,6 +9365,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9158,6 +9387,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9270,6 +9500,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9335,6 +9566,7 @@ This treatment targets Stroke (HP:0001297). HP:0001297 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9611,6 +9843,12 @@ pathophysiology:
     term:
       id: CL:0002129
       label: regular atrial cardiac myocyte
+  molecular_functions:
+  - preferred_term: cardiac Nav1.5 voltage-gated sodium channel activity
+    term:
+      id: GO:0005248
+      label: voltage-gated sodium channel activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: cardiac muscle cell action potential
     term:
@@ -11045,6 +11283,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11643,7 +11883,7 @@ A notable technical development is the application of <strong>left bundle branch
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Atrial Standstill", "mondoId": "MONDO:0015281", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atrial_Standstill", "yamlRevision": "bee25757a4a5"};
+        const OS_CONFIG = {"diseaseName": "Atrial Standstill", "mondoId": "MONDO:0015281", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atrial_Standstill", "yamlRevision": "7f9622c2d8a5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

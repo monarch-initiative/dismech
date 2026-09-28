@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4266,6 +4334,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4290,6 +4359,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4311,6 +4381,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4425,6 +4496,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4446,6 +4518,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4537,6 +4610,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4775,6 +4849,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4796,6 +4871,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4978,6 +5054,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5146,6 +5223,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5351,6 +5429,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5385,6 +5464,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-stambp-amsh-k63-linked-deubiquitinase-activity" data-dismech-node="Loss of STAMBP/AMSH K63-Linked Deubiquitinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of STAMBP/AMSH K63-Linked Deubiquitinase Activity</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function STAMBP variants abolish or severely reduce the activity of AMSH, a Zn(2+)-dependent JAMM/MPN+ metalloprotease deubiquitinase with strict specificity for Lys63-linked polyubiquitin chains. Two routes to loss of function are documented: (i) protein destabilization and near-absence of AMSH, the dominant route, seen with truncating alleles and with missense alleles in the SH3-binding motif (e.g. p.Ser236Phe) that block STAM binding and thereby destabilize the protein; and (ii) direct catalytic or substrate-binding impairment, exemplified by the JAMM-domain allele p.Thr313Ile. Enzyme regulation is itself relevant: the N-terminal MIT domain clamps the catalytic domain in an autoinhibited state that STAM1 binding relieves, which explains why MIT-domain and SH3-binding-motif missense variants - not just catalytic-site variants - are pathogenic.
 </div>
@@ -5627,6 +5707,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5648,6 +5729,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5675,6 +5757,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5699,6 +5782,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-escrt-dependent-endosomal-sorting-of-ubiquitinated-cargo" data-dismech-node="Failure of ESCRT-Dependent Endosomal Sorting of Ubiquitinated Cargo" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of ESCRT-Dependent Endosomal Sorting of Ubiquitinated Cargo</div>
+
 
                 <div class="item-desc">AMSH is recruited to the ESCRT-0 complex through the interaction of its SH3-binding motif with the SH3 domain of STAM, and to ESCRT-III through its MIT domain. There it removes K63-linked chains from internalized, ubiquitin-tagged cell-surface receptors as they are handed down the ESCRT chain into intraluminal vesicles of the multivesicular body. Loss of AMSH leaves K63-ubiquitinated cargo mis-sorted: receptors are neither properly committed to lysosomal degradation nor cleanly recycled, and ubiquitin is not recovered. This is the proximal convergence node from which the proteostasis, signaling, progenitor and inflammatory arms of the disease all branch.
 </div>
@@ -5941,6 +6025,7 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5962,6 +6047,7 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5989,6 +6075,7 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6011,6 +6098,7 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ubiquitin-conjugate-aggregation-and-proteostatic-stress" data-dismech-node="Ubiquitin-Conjugate Aggregation and Proteostatic Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Ubiquitin-Conjugate Aggregation and Proteostatic Stress</div>
+
 
                 <div class="item-desc">Undegraded K63-ubiquitinated substrates accumulate as cytoplasmic ubiquitin-conjugate aggregates. Patient-derived lymphoblastoid cell lines show elevated conjugated-ubiquitin aggregates with increased autophagosome content, and lentiviral STAMBP re-expression reverses the phenotype. In the Amsh-null mouse the aggregates begin as early as embryonic day 10 and become severe in the postnatal brain, and the co-accumulating species have been identified as TDP-43, p62/SQSTM1 and glutamate receptors. Glutamate-receptor accumulation offers a direct, still-untested route from failed receptor downregulation to the excitation/inhibition imbalance underlying the epilepsy.
 </div>
@@ -6159,6 +6247,7 @@ This pathophysiological event involves increased inclusion body (GO:0016234). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6180,6 +6269,7 @@ This pathophysiological event involves increased inclusion body (GO:0016234). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6207,6 +6297,7 @@ This pathophysiological event involves increased inclusion body (GO:0016234). GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6231,6 +6322,7 @@ This pathophysiological event involves increased inclusion body (GO:0016234). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-region-selective-neuronal-apoptosis-and-progressive-neuronal-loss" data-dismech-node="Region-Selective Neuronal Apoptosis and Progressive Neuronal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Region-Selective Neuronal Apoptosis and Progressive Neuronal Loss</div>
+
 
                 <div class="item-desc">Neurons of the hippocampus (particularly the CA1 field) and cerebral cortex die by apoptosis, while cerebellar neurons, thymocytes and fibroblasts are spared - a cell-autonomous, region-restricted survival requirement that is the most distinctive cellular phenotype of AMSH deficiency and matches the human neuropathology of disproportionately small cerebral hemispheres with a relatively preserved cerebellum. This postnatal degenerative arm explains the *progressive* component of the microcephaly and the cortical atrophy, in contrast with the prenatal proliferation arm that sets brain size at birth.
 </div>
@@ -6421,6 +6513,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6442,6 +6535,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6469,6 +6563,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6493,6 +6588,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-stem-and-progenitor-cell-proliferation" data-dismech-node="Impaired Neural Stem and Progenitor Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Stem and Progenitor Cell Proliferation</div>
+
 
                 <div class="item-desc">A developmental arm that operates before birth and is distinct from the postnatal degenerative arm. Human STAMBP-knockout cortical organoids show significantly reduced neural stem cell proliferation and are smaller, with no detectable increase in apoptosis at early stages; re-expression of wild-type STAMBP rescues proliferation while the disease alleles p.Gly307Glu and p.Thr313Ile do not. Independently, neural progenitor cells derived from STAMBP-deficient human embryonic stem cells cannot be maintained long term, with downregulation of the anti-apoptotic protein CFLAR as the identified effector and CFLAR re-expression rescuing the defect. Together these explain why the brain is already small at birth.
 </div>
@@ -6752,6 +6848,7 @@ This pathophysiological event involves increased extrinsic apoptotic signaling p
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6773,6 +6870,7 @@ This pathophysiological event involves increased extrinsic apoptotic signaling p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6801,6 +6899,7 @@ This pathophysiological event involves increased extrinsic apoptotic signaling p
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6823,6 +6922,7 @@ This pathophysiological event involves increased extrinsic apoptotic signaling p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-serum-insensitive-ras-mapk-and-pi3k-akt-mtor-signaling" data-dismech-node="Constitutive Serum-Insensitive RAS-MAPK and PI3K-AKT-mTOR Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Serum-Insensitive RAS-MAPK and PI3K-AKT-mTOR Signaling</div>
+
 
                 <div class="item-desc">Because activated receptors are not committed to lysosomal degradation, they persist and continue to signal from the endosomal compartment. Patient lymphoblastoid cell lines show RAS-MAPK and PI3K-AKT-mTOR pathway activity that is maintained even under serum starvation - &#34;insensitive&#34; rather than merely elevated - and lentiviral STAMBP restores a normal serum response. This paradoxical growth-signalling activation in a loss-of-function deubiquitinase disorder is the most plausible mechanistic bridge to the cutaneous capillary malformations, since both pathways are established drivers of vascular and capillary malformations. The arm is not settled: one patient homozygous for p.Ser236Phe had multiple capillary malformations *without* constitutive PI3K-AKT-mTOR activation.
 </div>
@@ -7006,6 +7106,7 @@ This pathophysiological event involves increased TORC1 signaling (GO:0038202). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7027,6 +7128,7 @@ This pathophysiological event involves increased TORC1 signaling (GO:0038202). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7054,6 +7156,7 @@ This pathophysiological event involves increased TORC1 signaling (GO:0038202). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7077,6 +7180,7 @@ This pathophysiological event involves increased TORC1 signaling (GO:0038202). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-capillary-malformation" data-dismech-node="Dermal Capillary Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal Capillary Malformation</div>
+
 
                 <div class="item-desc">Multiple small, pink-to-red, blanchable, roughly oval or circular capillary malformations are distributed generally and randomly over the body - a few to hundreds, ranging from 1-2 mm to several centimetres. They are present at birth, are not segmental or dermatomal (distinguishing them from the V1 trigeminal port-wine stain of Sturge-Weber syndrome), and carry none of the leptomeningeal-angiomatosis or glaucoma risk of that disorder. Skin biopsy confirms their nature histologically - dilated small-caliber vessels in the papillary dermis - but the proposed signaling substrate, capillary endothelium responding to the dysregulated RAS-MAPK and PI3K-AKT-mTOR activity described above, has never been assayed in MIC-CAP lesional skin.
 </div>
@@ -7188,6 +7292,7 @@ This pathophysiological event involves abnormal angiogenesis (GO:0001525). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7209,6 +7314,7 @@ This pathophysiological event involves abnormal angiogenesis (GO:0001525). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7234,6 +7340,7 @@ This pathophysiological event involves abnormal angiogenesis (GO:0001525). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp3-inflammasome-derepression-and-neuroinflammation" data-dismech-node="NLRP3 Inflammasome Derepression and Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP3 Inflammasome Derepression and Neuroinflammation</div>
+
 
                 <div class="item-desc">A proposed inflammatory arm. STAMBP is a negative regulator of the NLRP3 inflammasome, restraining it by removing K63-linked (non-degradative) polyubiquitin from NLRP3; STAMBP depletion in monocytes increases NLRP3 K63 polyubiquitination, inflammasome activation and IL-1beta release. The CNS-conditional Stambp knockout mouse shows massive neuroinflammation accompanying neuronal death. No patient-level inflammasome or IL-1beta data exist, so this arm is hypothesized rather than established in human MIC-CAP - but it is the disease&#39;s most tractable drug-repurposing hypothesis.
 </div>
@@ -7472,6 +7579,7 @@ This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7493,6 +7601,7 @@ This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7521,6 +7630,7 @@ This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7543,6 +7653,7 @@ This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-microcephaly-and-cortical-atrophy" data-dismech-node="Progressive Microcephaly and Cortical Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Microcephaly and Cortical Atrophy</div>
+
 
                 <div class="item-desc">The organism-level convergence of the prenatal proliferation arm and the postnatal degenerative arm: a brain that is already small at birth and then falls further behind, with progressive cortical atrophy, a simplified gyral pattern, increased extra-axial cerebrospinal fluid space, hippocampal hypoplasia and, in a minority, thin immature white matter. This structural substrate drives the intractable epilepsy, spastic tetraparesis, optic atrophy and profound developmental delay.
 </div>
@@ -7620,6 +7731,7 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7641,6 +7753,7 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7701,6 +7814,7 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7830,6 +7944,9 @@ This clinical feature is Minor congenital heart malformation, annotated with Abn
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7844,6 +7961,7 @@ This clinical feature is Minor congenital heart malformation, annotated with Abn
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7868,6 +7986,7 @@ This clinical feature is Minor congenital heart malformation, annotated with Abn
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7933,6 +8052,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7947,6 +8069,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7971,6 +8094,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8037,6 +8161,9 @@ This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8051,6 +8178,7 @@ This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8075,6 +8203,7 @@ This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8158,6 +8287,9 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8172,6 +8304,7 @@ This clinical feature is Optic atrophy (HP:0000648), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8229,6 +8362,9 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8243,6 +8379,7 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8326,6 +8463,9 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8340,6 +8480,7 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8364,6 +8505,7 @@ This clinical feature is Progressive microcephaly (HP:0000253), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8420,6 +8562,9 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8434,6 +8579,7 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8458,6 +8604,7 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8539,6 +8686,9 @@ This clinical feature is Recurrent pneumonia (HP:0006532), qualified as temporal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8553,6 +8703,7 @@ This clinical feature is Recurrent pneumonia (HP:0006532), qualified as temporal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8580,6 +8731,7 @@ This clinical feature is Recurrent pneumonia (HP:0006532), qualified as temporal
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8601,6 +8753,7 @@ This clinical feature is Recurrent pneumonia (HP:0006532), qualified as temporal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8666,6 +8819,9 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8680,6 +8836,7 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8704,6 +8861,7 @@ This clinical feature is Capillary malformation (HP:0025104). HP:0025104 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8761,6 +8919,9 @@ This clinical feature is Small nail (HP:0001792). HP:0001792 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8775,6 +8936,7 @@ This clinical feature is Small nail (HP:0001792). HP:0001792 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8799,6 +8961,7 @@ This clinical feature is Small nail (HP:0001792). HP:0001792 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8855,6 +9018,9 @@ This clinical feature is Alopecia areata, annotated with Patchy alopecia (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8869,6 +9035,7 @@ This clinical feature is Alopecia areata, annotated with Patchy alopecia (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8934,6 +9101,9 @@ This clinical feature is Hypoplastic distal phalanges of the hands and/or feet, 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8948,6 +9118,7 @@ This clinical feature is Hypoplastic distal phalanges of the hands and/or feet, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8972,6 +9143,7 @@ This clinical feature is Hypoplastic distal phalanges of the hands and/or feet, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9037,6 +9209,9 @@ This clinical feature is Central hypotonia, annotated with Generalized hypotonia
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9051,6 +9226,7 @@ This clinical feature is Central hypotonia, annotated with Generalized hypotonia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9105,6 +9281,9 @@ This clinical feature is Peripheral hypertonia, annotated with Hypertonia (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9119,6 +9298,7 @@ This clinical feature is Peripheral hypertonia, annotated with Hypertonia (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9143,6 +9323,7 @@ This clinical feature is Peripheral hypertonia, annotated with Hypertonia (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9217,6 +9398,9 @@ This clinical feature is Spastic tetraparesis (HP:0001285), qualified as course 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9231,6 +9415,7 @@ This clinical feature is Spastic tetraparesis (HP:0001285), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9259,6 +9444,7 @@ This clinical feature is Spastic tetraparesis (HP:0001285), qualified as course 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9281,6 +9467,7 @@ This clinical feature is Spastic tetraparesis (HP:0001285), qualified as course 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9362,6 +9549,9 @@ This clinical feature is Progressive generalized cerebral atrophy, annotated wit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9376,6 +9566,7 @@ This clinical feature is Progressive generalized cerebral atrophy, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9400,6 +9591,7 @@ This clinical feature is Progressive generalized cerebral atrophy, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9476,6 +9668,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9490,6 +9685,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9517,6 +9713,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9538,6 +9735,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9594,6 +9792,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9608,6 +9809,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9632,6 +9834,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9686,6 +9889,9 @@ This clinical feature is Hypsarrhythmia (HP:0002521). HP:0002521 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9700,6 +9906,7 @@ This clinical feature is Hypsarrhythmia (HP:0002521). HP:0002521 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9756,6 +9963,9 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9770,6 +9980,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9794,6 +10005,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9850,6 +10062,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9864,6 +10079,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9921,6 +10137,9 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9935,6 +10154,7 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9960,6 +10180,7 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10016,6 +10237,9 @@ This clinical feature is Simplified gyral pattern (HP:0009879). HP:0009879 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10030,6 +10254,7 @@ This clinical feature is Simplified gyral pattern (HP:0009879). HP:0009879 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10087,6 +10312,9 @@ This clinical feature is Extra-axial cerebrospinal fluid accumulation (HP:001251
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10101,6 +10329,7 @@ This clinical feature is Extra-axial cerebrospinal fluid accumulation (HP:001251
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10125,6 +10354,7 @@ This clinical feature is Extra-axial cerebrospinal fluid accumulation (HP:001251
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10181,6 +10411,9 @@ This clinical feature is Hypoplastic hippocampus (HP:0025517). HP:0025517 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10195,6 +10428,7 @@ This clinical feature is Hypoplastic hippocampus (HP:0025517). HP:0025517 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10220,6 +10454,7 @@ This clinical feature is Hypoplastic hippocampus (HP:0025517). HP:0025517 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10276,6 +10511,9 @@ This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10290,6 +10528,7 @@ This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10347,6 +10586,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10361,6 +10603,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10385,6 +10628,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10450,6 +10694,9 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10464,6 +10711,7 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10538,6 +10786,9 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10552,6 +10803,7 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10579,6 +10831,7 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as course pro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10600,6 +10853,7 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10701,6 +10955,9 @@ This disease-associated gene is STAMBP (hgnc:16950). hgnc:16950 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10715,6 +10972,7 @@ This disease-associated gene is STAMBP (hgnc:16950). hgnc:16950 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10742,6 +11000,7 @@ This disease-associated gene is STAMBP (hgnc:16950). hgnc:16950 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10763,6 +11022,7 @@ This disease-associated gene is STAMBP (hgnc:16950). hgnc:16950 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10854,6 +11114,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is supportive and is delivered by a multidisciplinary team including medical genetics, neurology, developmental pediatrics and feeding specialists, with regular child-neurology follow-up and involvement of a complex-care or palliative-care team to monitor complications of severe neurologic impairment.
 </div>
 
@@ -10879,6 +11145,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10900,6 +11167,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11006,6 +11274,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11016,6 +11287,9 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -11047,6 +11321,7 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11068,6 +11343,7 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11156,6 +11432,9 @@ This treatment uses vigabatrin (CHEBI:63638). CHEBI:63638 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11166,6 +11445,9 @@ This treatment uses vigabatrin (CHEBI:63638). CHEBI:63638 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -11197,6 +11479,7 @@ This treatment uses vigabatrin (CHEBI:63638). CHEBI:63638 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11218,6 +11501,7 @@ This treatment uses vigabatrin (CHEBI:63638). CHEBI:63638 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11306,6 +11590,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11316,6 +11603,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -11344,6 +11634,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11412,6 +11703,9 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11422,6 +11716,9 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -11509,6 +11806,7 @@ This treatment targets Recurrent pneumonia (HP:0006532). HP:0006532 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11573,6 +11871,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11583,6 +11884,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -11670,6 +11974,7 @@ This treatment targets Spastic tetraparesis (HP:0001285). HP:0001285 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11734,6 +12039,9 @@ This treatment is ketogenic diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11744,6 +12052,9 @@ This treatment is ketogenic diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -11772,6 +12083,7 @@ This treatment is ketogenic diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -11844,6 +12156,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling on the 25% sib recurrence risk for biparental inheritance, and on the substantially lower (&lt;1%) risk when the proband&#39;s homozygosity arose through uniparental isodisomy. Once the familial variants are known, carrier testing, prenatal testing and preimplantation genetic testing are available.
 </div>
 
@@ -11869,6 +12187,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11890,6 +12209,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11957,6 +12277,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11967,6 +12290,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -12004,6 +12330,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12050,6 +12377,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12071,6 +12399,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12144,6 +12473,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12235,6 +12565,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12256,6 +12587,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12313,6 +12645,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12383,6 +12716,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12432,6 +12766,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12487,6 +12822,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12536,6 +12872,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12607,6 +12944,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12631,14 +12969,15 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Microcephaly-Capillary Malformation syndrome (MIC-CAP) is a rare genetic disorder reported in 18 individuals to date."</div>
+                <div class="evidence-snippet">"Microcephaly-Capillary Malformation syndrome (MIC-CAP) is a rare genetic disorder reported in 18 individuals to date. ... In this report, we provide follow up on two previously published patients and describe four new patients."</div>
 
 
-                <div class="evidence-explanation">Independent confirmation of the same ultra-rare case count in the 2022 delineation series.</div>
+                <div class="evidence-explanation">The paper describes MIC-CAP as reported in 18 individuals and adds four new patients while following up two previously published patients. Follow-up patients must not be counted as new cases.</div>
 
 
 
@@ -12744,6 +13083,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12769,6 +13109,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12790,6 +13131,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12876,6 +13218,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12958,6 +13301,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13037,6 +13381,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13169,6 +13514,7 @@ This experimental model uses neural stem cell (CL:0000047). CL:0000047 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13215,6 +13561,7 @@ This experimental model uses neural stem cell (CL:0000047). CL:0000047 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13255,6 +13602,7 @@ This experimental model uses neural stem cell (CL:0000047). CL:0000047 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13367,6 +13715,7 @@ This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13413,6 +13762,7 @@ This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13453,6 +13803,7 @@ This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13550,6 +13901,7 @@ This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13590,6 +13942,7 @@ This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13732,6 +14085,7 @@ This experimental model concerns STAMBP (hgnc:16950). hgnc:16950 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13753,6 +14107,7 @@ This experimental model concerns STAMBP (hgnc:16950). hgnc:16950 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13879,6 +14234,7 @@ This experimental model concerns STAMBP (hgnc:16950). hgnc:16950 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14052,8 +14408,14 @@ prevalence:
     reference_title: &#34;Further clinical delineation of microcephaly-capillary malformation syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Microcephaly-Capillary Malformation syndrome (MIC-CAP) is a rare genetic disorder reported in 18 individuals to date.&#34;
-    explanation: Independent confirmation of the same ultra-rare case count in the 2022 delineation series.
+    snippet: &gt;-
+      Microcephaly-Capillary Malformation syndrome (MIC-CAP) is a rare genetic disorder reported in
+      18 individuals to date. ... In this report, we provide follow up on two previously published
+      patients and describe four new patients.
+    explanation: &gt;-
+      The paper describes MIC-CAP as reported in 18 individuals and adds four new patients while
+      following up two previously published patients. Follow-up patients must not be counted as new
+      cases.
 
 progression:
 - phase: Prenatal
@@ -16468,6 +16830,76 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Microcephaly-Capillary_Malformation_Syndrome</strong> · 2026-08-01T02:23:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Microcephaly-Capillary_Malformation_Syndrome/2026-08-01T022322Z-claude-code-b67a45.yaml">View source</a></p>
+                        <p class="research-review-text">Created the microcephaly-capillary malformation (MIC-CAP) syndrome entry end
+to end: STAMBP (hgnc:16950), MONDO:0013659, OMIM:614261.
+
+NEC preflight was run before any content was written. `uv run runoak -i
+sqlite:obo:mondo info MONDO:0013659 -O obo` confirmed the gene relation
+`relationship: RO:0004003 HGNC:16950 ! STAMBP` and `xref: OMIM:614261`. The
+entry explicitly disambiguates MIC-CAP from megalencephaly-capillary
+malformation (MCAP, PIK3CA), both in the top-level description and as a
+curated differential_diagnoses entry. Note: the correct MONDO ID for MCAP is
+MONDO:0011240 (OMIM:602501). MONDO:0013192, which is sometimes cited for
+MCAP, is actually &#34;spondyloarthropathy, susceptibility to, 3&#34; - this was
+caught by `just validate-terms` and corrected.
+
+Deep research provider that actually ran: claude_code. Neither EDISON_API_KEY
+nor FUTUREHOUSE_API_KEY was set, so falcon was not available. Report:
+research/Microcephaly-Capillary_Malformation_Syndrome-deep-research-claude_code.md
+(6 web searches, 91 turns, 32 citations, ~19 min).
+
+GeneReviews baseline: PMID:24354023 &#34;Microcephaly-Capillary Malformation
+Syndrome&#34; (Carter, Mirzaa, McDonell, Boycott; 2021 update) was located via
+PubMed, fetched with `just fetch-reference`, tagged `GeneReviews` in the
+top-level references block, and every phenotype in its Clinical
+Characteristics section was cross-checked into the phenotypes block
+(microcephaly, generalized cutaneous capillary malformations, hypoplastic
+distal phalanges, early-onset intractable epilepsy, profound developmental
+delay, focal/tonic/complex-partial seizures and infantile spasms, myoclonus
+of limbs and eyelids, dyskinetic and choreiform movements, central hypotonia
+with peripheral hypertonia). Its Agents/Circumstances to Avoid item
+(valproic acid) is curated as a dedicated treatment-safety entry.
+
+Content curated: 9 pathophysiology nodes with wired downstream edges running
+AMSH K63-linked deubiquitinase loss -&gt; ESCRT-dependent endosomal sorting
+failure -&gt; four parallel arms (ubiquitin-conjugate aggregation and
+proteostatic stress; constitutive serum-insensitive RAS-MAPK and
+PI3K-AKT-mTOR signaling feeding the dermal capillary malformations; impaired
+neural stem/progenitor proliferation; NLRP3 inflammasome derepression and
+neuroinflammation) -&gt; region-selective neuronal apoptosis -&gt; progressive
+microcephaly and cortical atrophy. Also curated: 25 HPO-bound phenotypes with
+frequencies, structured prevalence (CASES_IN_LITERATURE / ULTRA_RARE), a
+four-phase progression block, genetic and autosomal-recessive inheritance
+blocks (including the uniparental-isodisomy recurrence-risk distinction), 9
+treatments (multidisciplinary supportive care, anticonvulsant polytherapy,
+vigabatrin with an explicit n=1 caveat, the valproic-acid caution,
+gastrostomy, seating/bracing, a documented ketogenic-diet failure, genetic
+counseling, and the preclinical AAV9 gene-replacement prospect wired via
+target_mechanisms), 4 differential diagnoses (MCAP, primary autosomal
+recessive microcephaly, CM-AVM, Sturge-Weber), 2 animal models, 3
+experimental models, 2 mechanistic_hypotheses, and 4 discussions including a
+HUMAN_MODEL_MISMATCH for the mouse-apoptosis versus human-organoid-
+proliferation discrepancy.
+
+Validation: `just validate` passes cleanly (schema: No issues found; terms:
+Validation passed; references: All validations passed, 117/117 snippets
+verified against cached references). `just validate-terms` passes.
+`just validate-references` reports 117/117. `just compliance` reports 89.1%
+global / 89.3% weighted. `just validate-graphs` reports no issues for this
+entry. All 18 cited PMIDs were fetched with `just fetch-reference`; no
+references_cache file was hand-written or hand-edited.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -18440,7 +18872,7 @@ spastic quadriparesis · optic atrophy · profound DD · early death
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Microcephaly-Capillary Malformation Syndrome", "mondoId": "MONDO:0013659", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Microcephaly-Capillary_Malformation_Syndrome", "yamlRevision": "f34b60f2365d"};
+        const OS_CONFIG = {"diseaseName": "Microcephaly-Capillary Malformation Syndrome", "mondoId": "MONDO:0013659", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Microcephaly-Capillary_Malformation_Syndrome", "yamlRevision": "c9ace9904a35"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

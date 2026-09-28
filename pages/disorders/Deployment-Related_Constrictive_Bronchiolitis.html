@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4244,6 +4312,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4265,6 +4334,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4339,6 +4409,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4420,6 +4491,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4599,6 +4671,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4681,6 +4754,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-deposition-of-respirable-deployment-particulate-matter" data-dismech-node="Distal Deposition of Respirable Deployment Particulate Matter" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Deposition of Respirable Deployment Particulate Matter</div>
 
+
                 <div class="item-desc">Respirable particulate matter inhaled during deployment penetrates to the membranous and respiratory bronchioles. Review of the deployment exposure literature identifies sandstorm dust, burn pit combustion products, improvised explosive device emissions and diesel exhaust particles as the principal contributors.</div>
 
 
@@ -4758,6 +4832,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4780,6 +4855,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retained-peribronchiolar-particulate-burden" data-dismech-node="Retained Peribronchiolar Particulate Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Retained Peribronchiolar Particulate Burden</div>
+
 
                 <div class="item-desc">Inhaled material is not cleared. Biopsies show grey-black pigment deposited around membranous bronchioles, the great majority of it containing birefringent (polarizable) particulate, and lacy black pigment is visible on the visceral pleural surface at the time of surgery. Whether this retained material is causal or merely a marker of exposure intensity is one of the three knowledge gaps named by the 2026 ATS workshop.</div>
 
@@ -4866,6 +4942,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4888,6 +4965,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-club-cell-injury-in-membranous-bronchioles" data-dismech-node="Sustained Club Cell Injury in Membranous Bronchioles" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Club Cell Injury in Membranous Bronchioles</div>
+
 
                 <div class="item-desc">Club cells are the local progenitor population that repairs the distal airway epithelium after inhaled toxicant injury. Sustained loss of that progenitor compartment is the mechanistic hypothesis for how a diffuse inhalational exposure becomes a fibrotic small-airway lesion, and in mice it is sufficient on its own: no external antigen and no lymphocyte activation is required to produce constrictive bronchiolitis.</div>
 
@@ -5073,6 +5151,7 @@ This pathophysiological event occurs in bronchiolar epithelium, annotated with e
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5099,6 +5178,7 @@ This pathophysiological event occurs in bronchiolar epithelium, annotated with e
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5121,6 +5201,7 @@ This pathophysiological event occurs in bronchiolar epithelium, annotated with e
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchiolar-epithelial-thinning-and-squamous-metaplasia" data-dismech-node="Bronchiolar Epithelial Thinning and Squamous Metaplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchiolar Epithelial Thinning and Squamous Metaplasia</div>
+
 
                 <div class="item-desc">Loss of the club-cell progenitor pool leaves a thinned bronchiolar epithelium that undergoes squamous metaplasia. The same epithelial change is seen in the mouse model and in human DRCB biopsies, which is the strongest single point of correspondence between the two.</div>
 
@@ -5195,6 +5276,7 @@ This pathophysiological event occurs in bronchiolar epithelium, annotated with e
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5217,6 +5299,7 @@ This pathophysiological event occurs in bronchiolar epithelium, annotated with e
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peribronchiolar-myeloid-and-alveolar-macrophage-accumulation" data-dismech-node="Peribronchiolar Myeloid and Alveolar Macrophage Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Peribronchiolar Myeloid and Alveolar Macrophage Accumulation</div>
+
 
                 <div class="item-desc">Epithelial injury recruits myeloid cells to the small airway wall and lumen. Alveolar and monocyte-derived exudate macrophages persist into the chronic phase and acquire an alternatively activated (CD206-high) phenotype; intraluminal collections of large foamy macrophages are present in both the mouse model and human DRCB biopsies.</div>
 
@@ -5406,6 +5489,7 @@ This pathophysiological event involves increased Leukocyte Migration (GO:0050900
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5427,6 +5511,7 @@ This pathophysiological event involves increased Leukocyte Migration (GO:0050900
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5452,6 +5537,7 @@ This pathophysiological event involves increased Leukocyte Migration (GO:0050900
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-activation-and-myofibroblast-recruitment" data-dismech-node="TGF-beta Activation and Myofibroblast Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta Activation and Myofibroblast Recruitment</div>
+
 
                 <div class="item-desc">Persistent macrophage accumulation raises free active TGF-beta1 in the airway, driving mesenchymal cell activation. Depleting alveolar macrophages in the mouse model lowers active TGF-beta1 and ameliorates the constrictive lesion, which makes this the most directly interventionally supported step in the chain.</div>
 
@@ -5627,6 +5713,7 @@ This pathophysiological event involves increased TGF-beta Receptor Signaling, an
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5649,6 +5736,7 @@ This pathophysiological event involves increased TGF-beta Receptor Signaling, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peribronchiolar-collagen-deposition" data-dismech-node="Peribronchiolar Collagen Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Peribronchiolar Collagen Deposition</div>
+
 
                 <div class="item-desc">Activated mesenchymal cells deposit collagen in the subepithelium and around the bronchiole. In affected soldiers, morphometry shows increased collagen density in the bronchiolar subepithelium with no change in epithelial height, adventitial thickness or subepithelial elastin: the matrix change is specifically collagen.</div>
 
@@ -5806,6 +5894,7 @@ This pathophysiological event involves increased Collagen Fibril Organization (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5827,6 +5916,7 @@ This pathophysiological event involves increased Collagen Fibril Organization (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5852,6 +5942,7 @@ This pathophysiological event involves increased Collagen Fibril Organization (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphocytic-bronchiolitis-and-lymphoid-follicle-formation" data-dismech-node="Lymphocytic Bronchiolitis and Lymphoid Follicle Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphocytic Bronchiolitis and Lymphoid Follicle Formation</div>
+
 
                 <div class="item-desc">Airway walls carry a more than three-fold increase in CD4 and CD8 T cells, with B-cell lymphoid follicles adjacent to small airways in 64% of affected soldiers and within alveolar tissue in 56%, against 12% and 6% in non-diseased controls. Airway tissue gene expression is skewed to Th1-type pro-inflammatory programs. This chronic adaptive immune activation is the reason the disease is suspected of being progressive rather than a fixed scar.</div>
 
@@ -6039,6 +6130,7 @@ This pathophysiological event involves increased Toll-like Receptor Signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6060,6 +6152,7 @@ This pathophysiological event involves increased Toll-like Receptor Signaling, a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6087,6 +6180,7 @@ This pathophysiological event involves increased Toll-like Receptor Signaling, a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6109,6 +6203,7 @@ This pathophysiological event involves increased Toll-like Receptor Signaling, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subepithelial-fibrosis-and-smooth-muscle-hypertrophy-narrowing-membranous-bronchioles" data-dismech-node="Subepithelial Fibrosis and Smooth Muscle Hypertrophy Narrowing Membranous Bronchioles" data-dismech-type="pathophysiology">
                 <div class="item-name">Subepithelial Fibrosis and Smooth Muscle Hypertrophy Narrowing Membranous Bronchioles</div>
+
 
                 <div class="item-desc">The defining lesion. Membranous (non-cartilaginous) bronchioles are narrowed from outside the lumen by subepithelial fibrosis, smooth-muscle hypertrophy or both, in a lung whose parenchyma is otherwise normal on routine histology. The operational histologic threshold used in later work is a 20% increase in airway wall thickness with chronic inflammation and peribronchiolar collagen.</div>
 
@@ -6235,6 +6330,7 @@ This pathophysiological event occurs in membranous bronchiole, annotated with br
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6256,6 +6352,7 @@ This pathophysiological event occurs in membranous bronchiole, annotated with br
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6281,6 +6378,7 @@ This pathophysiological event occurs in membranous bronchiole, annotated with br
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-pulmonary-arterial-remodeling" data-dismech-node="Distal Pulmonary Arterial Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Pulmonary Arterial Remodeling</div>
+
 
                 <div class="item-desc">Pulmonary arteries running with the affected bronchovascular bundles are themselves remodeled: medial smooth-muscle hypertrophy plus adventitial thickening raise the wall-to-lumen ratio. In the sulfur dioxide mouse model this vascular limb, not the airway limb, is what produces pulmonary hypertension and reduced exercise tolerance, and it is driven by endothelial oxidative stress via isolevuglandin adducts and SOD2 acetylation.</div>
 
@@ -6479,6 +6577,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6505,6 +6604,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6527,6 +6627,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interalveolar-septal-fibrosis-and-capillary-rarefaction" data-dismech-node="Interalveolar Septal Fibrosis and Capillary Rarefaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Interalveolar Septal Fibrosis and Capillary Rarefaction</div>
+
 
                 <div class="item-desc">Interalveolar septa in affected soldiers carry increased collagen and elastin together with reduced blood capillary density, but without the architectural distortion, honeycombing or fibroblast foci of a usual interstitial pneumonia. This is the alveolar compartment of the multicompartmental injury and a plausible contributor to the reduced diffusing capacity seen on pulmonary function testing.</div>
 
@@ -6599,6 +6700,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6620,6 +6722,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6645,6 +6748,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-visceral-pleural-inflammation-and-fibrosis" data-dismech-node="Visceral Pleural Inflammation and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Visceral Pleural Inflammation and Fibrosis</div>
+
 
                 <div class="item-desc">Visceral pleural inflammation, fibrosis or both are present in the large majority of affected soldiers, with diffuse CD4 and CD8 T cell infiltration extending into the pleura. Pleural involvement is one of the findings that puts this entity outside a purely bronchiolar diagnosis.</div>
 
@@ -6738,6 +6842,7 @@ This pathophysiological event occurs in visceral pleura (UBERON:0002401). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6760,6 +6865,7 @@ This pathophysiological event occurs in visceral pleura (UBERON:0002401). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-small-airways-disease-and-expiratory-air-trapping" data-dismech-node="Functional Small Airways Disease and Expiratory Air Trapping" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Small Airways Disease and Expiratory Air Trapping</div>
+
 
                 <div class="item-desc">The physiological expression of the narrowed bronchioles. Conventional spirometry and lung volumes are usually normal, so the abnormality is detected as functional small airways disease on quantitative expiratory CT and as abnormal reactance and distal airway resistance on impulse oscillometry.</div>
 
@@ -6838,6 +6944,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6859,6 +6966,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6921,6 +7029,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6942,6 +7051,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6989,6 +7099,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7116,6 +7227,9 @@ This clinical feature is Exertional dyspnea (HP:0002875), qualified as temporali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7130,6 +7244,7 @@ This clinical feature is Exertional dyspnea (HP:0002875), qualified as temporali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7184,6 +7299,9 @@ This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7198,6 +7316,7 @@ This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7254,6 +7373,9 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7268,6 +7390,7 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7292,6 +7415,7 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7355,6 +7479,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7369,6 +7496,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,6 +7615,9 @@ This treatment is exposure cessation, annotated with Preventive Intervention (NC
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7497,6 +7628,9 @@ This treatment is exposure cessation, annotated with Preventive Intervention (NC
 
 
     </div>
+
+
+
 
 
 
@@ -7580,6 +7714,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">In the absence of disease-modifying therapy, care is symptom-directed. Inhaled bronchodilator and corticosteroid trials are commonly given but have no demonstrated effect on the constrictive lesion.</div>
 
 
@@ -7601,6 +7741,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7668,6 +7809,9 @@ This treatment is pulmonary rehabilitation (NCIT:C157966). NCIT:C157966 is a cli
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7678,6 +7822,9 @@ This treatment is pulmonary rehabilitation (NCIT:C157966). NCIT:C157966 is a cli
 
 
     </div>
+
+
+
 
 
 
@@ -7830,6 +7977,7 @@ This environmental factor is exposure to respirable particulate matter during mi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7851,6 +7999,7 @@ This environmental factor is exposure to respirable particulate matter during mi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7902,6 +8051,7 @@ This environmental factor is exposure to respirable particulate matter during mi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7982,6 +8132,7 @@ This environmental factor is exposure to open-air burn pit smoke, annotated with
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8003,6 +8154,7 @@ This environmental factor is exposure to open-air burn pit smoke, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8054,6 +8206,7 @@ This environmental factor is exposure to open-air burn pit smoke, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8134,6 +8287,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8155,6 +8309,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8209,6 +8364,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8319,6 +8475,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8405,6 +8562,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8522,6 +8680,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8546,14 +8705,15 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Only a few soldiers had high-resolution CT showing the centrilobular nodularity or expiratory air trapping that can be associated with constrictive bronchiolitis."</div>
+                <div class="evidence-snippet">"In this descriptive case series, 80 soldiers from Fort Campbell, Kentucky, with inhalational exposures during service in Iraq and Afghanistan were evaluated for dyspnea on exertion that prevented them from meeting the U.S. Army&#39;s standards for physical fitness. ... A total of 49 soldiers..."</div>
 
 
-                <div class="evidence-explanation">Restates the insensitivity of the classic CT signs in this population.</div>
+                <div class="evidence-explanation">Restores deployment exposures, the reason for thoracoscopic biopsy and the CT results before the discussion sentence. The quarter-frequency result concerns air trapping or centrilobular nodules together, not a separate estimate for air trapping alone.</div>
 
 
 
@@ -8608,6 +8768,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8655,6 +8816,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8707,6 +8869,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8783,6 +8946,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8833,6 +8997,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8899,6 +9064,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8986,6 +9152,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9054,6 +9221,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9075,6 +9243,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9202,6 +9371,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9278,6 +9448,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9337,6 +9508,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9376,6 +9548,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9433,6 +9606,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9474,6 +9648,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9601,6 +9776,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9640,6 +9816,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9697,6 +9874,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9738,6 +9916,7 @@ This environmental factor is inhalation of sulfur dioxide from the Al-Mishraq su
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10803,8 +10982,20 @@ imaging_findings:
     reference_title: &#34;Constrictive bronchiolitis in soldiers returning from Iraq and Afghanistan.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Only a few soldiers had high-resolution CT showing the centrilobular nodularity or expiratory air trapping that can be associated with constrictive bronchiolitis.&#34;
-    explanation: Restates the insensitivity of the classic CT signs in this population.
+    snippet: &gt;-
+      In this descriptive case series, 80 soldiers from Fort Campbell, Kentucky, with inhalational
+      exposures during service in Iraq and Afghanistan were evaluated for dyspnea on exertion that
+      prevented them from meeting the U.S. Army&#39;s standards for physical fitness. ... A total of 49
+      soldiers underwent thoracoscopic lung biopsy after noninvasive evaluation did not provide an
+      explanation for their symptoms. ... All soldiers with constrictive bronchiolitis had normal
+      results on chest radiography, but about one quarter were found to have mosaic air trapping or
+      centrilobular nodules on chest CT. ... Only a few soldiers had high-resolution CT showing the
+      centrilobular nodularity or expiratory air trapping that can be associated with constrictive
+      bronchiolitis.
+    explanation: &gt;-
+      Restores deployment exposures, the reason for thoracoscopic biopsy and the CT results before
+      the discussion sentence. The quarter-frequency result concerns air trapping or centrilobular
+      nodules together, not a separate estimate for air trapping alone.
 diagnosis:
 - name: Surgical lung biopsy after an unrevealing noninvasive evaluation
   description: &gt;-
@@ -11501,7 +11692,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Deployment-Related Constrictive Bronchiolitis", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Deployment-Related_Constrictive_Bronchiolitis", "yamlRevision": "55b66c01f425"};
+        const OS_CONFIG = {"diseaseName": "Deployment-Related Constrictive Bronchiolitis", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Deployment-Related_Constrictive_Bronchiolitis", "yamlRevision": "edd806d955b6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

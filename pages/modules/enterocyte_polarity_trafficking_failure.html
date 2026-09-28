@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1981,11 +2018,13 @@ This mechanism module involves decreased Intestinal absorption (GO:0050892). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-apical-delivery-machinery" data-dismech-node="Loss of Apical Delivery Machinery" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Apical Delivery Machinery</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">ARM SELECTION IS THE CURATOR&#39;S FIRST DECISION. This is the trafficking arm. Biallelic loss of the myosin Vb motor - or of syntaxin-3, the apical SNARE that receives its vesicles one step downstream - arrests delivery of recycling-endosome cargo to the apical membrane. Because basolateral cargo is mislocalized too, the defect is one of general epithelial polarity rather than of a single apical protein. A disorder entering the module through this arm must NOT declare conformance to the adhesion arm: the two are molecularly distinct and histologically distinguishable (intracellular microvillus inclusions here, focal epithelial tufts there), and conforming to both would assert a claudin-7 lesion that MYO5B disease does not have.</div>
                 
@@ -2147,11 +2186,13 @@ This pathophysiological event involves Apical recycling endosome, annotated with
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-junctional-adhesion-machinery" data-dismech-node="Loss of Junctional Adhesion Machinery" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Junctional Adhesion Machinery</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">ARM SELECTION IS THE CURATOR&#39;S FIRST DECISION. This is the adhesion arm. Loss of functional EpCAM at the epithelial cell surface - by EPCAM variants, or indirectly by SPINT2 variants that unleash matriptase to degrade it - removes the anchor that recruits claudin-7 to the tight junction, destabilizing the apical junctional complex that maintains polarity and cohesion across the sheet. A disorder entering through this arm must NOT declare conformance to the trafficking arm: apical vesicle delivery is intact in EpCAM disease, and the histology is focal epithelial tufts rather than intracellular microvillus inclusions.</div>
                 
@@ -2278,11 +2319,13 @@ This pathophysiological event involves Tight junction (GO:0070160). GO:0070160 i
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-a-functionally-polarized-absorptive-epithelial-surface" data-dismech-node="Loss of a Functionally Polarized Absorptive Epithelial Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of a Functionally Polarized Absorptive Epithelial Surface</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node and the key conformance target. Whichever arm is taken, the epithelium can no longer present a correctly organized apical surface to the lumen. In the trafficking arm the brush border is sparse or absent and microvilli are internalized into cytoplasmic inclusions; in the adhesion arm the sheet becomes dysplastic, with disorganized enterocytes crowding into focal tufts on a background of villous atrophy and crypt hyperplasia. The functional consequence is the same and is what matters mechanistically: the apical surface carries the brush-border hydrolases, the nutrient carriers and the ion exchangers, so losing it removes absorptive capacity across the board rather than for any one substrate or ion. This is why conforming disorders cannot be treated by eliminating a dietary constituent or by replacing an ion - there is no single missing step to bypass.</div>
                 
@@ -2463,11 +2506,13 @@ This pathophysiological event involves Microvillus (GO:0005902). GO:0005902 is a
             
             <div class="item-box anchor-target" id="module-pathophysiology-abnormal-villus-architecture" data-dismech-node="Abnormal Villus Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Villus Architecture</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The histological signature of the class and its diagnostic discriminator. Unlike the digestive, absorptive and electrolyte-transport CODEs, where the villus-to-crypt ratio is normal, the enterocyte-structural disorders produce an abnormal ratio and abnormal morphology - villous atrophy in both arms, with crypt hyperplasia and focal tufts in the adhesion arm and subapical periodic-acid-Schiff-positive granules with intracytoplasmic microvillus inclusions in the trafficking arm. This node is what a biopsy-first diagnostic pathway detects, and it is the single feature that assigns a congenital diarrhea to this module rather than to either sibling.</div>
                 
@@ -2541,11 +2586,13 @@ This pathophysiological event involves Small-intestinal enterocyte, annotated wi
             
             <div class="item-box anchor-target" id="module-pathophysiology-feeding-independent-intractable-diarrhea" data-dismech-node="Feeding-Independent Intractable Diarrhea" data-dismech-type="pathophysiology">
                 <div class="item-name">Feeding-Independent Intractable Diarrhea</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The functional output. Profuse watery diarrhea begins in the neonatal period and, critically, continues whether the infant is fed or fasted, because the lesion is in the absorptive surface itself rather than in the handling of anything ingested. This is the property that rules out the two non-structural CODE classes at the bedside: no dietary elimination abolishes it, no enzyme replacement bypasses it, and no ion substitution reduces stool volume. In the adhesion arm the loss of tight junctions adds a secretory component and the loss of glucose transporters and disaccharidases an osmotic one, so the diarrhea is mixed rather than cleanly of either type.</div>
                 
@@ -2575,11 +2622,13 @@ This pathophysiological event involves Small-intestinal enterocyte, annotated wi
             
             <div class="item-box anchor-target" id="module-pathophysiology-intestinal-failure-and-parenteral-nutrition-dependence" data-dismech-node="Intestinal Failure and Parenteral Nutrition Dependence" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal Failure and Parenteral Nutrition Dependence</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical output, and the most severe of the three epithelial CODE classes. Because absorptive capacity is structurally absent, enteral feeding cannot sustain the child and parenteral nutrition is required from the neonatal period. The natural history is then dominated by the complications of that dependence - intestinal-failure-associated liver disease, catheter-related sepsis, growth failure, renal impairment and metabolic bone disease. Most patients never achieve enteral autonomy, and small-bowel transplantation, which replaces the epithelium with genotypically normal donor tissue, is the only definitive treatment. Severity is nonetheless heterogeneous within the class, and in the adhesion arm some patients improve substantially over time, so transplantation is not automatically first-line.</div>
                 
@@ -2657,6 +2706,9 @@ This treatment is Total Parenteral Nutrition (NCIT:C29484). NCIT:C29484 is a cli
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2667,6 +2719,9 @@ This treatment is Total Parenteral Nutrition (NCIT:C29484). NCIT:C29484 is a cli
         
         
     </div>
+    
+    
+    
     
     
     
@@ -2741,6 +2796,9 @@ This treatment is Small Bowel Transplantation (NCIT:C157985). NCIT:C157985 is a 
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2751,6 +2809,9 @@ This treatment is Small Bowel Transplantation (NCIT:C157985). NCIT:C157985 is a 
         
         
     </div>
+    
+    
+    
     
     
     

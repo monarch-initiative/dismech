@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4125,6 +4193,7 @@ Two features of the history are worth keeping in view. The disorder was original
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4146,6 +4215,7 @@ Two features of the history are worth keeping in view. The disorder was original
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4283,6 +4353,7 @@ The gap is not theoretical. The OpenScientist deep-research report for this dise
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-nt5c3a-loss-of-function-variants" data-dismech-node="Biallelic NT5C3A Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NT5C3A Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Missense, nonsense, splice-site and in-frame deletion variants on both NT5C3A alleles. The gene sits on chromosome 7, has 10 exons with alternative splicing of exon 2, and encodes proteins of 286 and 297 amino acids. Molecular diagnosis was delayed by nearly three decades after the clinical description, partly because P5N pseudogenes on chromosomes 4 and 7 complicate the sequencing.</div>
 
 
@@ -4300,6 +4371,8 @@ The gap is not theoretical. The OpenScientist deep-research report for this dise
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4310,6 +4383,9 @@ The gap is not theoretical. The OpenScientist deep-research report for this dise
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4355,6 +4431,7 @@ The gap is not theoretical. The OpenScientist deep-research report for this dise
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4376,6 +4453,7 @@ The gap is not theoretical. The OpenScientist deep-research report for this dise
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4401,6 +4479,7 @@ The gap is not theoretical. The OpenScientist deep-research report for this dise
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-erythrocyte-pyrimidine-5-nucleotidase-activity" data-dismech-node="Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity</div>
+
 
                 <div class="item-desc">Enzyme activity in affected red cells falls to under 14 percent, usually under 10 percent, of normal. The deficit is larger than it looks on a raw assay: the enzyme is normally enriched in reticulocytes, so a reticulocyte-rich hemolytic sample should read high, and reading low against that expectation means the true deficit is greater than the ratio to normal whole blood suggests. In one severe case Western blot showed no detectable protein at all.</div>
 
@@ -4524,6 +4603,7 @@ This pathophysiological event involves decreased pyrimidine 5-nucleotidase activ
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4545,6 +4625,7 @@ This pathophysiological event involves decreased pyrimidine 5-nucleotidase activ
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4570,6 +4651,7 @@ This pathophysiological event involves decreased pyrimidine 5-nucleotidase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intraerythrocytic-pyrimidine-nucleotide-accumulation" data-dismech-node="Intraerythrocytic Pyrimidine Nucleotide Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intraerythrocytic Pyrimidine Nucleotide Accumulation</div>
+
 
                 <div class="item-desc">Pyrimidine nucleotides released by ribosomal RNA breakdown during reticulocyte maturation carry a phosphate and cannot cross the membrane. Undephosphorylated, they are trapped. Total nucleotide rises three- to six-fold and roughly 80 percent of the pool becomes pyrimidine, against 97 percent or more adenine in a normal red cell - a compositional inversion, not merely an excess.</div>
 
@@ -4693,6 +4775,7 @@ This pathophysiological event involves decreased erythrocyte pyrimidine nucleoti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4714,6 +4797,7 @@ This pathophysiological event involves decreased erythrocyte pyrimidine nucleoti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4739,6 +4823,13 @@ This pathophysiological event involves decreased erythrocyte pyrimidine nucleoti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retarded-ribosomal-rna-degradation" data-dismech-node="Retarded Ribosomal RNA Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Retarded Ribosomal RNA Degradation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The accumulated pyrimidine ribonucleotides feed back on the dismantling of ribosomal RNA, so undegraded rRNA persists in the maturing cell. This is the step the original authors proposed to connect the biochemical lesion to the morphological one, and it remains the standard account. The mechanism by which the cell is then destroyed is not equally well established.</div>
 
@@ -4868,6 +4959,7 @@ This pathophysiological event involves decreased ribosomal RNA degradation durin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4890,6 +4982,7 @@ This pathophysiological event involves decreased ribosomal RNA degradation durin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coarse-basophilic-stippling" data-dismech-node="Coarse Basophilic Stippling" data-dismech-type="pathophysiology">
                 <div class="item-name">Coarse Basophilic Stippling</div>
+
 
                 <div class="item-desc">Aggregated undegraded ribosomal RNA visible on a Romanowsky-stained film as coarse blue granules throughout the erythrocyte. It is the diagnostic hallmark of the disease and, together with a nonspherocytic hemolytic picture and normal G6PD and pyruvate kinase, is what prompts the enzyme assay or the NT5C3A sequencing.</div>
 
@@ -4975,6 +5068,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4997,6 +5091,13 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-erythrocyte-survival" data-dismech-node="Shortened Erythrocyte Survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Erythrocyte Survival</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Chronic extravascular hemolysis, ranging from fully compensated to transfusion-requiring. The step from the loaded, stippled cell to its premature clearance is the least well understood part of the chain: reviews describe the hemolytic mechanism as still unclear, and the raised reduced glutathione seen in patient cells has never been explained. The entry therefore records this edge as indirect with unknown intermediates rather than asserting a mechanism.
 One candidate has real support and is worth naming rather than leaving out. Beyond the nucleotide load itself, inhibition of hexose monophosphate shunt activity in young erythrocytes has been proposed as a second contributor, which would make the cells oxidant-vulnerable. The evidence for it is indirect and comes from a co-inheritance experiment: in a family segregating both this deficiency and hemoglobin E, the doubly homozygous individual had severe hemolysis while each single homozygote was mild or asymptomatic, and globin-chain work traced that to marked instability of Hb E specifically in enzyme-deficient cells, with free alpha-chains accumulating on the membrane. Note the tension with the raised glutathione: an oxidative account has to accommodate a finding that points the other way, and no cited source reconciles them.</div>
@@ -5095,6 +5196,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5119,6 +5221,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5140,6 +5243,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5190,7 +5294,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic NT5C3A Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense, nonsense, splice-site and in-frame deletion variants on both NT5C3A alleles. The gene sits on chromosome 7, has 10 exons with alternative splicing of exon 2, and encodes proteins of 286 and 297 amino acids. Molecular diagnosis was delayed by nearly three decades after the clinical description, partly because P5N pseudogenes on chromosomes 4 and 7 complicate the sequencing.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Coarse Basophilic Stippling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aggregated undegraded ribosomal RNA visible on a Romanowsky-stained film as coarse blue granules throughout the erythrocyte. It is the diagnostic hallmark of the disease and, together with a nonspherocytic hemolytic picture and normal G6PD and pyruvate kinase, is what prompts the enzyme assay or the NT5C3A sequencing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"]}}, {\"id\": \"Erythrocyte inclusion bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse basophilic stippling: dense blue granules of aggregated ribosomal RNA scattered through the erythrocyte on a stained film. Bound to the general erythrocyte-inclusion term because HPO has no term for basophilic stippling itself; see notes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0020080\"}}, {\"id\": \"Intraerythrocytic Pyrimidine Nucleotide Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyrimidine nucleotides released by ribosomal RNA breakdown during reticulocyte maturation carry a phosphate and cannot cross the membrane. Undephosphorylated, they are trapped. Total nucleotide rises three- to six-fold and roughly 80 percent of the pool becomes pyrimidine, against 97 percent or more adenine in a normal red cell - a compositional inversion, not merely an excess.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte pyrimidine nucleotide catabolism\"]}}, {\"id\": \"Lead exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Lead inhibits erythrocyte pyrimidine 5-nucleotidase, producing an acquired copy of the inherited enzyme defect. In a patient with lead intoxication, nucleotidase activity fell to about 25 percent of normal and 12 percent of erythrocyte nucleotides contained cytidine, where pyrimidine nucleotides are virtually absent from normal red cells. This is the mechanistic reason lead poisoning shows the same hemolysis and the same basophilic stippling, and it is why an acquired cause has to be excluded before the inherited disease is diagnosed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enzyme activity in affected red cells falls to under 14 percent, usually under 10 percent, of normal. The deficit is larger than it looks on a raw assay: the enzyme is normally enriched in reticulocytes, so a reticulocyte-rich hemolytic sample should read high, and reading low against that expectation means the true deficit is greater than the ratio to normal whole blood suggests. In one severe case Western blot showed no detectable protein at all.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"molecular_functions\": [\"pyrimidine 5-nucleotidase activity\"]}}, {\"id\": \"Nonspherocytic hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic hemolysis without spherocytes, with normal osmotic fragility and normal G6PD and pyruvate kinase activity. Severity ranges from a compensated picture found incidentally to persistent transfusion-requiring crises.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001930\"}}, {\"id\": \"Retarded Ribosomal RNA Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accumulated pyrimidine ribonucleotides feed back on the dismantling of ribosomal RNA, so undegraded rRNA persists in the maturing cell. This is the step the original authors proposed to connect the biochemical lesion to the morphological one, and it remains the standard account. The mechanism by which the cell is then destroyed is not equally well established.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"reticulocyte\"], \"biological_processes\": [\"ribosomal RNA degradation during reticulocyte maturation\"]}}, {\"id\": \"Reticulocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow compensation for the shortened red cell lifespan. It is also an assay confounder: the enzyme is normally enriched in reticulocytes, so a reticulocytosis raises the expected activity that the measured value must be read against.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001923\"}}, {\"id\": \"Shortened Erythrocyte Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic extravascular hemolysis, ranging from fully compensated to transfusion-requiring. The step from the loaded, stippled cell to its premature clearance is the least well understood part of the chain: reviews describe the hemolytic mechanism as still unclear, and the raised reduced glutathione seen in patient cells has never been explained. The entry therefore records this edge as indirect with unknown intermediates rather than asserting a mechanism.\\nOne candidate has real support and is worth naming rather than leaving out. Beyond the nucleotide load itself, inhibition of hexose monophosphate shunt activity in young erythrocytes has been proposed as a second contributor, which would make the cells oxidant-vulnerable. The evidence for it is indirect and comes from a co-inheritance experiment: in a family segregating both this deficiency and hemoglobin E, the doubly homozygous individual had severe hemolysis while each single homozygote was mild or asymptomatic, and globin-chain work traced that to marked instability of Hb E specifically in enzyme-deficient cells, with free alpha-chains accumulating on the membrane. Note the tension with the raised glutathione: an oxidative account has to accommodate a finding that points the other way, and no cited source reconciles them.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"erythrocyte\"]}}, {\"id\": \"Supportive care and transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the enzyme defect. Management is folate support, monitoring of the hemolysis, and transfusion during severe crises. Because both reported Chinese patients carried Gilbert-type UGT1A1 alleles and one had already developed gallstones, biliary surveillance is part of routine care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Unconjugated hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The bilirubin load from chronic hemolysis, presenting as scleral icterus and jaundice. Co-inherited UGT1A1 Gilbert alleles were found in both reported Chinese cases and would be expected to worsen it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008282\"}}], \"edges\": [{\"source\": \"Biallelic NT5C3A Loss-of-Function Variants\", \"target\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"target\": \"Intraerythrocytic Pyrimidine Nucleotide Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraerythrocytic Pyrimidine Nucleotide Accumulation\", \"target\": \"Retarded Ribosomal RNA Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retarded Ribosomal RNA Degradation\", \"target\": \"Coarse Basophilic Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retarded Ribosomal RNA Degradation\", \"target\": \"Shortened Erythrocyte Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Coarse Basophilic Stippling\", \"target\": \"Erythrocyte inclusion bodies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Erythrocyte Survival\", \"target\": \"Nonspherocytic hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Erythrocyte Survival\", \"target\": \"Reticulocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Erythrocyte Survival\", \"target\": \"Unconjugated hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lead exposure\", \"target\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Lead phenocopies the disease at exactly this node, inhibiting the same enzyme rather than acting anywhere else in the chain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive care and transfusion\", \"target\": \"Nonspherocytic hemolytic anemia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic NT5C3A Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Missense, nonsense, splice-site and in-frame deletion variants on both NT5C3A alleles. The gene sits on chromosome 7, has 10 exons with alternative splicing of exon 2, and encodes proteins of 286 and 297 amino acids. Molecular diagnosis was delayed by nearly three decades after the clinical description, partly because P5N pseudogenes on chromosomes 4 and 7 complicate the sequencing.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Coarse Basophilic Stippling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aggregated undegraded ribosomal RNA visible on a Romanowsky-stained film as coarse blue granules throughout the erythrocyte. It is the diagnostic hallmark of the disease and, together with a nonspherocytic hemolytic picture and normal G6PD and pyruvate kinase, is what prompts the enzyme assay or the NT5C3A sequencing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"]}}, {\"id\": \"Erythrocyte inclusion bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse basophilic stippling: dense blue granules of aggregated ribosomal RNA scattered through the erythrocyte on a stained film. Bound to the general erythrocyte-inclusion term because HPO has no term for basophilic stippling itself; see notes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0020080\"}}, {\"id\": \"Intraerythrocytic Pyrimidine Nucleotide Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pyrimidine nucleotides released by ribosomal RNA breakdown during reticulocyte maturation carry a phosphate and cannot cross the membrane. Undephosphorylated, they are trapped. Total nucleotide rises three- to six-fold and roughly 80 percent of the pool becomes pyrimidine, against 97 percent or more adenine in a normal red cell - a compositional inversion, not merely an excess.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte pyrimidine nucleotide catabolism\"]}}, {\"id\": \"Lead exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Lead inhibits erythrocyte pyrimidine 5-nucleotidase, producing an acquired copy of the inherited enzyme defect. In a patient with lead intoxication, nucleotidase activity fell to about 25 percent of normal and 12 percent of erythrocyte nucleotides contained cytidine, where pyrimidine nucleotides are virtually absent from normal red cells. This is the mechanistic reason lead poisoning shows the same hemolysis and the same basophilic stippling, and it is why an acquired cause has to be excluded before the inherited disease is diagnosed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enzyme activity in affected red cells falls to under 14 percent, usually under 10 percent, of normal. The deficit is larger than it looks on a raw assay: the enzyme is normally enriched in reticulocytes, so a reticulocyte-rich hemolytic sample should read high, and reading low against that expectation means the true deficit is greater than the ratio to normal whole blood suggests. In one severe case Western blot showed no detectable protein at all.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"molecular_functions\": [\"pyrimidine 5-nucleotidase activity\"]}}, {\"id\": \"Nonspherocytic hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic hemolysis without spherocytes, with normal osmotic fragility and normal G6PD and pyruvate kinase activity. Severity ranges from a compensated picture found incidentally to persistent transfusion-requiring crises.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001930\"}}, {\"id\": \"Retarded Ribosomal RNA Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The accumulated pyrimidine ribonucleotides feed back on the dismantling of ribosomal RNA, so undegraded rRNA persists in the maturing cell. This is the step the original authors proposed to connect the biochemical lesion to the morphological one, and it remains the standard account. The mechanism by which the cell is then destroyed is not equally well established.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"reticulocyte\"], \"biological_processes\": [\"ribosomal RNA degradation during reticulocyte maturation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reticulocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow compensation for the shortened red cell lifespan. It is also an assay confounder: the enzyme is normally enriched in reticulocytes, so a reticulocytosis raises the expected activity that the measured value must be read against.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001923\"}}, {\"id\": \"Shortened Erythrocyte Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic extravascular hemolysis, ranging from fully compensated to transfusion-requiring. The step from the loaded, stippled cell to its premature clearance is the least well understood part of the chain: reviews describe the hemolytic mechanism as still unclear, and the raised reduced glutathione seen in patient cells has never been explained. The entry therefore records this edge as indirect with unknown intermediates rather than asserting a mechanism.\\nOne candidate has real support and is worth naming rather than leaving out. Beyond the nucleotide load itself, inhibition of hexose monophosphate shunt activity in young erythrocytes has been proposed as a second contributor, which would make the cells oxidant-vulnerable. The evidence for it is indirect and comes from a co-inheritance experiment: in a family segregating both this deficiency and hemoglobin E, the doubly homozygous individual had severe hemolysis while each single homozygote was mild or asymptomatic, and globin-chain work traced that to marked instability of Hb E specifically in enzyme-deficient cells, with free alpha-chains accumulating on the membrane. Note the tension with the raised glutathione: an oxidative account has to accommodate a finding that points the other way, and no cited source reconciles them.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"erythrocyte\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Supportive care and transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no treatment for the enzyme defect. Management is folate support, monitoring of the hemolysis, and transfusion during severe crises. Because both reported Chinese patients carried Gilbert-type UGT1A1 alleles and one had already developed gallstones, biliary surveillance is part of routine care.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Unconjugated hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The bilirubin load from chronic hemolysis, presenting as scleral icterus and jaundice. Co-inherited UGT1A1 Gilbert alleles were found in both reported Chinese cases and would be expected to worsen it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008282\"}}], \"edges\": [{\"source\": \"Biallelic NT5C3A Loss-of-Function Variants\", \"target\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"target\": \"Intraerythrocytic Pyrimidine Nucleotide Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraerythrocytic Pyrimidine Nucleotide Accumulation\", \"target\": \"Retarded Ribosomal RNA Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retarded Ribosomal RNA Degradation\", \"target\": \"Coarse Basophilic Stippling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retarded Ribosomal RNA Degradation\", \"target\": \"Shortened Erythrocyte Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Coarse Basophilic Stippling\", \"target\": \"Erythrocyte inclusion bodies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Erythrocyte Survival\", \"target\": \"Nonspherocytic hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Erythrocyte Survival\", \"target\": \"Reticulocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Erythrocyte Survival\", \"target\": \"Unconjugated hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lead exposure\", \"target\": \"Loss of Erythrocyte Pyrimidine 5-Nucleotidase Activity\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Lead phenocopies the disease at exactly this node, inhibiting the same enzyme rather than acting anywhere else in the chain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive care and transfusion\", \"target\": \"Nonspherocytic hemolytic anemia\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5276,6 +5380,9 @@ This clinical feature is Nonspherocytic hemolytic anemia (HP:0001930), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5290,6 +5397,7 @@ This clinical feature is Nonspherocytic hemolytic anemia (HP:0001930), qualified
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5346,6 +5454,9 @@ This clinical feature is Coarse basophilic stippling of erythrocytes, annotated 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5360,6 +5471,7 @@ This clinical feature is Coarse basophilic stippling of erythrocytes, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5414,6 +5526,9 @@ This clinical feature is Reticulocytosis (HP:0001923). HP:0001923 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5431,6 +5546,7 @@ This clinical feature is Reticulocytosis (HP:0001923). HP:0001923 is a phenotype
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5484,6 +5600,9 @@ This clinical feature is Macrocytic anemia (HP:0001972). HP:0001972 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5498,6 +5617,7 @@ This clinical feature is Macrocytic anemia (HP:0001972). HP:0001972 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5561,6 +5681,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5575,6 +5698,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5658,6 +5782,9 @@ This clinical feature is Pigment gallstones, annotated with Cholelithiasis (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5672,6 +5799,7 @@ This clinical feature is Pigment gallstones, annotated with Cholelithiasis (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5735,6 +5863,9 @@ This clinical feature is Unconjugated hyperbilirubinemia (HP:0008282). HP:000828
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5752,6 +5883,7 @@ This clinical feature is Unconjugated hyperbilirubinemia (HP:0008282). HP:000828
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5851,6 +5983,9 @@ This disease-associated gene is NT5C3A (hgnc:17820). hgnc:17820 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5865,6 +6000,7 @@ This disease-associated gene is NT5C3A (hgnc:17820). hgnc:17820 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5892,6 +6028,7 @@ This disease-associated gene is NT5C3A (hgnc:17820). hgnc:17820 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5913,6 +6050,7 @@ This disease-associated gene is NT5C3A (hgnc:17820). hgnc:17820 is a gene from t
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -5972,6 +6110,9 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5986,6 +6127,7 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6045,6 +6187,9 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6059,6 +6204,7 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6083,6 +6229,7 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6128,6 +6275,12 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">In-frame single-codon deletion reported in two Polish brothers, inherited from an asymptomatic mother, with no detectable 5-nucleotidase protein on Western blot.</div>
 
 
@@ -6152,6 +6305,7 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6186,6 +6340,12 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous splice-donor variant reported in a 65-year-old woman with systemic lupus erythematosus and prior splenectomy, classified as possibly pathogenic on ACMG criteria.</div>
 
 
@@ -6210,6 +6370,7 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6244,6 +6405,12 @@ This disease-associated gene is HBB (hgnc:4827). hgnc:4827 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Three alleles from the first NT5C3A genotypes published from China: a compound heterozygous 15-year-old carrying p.I258T and p.D277G, each traced to one parent, and a 54-year-old born to first cousins homozygous for the c.252+1G&gt;A splice-donor variant. Both patients also carried Gilbert-type UGT1A1 alleles.
 No evidence item is attached. The source (PMID:34547876) is a Chinese-language report whose cached record holds no English body text, so no snippet from it can pass this repository&#39;s gates - a Chinese sentence is counted as one word by check-snippet-length, and the only English string in the record is the title, which check-title-snippets rejects. The variant is recorded with its source named in prose rather than dropped, and the tooling limitation is described in this entry&#39;s notes.</div>
 
@@ -6267,6 +6434,12 @@ No evidence item is attached. The source (PMID:34547876) is a Chinese-language r
         NT5C3A p.R56G
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense variant in a highly conserved region, reported in an African-descendant father and daughter born to first cousins and named pyrimidine-5-nucleotidase Campinas.</div>
@@ -6293,6 +6466,7 @@ No evidence item is attached. The source (PMID:34547876) is a Chinese-language r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6327,6 +6501,12 @@ No evidence item is attached. The source (PMID:34547876) is a Chinese-language r
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Splice variant identified in the Bangladeshi family segregating both this deficiency and hemoglobin E, and the allele that confirmed the severe phenotype in that family was a two-gene interaction.</div>
 
 
@@ -6351,6 +6531,7 @@ No evidence item is attached. The source (PMID:34547876) is a Chinese-language r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6434,6 +6615,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6444,6 +6628,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6493,6 +6680,7 @@ This treatment targets Nonspherocytic hemolytic anemia (HP:0001930). HP:0001930 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6559,6 +6747,9 @@ This treatment is Splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6569,6 +6760,9 @@ This treatment is Splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -6600,6 +6794,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6624,6 +6819,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6645,6 +6841,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6712,6 +6909,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6760,6 +6958,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6826,6 +7025,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6847,6 +7047,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6897,6 +7098,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6918,6 +7120,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6987,6 +7190,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7008,6 +7212,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7085,6 +7290,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7106,6 +7312,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7209,6 +7416,7 @@ The harm is worth stating alongside the absent benefit. In one reported patient,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8589,6 +8797,37 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Pyrimidine 5-Nucleotidase Deficiency (NT5C3A, MONDO:0009946)</strong> · 2026-09-09T14:33:30Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pyrimidine_5_Nucleotidase_Deficiency/2026-09-09T143330Z-claude-code-17ba97.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of pyrimidine 5&#39;-nucleotidase deficiency, claimed on issue #11521.
+
+Deep research: one OpenScientist run (research/Pyrimidine_5_Nucleotidase_Deficiency-deep-research-openscientist.md, 59 min, 18 citations). The report had no reference_validation or term_validation frontmatter, so both were retro-fitted with just validate-research-reference and just validate-research-terms and are committed with it. References: 20/20 resolved, 0 unresolved, 0 unverifiable, 0 off topic, 1/1 quoted claim found in source. Terms: 34 checked, 32 resolved, 0 unresolved, 0 obsolete.
+
+The report proposed one wrong ontology binding and it is the important finding of this curation. It offered HP:0011273 as &#39;basophilic stippling of erythrocytes&#39;. HPO calls HP:0011273 Anisocytosis, defined as abnormally increased variability in erythrocyte size, which is a different phenotype. The report&#39;s own term-validation section flagged it under &#39;Terms the report names something else&#39;, and it was not used. This matters because basophilic stippling is the diagnostic hallmark of this disease and HPO has no term for it: I had already bound the parent HP:0020080 Erythrocyte inclusion bodies with an explicit preferred_term and filed a CURATION_TODO discussion about the gap. The report independently demonstrated that a missing term does not stay missing - something plausible gets bound in its place. The discussion now records the incident.
+
+Note also that HP:0020081 Pappenheimer bodies is a second inviting wrong answer here: its HPO definition contains the words &#39;basophilic stippling&#39;, but Pappenheimer bodies are iron-containing siderotic granules, a different entity. It was deliberately not used.
+
+What the report contributed. A candidate mechanism for the one step this entry marks HYPOTHETICAL: inhibition of hexose monophosphate shunt activity in young erythrocytes as a second contributor to the hemolysis, beyond the nucleotide load. PMID:8839873 was fetched and cited for it, graded directness: INDIRECT because the observation is about hemoglobin E instability in enzyme-deficient cells rather than about hemolysis in the isolated disorder, and quoted with the source&#39;s own &#39;increasing evidence&#39; and &#39;it is likely&#39;. The node description also records the unresolved tension with the raised reduced glutathione, which points the other way and which no cited source reconciles. Splenomegaly was added as a phenotype from PMID:6254919.
+
+Fifteen report-only PMIDs were fetched into references_cache; they are committed because the report cites them.
+
+GeneReviews baseline: none exists. PubMed searched for &#34;pyrimidine 5&#39;-nucleotidase deficiency GeneReviews[All Fields]&#34; with no results. The phenotype baseline is the 1974 primary description (PMID:4372252), the 2000 twenty-five-year review (PMID:10916681), and recent case reports.
+
+Naming decisions worth recording. The entry name and filename drop the prime from &#39;pyrimidine 5&#39;-nucleotidase&#39; because an apostrophe in a KB filename has broken this repository&#39;s shell tooling before; the primed form is carried in disease_term.preferred_term, in synonyms, and in every quoted snippet. The historical names &#39;high ATP syndrome&#39; and &#39;ribose phosphate pyrophosphokinase deficiency&#39; are recorded as synonyms because both were wrong and the older literature is filed under them.
+
+Two hedged mechanism nodes carry mechanism_confidence: the rRNA-degradation node is PROVISIONAL (its source says &#39;It is postulated that&#39;), and the hemolysis node is HYPOTHETICAL.
+
+Validation run in this worktree: just validate passes, 35/35 snippets verified against cached references.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

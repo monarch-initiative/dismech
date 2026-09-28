@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4122,6 +4190,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4143,6 +4212,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4257,6 +4327,7 @@ This subtype is caused by variation in EPM2A (hgnc:3413). hgnc:3413 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4341,6 +4412,7 @@ This subtype is caused by variation in NHLRC1 (hgnc:21576). hgnc:21576 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4385,6 +4457,7 @@ This subtype is caused by variation in NHLRC1 (hgnc:21576). hgnc:21576 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-laforin-glycogen-phosphatase-activity" data-dismech-node="Loss of laforin glycogen phosphatase activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of laforin glycogen phosphatase activity</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variants in EPM2A abolish laforin&#39;s dual-specificity glycogen phosphatase activity. Laforin normally binds glycogen via its carbohydrate-binding domain and dephosphorylates it; loss of this activity leads to glycogen hyperphosphorylation and, downstream, to abnormal chain length and insolubility. Laforin also serves as the glycogen-targeting subunit that recruits malin to glycogen, so its loss disrupts the laforin-malin complex at glycogen.
 </div>
@@ -4664,6 +4737,7 @@ This pathophysiological event involves decreased carbohydrate binding (GO:003024
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4685,6 +4759,7 @@ This pathophysiological event involves decreased carbohydrate binding (GO:003024
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4712,6 +4787,7 @@ This pathophysiological event involves decreased carbohydrate binding (GO:003024
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4734,6 +4810,7 @@ This pathophysiological event involves decreased carbohydrate binding (GO:003024
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-laforin-malin-complex-regulation-of-glycogen-synthesis" data-dismech-node="Loss of laforin-malin complex regulation of glycogen synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of laforin-malin complex regulation of glycogen synthesis</div>
+
 
                 <div class="item-desc">Malin (NHLRC1) is an E3 ubiquitin ligase that, in complex with laforin at glycogen, ubiquitinates substrates including PTG/PPP1R3C (a glycogen synthase activator) and glycogen synthase itself, restraining glycogen synthesis. Biallelic loss-of-function variants in NHLRC1, or loss of laforin (which targets malin to glycogen), inactivate this complex. Consequently, malin substrates such as PTG accumulate and drive excessive glycogen synthesis with abnormal architecture. Laforin also becomes sequestered in the insoluble polysaccharide fraction, where it is functionally inert.
 </div>
@@ -5009,6 +5086,7 @@ This pathophysiological event involves decreased ubiquitin protein ligase activi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5030,6 +5108,7 @@ This pathophysiological event involves decreased ubiquitin protein ligase activi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5057,6 +5136,7 @@ This pathophysiological event involves decreased ubiquitin protein ligase activi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5081,6 +5161,7 @@ This pathophysiological event involves decreased ubiquitin protein ligase activi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ptg-glycogen-synthase-overactivation-and-excessive-glycogen-synthesis" data-dismech-node="PTG/glycogen synthase overactivation and excessive glycogen synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">PTG/glycogen synthase overactivation and excessive glycogen synthesis</div>
+
 
                 <div class="item-desc">PTG (PPP1R3C) is a glycogen synthase activator that targets protein phosphatase 1 to glycogen. In normal cells, malin-mediated ubiquitination restrains PTG and glycogen synthase (GYS1) activity. With loss of laforin/malin function, PTG accumulates and a small pool of overactive GYS1 elongates glycogen chains beyond the threshold at which they remain soluble. Genetic depletion of PTG or constitutive/inducible knockout of GYS1 in mouse models prevents Lafora body formation and rescues seizure susceptibility, neurodegeneration, and behavioral abnormality, establishing GYS1-driven excessive glycogen synthesis as a critical and pharmacologically targetable node upstream of polyglucosan formation.
 </div>
@@ -5272,6 +5353,7 @@ This pathophysiological event involves increased glycogen synthase activity, ann
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5293,6 +5375,7 @@ This pathophysiological event involves increased glycogen synthase activity, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5320,6 +5403,7 @@ This pathophysiological event involves increased glycogen synthase activity, ann
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5344,6 +5428,7 @@ This pathophysiological event involves increased glycogen synthase activity, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-glycogen-chain-length-and-hyperphosphorylation" data-dismech-node="Aberrant glycogen chain length and hyperphosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant glycogen chain length and hyperphosphorylation</div>
+
 
                 <div class="item-desc">Combined loss of laforin&#39;s phosphatase activity and malin-mediated restraint on glycogen synthesis produces glycogen molecules with overlong glucan chains and elevated covalently-bound phosphate. Unlike normally branched soluble glycogen, these aberrant chains form double helices, extrude water, and precipitate. The resulting insoluble polyglucosan material progressively aggregates into Lafora bodies. Recent evidence indicates that abnormal chain length, more than hyperphosphorylation, is the proximal driver of insolubility.
 </div>
@@ -5515,6 +5600,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5536,6 +5622,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5563,6 +5650,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5585,6 +5673,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lafora-body-accumulation-in-neurons-and-astrocytes" data-dismech-node="Lafora body accumulation in neurons and astrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Lafora body accumulation in neurons and astrocytes</div>
+
 
                 <div class="item-desc">Insoluble polyglucosan material aggregates into discrete cytoplasmic Lafora bodies. Although classically described as neuronal, recent studies indicate that the majority of brain Lafora bodies are astrocytic, with distinct morphologies from neuronal perinuclear inclusions. Lafora bodies contain glycogen, ubiquitin, and proteostasis adaptors such as p62, and they are particularly enriched in cortical and hippocampal regions. Their accumulation drives downstream neuroinflammation, autophagic impairment, synaptic dysfunction, and neurodegeneration.
 </div>
@@ -5813,6 +5902,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5834,6 +5924,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5861,6 +5952,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5883,6 +5975,7 @@ This pathophysiological event involves Glycogen metabolic process (GO:0005977). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-astrogliosis-and-neuroinflammation" data-dismech-node="Reactive astrogliosis and neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive astrogliosis and neuroinflammation</div>
+
 
                 <div class="item-desc">Astrocytic and neuronal Lafora bodies induce reactive astrogliosis and activate microglia. RNA-Seq of Epm2a-/- and Epm2b-/- mouse brains shows age-progressive upregulation of inflammatory mediators, dominated by TNF and IL-6/JAK2 signaling. Activation of a non-canonical inflammasome, elevated CXCL10 and S100B, miR-155/miR-146a upregulation, and infiltration of peripheral T-lymphocytes into brain parenchyma all contribute to a glia-driven inflammatory milieu. Sphingosine-1-phosphate receptor modulation (fingolimod) reduces this inflammation and improves behavior in Epm2b-/- mice, supporting causal contribution of neuroinflammation to disease severity.
 </div>
@@ -6084,6 +6177,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6105,6 +6199,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6132,6 +6227,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6154,6 +6250,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-proteostasis-impairment" data-dismech-node="Oxidative stress and proteostasis impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative stress and proteostasis impairment</div>
+
 
                 <div class="item-desc">Lafora disease brain shows elevated reactive oxygen species, altered miRNA profiles (miR-155 and miR-146a), and disrupted proteostasis. While autophagy impairment was once considered a primary driver, current evidence places oxidative stress and proteostasis disruption as age-progressive consequences of glycogen aggregation and neuroinflammation that nonetheless feed forward to neurodegeneration.
 </div>
@@ -6307,6 +6404,7 @@ This pathophysiological event involves Response to oxidative stress (GO:0006979)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6329,6 +6427,7 @@ This pathophysiological event involves Response to oxidative stress (GO:0006979)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagy-and-mitophagy-impairment" data-dismech-node="Autophagy and mitophagy impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy and mitophagy impairment</div>
+
 
                 <div class="item-desc">Glycogen accumulation in Lafora disease secondarily impairs macroautophagy and the selective autophagic degradation of damaged mitochondria (mitophagy). Genetic experiments show this autophagic impairment is rescued when glycogen synthesis is reduced, indicating it is downstream of glycogen aggregation rather than a primary defect. Mitophagy defects in patient fibroblasts manifest as reduced colocalization of mitochondrial and lysosomal markers despite intact upstream Parkin recruitment.
 </div>
@@ -6512,6 +6611,7 @@ This pathophysiological event involves Autophagy of mitochondrion (GO:0000422). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6533,6 +6633,7 @@ This pathophysiological event involves Autophagy of mitochondrion (GO:0000422). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6558,6 +6659,7 @@ This pathophysiological event involves Autophagy of mitochondrion (GO:0000422). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-dysfunction-and-cortical-hyperexcitability" data-dismech-node="Synaptic dysfunction and cortical hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic dysfunction and cortical hyperexcitability</div>
+
 
                 <div class="item-desc">Lafora body burden, perisynaptic astrocyte dysfunction, and inflammatory cytokines progressively destabilize cortical excitation/inhibition balance. Patients with Lafora body disease exhibit sustained sensorimotor cortex hyperexcitability with prolonged facilitation, consistent with severe impairment of inhibitory mechanisms. Hippocampal synaptic plasticity is disrupted in malin-knockout mice and is rescued when glycogen synthesis is reduced. The resulting hyperexcitability underlies the action and stimulus-sensitive myoclonus, photosensitive seizures, occipital (visual-hallucinatory) seizures, and progression to refractory epilepsy that defines the clinical syndrome.
 </div>
@@ -6834,6 +6936,7 @@ This pathophysiological event involves Regulation of long-term neuronal synaptic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6855,6 +6958,7 @@ This pathophysiological event involves Regulation of long-term neuronal synaptic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6882,6 +6986,7 @@ This pathophysiological event involves Regulation of long-term neuronal synaptic
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6904,6 +7009,7 @@ This pathophysiological event involves Regulation of long-term neuronal synaptic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodegeneration" data-dismech-node="Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodegeneration</div>
+
 
                 <div class="item-desc">Cumulative effects of Lafora body burden, neuroinflammation, oxidative stress, and autophagic impairment drive progressive neurodegeneration in cortex, hippocampus, and cerebellum. Cerebellar Purkinje cell involvement contributes to ataxia. Mouse models recapitulate this neurodegeneration, and genetic reduction of glycogen synthesis prevents it, identifying polyglucosan accumulation as the principal upstream driver. CHI3L1/YKL40 has emerged as a candidate biomarker of neurodegeneration in LD models.
 </div>
@@ -7177,6 +7283,7 @@ This pathophysiological event involves Neuron apoptotic process (GO:0051402). GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7198,6 +7305,7 @@ This pathophysiological event involves Neuron apoptotic process (GO:0051402). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7309,6 +7417,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive bulbar dysfunction leads to dysphagia and aspiration risk in advanced disease. Gastrostomy feeding is recommended to reduce aspiration pneumonia, a common cause of death in late-stage Lafora disease.
 </div>
 
@@ -7329,6 +7440,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7391,6 +7503,9 @@ This clinical feature is Cortical blindness, annotated with Visual impairment (H
                     </div>
 
 
+
+
+
                     <div class="item-desc">Cortical blindness from advanced occipital and association cortex involvement; visual phenomena (hallucinations, scotomata) typically precede frank cortical visual loss.
 </div>
 
@@ -7411,6 +7526,7 @@ This clinical feature is Cortical blindness, annotated with Visual impairment (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7473,6 +7589,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Action myoclonus and stimulus-sensitive myoclonus are prominent features, typically progressing from mild to intractable.
 </div>
 
@@ -7493,6 +7612,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7546,6 +7666,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                     </div>
 
 
+
+
+
                     <div class="item-desc">Multiple seizure types including generalized tonic-clonic, myoclonic, absence, and visual (occipital) seizures. Seizures become increasingly refractory to treatment.
 </div>
 
@@ -7566,6 +7689,7 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7624,6 +7748,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7638,6 +7765,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7696,6 +7824,9 @@ This clinical feature is Absence seizure, annotated with Generalized non-motor (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7710,6 +7841,7 @@ This clinical feature is Absence seizure, annotated with Generalized non-motor (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7763,6 +7895,9 @@ This clinical feature is Visual hallucination (HP:0002367). HP:0002367 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Occipital seizures with visual hallucinations are a characteristic early feature and may precede other seizure types.
 </div>
 
@@ -7783,6 +7918,7 @@ This clinical feature is Visual hallucination (HP:0002367). HP:0002367 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7807,6 +7943,7 @@ This clinical feature is Visual hallucination (HP:0002367). HP:0002367 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7860,6 +7997,9 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">Relentless cognitive deterioration beginning within a few years of seizure onset, progressing to severe dementia. Cognitive decline typically becomes apparent 2-5 years after seizure onset.
 </div>
 
@@ -7880,6 +8020,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7904,6 +8045,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7957,6 +8099,9 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive neurological deterioration encompasses dysarthria, cerebellar ataxia, and cerebral atrophy visible on neuroimaging in later disease stages. These features develop as the disease advances toward a vegetative state.
 </div>
 
@@ -7977,6 +8122,7 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8033,6 +8179,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8047,6 +8196,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8102,6 +8252,9 @@ This clinical feature is Photosensitive myoclonic seizure (HP:0001327). HP:00013
                     </div>
 
 
+
+
+
                     <div class="item-desc">Photoparoxysmal/photosensitive responses are characteristic on EEG and photoconvulsive seizures are commonly elicited.
 </div>
 
@@ -8122,6 +8275,7 @@ This clinical feature is Photosensitive myoclonic seizure (HP:0001327). HP:00013
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8146,6 +8300,7 @@ This clinical feature is Photosensitive myoclonic seizure (HP:0001327). HP:00013
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8199,6 +8354,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Episodes of status epilepticus mark advanced disease, often follow dramatic loss of awareness, and are a common terminal event.
 </div>
 
@@ -8219,6 +8377,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8274,6 +8433,9 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Atonic and myoclonic-atonic attacks contribute substantially to loss of ambulation; affected patients are often unable to walk within a few years of onset because of frequent drop attacks.
 </div>
 
@@ -8294,6 +8456,7 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8350,6 +8513,9 @@ This clinical feature is Apraxia (HP:0002186). HP:0002186 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8364,6 +8530,7 @@ This clinical feature is Apraxia (HP:0002186). HP:0002186 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8417,6 +8584,9 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Generalized cortical atrophy is seen on neuroimaging in advancing disease, reflecting cumulative cortical neurodegeneration.
 </div>
 
@@ -8437,6 +8607,7 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8490,6 +8661,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Cerebellar atrophy reflects Purkinje cell and cerebellar cortical neurodegeneration, contributing to ataxia and dysarthria in advancing disease.
 </div>
 
@@ -8510,6 +8684,7 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8563,6 +8738,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Progressive dysarthria emerges in mid-to-late disease, reflecting combined cerebellar and cortical motor neurodegeneration.
 </div>
 
@@ -8583,6 +8761,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8636,6 +8815,9 @@ This clinical feature is Vegetative state (HP:0031358). HP:0031358 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">End-stage Lafora disease progresses to a vegetative state with little or no responsiveness; if airways are maintained patients can survive into early adulthood despite extensive Lafora body burden.
 </div>
 
@@ -8656,6 +8838,7 @@ This clinical feature is Vegetative state (HP:0031358). HP:0031358 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8711,6 +8894,9 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
                     </div>
 
 
+
+
+
                     <div class="item-desc">Behavioral abnormalities and neuropsychiatric symptoms (including disinhibited dementia, depression, and anxiety) emerge as Lafora disease progresses.
 </div>
 
@@ -8731,6 +8917,7 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8755,6 +8942,7 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8853,6 +9041,9 @@ This disease-associated gene is EPM2A (hgnc:3413). hgnc:3413 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8867,6 +9058,7 @@ This disease-associated gene is EPM2A (hgnc:3413). hgnc:3413 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8891,6 +9083,7 @@ This disease-associated gene is EPM2A (hgnc:3413). hgnc:3413 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8948,6 +9141,9 @@ This disease-associated gene is NHLRC1 (hgnc:21576). hgnc:21576 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8962,6 +9158,7 @@ This disease-associated gene is NHLRC1 (hgnc:21576). hgnc:21576 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8989,6 +9186,7 @@ This disease-associated gene is NHLRC1 (hgnc:21576). hgnc:21576 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9010,6 +9208,7 @@ This disease-associated gene is NHLRC1 (hgnc:21576). hgnc:21576 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9103,6 +9302,12 @@ This treatment is Anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Valproic acid, clonazepam, levetiracetam, perampanel, and zonisamide are used for seizure management but become progressively less effective as the disease advances. Sodium channel blockers (carbamazepine, phenytoin) may exacerbate myoclonus and should be avoided.
 </div>
 
@@ -9128,6 +9333,7 @@ This treatment is Anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9149,6 +9355,7 @@ This treatment is Anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9242,6 +9449,12 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Metformin has been studied as a potential disease-modifying adjunct in Lafora disease, with model-organism data and an 18-patient observational follow-up suggesting slower clinical progression in treated patients.
 </div>
 
@@ -9286,6 +9499,7 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9307,6 +9521,7 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9379,6 +9594,12 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">As the disease progresses, management becomes primarily supportive and palliative, including nutritional support, physiotherapy, and management of complications such as aspiration pneumonia.
 </div>
 
@@ -9401,6 +9622,7 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9473,6 +9695,12 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is recommended for affected families to inform about recurrence risk (25% for each pregnancy when both parents are carriers), carrier testing, and prenatal diagnosis options. Counseling should now incorporate genotype-based prognostic information: biallelic protein-truncating variants in NHLRC1 are associated with worse survival (HR 2.88; 95% CI 1.23-6.78), while homozygous NHLRC1 p.Asp146Asn carries a more favorable prognosis.
 </div>
 
@@ -9498,6 +9726,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9519,6 +9748,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9591,6 +9821,12 @@ This treatment is antisense oligonucleotide therapy, annotated with Pharmacother
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Substrate reduction therapy using antisense oligonucleotides targeting GYS1 mRNA to lower brain glycogen synthesis and prevent Lafora body formation. Preclinical Gys1-ASO administration in Epm2b-/- mice reduced GYS1 protein, glycogen aggregation, Lafora body burden, and epileptiform discharges. ION283 (intrathecal ASO) is now in a Phase 1/2 clinical trial in patients aged 10-18 with genetically confirmed EPM2A or NHLRC1 disease (NCT06609889). This represents the first disease-modifying strategy advanced to clinical trials in Lafora disease.
 </div>
 
@@ -9623,6 +9859,7 @@ This treatment is antisense oligonucleotide therapy, annotated with Pharmacother
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9669,6 +9906,7 @@ This treatment is antisense oligonucleotide therapy, annotated with Pharmacother
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9690,6 +9928,7 @@ This treatment is antisense oligonucleotide therapy, annotated with Pharmacother
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9783,6 +10022,12 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Perampanel, a non-competitive AMPA receptor antagonist, has shown benefit on cortical action myoclonus and disability in case series of progressive myoclonic epilepsies including Lafora disease. It is one of the few add-on antiseizure medications with clinically observable benefit on the action myoclonus that defines disability in PMEs.
 </div>
 
@@ -9805,6 +10050,7 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9872,6 +10118,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9882,6 +10131,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9910,6 +10162,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10003,6 +10256,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10043,6 +10297,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10122,6 +10377,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10162,6 +10418,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10241,6 +10498,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10284,6 +10542,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10306,6 +10565,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10385,6 +10645,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10446,6 +10707,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10486,6 +10748,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10559,6 +10822,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10580,6 +10844,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10638,6 +10903,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10690,6 +10956,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10761,6 +11028,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10812,6 +11080,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10833,6 +11102,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10889,6 +11159,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10910,6 +11181,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10979,6 +11251,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11105,6 +11378,7 @@ This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"This study will test the safety and efficacy of multiple doses of ION283 administered as intrathecal (IT) injections by lumbar puncture (LP)."</div>
@@ -11155,6 +11429,7 @@ This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A natural history and functional status study to characterize the clinical disease course in Lafora disease patients using standardized, quantitative evaluations and to identify useful biomarkers and clinical outcome measures for use in future Lafora treatment studies."</div>
@@ -11202,6 +11477,7 @@ This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11343,6 +11619,7 @@ This experimental model concerns EPM2A (hgnc:3413). hgnc:3413 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11467,6 +11744,7 @@ This experimental model concerns NHLRC1 (hgnc:21576). hgnc:21576 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11488,6 +11766,7 @@ This experimental model concerns NHLRC1 (hgnc:21576). hgnc:21576 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11612,6 +11891,7 @@ This experimental model concerns EPM2A (hgnc:3413). hgnc:3413 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13835,6 +14115,8 @@ animal_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

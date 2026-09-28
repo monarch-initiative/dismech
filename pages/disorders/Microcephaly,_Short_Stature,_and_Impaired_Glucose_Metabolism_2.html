@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4128,6 +4196,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4208,6 +4277,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4485,6 +4555,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4508,6 +4579,7 @@ their mechanism of action."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4795,6 +4867,7 @@ their mechanism of action."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ppp1r15b-crep-variants-disrupting-the-pp1-binding-site" data-dismech-node="Biallelic PPP1R15B (CReP) Variants Disrupting the PP1-Binding Site" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PPP1R15B (CReP) Variants Disrupting the PP1-Binding Site</div>
 
+
                 <div class="item-desc">Biallelic PPP1R15B variants — recurrently the homozygous missense c.1972G&gt;A; p.Arg658Cys — alter a conserved residue inside the PPP1C (protein phosphatase 1) binding domain of CReP. CReP is the constitutively expressed member of the PPP1R15 family and acts as the non-catalytic targeting subunit that presents eIF2-alpha to PP1 under basal, unstressed conditions. Damaging this interface is the initiating molecular lesion of the syndrome. A second, mechanistically distinct route to the same endpoint is the homozygous p.Asn423Asp variant adjacent to helix H1 of the substrate-recruitment module, which impairs capture of the trimeric eIF2 substrate while leaving PP1 binding largely intact; both allele classes converge on deficient eIF2-alpha dephosphorylation.</div>
 
 
@@ -4928,6 +5001,7 @@ This pathophysiological event involves decreased protein phosphatase 1 binding (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4949,6 +5023,7 @@ This pathophysiological event involves decreased protein phosphatase 1 binding (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4976,6 +5051,7 @@ This pathophysiological event involves decreased protein phosphatase 1 binding (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5000,6 +5076,7 @@ microcephaly, developmental delay, and intellectual disability."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-crep-directed-eif2-alpha-dephosphorylation" data-dismech-node="Loss of CReP-Directed eIF2-alpha Dephosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CReP-Directed eIF2-alpha Dephosphorylation</div>
+
 
                 <div class="item-desc">Reduced PPP1R15B-PPP1C interaction impairs the holophosphatase that dephosphorylates eIF2-alpha at Ser51 in unstressed cells. Patient-derived cells show diminished PPP1R15B-PPP1C complex formation with a consequent rise in phospho-eIF2-alpha. Patient cells also upregulate PPP1R15B mRNA and protein, an ineffective compensatory response because the encoded protein is itself defective.</div>
 
@@ -5091,6 +5168,7 @@ This pathophysiological event involves decreased peptidyl-serine dephosphorylati
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5112,6 +5190,7 @@ This pathophysiological event involves decreased peptidyl-serine dephosphorylati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5139,6 +5218,7 @@ This pathophysiological event involves decreased peptidyl-serine dephosphorylati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5163,6 +5243,7 @@ translation initiation factor 2α."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-attenuation-of-cap-dependent-translation-initiation" data-dismech-node="Chronic Attenuation of Cap-Dependent Translation Initiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Attenuation of Cap-Dependent Translation Initiation</div>
+
 
                 <div class="item-desc">Phosphorylated eIF2-alpha sequesters eIF2B and blocks regeneration of the eIF2-GTP/Met-tRNA ternary complex, so a sustained rise in basal phospho-eIF2-alpha chronically dampens global cap-dependent translation initiation. Because this is the constitutive (unstressed) arm of the integrated stress response rather than a transient stress response, the burden falls on tissues with high protein-synthetic and secretory demand and on rapidly proliferating progenitors.</div>
 
@@ -5320,6 +5401,7 @@ This pathophysiological event involves decreased translational initiation (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5343,6 +5425,7 @@ translation."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-beta-cell-secretory-failure-and-apoptosis" data-dismech-node="Pancreatic Beta-Cell Secretory Failure and Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Beta-Cell Secretory Failure and Apoptosis</div>
+
 
                 <div class="item-desc">Pancreatic beta cells are exquisitely sensitive to translational and ER-stress imbalance because of their proinsulin biosynthetic load. PPP1R15B deficiency reduces cellular insulin content, blunts glucose-stimulated insulin secretion, and sensitizes beta cells to apoptosis both basally and under ER stress or free-fatty-acid exposure, acting through the intrinsic (mitochondrial) pathway via the BH3-only proteins DP5, PUMA and Bim. Important evidence caveat: this node rests on siRNA knockdown in rat INS-1E and primary rat beta cells, not on the R658C hypomorph and not on human tissue — no human beta-cell histopathology is available. The human data are in fact only partly concordant: affected individuals retain detectable glucagon-stimulated C-peptide and initially modest insulin requirements, so a secretory defect is better supported than outright loss of beta-cell mass.</div>
 
@@ -5502,6 +5585,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5523,6 +5607,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5548,6 +5633,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-growth-and-neurodevelopment" data-dismech-node="Impaired Brain Growth and Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Growth and Neurodevelopment</div>
+
 
                 <div class="item-desc">Chronically reduced translational output constrains the rapid protein synthesis required by proliferating neural progenitors during corticogenesis, yielding severe congenital microcephaly with impaired intellectual development. Structural neuroimaging in affected individuals shows white-matter rarefaction, delayed myelination, a thin corpus callosum, and hypoplasia of the brainstem, cerebellum (superior vermis predominant), and spinal cord, indicating that both neuron production and myelination are affected.</div>
 
@@ -5737,6 +5823,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5758,6 +5845,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5783,6 +5871,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-somatic-growth" data-dismech-node="Impaired Somatic Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Somatic Growth</div>
+
 
                 <div class="item-desc">Growth restriction begins prenatally (small for gestational age) and continues postnatally to produce severe short stature with low body weight and BMI. In the index family the growth failure was independent of pituitary or thyroid dysfunction and was accompanied by a mild bone dysplasia without disturbed calcium or phosphate metabolism, consistent with a cell-intrinsic translational constraint on growth rather than an endocrine axis defect.</div>
 
@@ -5852,6 +5941,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5874,6 +5964,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mild-bone-dysplasia" data-dismech-node="Mild Bone Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Mild Bone Dysplasia</div>
+
 
                 <div class="item-desc">A mild skeletal dysplasia documented in the index family: kyphoscoliosis with tall vertebral bodies and hyperlordosis, pectus excavatum, and mild vertebral-body abnormalities, with normal calcium and phosphate metabolism and normal bone mineral content. The reporting authors group these bone deformities with the syndrome&#39;s other secretory-tissue manifestations, proposing that collagen-producing bone cells share the vulnerability to translational imbalance. The second R658C family shows partial overlap - pectus excavatum and loss of lumbar lordosis in the male sibling - but their skeletal survey showed no overt features of dysplasia, so the radiographic dysplasia is currently documented only in the index family.</div>
 
@@ -5935,6 +6026,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5956,6 +6048,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5981,6 +6074,7 @@ This pathophysiological event involves dysregulated regulation of translational 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury-and-infantile-liver-failure" data-dismech-node="Hepatocellular Injury and Infantile Liver Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury and Infantile Liver Failure</div>
+
 
                 <div class="item-desc">A hepatic arm reported to date only in the compound heterozygous family: progressive cirrhosis of indeterminate etiology presenting in infancy and requiring liver transplantation at 7 and 22 months. Hepatocytes are, like beta cells, a high-secretory cell type plausibly vulnerable to sustained translational attenuation, but the mechanistic route from raised phospho-eIF2-alpha to cirrhosis is not established, and why this arm appears in the compound heterozygous family and not in the two R658C families is unresolved (see the genotype-phenotype discussion). Curated as a distinct, weakly connected branch rather than a general feature of the syndrome.</div>
 
@@ -6068,6 +6162,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6089,6 +6184,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6115,6 +6211,7 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glucose-metabolism-and-young-onset-diabetes" data-dismech-node="Impaired Glucose Metabolism and Young-Onset Diabetes" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Glucose Metabolism and Young-Onset Diabetes</div>
+
 
                 <div class="item-desc">Loss of functional beta-cell mass manifests as insulin-requiring diabetes presenting in the second-to-third decade, in one sibling with acute hyperglycemia and ketosis. Residual beta-cell function persists (detectable glucagon-stimulated C-peptide) and insulin requirements are initially modest, but the course can become brittle with marked glucose variability and severe hypoglycemia.</div>
 
@@ -6168,6 +6265,7 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6189,6 +6287,7 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6311,6 +6410,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6325,6 +6427,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6349,6 +6452,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6412,6 +6516,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6426,6 +6533,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6489,6 +6597,9 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6503,6 +6614,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6530,6 +6642,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6551,6 +6664,7 @@ This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6607,6 +6721,9 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6621,6 +6738,7 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6675,6 +6793,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6689,6 +6810,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6716,6 +6838,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6737,6 +6860,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6802,6 +6926,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6816,6 +6943,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6843,6 +6971,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6864,6 +6993,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6918,6 +7048,9 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6932,6 +7065,7 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6995,6 +7129,9 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7009,6 +7146,7 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7033,6 +7171,7 @@ This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7096,6 +7235,9 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7110,6 +7252,7 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7307,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7178,6 +7324,7 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7202,6 +7349,7 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7258,6 +7406,9 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7272,6 +7423,7 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7337,6 +7489,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7351,6 +7506,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7376,6 +7532,7 @@ intellectual disability in two siblings."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7430,6 +7587,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7444,6 +7604,7 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7498,6 +7659,9 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7512,6 +7676,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7536,6 +7701,7 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7592,6 +7758,9 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7606,6 +7775,7 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7662,6 +7832,9 @@ This clinical feature is Abnormally high-pitched voice (HP:0001620). HP:0001620 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7676,6 +7849,7 @@ This clinical feature is Abnormally high-pitched voice (HP:0001620). HP:0001620 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7730,6 +7904,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7744,6 +7921,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7800,6 +7978,9 @@ This clinical feature is Ataxic gait, annotated with Gait ataxia (HP:0002066). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7814,6 +7995,7 @@ This clinical feature is Ataxic gait, annotated with Gait ataxia (HP:0002066). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7868,6 +8050,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7882,6 +8067,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7947,6 +8133,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7961,6 +8150,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7986,6 +8176,7 @@ short stature, hypoplastic brainstem and cord"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8040,6 +8231,9 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8054,6 +8248,7 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8078,6 +8273,7 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8176,6 +8372,9 @@ This disease-associated gene is PPP1R15B (hgnc:14951). hgnc:14951 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8190,6 +8389,7 @@ This disease-associated gene is PPP1R15B (hgnc:14951). hgnc:14951 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8215,6 +8415,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8252,6 +8453,12 @@ PPP1R15B gene"</div>
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent homozygous missense variant in the C-terminal PP1-binding region, independently reported in two unrelated consanguineous families with the full microcephaly-short stature-diabetes syndrome. It weakens PPP1R15B-PP1 binding and thereby reduces eIF2-alpha dephosphorylation.</div>
 
 
@@ -8276,6 +8483,7 @@ PPP1R15B gene"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8313,6 +8521,12 @@ regulatory subunit 15b (PPP1R15B)"</div>
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous missense variant adjacent to helix H1 of the substrate-recruitment module, reported in a rare syndrome with microcephaly, developmental delay and intellectual disability. Mechanistically distinct from p.Arg658Cys: it reduces capture of the trimeric eIF2 substrate rather than binding of the PP1 catalytic subunit, converging on the same biochemical endpoint of deficient eIF2-alpha dephosphorylation. Diabetes was not established in the primary report, so this allele is best regarded as an overlapping PPP1R15B-related phenotype.</div>
 
 
@@ -8337,6 +8551,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8451,6 +8666,9 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8461,6 +8679,9 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8497,6 +8718,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8543,6 +8765,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8564,6 +8787,7 @@ This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8631,6 +8855,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8641,6 +8868,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8671,6 +8901,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8736,6 +8967,9 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8746,6 +8980,9 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -8782,6 +9019,7 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8826,6 +9064,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8894,6 +9133,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8940,6 +9180,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9009,6 +9250,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9047,6 +9289,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9149,6 +9392,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9173,6 +9417,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9194,6 +9439,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9285,6 +9531,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9306,6 +9553,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9409,6 +9657,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9430,6 +9679,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9485,6 +9735,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9546,6 +9797,7 @@ regulatory subunit 15b (PPP1R15B)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11436,6 +11688,27 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">No GeneReviews chapter exists for PPP1R15B-related disease as of this curation (a PubMed search for &#34;PPP1R15B GeneReviews&#34; returned no results), so the GeneReviews phenotype-baseline step was not applicable. The disorder is ultra-rare: MSSGM2 is defined by two independently reported consanguineous families homozygous for the same p.Arg658Cys variant, plus one compound heterozygous family with a hepatic-predominant presentation. Population prevalence is therefore not estimable and no prevalence records are asserted; frequency values are given only for the cardinal features present in all reported R658C individuals. MSSGM1 (MONDO:0000208, TRMT10A) is a distinct genetic entity with a deliberately similar clinical label and is not merged here.
+Hypothyroidism is discordant across families and is curated as such rather than as a constant feature: the proband of the second R658C family had an elevated TSH requiring replacement, whereas the index family&#39;s proband had explicitly normal thyroxine. Hepatic fibrosis/cirrhosis is review-aggregated for the R658C phenotype, so the Infantile Cirrhosis phenotype here is scoped strictly to the compound heterozygous family in which it was primarily reported, and should be widened only if primary R658C evidence emerges.
+Frequency discipline. `frequency:` is asserted only for microcephaly, short stature and intellectual disability — features documented in all four reported R658C individuals. It is deliberately omitted for diabetes, which is present in 2 of 4 but whose two negatives were assessed at 5 and 3 years of age, far below the second-to-third-decade onset window, making the observed fraction a statement about ascertainment age rather than penetrance.
+Deep-research provenance and a caution. This entry was curated with a falcon (Edison) deep-research run, retained at research/Microcephaly_Short_Stature_and_Impaired_Glucose_Metabolism_2-deep-research-falcon.md. Its substantive findings were independently verified against cached primary abstracts before use, and one error was caught in the process: the report cites the Abdulkarim 2015 paper as PMID:26310607, which is incorrect — the correct identifier is PMID:26159176 (verified via the cached record and the paper&#39;s DOI 10.2337/db15-0477). The report&#39;s genuine added value was surfacing the p.Asn423Asp substrate-recruitment allele (PMID:38159565), which is curated above.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Microcephaly, Short Stature, and Impaired Glucose Metabolism 2 (MSSGM2, PPP1R15B)</strong> · 2026-07-31T19:44:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Microcephaly_Short_Stature_and_Impaired_Glucose_Metabolism_2/2026-07-31T194442Z-claude-code-d1f992.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MSSGM2 (MONDO:0014785, PPP1R15B/CReP). Deep research: falcon (Edison), 648s runtime, 21 citations; report retained under research/. NEC preflight passed: the MONDO definition names PPP1R15B, and OMIM:616817 plus RO:0004003 HGNC:14951 are concordant; deliberately distinguished from MSSGM1 (MONDO:0000208, TRMT10A), which carries a near-identical clinical label. No GeneReviews chapter exists for PPP1R15B (PubMed search returned no results), so that baseline step was not applicable. Curated the eIF2-alpha phosphatase causal chain from the PP1-binding-site lesion through loss of CReP-directed dephosphorylation, chronic attenuation of cap-dependent translation, and beta-cell secretory failure/apoptosis, to microcephaly, short stature and young-onset diabetes. Evidence anchored on PMID:26159176 (Abdulkarim 2015), PMID:26307080 (Kernohan 2015), PMID:27640355 (Mohammad 2016, hepatic presentation), PMID:38159565 (Fatalska 2024, source of the p.Asn423Asp substrate-recruitment allele surfaced by the falcon run) and PMID:38139150 (Hicks 2023 review). An incorrect PMID in the falcon report (26310607 for Abdulkarim 2015; correct is 26159176) was caught and documented in the entry notes. An adversarial pre-PR self-review was run and materially changed the entry. It caught three substantive errors, all fixed before commit: (1) the disease description asserted diabetes across both R658C families, but the second family&#39;s siblings were last assessed at 5y2m and 3y8m, far below the reported second-to-third-decade onset window, so the claim was rewritten as an age-dependent phenotype; (2) frequency VERY_FREQUENT on diabetes was an over-claim (2 of 4 individuals) and was removed, with the ascertainment-age reasoning recorded in the entry notes; (3) an initial note excluded hypothyroidism as unverifiable, which was wrong - PMID:26307080 documents an elevated TSH of 9.53 requiring replacement, so Hypothyroidism (HP:0000821) was added as a cross-family-discordant phenotype alongside the index family&#39;s normal thyroxine. The review also prompted adding cerebellar hypoplasia, gait ataxia, thin corpus callosum and delayed skeletal maturation from the second family, an autoantibody-negative evidence item, extension of three truncated snippets, correction of an inconsistent evidence_source, softening of an overstated human beta-cell-mass claim to reflect that the supporting data are rat siRNA knockdown, and a new INTERPRETATION discussion recording that CReP inhibitors would be directionally counterproductive here. Final validation: just validate, just validate-terms and just validate-references all pass, with 56/56 snippets verified against cached references; compliance 86.5 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

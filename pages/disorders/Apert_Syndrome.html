@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4317,6 +4385,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4389,6 +4458,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4413,6 +4483,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4434,6 +4505,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4521,6 +4593,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4545,6 +4618,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4566,6 +4640,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4671,6 +4746,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4695,6 +4771,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4716,6 +4793,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4779,6 +4857,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4813,6 +4892,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr2-linker-region-activating-mutations" data-dismech-node="FGFR2 linker-region activating mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">FGFR2 linker-region activating mutations</div>
+
 
                 <div class="item-desc">Apert syndrome is caused almost exclusively by the adjacent FGFR2 S252W and P253R substitutions in the linker between immunoglobulin-like domains II and III, defining a recurrent activating receptor genotype.
 </div>
@@ -4871,6 +4951,44 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
 
 
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        fibroblast growth factor receptor activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005007" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005007</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased fibroblast growth factor receptor activity (GO:0005007). GO:0005007 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4961,6 +5079,7 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4982,6 +5101,7 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5007,6 +5127,7 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-fgfr2-ligand-affinity-and-specificity" data-dismech-node="Altered FGFR2 ligand affinity and specificity" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered FGFR2 ligand affinity and specificity</div>
+
 
                 <div class="item-desc">The S252W and P253R FGFR2 mutations create gain-of-function receptor states with increased FGF affinity and altered ligand specificity, enabling inappropriate autocrine or paracrine receptor activation.
 </div>
@@ -5069,6 +5190,7 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5090,6 +5212,7 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5116,6 +5239,7 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgf2-autocrine-loop-and-constitutive-fgfr2-activation" data-dismech-node="FGF2 autocrine loop and constitutive FGFR2 activation" data-dismech-type="pathophysiology">
                 <div class="item-name">FGF2 autocrine loop and constitutive FGFR2 activation</div>
 
+
                 <div class="item-desc">Apert-mutant osteoblast-lineage cells show increased constitutive receptor activity together with an FGF2-driven autocrine loop that reinforces aberrant FGFR2 signaling.
 </div>
 
@@ -5131,11 +5255,11 @@ This pathophysiological event involves increased FGFR2 (hgnc:3689). hgnc:3689 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5172,11 +5296,11 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0008543</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5257,6 +5381,7 @@ This pathophysiological event involves increased fibroblast growth factor recept
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5278,6 +5403,7 @@ This pathophysiological event involves increased fibroblast growth factor recept
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5304,6 +5430,7 @@ This pathophysiological event involves increased fibroblast growth factor recept
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erk1-2-cascade-activation" data-dismech-node="ERK1/2 cascade activation" data-dismech-type="pathophysiology">
                 <div class="item-name">ERK1/2 cascade activation</div>
 
+
                 <div class="item-desc">Apert-mutant FGFR2 activates the ERK1/2 cascade in mesenchymal cells as one branch of the downstream signaling response.
 </div>
 
@@ -5319,11 +5446,11 @@ This pathophysiological event involves increased fibroblast growth factor recept
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000134</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000134</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves mesenchymal stem cell (CL:0000134). CL:0000134 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5360,11 +5487,11 @@ This pathophysiological event involves mesenchymal stem cell (CL:0000134). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0070371</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5429,6 +5556,7 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5452,6 +5580,7 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pkcalpha-signaling-activation" data-dismech-node="PKCalpha signaling activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PKCalpha signaling activation</div>
 
+
                 <div class="item-desc">The Apert-mutant receptor engages a mutant-specific PKCalpha signaling branch that amplifies the osteogenic program beyond wild-type FGFR2 signaling.
 </div>
 
@@ -5474,11 +5603,11 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070528" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0070528</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070528" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0070528</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased protein kinase C signaling (GO:0070528). GO:0070528 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5543,6 +5672,7 @@ This pathophysiological event involves increased protein kinase C signaling (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5566,6 +5696,7 @@ This pathophysiological event involves increased protein kinase C signaling (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-osteoblast-differentiation-and-matrix-mineralization-in-cranial-suture-mesenchyme" data-dismech-node="Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme</div>
 
+
                 <div class="item-desc">Activated Apert FGFR2 signaling accelerates osteoblast differentiation and matrix mineralization within cranial suture tissues.
 </div>
 
@@ -5581,11 +5712,11 @@ This pathophysiological event involves increased protein kinase C signaling (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000062</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5622,11 +5753,11 @@ This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001649</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5663,11 +5794,11 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002489" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002489</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002489" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002489</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in coronal suture (UBERON:0002489). UBERON:0002489 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5680,11 +5811,11 @@ This pathophysiological event occurs in coronal suture (UBERON:0002489). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0003685</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5729,6 +5860,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5751,6 +5883,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-coronal-suture-fusion" data-dismech-node="Premature coronal suture fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature coronal suture fusion</div>
+
 
                 <div class="item-desc">Excess osteogenic activity in coronal suture mesenchyme causes early closure of the coronal sutures and distorts cranial growth.
 </div>
@@ -5777,11 +5910,11 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002489" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002489</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002489" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002489</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in coronal suture (UBERON:0002489). UBERON:0002489 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5794,11 +5927,11 @@ This pathophysiological event occurs in coronal suture (UBERON:0002489). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0003685</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5851,6 +5984,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5873,6 +6007,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skull-base-growth" data-dismech-node="Impaired skull base growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired skull base growth</div>
+
 
                 <div class="item-desc">Premature cranial suture closure restricts skull-base growth and contributes to the characteristic craniofacial growth pattern of Apert syndrome.
 </div>
@@ -5899,11 +6034,11 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0003129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0003129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in skull (UBERON:0003129). UBERON:0003129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5980,6 +6115,7 @@ This pathophysiological event occurs in skull (UBERON:0003129). UBERON:0003129 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6002,6 +6138,7 @@ This pathophysiological event occurs in skull (UBERON:0003129). UBERON:0003129 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-airway-restriction" data-dismech-node="Craniofacial airway restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial airway restriction</div>
+
 
                 <div class="item-desc">Reduced pharyngeal dimensions and other multilevel anatomic restrictions produce clinically important upper-airway obstruction in Apert syndrome.</div>
 
@@ -6027,11 +6164,11 @@ This pathophysiological event occurs in skull (UBERON:0003129). UBERON:0003129 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006562" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0006562</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006562" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0006562</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -6084,6 +6221,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6106,6 +6244,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-middle-ear-ventilation-dysfunction" data-dismech-node="Middle-ear ventilation dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Middle-ear ventilation dysfunction</div>
+
 
                 <div class="item-desc">Persistent middle-ear effusion is nearly universal in a large historical Apert cohort and commonly progresses to permanent conductive hearing impairment; the precise intervening craniofacial anatomy is not resolved in the curated evidence.</div>
 
@@ -6167,6 +6306,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6189,6 +6329,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-palatal-morphogenesis-disruption" data-dismech-node="Palatal morphogenesis disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Palatal morphogenesis disruption</div>
+
 
                 <div class="item-desc">FGFR2-related craniofacial development can include cleft palate, which contributes with hearing and structural factors to pervasive speech-sound difficulty.</div>
 
@@ -6258,6 +6399,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6280,6 +6422,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-enlargement" data-dismech-node="Ventricular enlargement" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular enlargement</div>
+
 
                 <div class="item-desc">Nonprogressive ventricular enlargement occurs frequently, but its developmental mechanism and clinical significance remain largely unresolved.</div>
 
@@ -6333,6 +6476,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6355,6 +6499,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cervical-vertebral-synostosis" data-dismech-node="Cervical vertebral synostosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cervical vertebral synostosis</div>
+
 
                 <div class="item-desc">Progressive skeletal synostosis in Apert syndrome commonly involves posterior cervical vertebral elements and may span multiple levels.</div>
 
@@ -6408,6 +6553,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6430,6 +6576,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr2-dependent-digital-morphogenesis-failure" data-dismech-node="FGFR2-dependent digital morphogenesis failure" data-dismech-type="pathophysiology">
                 <div class="item-name">FGFR2-dependent digital morphogenesis failure</div>
+
 
                 <div class="item-desc">Aberrant FGFR2 activation disrupts normal appendicular skeletal patterning, producing the characteristic syndactylous hand and foot malformations of Apert syndrome.
 </div>
@@ -6500,6 +6647,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6522,6 +6670,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-thumb-proximal-phalanx-development" data-dismech-node="Abnormal thumb proximal phalanx development" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal thumb proximal phalanx development</div>
+
 
                 <div class="item-desc">Apert thumbs develop a shortened, broadened, radially deviated proximal phalanx with associated first-webspace deficiency.
 </div>
@@ -6576,6 +6725,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6621,7 +6771,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Speech Pattern\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech-sound disorder and associated language/communication difficulties are pervasive.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002167\"}}, {\"id\": \"Abnormal thumb proximal phalanx development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert thumbs develop a shortened, broadened, radially deviated proximal phalanx with associated first-webspace deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Acne\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postpubertal acne can be widespread and unusually involve the forearms; a small primary clinical series observed forearm acne in more than 70% of affected patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001061\"}}, {\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multilevel upper-airway narrowing may involve nasal, tongue-base, pharyngeal, and tracheal levels.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006536\"}}, {\"id\": \"Altered FGFR2 ligand affinity and specificity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The S252W and P253R FGFR2 mutations create gain-of-function receptor states with increased FGF affinity and altered ligand specificity, enabling inappropriate autocrine or paracrine receptor activation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Amblyopia is a frequent, treatable visual-development complication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Broad Thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad, radially deviated thumbs are characteristic.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011304\"}}, {\"id\": \"Cervical vertebral synostosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive skeletal synostosis in Apert syndrome commonly involves posterior cervical vertebral elements and may span multiple levels.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otitis media with effusion commonly persists into adult life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate, including bifid uvula in the source cohort, affected 26 of 51 evaluable patients across the two recurrent FGFR2 genotype groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent conductive hearing impairment often develops during childhood or adolescence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Coronal Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral coronal suture fusion causing brachycephaly with turricephaly (tower-shaped skull) and flat occiput.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004440\"}}, {\"id\": \"Craniofacial airway restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced pharyngeal dimensions and other multilevel anatomic restrictions produce clinically important upper-airway obstruction in Apert syndrome.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"pharynx\"]}}, {\"id\": \"ERK1/2 cascade activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert-mutant FGFR2 activates the ERK1/2 cascade in mesenchymal cells as one branch of the downstream signaling response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mesenchymal stem cell\"], \"biological_processes\": [\"ERK1 and ERK2 cascade\"]}}, {\"id\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated Apert FGFR2 signaling accelerates osteoblast differentiation and matrix mineralization within cranial suture tissues.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\"], \"locations\": [\"coronal suture\", \"cranial suture\"]}}, {\"id\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert-mutant osteoblast-lineage cells show increased constitutive receptor activity together with an FGF2-driven autocrine loop that reinforces aberrant FGFR2 signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"]}}, {\"id\": \"FGFR2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"association\": \"Causative\"}}, {\"id\": \"FGFR2 linker-region activating mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert syndrome is caused almost exclusively by the adjacent FGFR2 S252W and P253R substitutions in the linker between immunoglobulin-like domains II and III, defining a recurrent activating receptor genotype.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"FGFR2-dependent digital morphogenesis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant FGFR2 activation disrupts normal appendicular skeletal patterning, producing the characteristic syndactylous hand and foot malformations of Apert syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common and may require clinical feeding or swallow assessment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Fused Cervical Vertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical posterior-element fusion, particularly C5/C6 and C3/C4, is common and may be multilevel.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002949\"}}, {\"id\": \"Impaired skull base growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature cranial suture closure restricts skull-base growth and contributes to the characteristic craniofacial growth pattern of Apert syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"skull\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable intellectual disability, ranging from normal intelligence to moderate impairment. Early surgical intervention may improve outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Middle-ear ventilation dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent middle-ear effusion is nearly universal in a large historical Apert cohort and commonly progresses to permanent conductive hearing impairment; the precise intervening craniofacial anatomy is not resolved in the curated evidence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Midface Retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe midface hypoplasia with class III malocclusion, contributing to obstructive sleep apnea and feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is an important respiratory complication; 10 of 28 patients selected for respiratory polygraphy at one national center had mild-to-severe OSA, so the 36% estimate is cohort-specific rather than population prevalence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"PKCalpha signaling activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Apert-mutant receptor engages a mutant-specific PKCalpha signaling branch that amplifies the osteogenic program beyond wild-type FGFR2 signaling.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein kinase C signaling\"]}}, {\"id\": \"Palatal morphogenesis disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR2-related craniofacial development can include cleft palate, which contributes with hearing and structural factors to pervasive speech-sound difficulty.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Premature coronal suture fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess osteogenic activity in coronal suture mesenchyme causes early closure of the coronal sutures and distorts cranial growth.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"coronal suture\", \"cranial suture\"]}}, {\"id\": \"Proptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shallow orbits cause ocular proptosis with risk of exposure keratopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis affected approximately seven in ten patients in both recurrent genotype groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular misalignment is very frequent across both recurrent genotype groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Syndactyly of Feet\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syndactyly of toes, typically involving toes 2-4, creating \\\"sock feet.\\\"\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001770\"}}, {\"id\": \"Syndactyly of Hands\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symmetric complex syndactyly of digits 2-4 (type I) or 2-5 (type II/III), creating the characteristic \\\"mitten hand\\\" appearance. Both osseous and cutaneous syndactyly are present.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006101\"}}, {\"id\": \"Ventricular enlargement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nonprogressive ventricular enlargement occurs frequently, but its developmental mechanism and clinical significance remain largely unresolved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventriculomegaly is commonly nonprogressive; true hydrocephalus occurs in a smaller subset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002119\"}}, {\"id\": \"p.Pro253Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent pathogenic FGFR2 missense variant in the extracellular linker region that defines the second classic Apert syndrome hotspot allele.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Ser252Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent pathogenic FGFR2 missense variant in the extracellular linker region that defines one of the two classic Apert syndrome hotspot alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Altered FGFR2 ligand affinity and specificity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent linker-region substitutions change how FGFR2 engages FGF ligands.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating FGFR2 mutations can contribute to variable neurodevelopmental impairment through intermediates not represented in this craniosynostosis-focused pathograph.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Middle-ear ventilation dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGFR2-related craniofacial development contributes to persistent middle-ear disease through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Palatal morphogenesis disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating FGFR2 variants perturb palatal development through unresolved developmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Ventricular enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGFR2-related development is associated with structural CNS findings through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Cervical vertebral synostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating FGFR2 variants cause progressive cervical skeletal synostosis through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ptosis is associated with the Apert ocular phenotype through unresolved developmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered FGFR2 ligand affinity and specificity\", \"target\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered ligand affinity and specificity permit persistent local receptor activation in Apert osteoblast-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered FGFR2 ligand affinity and specificity\", \"target\": \"Acne\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Broadened signaling through epithelial FGFR2b contributes to pilosebaceous proliferation and acne through androgen-sensitive dermal-epithelial intermediates.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"androgen-dependent dermal-epithelial FGFR2b signaling\"]}, {\"source\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"target\": \"ERK1/2 cascade activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutively active Apert-mutant FGFR2 engages ERK1/2 signaling in mesenchymal cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"target\": \"PKCalpha signaling activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apert-mutant FGFR2 additionally engages a mutation-specific PKCalpha signaling branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"target\": \"FGFR2-dependent digital morphogenesis failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent FGFR2 activation perturbs appendicular skeletal development in Apert syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ERK1/2 cascade activation\", \"target\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERK1/2 signaling contributes to the osteogenic response induced by FGFR2 activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PKCalpha signaling activation\", \"target\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PKCalpha signaling mediates the mutant-specific osteogenic differentiation program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"target\": \"Premature coronal suture fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated osteogenesis in the coronal suture promotes early suture closure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature coronal suture fusion\", \"target\": \"Coronal Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early coronal suture closure manifests clinically as coronal craniosynostosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature coronal suture fusion\", \"target\": \"Impaired skull base growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronal suture fusion restricts normal skull-base growth and craniofacial projection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired skull base growth\", \"target\": \"Midface Retrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted skull-base growth contributes to midface hypoplasia and retrusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired skull base growth\", \"target\": \"Proptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base and midfacial growth restriction contributes to shallow orbits and ocular prominence.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"shallow orbit formation\"]}, {\"source\": \"Impaired skull base growth\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranio-orbital growth abnormalities contribute to ocular misalignment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired skull base growth\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular misalignment and refractive abnormalities can disrupt visual development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"strabismus and refractive error\"]}, {\"source\": \"Impaired skull base growth\", \"target\": \"Craniofacial airway restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midfacial and skull-base restriction contribute to multilevel narrowing of the upper airway.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced pharyngeal airway dimensions\"]}, {\"source\": \"Craniofacial airway restriction\", \"target\": \"Airway Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multilevel airway narrowing manifests clinically as airway obstruction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial airway restriction\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep-related collapse superimposed on the restricted airway produces obstructive sleep apnea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sleep-related upper-airway collapse\"]}, {\"source\": \"Middle-ear ventilation dysfunction\", \"target\": \"Chronic Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired middle-ear ventilation produces persistent otitis media with effusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Middle-ear ventilation dysfunction\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic effusion and middle-ear disease contribute to permanent conductive hearing impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"persistent otitis media with effusion\"]}, {\"source\": \"Palatal morphogenesis disruption\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal palatal development manifests as cleft palate or bifid uvula.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Palatal morphogenesis disruption\", \"target\": \"Abnormal Speech Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal anatomy contributes to speech-sound disorder through velopharyngeal and articulatory effects.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"velopharyngeal and articulatory dysfunction\"]}, {\"source\": \"Palatal morphogenesis disruption\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal and craniofacial abnormalities can impair feeding and swallowing.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ventricular enlargement\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural CNS branch manifests frequently as nonprogressive ventriculomegaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical vertebral synostosis\", \"target\": \"Fused Cervical Vertebrae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synostosis of posterior cervical elements manifests as vertebral fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2-dependent digital morphogenesis failure\", \"target\": \"Syndactyly of Hands\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digital morphogenesis failure produces the classic complex hand syndactyly phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2-dependent digital morphogenesis failure\", \"target\": \"Syndactyly of Feet\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same appendicular developmental defect produces symmetric toe syndactyly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2-dependent digital morphogenesis failure\", \"target\": \"Abnormal thumb proximal phalanx development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apert hand patterning defects extend to the thumb ray and first web space.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal thumb proximal phalanx development\", \"target\": \"Broad Thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thumb phalangeal maldevelopment manifests clinically as broad, radially deviated thumbs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2 Mutations\", \"target\": \"FGFR2 linker-region activating mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Ser252Trp\", \"target\": \"FGFR2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Pro253Arg\", \"target\": \"FGFR2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Speech Pattern\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech-sound disorder and associated language/communication difficulties are pervasive.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002167\"}}, {\"id\": \"Abnormal thumb proximal phalanx development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert thumbs develop a shortened, broadened, radially deviated proximal phalanx with associated first-webspace deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Acne\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postpubertal acne can be widespread and unusually involve the forearms; a small primary clinical series observed forearm acne in more than 70% of affected patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001061\"}}, {\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multilevel upper-airway narrowing may involve nasal, tongue-base, pharyngeal, and tracheal levels.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006536\"}}, {\"id\": \"Altered FGFR2 ligand affinity and specificity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The S252W and P253R FGFR2 mutations create gain-of-function receptor states with increased FGF affinity and altered ligand specificity, enabling inappropriate autocrine or paracrine receptor activation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Amblyopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Amblyopia is a frequent, treatable visual-development complication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000646\"}}, {\"id\": \"Broad Thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad, radially deviated thumbs are characteristic.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011304\"}}, {\"id\": \"Cervical vertebral synostosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive skeletal synostosis in Apert syndrome commonly involves posterior cervical vertebral elements and may span multiple levels.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otitis media with effusion commonly persists into adult life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate, including bifid uvula in the source cohort, affected 26 of 51 evaluable patients across the two recurrent FGFR2 genotype groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent conductive hearing impairment often develops during childhood or adolescence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Coronal Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral coronal suture fusion causing brachycephaly with turricephaly (tower-shaped skull) and flat occiput.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004440\"}}, {\"id\": \"Craniofacial airway restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced pharyngeal dimensions and other multilevel anatomic restrictions produce clinically important upper-airway obstruction in Apert syndrome.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"pharynx\"]}}, {\"id\": \"ERK1/2 cascade activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert-mutant FGFR2 activates the ERK1/2 cascade in mesenchymal cells as one branch of the downstream signaling response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mesenchymal stem cell\"], \"biological_processes\": [\"ERK1 and ERK2 cascade\"]}}, {\"id\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated Apert FGFR2 signaling accelerates osteoblast differentiation and matrix mineralization within cranial suture tissues.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\"], \"locations\": [\"coronal suture\", \"cranial suture\"]}}, {\"id\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert-mutant osteoblast-lineage cells show increased constitutive receptor activity together with an FGF2-driven autocrine loop that reinforces aberrant FGFR2 signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"]}}, {\"id\": \"FGFR2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"association\": \"Causative\"}}, {\"id\": \"FGFR2 linker-region activating mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apert syndrome is caused almost exclusively by the adjacent FGFR2 S252W and P253R substitutions in the linker between immunoglobulin-like domains II and III, defining a recurrent activating receptor genotype.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"fibroblast growth factor receptor activity\"], \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"FGFR2-dependent digital morphogenesis failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant FGFR2 activation disrupts normal appendicular skeletal patterning, producing the characteristic syndactylous hand and foot malformations of Apert syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common and may require clinical feeding or swallow assessment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Fused Cervical Vertebrae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical posterior-element fusion, particularly C5/C6 and C3/C4, is common and may be multilevel.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002949\"}}, {\"id\": \"Impaired skull base growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature cranial suture closure restricts skull-base growth and contributes to the characteristic craniofacial growth pattern of Apert syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"skull\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable intellectual disability, ranging from normal intelligence to moderate impairment. Early surgical intervention may improve outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Middle-ear ventilation dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent middle-ear effusion is nearly universal in a large historical Apert cohort and commonly progresses to permanent conductive hearing impairment; the precise intervening craniofacial anatomy is not resolved in the curated evidence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Midface Retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe midface hypoplasia with class III malocclusion, contributing to obstructive sleep apnea and feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is an important respiratory complication; 10 of 28 patients selected for respiratory polygraphy at one national center had mild-to-severe OSA, so the 36% estimate is cohort-specific rather than population prevalence.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"PKCalpha signaling activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Apert-mutant receptor engages a mutant-specific PKCalpha signaling branch that amplifies the osteogenic program beyond wild-type FGFR2 signaling.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein kinase C signaling\"]}}, {\"id\": \"Palatal morphogenesis disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR2-related craniofacial development can include cleft palate, which contributes with hearing and structural factors to pervasive speech-sound difficulty.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Premature coronal suture fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess osteogenic activity in coronal suture mesenchyme causes early closure of the coronal sutures and distorts cranial growth.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"coronal suture\", \"cranial suture\"]}}, {\"id\": \"Proptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shallow orbits cause ocular proptosis with risk of exposure keratopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ptosis affected approximately seven in ten patients in both recurrent genotype groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular misalignment is very frequent across both recurrent genotype groups.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Syndactyly of Feet\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syndactyly of toes, typically involving toes 2-4, creating \\\"sock feet.\\\"\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001770\"}}, {\"id\": \"Syndactyly of Hands\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Symmetric complex syndactyly of digits 2-4 (type I) or 2-5 (type II/III), creating the characteristic \\\"mitten hand\\\" appearance. Both osseous and cutaneous syndactyly are present.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006101\"}}, {\"id\": \"Ventricular enlargement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nonprogressive ventricular enlargement occurs frequently, but its developmental mechanism and clinical significance remain largely unresolved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventriculomegaly is commonly nonprogressive; true hydrocephalus occurs in a smaller subset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002119\"}}, {\"id\": \"p.Pro253Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent pathogenic FGFR2 missense variant in the extracellular linker region that defines the second classic Apert syndrome hotspot allele.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Ser252Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent pathogenic FGFR2 missense variant in the extracellular linker region that defines one of the two classic Apert syndrome hotspot alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGFR2\"], \"gene_terms\": [{\"label\": \"FGFR2\", \"id\": \"hgnc:3689\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Altered FGFR2 ligand affinity and specificity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent linker-region substitutions change how FGFR2 engages FGF ligands.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating FGFR2 mutations can contribute to variable neurodevelopmental impairment through intermediates not represented in this craniosynostosis-focused pathograph.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Middle-ear ventilation dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGFR2-related craniofacial development contributes to persistent middle-ear disease through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Palatal morphogenesis disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating FGFR2 variants perturb palatal development through unresolved developmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Ventricular enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGFR2-related development is associated with structural CNS findings through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Cervical vertebral synostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating FGFR2 variants cause progressive cervical skeletal synostosis through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FGFR2 linker-region activating mutations\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ptosis is associated with the Apert ocular phenotype through unresolved developmental intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered FGFR2 ligand affinity and specificity\", \"target\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered ligand affinity and specificity permit persistent local receptor activation in Apert osteoblast-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered FGFR2 ligand affinity and specificity\", \"target\": \"Acne\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Broadened signaling through epithelial FGFR2b contributes to pilosebaceous proliferation and acne through androgen-sensitive dermal-epithelial intermediates.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"androgen-dependent dermal-epithelial FGFR2b signaling\"]}, {\"source\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"target\": \"ERK1/2 cascade activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutively active Apert-mutant FGFR2 engages ERK1/2 signaling in mesenchymal cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"target\": \"PKCalpha signaling activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apert-mutant FGFR2 additionally engages a mutation-specific PKCalpha signaling branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGF2 autocrine loop and constitutive FGFR2 activation\", \"target\": \"FGFR2-dependent digital morphogenesis failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent FGFR2 activation perturbs appendicular skeletal development in Apert syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ERK1/2 cascade activation\", \"target\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ERK1/2 signaling contributes to the osteogenic response induced by FGFR2 activation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PKCalpha signaling activation\", \"target\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PKCalpha signaling mediates the mutant-specific osteogenic differentiation program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced osteoblast differentiation and matrix mineralization in cranial suture mesenchyme\", \"target\": \"Premature coronal suture fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated osteogenesis in the coronal suture promotes early suture closure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature coronal suture fusion\", \"target\": \"Coronal Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early coronal suture closure manifests clinically as coronal craniosynostosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Premature coronal suture fusion\", \"target\": \"Impaired skull base growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronal suture fusion restricts normal skull-base growth and craniofacial projection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired skull base growth\", \"target\": \"Midface Retrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restricted skull-base growth contributes to midface hypoplasia and retrusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired skull base growth\", \"target\": \"Proptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base and midfacial growth restriction contributes to shallow orbits and ocular prominence.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"shallow orbit formation\"]}, {\"source\": \"Impaired skull base growth\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranio-orbital growth abnormalities contribute to ocular misalignment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired skull base growth\", \"target\": \"Amblyopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular misalignment and refractive abnormalities can disrupt visual development.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"strabismus and refractive error\"]}, {\"source\": \"Impaired skull base growth\", \"target\": \"Craniofacial airway restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midfacial and skull-base restriction contribute to multilevel narrowing of the upper airway.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced pharyngeal airway dimensions\"]}, {\"source\": \"Craniofacial airway restriction\", \"target\": \"Airway Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multilevel airway narrowing manifests clinically as airway obstruction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial airway restriction\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep-related collapse superimposed on the restricted airway produces obstructive sleep apnea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sleep-related upper-airway collapse\"]}, {\"source\": \"Middle-ear ventilation dysfunction\", \"target\": \"Chronic Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired middle-ear ventilation produces persistent otitis media with effusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Middle-ear ventilation dysfunction\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic effusion and middle-ear disease contribute to permanent conductive hearing impairment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"persistent otitis media with effusion\"]}, {\"source\": \"Palatal morphogenesis disruption\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal palatal development manifests as cleft palate or bifid uvula.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Palatal morphogenesis disruption\", \"target\": \"Abnormal Speech Pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal anatomy contributes to speech-sound disorder through velopharyngeal and articulatory effects.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"velopharyngeal and articulatory dysfunction\"]}, {\"source\": \"Palatal morphogenesis disruption\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal and craniofacial abnormalities can impair feeding and swallowing.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ventricular enlargement\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structural CNS branch manifests frequently as nonprogressive ventriculomegaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cervical vertebral synostosis\", \"target\": \"Fused Cervical Vertebrae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Synostosis of posterior cervical elements manifests as vertebral fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2-dependent digital morphogenesis failure\", \"target\": \"Syndactyly of Hands\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digital morphogenesis failure produces the classic complex hand syndactyly phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2-dependent digital morphogenesis failure\", \"target\": \"Syndactyly of Feet\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same appendicular developmental defect produces symmetric toe syndactyly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2-dependent digital morphogenesis failure\", \"target\": \"Abnormal thumb proximal phalanx development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apert hand patterning defects extend to the thumb ray and first web space.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal thumb proximal phalanx development\", \"target\": \"Broad Thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thumb phalangeal maldevelopment manifests clinically as broad, radially deviated thumbs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FGFR2 Mutations\", \"target\": \"FGFR2 linker-region activating mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Ser252Trp\", \"target\": \"FGFR2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Pro253Arg\", \"target\": \"FGFR2 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6687,15 +6837,18 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6715,6 +6868,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6766,15 +6920,18 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000389</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000389</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6794,6 +6951,7 @@ This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6836,15 +6994,18 @@ This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000405</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6864,6 +7025,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6913,15 +7075,18 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6941,6 +7106,7 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6983,15 +7149,18 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7011,6 +7180,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7053,15 +7223,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7081,6 +7254,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7123,15 +7297,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000646</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000646</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7151,6 +7328,7 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7200,15 +7378,18 @@ This clinical feature is Amblyopia (HP:0000646). HP:0000646 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004440" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004440</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004440" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004440</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7228,6 +7409,7 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7268,15 +7450,18 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011800</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011800</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7296,6 +7481,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7338,15 +7524,18 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7366,6 +7555,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7417,15 +7607,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001061</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001061</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acne (HP:0001061). HP:0001061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7445,6 +7638,7 @@ This clinical feature is Acne (HP:0001061). HP:0001061 is a phenotype from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7496,15 +7690,18 @@ This clinical feature is Acne (HP:0001061). HP:0001061 is a phenotype from the H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000975</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000975</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7524,6 +7721,7 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7575,15 +7773,18 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0006101</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0006101</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7603,6 +7804,7 @@ This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7645,15 +7847,18 @@ This clinical feature is Finger syndactyly (HP:0006101). HP:0006101 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001770</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001770</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7673,6 +7878,7 @@ This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7713,15 +7919,18 @@ This clinical feature is Toe syndactyly (HP:0001770). HP:0001770 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0011304</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0011304</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7741,6 +7950,7 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7792,15 +8002,18 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002949</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002949</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fused cervical vertebrae (HP:0002949). HP:0002949 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7820,6 +8033,7 @@ This clinical feature is Fused cervical vertebrae (HP:0002949). HP:0002949 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7869,15 +8083,18 @@ This clinical feature is Fused cervical vertebrae (HP:0002949). HP:0002949 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7897,6 +8114,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7939,15 +8157,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002870</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002870</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7967,6 +8188,7 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8009,15 +8231,18 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002167" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002167</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002167" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002167</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal speech pattern (HP:0002167). HP:0002167 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8037,6 +8262,7 @@ This clinical feature is Abnormal speech pattern (HP:0002167). HP:0002167 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8079,15 +8305,18 @@ This clinical feature is Abnormal speech pattern (HP:0002167). HP:0002167 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8107,6 +8336,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8156,15 +8386,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0006536</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0006536</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8184,6 +8417,7 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8267,10 +8501,10 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
                         Gene: FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:3689</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8278,6 +8512,9 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -8296,6 +8533,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8323,6 +8561,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8344,6 +8583,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8390,6 +8630,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8400,13 +8641,14 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
             Gene: FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:3689</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">single nucleotide variant</span>
@@ -8416,6 +8658,11 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
         <span class="tag" style="background: #f1f5f9; color: #475569;">1 bp</span>
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent pathogenic FGFR2 missense variant in the extracellular linker region that defines one of the two classic Apert syndrome hotspot alleles.</div>
@@ -8480,6 +8727,7 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8501,6 +8749,7 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8536,6 +8785,7 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8546,13 +8796,14 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
             Gene: FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:3689</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">single nucleotide variant</span>
@@ -8562,6 +8813,11 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
         <span class="tag" style="background: #f1f5f9; color: #475569;">1 bp</span>
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent pathogenic FGFR2 missense variant in the extracellular linker region that defines the second classic Apert syndrome hotspot allele.</div>
@@ -8626,6 +8882,7 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8647,6 +8904,7 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8695,7 +8953,7 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">cranioplasty<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">cranioplasty<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is cranioplasty, annotated with Neurosurgical Procedure (NCIT:C15656), qualified as located in skull. NCIT:C15656 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8734,7 +8992,7 @@ This treatment is cranioplasty, annotated with Neurosurgical Procedure (NCIT:C15
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
 
-                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-40">skull<span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-41">skull<span class="pill-tip" role="tooltip" id="pill-tip-41">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
 This treatment is delivered to skull (UBERON:0003129). UBERON:0003129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8757,6 +9015,9 @@ This treatment is delivered to skull (UBERON:0003129). UBERON:0003129 is an anat
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8767,6 +9028,9 @@ This treatment is delivered to skull (UBERON:0003129). UBERON:0003129 is an anat
 
 
     </div>
+
+
+
 
 
 
@@ -8798,6 +9062,7 @@ This treatment is delivered to skull (UBERON:0003129). UBERON:0003129 is an anat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8819,6 +9084,7 @@ This treatment is delivered to skull (UBERON:0003129). UBERON:0003129 is an anat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8850,7 +9116,7 @@ This treatment is delivered to skull (UBERON:0003129). UBERON:0003129 is an anat
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">midface advancement surgery<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">midface advancement surgery<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is midface advancement surgery, annotated with Surgical Procedure (NCIT:C15329), qualified as located in midface. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8889,7 +9155,7 @@ This treatment is midface advancement surgery, annotated with Surgical Procedure
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
 
-                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-42">midface<span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-43">midface<span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
 This treatment is delivered to midface (UBERON:0004089). UBERON:0004089 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -8912,6 +9178,9 @@ This treatment is delivered to midface (UBERON:0004089). UBERON:0004089 is an an
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8922,6 +9191,9 @@ This treatment is delivered to midface (UBERON:0004089). UBERON:0004089 is an an
 
 
     </div>
+
+
+
 
 
 
@@ -8953,6 +9225,7 @@ This treatment is delivered to midface (UBERON:0004089). UBERON:0004089 is an an
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8974,6 +9247,7 @@ This treatment is delivered to midface (UBERON:0004089). UBERON:0004089 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9005,7 +9279,7 @@ This treatment is delivered to midface (UBERON:0004089). UBERON:0004089 is an an
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">syndactyly release surgery<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">syndactyly release surgery<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is syndactyly release surgery, annotated with Surgical Procedure (NCIT:C15329), qualified as located in hand. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9044,7 +9318,7 @@ This treatment is syndactyly release surgery, annotated with Surgical Procedure 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
 
-                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-44">hand<span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-45">hand<span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
 This treatment is delivered to hand, annotated with manus (UBERON:0002398). UBERON:0002398 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -9069,6 +9343,9 @@ This treatment is delivered to hand, annotated with manus (UBERON:0002398). UBER
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9079,6 +9356,9 @@ This treatment is delivered to hand, annotated with manus (UBERON:0002398). UBER
 
 
     </div>
+
+
+
 
 
 
@@ -9110,6 +9390,7 @@ This treatment is delivered to hand, annotated with manus (UBERON:0002398). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9131,6 +9412,7 @@ This treatment is delivered to hand, annotated with manus (UBERON:0002398). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9162,7 +9444,7 @@ This treatment is delivered to hand, annotated with manus (UBERON:0002398). UBER
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Palatorrhaphy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Palatorrhaphy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Palatorrhaphy (NCIT:C168380), qualified as located in secondary palate. NCIT:C168380 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9200,7 +9482,7 @@ This treatment is Palatorrhaphy (NCIT:C168380), qualified as located in secondar
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
 
-                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-46">secondary palate<span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-47">secondary palate<span class="pill-tip" role="tooltip" id="pill-tip-47">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
 This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -9223,6 +9505,9 @@ This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9233,6 +9518,9 @@ This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716
 
 
     </div>
+
+
+
 
 
 
@@ -9260,6 +9548,7 @@ This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9295,6 +9584,9 @@ This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9305,6 +9597,9 @@ This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716
 
 
     </div>
+
+
+
 
 
 
@@ -9332,6 +9627,7 @@ This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9363,7 +9659,7 @@ This treatment is delivered to secondary palate (UBERON:0001716). UBERON:0001716
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">speech and language therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">speech and language therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is speech and language therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9399,6 +9695,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9409,6 +9708,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -9436,6 +9738,7 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9467,7 +9770,7 @@ This treatment is speech and language therapy, annotated with Speech Language Th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">continuous positive airway pressure<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">continuous positive airway pressure<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C124040 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9503,6 +9806,9 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9513,6 +9819,9 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
     </div>
+
+
+
 
 
 
@@ -9543,6 +9852,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9564,6 +9874,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9599,6 +9910,9 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9609,6 +9923,9 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
     </div>
+
+
+
 
 
 
@@ -9636,6 +9953,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9699,11 +10017,11 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9741,6 +10059,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9811,6 +10130,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9860,6 +10180,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9936,6 +10257,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9994,6 +10316,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10049,6 +10372,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10117,6 +10441,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10165,6 +10490,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10266,6 +10592,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10340,6 +10667,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10411,6 +10739,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10534,6 +10863,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10555,6 +10885,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10608,6 +10939,7 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10706,11 +11038,11 @@ This treatment is continuous positive airway pressure (NCIT:C124040). NCIT:C1240
         FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:3689</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -10762,6 +11094,7 @@ This experimental model concerns FGFR2 (hgnc:3689). hgnc:3689 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10783,6 +11116,7 @@ This experimental model concerns FGFR2 (hgnc:3689). hgnc:3689 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10865,11 +11199,11 @@ This experimental model concerns FGFR2 (hgnc:3689). hgnc:3689 is a gene from the
         FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:3689</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -10921,6 +11255,7 @@ This experimental model concerns FGFR2 (hgnc:3689). hgnc:3689 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10942,6 +11277,7 @@ This experimental model concerns FGFR2 (hgnc:3689). hgnc:3689 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11363,6 +11699,12 @@ pathophysiology:
         In the P253R group, 85% had strabismus (14% required surgery), 71% had ptosis,
         43% had amblyopia
       explanation: The genotype-stratified series supports ptosis association but not a resolved developmental intermediate.
+  molecular_functions:
+  - preferred_term: fibroblast growth factor receptor activity
+    term:
+      id: GO:0005007
+      label: fibroblast growth factor receptor activity
+    modifier: INCREASED
   evidence:
   - reference: PMID:7719344
     reference_title: &#34;Apert syndrome results from localized mutations of FGFR2 and is allelic with Crouzon syndrome.&#34;
@@ -13885,6 +14227,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14083,7 +14427,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Apert Syndrome", "mondoId": "MONDO:0007041", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Apert_Syndrome", "yamlRevision": "1de1a6daf725"};
+        const OS_CONFIG = {"diseaseName": "Apert Syndrome", "mondoId": "MONDO:0007041", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Apert_Syndrome", "yamlRevision": "fd2c25b4fce0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

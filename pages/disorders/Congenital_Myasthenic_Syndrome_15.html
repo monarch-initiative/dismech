@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4112,6 +4180,7 @@ That spectrum is wide and worth stating explicitly. The founding cohort had an i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4133,6 +4202,7 @@ That spectrum is wide and worth stating explicitly. The founding cohort had an i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4272,6 +4342,7 @@ That spectrum is wide and worth stating explicitly. The founding cohort had an i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-alg14-loss-of-function" data-dismech-node="Biallelic ALG14 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ALG14 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic ALG14 variants reduce the function of the ALG13-ALG14-DPAGT1 multiglycosyltransferase complex, which catalyses the first two committed steps of asparagine-linked protein glycosylation on the cytoplasmic face of the endoplasmic reticulum. Reported alleles are predominantly missense, so residual activity is retained; the amount retained appears to set where a patient falls on the phenotypic spectrum.</div>
 
 
@@ -4330,6 +4401,8 @@ This genetic context concerns ALG14 (hgnc:28287). hgnc:28287 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4340,6 +4413,9 @@ This genetic context concerns ALG14 (hgnc:28287). hgnc:28287 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous or compound heterozygous germline missense variants, including the recurrent p.Asp74Asn allele of the severe form and the p.Val197Gly / p.Gly145Arg compound heterozygous pair reported in long-surviving siblings.</div>
 
@@ -4461,6 +4537,7 @@ This pathophysiological event involves decreased dolichol-linked oligosaccharide
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4483,6 +4560,7 @@ This pathophysiological event involves decreased dolichol-linked oligosaccharide
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypoglycosylation-of-endplate-proteins" data-dismech-node="Hypoglycosylation of Endplate Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypoglycosylation of Endplate Proteins</div>
+
 
                 <div class="item-desc">ALG14 is concentrated at the muscle motor endplate, so the postsynaptic membrane is a site where reduced N-glycosylation capacity is felt disproportionately. Acetylcholine receptor subunits require N-linked glycans for correct folding, pentameric assembly and export; when the glycan supply is limited, fewer complete receptors reach the surface. The receptor genes themselves are intact, so this is a failure of post-translational processing rather than a receptor lesion.</div>
 
@@ -4635,6 +4713,7 @@ This pathophysiological event occurs in Neuromuscular junction (GO:0031594). GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4657,6 +4736,7 @@ This pathophysiological event occurs in Neuromuscular junction (GO:0031594). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endplate-acetylcholine-receptor-deficiency" data-dismech-node="Endplate Acetylcholine Receptor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Endplate Acetylcholine Receptor Deficiency</div>
+
 
                 <div class="item-desc">The postsynaptic membrane carries too few acetylcholine receptors to guarantee that each nerve impulse depolarises the muscle fibre to threshold. Transmission consequently fails intermittently and use-dependently, which is measured electrophysiologically as a decremental response of the compound muscle action potential to repetitive nerve stimulation.</div>
 
@@ -4839,6 +4919,7 @@ This pathophysiological event occurs in Neuromuscular junction (GO:0031594). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4860,6 +4941,7 @@ This pathophysiological event occurs in Neuromuscular junction (GO:0031594). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4885,6 +4967,7 @@ This pathophysiological event occurs in Neuromuscular junction (GO:0031594). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fatigable-skeletal-muscle-weakness" data-dismech-node="Fatigable Skeletal Muscle Weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Fatigable Skeletal Muscle Weakness</div>
+
 
                 <div class="item-desc">Clinically the transmission failure appears as weakness that worsens with sustained activity. In the founding cohort the distribution was limb-girdle, sparing the ocular and bulbar muscles that dominate many other congenital myasthenic syndromes. In the severe infantile form the weakness is present from birth as profound hypotonia with respiratory and swallowing failure.</div>
 
@@ -4957,6 +5040,7 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4979,6 +5063,7 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-glycosylation-in-neural-tissue" data-dismech-node="Impaired Glycosylation in Neural Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Glycosylation in Neural Tissue</div>
+
 
                 <div class="item-desc">In severely affected patients the glycosylation deficit is not confined to the endplate. Progressive cerebral atrophy, delayed myelination and therapy-refractory epilepsy accompany the neuromuscular disease, and the authors of that cohort classified the condition as a new congenital disorder of glycosylation rather than as a myasthenia. The specific glycoproteins whose hypoglycosylation drives the neurodegeneration have not been identified, so this node records an established association whose intermediate steps are not resolved.</div>
 
@@ -5055,6 +5140,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5076,6 +5162,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5124,7 +5211,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALG14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALG14\"], \"gene_terms\": [{\"label\": \"ALG14\", \"id\": \"hgnc:28287\"}], \"association\": \"ALG14 encodes a subunit of the UDP-N-acetylglucosamine transferase complex that it forms with ALG13 and DPAGT1 on the cytoplasmic face of the endoplasmic reticulum. The complex catalyses the first two committed steps of the dolichol-linked oligosaccharide pathway that supplies N-linked glycans. Because the gene is a general component of that pathway rather than a synapse-specific protein, the neuromuscular phenotype reflects the particular sensitivity of the endplate to reduced glycosylation capacity, and the severity of an allele determines how far beyond the endplate the disease extends. Two of the other subunits of the same pathway, DPAGT1 and ALG2, are themselves congenital myasthenic syndrome genes.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"ALG14 c.220G\u003eA (p.Asp74Asn)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent allele in the severe infantile neurodegenerative form, found homozygously in two patients and heterozygously in three others across three families.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.326G\u003eA (p.Arg109Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A third allele in the severe infantile cohort, likewise carried heterozygously in trans with p.Asp74Asn.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.422T\u003eG (p.Val141Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A second allele in the severe infantile cohort, carried heterozygously in trans with p.Asp74Asn.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.433G\u003eA (p.Gly145Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The other half of the compound heterozygous genotype in the long-surviving siblings.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.590T\u003eG (p.Val197Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"One half of the compound heterozygous genotype in the long-surviving siblings, whose course was markedly milder than the lethal infantile cohort despite a comparably severe neonatal presentation.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Biallelic ALG14 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALG14 variants reduce the function of the ALG13-ALG14-DPAGT1 multiglycosyltransferase complex, which catalyses the first two committed steps of asparagine-linked protein glycosylation on the cytoplasmic face of the endoplasmic reticulum. Reported alleles are predominantly missense, so residual activity is retained; the amount retained appears to set where a patient falls on the phenotypic spectrum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\", \"dolichol-linked oligosaccharide biosynthetic process\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline missense variants, including the recurrent p.Asp74Asn allele of the severe form and the p.Val197Gly / p.Gly145Arg compound heterozygous pair reported in long-surviving siblings.\", \"gene_terms\": [{\"label\": \"ALG14\", \"id\": \"hgnc:28287\"}]}}}, {\"id\": \"Endplate Acetylcholine Receptor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The postsynaptic membrane carries too few acetylcholine receptors to guarantee that each nerve impulse depolarises the muscle fibre to threshold. Transmission consequently fails intermittently and use-dependently, which is measured electrophysiologically as a decremental response of the compound muscle action potential to repetitive nerve stimulation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"neuromuscular synaptic transmission\"], \"molecular_functions\": [\"acetylcholine receptor activity\"], \"locations\": [\"Neuromuscular junction\"]}}, {\"id\": \"Fatigable Skeletal Muscle Weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clinically the transmission failure appears as weakness that worsens with sustained activity. In the founding cohort the distribution was limb-girdle, sparing the ocular and bulbar muscles that dominate many other congenital myasthenic syndromes. In the severe infantile form the weakness is present from birth as profound hypotonia with respiratory and swallowing failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"]}}, {\"id\": \"Hypoglycosylation of Endplate Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG14 is concentrated at the muscle motor endplate, so the postsynaptic membrane is a site where reduced N-glycosylation capacity is felt disproportionately. Acetylcholine receptor subunits require N-linked glycans for correct folding, pentameric assembly and export; when the glycan supply is limited, fewer complete receptors reach the surface. The receptor genes themselves are intact, so this is a failure of post-translational processing rather than a receptor lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"protein N-linked glycosylation\"], \"locations\": [\"Neuromuscular junction\"]}}, {\"id\": \"Impaired Glycosylation in Neural Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severely affected patients the glycosylation deficit is not confined to the endplate. Progressive cerebral atrophy, delayed myelination and therapy-refractory epilepsy accompany the neuromuscular disease, and the authors of that cohort classified the condition as a new congenital disorder of glycosylation rather than as a myasthenia. The specific glycoproteins whose hypoglycosylation drives the neurodegeneration have not been identified, so this node records an established association whose intermediate steps are not resolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Pyridostigmine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An acetylcholinesterase inhibitor, the standard first-line treatment for postsynaptic congenital myasthenic syndromes. By slowing the hydrolysis of acetylcholine it prolongs transmitter dwell time in the cleft, partially compensating for the reduced number of endplate receptors. It does not address the glycosylation defect, which is why the response tracks the severity of the underlying allele: benefit was only temporary in the lethal infantile cohort, while long-surviving siblings gained respirator-free time.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyridostigmine\"]}}], \"edges\": [{\"source\": \"Biallelic ALG14 Loss of Function\", \"target\": \"Hypoglycosylation of Endplate Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced flux through the first committed steps of N-linked glycosylation leaves proteins that depend on that pathway incompletely glycosylated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypoglycosylation of Endplate Proteins\", \"target\": \"Endplate Acetylcholine Receptor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypoglycosylation of Endplate Proteins\", \"target\": \"Impaired Glycosylation in Neural Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same biosynthetic deficit acts outside muscle. Whether it becomes clinically apparent depends on how much residual ALG14 activity an allele leaves, which is why this branch is silent in the limb-girdle form and dominant in the severe infantile form.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endplate Acetylcholine Receptor Deficiency\", \"target\": \"Fatigable Skeletal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyridostigmine\", \"target\": \"Endplate Acetylcholine Receptor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALG14 c.220G\u003eA (p.Asp74Asn)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.422T\u003eG (p.Val141Gly)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.326G\u003eA (p.Arg109Gln)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.590T\u003eG (p.Val197Gly)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.433G\u003eA (p.Gly145Arg)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALG14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALG14\"], \"gene_terms\": [{\"label\": \"ALG14\", \"id\": \"hgnc:28287\"}], \"association\": \"ALG14 encodes a subunit of the UDP-N-acetylglucosamine transferase complex that it forms with ALG13 and DPAGT1 on the cytoplasmic face of the endoplasmic reticulum. The complex catalyses the first two committed steps of the dolichol-linked oligosaccharide pathway that supplies N-linked glycans. Because the gene is a general component of that pathway rather than a synapse-specific protein, the neuromuscular phenotype reflects the particular sensitivity of the endplate to reduced glycosylation capacity, and the severity of an allele determines how far beyond the endplate the disease extends. Two of the other subunits of the same pathway, DPAGT1 and ALG2, are themselves congenital myasthenic syndrome genes.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"ALG14 c.220G\u003eA (p.Asp74Asn)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The recurrent allele in the severe infantile neurodegenerative form, found homozygously in two patients and heterozygously in three others across three families.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.326G\u003eA (p.Arg109Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A third allele in the severe infantile cohort, likewise carried heterozygously in trans with p.Asp74Asn.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.422T\u003eG (p.Val141Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A second allele in the severe infantile cohort, carried heterozygously in trans with p.Asp74Asn.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.433G\u003eA (p.Gly145Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The other half of the compound heterozygous genotype in the long-surviving siblings.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"ALG14 c.590T\u003eG (p.Val197Gly)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"One half of the compound heterozygous genotype in the long-surviving siblings, whose course was markedly milder than the lethal infantile cohort despite a comparably severe neonatal presentation.\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Biallelic ALG14 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALG14 variants reduce the function of the ALG13-ALG14-DPAGT1 multiglycosyltransferase complex, which catalyses the first two committed steps of asparagine-linked protein glycosylation on the cytoplasmic face of the endoplasmic reticulum. Reported alleles are predominantly missense, so residual activity is retained; the amount retained appears to set where a patient falls on the phenotypic spectrum.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\", \"dolichol-linked oligosaccharide biosynthetic process\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous germline missense variants, including the recurrent p.Asp74Asn allele of the severe form and the p.Val197Gly / p.Gly145Arg compound heterozygous pair reported in long-surviving siblings.\", \"gene_terms\": [{\"label\": \"ALG14\", \"id\": \"hgnc:28287\"}]}}}, {\"id\": \"Endplate Acetylcholine Receptor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The postsynaptic membrane carries too few acetylcholine receptors to guarantee that each nerve impulse depolarises the muscle fibre to threshold. Transmission consequently fails intermittently and use-dependently, which is measured electrophysiologically as a decremental response of the compound muscle action potential to repetitive nerve stimulation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"neuromuscular synaptic transmission\"], \"molecular_functions\": [\"acetylcholine receptor activity\"], \"locations\": [\"Neuromuscular junction\"]}}, {\"id\": \"Fatigable Skeletal Muscle Weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clinically the transmission failure appears as weakness that worsens with sustained activity. In the founding cohort the distribution was limb-girdle, sparing the ocular and bulbar muscles that dominate many other congenital myasthenic syndromes. In the severe infantile form the weakness is present from birth as profound hypotonia with respiratory and swallowing failure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"]}}, {\"id\": \"Hypoglycosylation of Endplate Proteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG14 is concentrated at the muscle motor endplate, so the postsynaptic membrane is a site where reduced N-glycosylation capacity is felt disproportionately. Acetylcholine receptor subunits require N-linked glycans for correct folding, pentameric assembly and export; when the glycan supply is limited, fewer complete receptors reach the surface. The receptor genes themselves are intact, so this is a failure of post-translational processing rather than a receptor lesion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"protein N-linked glycosylation\"], \"locations\": [\"Neuromuscular junction\"]}}, {\"id\": \"Impaired Glycosylation in Neural Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severely affected patients the glycosylation deficit is not confined to the endplate. Progressive cerebral atrophy, delayed myelination and therapy-refractory epilepsy accompany the neuromuscular disease, and the authors of that cohort classified the condition as a new congenital disorder of glycosylation rather than as a myasthenia. The specific glycoproteins whose hypoglycosylation drives the neurodegeneration have not been identified, so this node records an established association whose intermediate steps are not resolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Pyridostigmine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An acetylcholinesterase inhibitor, the standard first-line treatment for postsynaptic congenital myasthenic syndromes. By slowing the hydrolysis of acetylcholine it prolongs transmitter dwell time in the cleft, partially compensating for the reduced number of endplate receptors. It does not address the glycosylation defect, which is why the response tracks the severity of the underlying allele: benefit was only temporary in the lethal infantile cohort, while long-surviving siblings gained respirator-free time.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyridostigmine\"]}}], \"edges\": [{\"source\": \"Biallelic ALG14 Loss of Function\", \"target\": \"Hypoglycosylation of Endplate Proteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced flux through the first committed steps of N-linked glycosylation leaves proteins that depend on that pathway incompletely glycosylated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypoglycosylation of Endplate Proteins\", \"target\": \"Endplate Acetylcholine Receptor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypoglycosylation of Endplate Proteins\", \"target\": \"Impaired Glycosylation in Neural Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same biosynthetic deficit acts outside muscle. Whether it becomes clinically apparent depends on how much residual ALG14 activity an allele leaves, which is why this branch is silent in the limb-girdle form and dominant in the severe infantile form.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endplate Acetylcholine Receptor Deficiency\", \"target\": \"Fatigable Skeletal Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyridostigmine\", \"target\": \"Endplate Acetylcholine Receptor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALG14\", \"target\": \"Biallelic ALG14 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ALG14 c.220G\u003eA (p.Asp74Asn)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.422T\u003eG (p.Val141Gly)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.326G\u003eA (p.Arg109Gln)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.590T\u003eG (p.Val197Gly)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ALG14 c.433G\u003eA (p.Gly145Arg)\", \"target\": \"ALG14\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5188,6 +5275,9 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5202,6 +5292,7 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5265,6 +5356,9 @@ This clinical feature is Fatigable weakness (HP:0003473). HP:0003473 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5279,6 +5373,7 @@ This clinical feature is Fatigable weakness (HP:0003473). HP:0003473 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5335,6 +5430,9 @@ This clinical feature is EMG: decremental response of compound muscle action pot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5349,6 +5447,7 @@ This clinical feature is EMG: decremental response of compound muscle action pot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5403,6 +5502,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5417,6 +5519,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5471,6 +5574,9 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5485,6 +5591,7 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5509,6 +5616,7 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5572,6 +5680,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5586,6 +5697,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5658,6 +5770,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5672,6 +5787,7 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5726,6 +5842,9 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5740,6 +5859,7 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5842,6 +5962,9 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5856,6 +5979,7 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5880,6 +6004,7 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5916,6 +6041,12 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The recurrent allele in the severe infantile neurodegenerative form, found homozygously in two patients and heterozygously in three others across three families.</div>
 
 
@@ -5940,6 +6071,7 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5976,6 +6108,12 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A second allele in the severe infantile cohort, carried heterozygously in trans with p.Asp74Asn.</div>
 
 
@@ -6000,6 +6138,7 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6036,6 +6175,12 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A third allele in the severe infantile cohort, likewise carried heterozygously in trans with p.Asp74Asn.</div>
 
 
@@ -6060,6 +6205,7 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6096,6 +6242,12 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">One half of the compound heterozygous genotype in the long-surviving siblings, whose course was markedly milder than the lethal infantile cohort despite a comparably severe neonatal presentation.</div>
 
 
@@ -6120,6 +6272,7 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6156,6 +6309,12 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The other half of the compound heterozygous genotype in the long-surviving siblings.</div>
 
 
@@ -6180,6 +6339,7 @@ This disease-associated gene is ALG14 (hgnc:28287). hgnc:28287 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6292,6 +6452,9 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6302,6 +6465,9 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -6350,6 +6516,7 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6371,6 +6538,7 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6437,6 +6605,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6447,6 +6618,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6474,6 +6648,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6549,6 +6724,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6600,6 +6776,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6670,6 +6847,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6735,6 +6913,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7641,6 +7820,38 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entity identity. CMS15 is the ALG14 congenital myasthenic syndrome. MONDO defines MONDO:0014542 as &#34;Any congenital myasthenic syndrome in which the cause of the disease is a mutation in the ALG14 gene&#34;, with exact synonym &#34;ALG14 congenital myasthenic syndrome&#34; and cross-reference OMIM:616227. It was described together with CMS14 (ALG2, with tubular aggregates) in a single 2013 study, and the MONDO synonym &#34;without tubular aggregates&#34; preserves that pairing. It is not the SLC18A3/VAChT congenital myasthenic syndrome, which is a separate entity with its own gene and OMIM entry.
+This matters because an openscientist deep-research report generated for this entry during curation was entirely about SLC18A3/VAChT while citing OMIM:616227, and none of its content was usable. The report was discarded rather than curated from, and the two tooling gaps it exposed are filed as issues #9888 (deep-research runs are dispatched with an empty mondo_id, so the provider has no ontology grounding) and #9889 (preflight-dr skips its gene-identity check when MONDO records no RO:0004003 gene, even where the MONDO definition names the gene in plain text).
+Scope. The entry covers the full ALG14 allelic spectrum under one MONDO term and marks which pole each phenotype comes from, rather than curating only the myasthenic end. The case for splitting it is recorded under discussions instead of being settled unilaterally here.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Congenital Myasthenic Syndrome 15</strong> · 2026-08-28T17:08:10Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Myasthenic_Syndrome_15/2026-08-28T170810Z-claude-code-08d9f1.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MONDO:0014542 [congenital myasthenic syndrome 15, ALG14] from PMID:23404334 [Cossins 2013, founding cohort], PMID:28733338 [Schorling 2017, severe infantile form], PMID:34971077 [long-surviving siblings] and PMID:40533459 [2025 CMS gene review].
+
+Entry-type decision was DISEASE, following the precedent of Congenital_Myasthenic_Syndrome_6.yaml existing alongside the general Congenital_Myasthenic_Syndrome.yaml, whose has_subtypes are mechanism categories rather than numbered entities.
+
+Deep research was discarded. An openscientist run completed successfully and returned an 832-line report whose central claim was that CMS15 is caused by SLC18A3/VAChT. CMS15 is ALG14; MONDO states this in its definition text and exact synonyms, and PMID:23404334 established ALG14 and ALG2 together as CMS15 and CMS14. The report was not curated from and is deliberately not committed, because research/ outputs are indexed by disease name and a wrong-disease report would mislead the next curator. A -deep-research-fallback.md record replaces it, per existing repo convention. Two tooling gaps were filed: dismech#9888 [research-disorder passes a hardcoded empty mondo_id, so every deep-research run is ungrounded] and dismech#9889 [preflight-dr skips its gene-identity check when MONDO has no RO:0004003, even where the definition names the gene].
+
+Modelling decisions. The pathograph makes the indirectness of the mechanism explicit: the acetylcholine receptor is normal and the lesion is in a housekeeping glycosylation complex, so the chain runs ALG14 loss of function to hypoglycosylation of endplate proteins to endplate AChR deficiency to fatigable weakness, with a separate branch to impaired glycosylation in neural tissue for the severe pole. The entry curates the full allelic spectrum under one MONDO term and marks which pole each phenotype and each evidence item comes from, rather than curating only the myasthenic end.
+
+The neural-tissue node is deliberately marked as an association whose intermediate steps are unresolved: no specific hypoglycosylated neural glycoprotein has been identified, in contrast to the endplate arm where the siRNA experiment gives a named target. An OPEN_QUESTION discussion records the case for splitting this entry into a myasthenic entry and a CDG entry; a KNOWLEDGE_GAP discussion records the missing neural mechanism.
+
+Both treatment evidence items for the cholinesterase-inhibitor claims are graded PARTIAL: the severe-cohort benefit was explicitly temporary, and the broader CDG suggestion is an authors proposal rather than a trial result.
+
+Validation: just validate passed; 27/27 snippets verified against cached references; just validate-terms passed; folded-hyphen, snippet-length, title-snippet, snippet-grading, duplicate-key and entity-ref checks all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

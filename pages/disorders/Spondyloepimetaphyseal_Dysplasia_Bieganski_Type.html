@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4104,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4125,6 +4194,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4251,6 +4321,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4272,6 +4343,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4309,6 +4381,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aifm1-variant-associated-mitochondrial-dysfunction" data-dismech-node="AIFM1 Variant-Associated Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">AIFM1 Variant-Associated Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">AIFM1 encodes a mitochondria-associated apoptosis-inducing factor. In Bieganski-type spondyloepimetaphyseal dysplasia, the AIFM1 p.Asp237Gly variant segregates with disease and is predicted pathogenic. Later AIFM1-associated SMD-H reports implicate variants at or near exon 7, including splice-altering variants, placing this skeletal-neurologic syndrome within the AIFM1-related mitochondrial disease spectrum.</div>
 
@@ -4528,6 +4601,7 @@ This pathophysiological event involves abnormal mitochondrion (GO:0005739). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4549,6 +4623,7 @@ This pathophysiological event involves abnormal mitochondrion (GO:0005739). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4576,6 +4651,7 @@ This pathophysiological event involves abnormal mitochondrion (GO:0005739). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4598,6 +4674,7 @@ This pathophysiological event involves abnormal mitochondrion (GO:0005739). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomyelination-and-neurodegeneration" data-dismech-node="Hypomyelination and Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomyelination and Neurodegeneration</div>
+
 
                 <div class="item-desc">Affected individuals show early developmental delay and progressive central and peripheral neurologic involvement, with brain MRI evidence of diffuse hypomyelination in reported cases.</div>
 
@@ -4755,6 +4832,7 @@ This pathophysiological event involves Myelination (GO:0042552). GO:0042552 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4776,6 +4854,7 @@ This pathophysiological event involves Myelination (GO:0042552). GO:0042552 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4803,6 +4882,7 @@ This pathophysiological event involves Myelination (GO:0042552). GO:0042552 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4825,6 +4905,7 @@ This pathophysiological event involves Myelination (GO:0042552). GO:0042552 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spondyloepimetaphyseal-skeletal-dysplasia" data-dismech-node="Spondyloepimetaphyseal Skeletal Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Spondyloepimetaphyseal Skeletal Dysplasia</div>
+
 
                 <div class="item-desc">The skeletal disease includes spondyloepimetaphyseal dysplasia, severe growth retardation, and generalized skeletal abnormalities, indicating that the AIFM1-associated mitochondrial disorder affects skeletal development as well as the nervous system.</div>
 
@@ -4970,6 +5051,7 @@ This pathophysiological event involves Bone Development (GO:0060348). GO:0060348
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4994,6 +5076,7 @@ This pathophysiological event involves Bone Development (GO:0060348). GO:0060348
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5015,6 +5098,7 @@ This pathophysiological event involves Bone Development (GO:0060348). GO:0060348
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5133,6 +5217,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5147,6 +5234,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5210,6 +5298,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5224,6 +5315,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5278,6 +5370,9 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5292,6 +5387,7 @@ This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5355,6 +5451,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5369,6 +5468,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5432,6 +5532,9 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5446,6 +5549,7 @@ This clinical feature is Skeletal dysplasia (HP:0002652). HP:0002652 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5500,6 +5604,9 @@ This clinical feature is Spondylometaphyseal dysplasia (HP:0002657). HP:0002657 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5514,6 +5621,7 @@ This clinical feature is Spondylometaphyseal dysplasia (HP:0002657). HP:0002657 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,6 +5676,9 @@ This clinical feature is Joint laxity, annotated with Joint hypermobility (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5582,6 +5693,7 @@ This clinical feature is Joint laxity, annotated with Joint hypermobility (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5636,6 +5748,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5650,6 +5765,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5713,6 +5829,9 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5727,6 +5846,7 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5751,6 +5871,7 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5805,6 +5926,9 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5819,6 +5943,7 @@ This clinical feature is Progressive neurologic deterioration (HP:0002344). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5875,6 +6000,9 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5889,6 +6017,7 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5943,6 +6072,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5957,6 +6089,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6011,6 +6144,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6025,6 +6161,7 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6088,6 +6225,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6102,6 +6242,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6198,6 +6339,9 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive inheritance</span>
@@ -6220,6 +6364,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6254,6 +6399,12 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Recurrent X-linked AIFM1 missense variant identified by exome sequencing in the originally described SEMD-neurodegeneration family and an independently ascertained second family.</div>
 
 
@@ -6281,6 +6432,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6302,6 +6454,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6515,9 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive inheritance</span>
@@ -6384,6 +6540,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6418,6 +6575,12 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Later SMD-H reports expanded the AIFM1 variant spectrum to intronic and synonymous variants in or near exon 7, including variants associated with exon 7 skipping.</div>
 
 
@@ -6445,6 +6608,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6466,6 +6630,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6556,6 +6721,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6607,6 +6773,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6694,6 +6861,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6788,6 +6956,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7692,6 +7861,66 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Spondyloepimetaphyseal Dysplasia Bieganski Type (Changes required)</strong> · 2026-05-31T03:02:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spondyloepimetaphyseal_Dysplasia_Bieganski_Type/2026-05-31T030213Z-github-review-3603.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3603
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:13Z
+Issue updated: 2026-05-31T03:02:13Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Spondyloepimetaphyseal Dysplasia Bieganski Type**
+- Entry: `kb/disorders/Spondyloepimetaphyseal_Dysplasia_Bieganski_Type.yaml`
+- Selection basis: #135 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Actionable baseline check: a `diagnosis` section exists, but no top-level GeneReviews tag was detected in the YAML. For this Mendelian entry, confirm whether a GeneReviews article exists and either add/tag it or record why no GeneReviews baseline applies.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include AIFM1 Variant-Associated Mitochondrial Dysfunction, Hypomyelination and Neurodegeneration, Spondyloepimetaphyseal Skeletal Dysplasia. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment gap: no `treatments` section was detected. Add standard supportive/targeted management, surveillance, prevention/counseling, and any evidence-backed trial or emerging therapy if applicable.
+6. Evidence/reference check: top references include PMID:27102849, PMID:33439541, PMID:23239615, PMID:36136119. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: review major phenotypes such as Skeletal Dysplasia, Spondylometaphyseal Dysplasia, Short Stature, Joint Hypermobility, Delayed CNS Myelination.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: gap noted; treatment/surveillance absent or not detected.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: diagnosis present but should be checked against baseline sources.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Spondyloepimetaphyseal_Dysplasia_Bieganski_Type-deep-research-falcon.md`
+- PMID:27102849: https://pubmed.ncbi.nlm.nih.gov/27102849/
+- PMID:33439541: https://pubmed.ncbi.nlm.nih.gov/33439541/
+- PMID:23239615: https://pubmed.ncbi.nlm.nih.gov/23239615/
+- PMID:36136119: https://pubmed.ncbi.nlm.nih.gov/36136119/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

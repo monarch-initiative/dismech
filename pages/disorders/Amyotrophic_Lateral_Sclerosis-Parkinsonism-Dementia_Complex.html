@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4134,6 +4202,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4196,6 +4265,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4325,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4530,6 +4601,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4551,6 +4623,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4732,6 +4805,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4753,6 +4827,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4849,6 +4924,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4870,6 +4946,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4954,6 +5031,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4975,6 +5053,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5052,6 +5131,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5112,6 +5192,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5146,6 +5227,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tau-dominant-neurofibrillary-pathology" data-dismech-node="Tau-Dominant Neurofibrillary Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Tau-Dominant Neurofibrillary Pathology</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Widespread neuronal tau tangles are the dominant, consistently observed postmortem lesion in Guam ALS-PDC. Human bioassays also detect abundant tau prion activity. These observations establish the pathology but not its initiating cause or whether tau is the sole driver of regional neuronal loss.</div>
 
@@ -5312,6 +5400,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5333,6 +5422,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5360,6 +5450,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5384,6 +5475,13 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tdp-43-positive-cellular-inclusions" data-dismech-node="TDP-43-Positive Cellular Inclusions" data-dismech-type="pathophysiology">
                 <div class="item-name">TDP-43-Positive Cellular Inclusions</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">TDP-43-positive neuronal and glial inclusions occur in Guam ALS-PDC across both ALS and PDC forms. The available Guam evidence establishes inclusion-positive cells but does not specify cytoplasmic localization.</div>
 
@@ -5493,6 +5591,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5514,6 +5613,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5539,6 +5639,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-neuron-degeneration" data-dismech-node="Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Neuron Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Degeneration affecting upper- and lower-motor-neuron systems produces the ALS component and associated pyramidal and denervation signs. This observed regional outcome is not assigned exclusively to tau, TDP-43, or BMAA.</div>
 
@@ -5707,6 +5814,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5729,6 +5837,13 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nigrostriatal-dopaminergic-dysfunction" data-dismech-node="Nigrostriatal Dopaminergic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Nigrostriatal Dopaminergic Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PET demonstrates reduced presynaptic striatal fluorodopa uptake in Guam PDC, with intermediate reductions in Guam ALS and reductions in some clinically normal Guamanians. This is a living-subject readout of nigrostriatal injury, not a disease-specific diagnostic signature.</div>
 
@@ -5863,6 +5978,7 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5885,6 +6001,13 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dementia-associated-neuronal-dysfunction" data-dismech-node="Dementia-Associated Neuronal Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dementia-Associated Neuronal Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Progressive cognitive deterioration accompanies the Guam PDC form. The entry conservatively represents a neuronal-system outcome without assigning a specific cortical circuit or asserting that one protein lesion alone causes it.</div>
 
@@ -5994,6 +6117,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6016,6 +6140,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-l-bmaa-neurotoxic-exposure" data-dismech-node="L-BMAA Neurotoxic Exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">L-BMAA Neurotoxic Exposure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Dietary L-BMAA is retained as the trigger of an alternative cycad-toxin hypothesis. Guam ecosystem measurements and experimental systems make the route biologically plausible, but neither those observations nor this node establish that human exposure caused Guam ALS-PDC.</div>
 
@@ -6110,6 +6241,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6131,6 +6263,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6156,6 +6289,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ampa-kainate-receptor-overactivation-and-calcium-overload" data-dismech-node="AMPA/Kainate Receptor Overactivation and Calcium Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">AMPA/Kainate Receptor Overactivation and Calcium Overload</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In dissociated spinal-cord cultures, L-BMAA-dependent AMPA/kainate receptor activation produces preferential intracellular calcium rises in motor neurons. This is an in-vitro mechanism within the alternative BMAA model.</div>
 
@@ -6322,6 +6462,7 @@ This pathophysiological event involves increased calcium ion transmembrane trans
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6344,6 +6485,13 @@ This pathophysiological event involves increased calcium ion transmembrane trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-in-vulnerable-motor-neurons" data-dismech-node="Oxidative Stress in Vulnerable Motor Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress in Vulnerable Motor Neurons</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Selective ROS generation occurs in cultured motor neurons exposed to BMAA. The evidence is experimental and does not demonstrate oxidative stress as a measured lesion in Guam patients.</div>
 
@@ -6491,6 +6639,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6513,6 +6662,13 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitotoxic-motor-neuron-death" data-dismech-node="Excitotoxic Motor Neuron Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitotoxic Motor Neuron Death</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">BMAA produces selective motor-neuron loss in mixed spinal-cord cultures. This experimentally observed cell-death node belongs only to the alternative BMAA hypothesis and is not treated as proof of the lesion in human Guam tissue.</div>
 
@@ -6622,6 +6778,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6681,6 +6838,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6725,6 +6883,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6775,6 +6934,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6796,6 +6956,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6846,6 +7007,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6867,6 +7029,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6912,7 +7075,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In dissociated spinal-cord cultures, L-BMAA-dependent AMPA/kainate receptor activation produces preferential intracellular calcium rises in motor neurons. This is an in-vitro mechanism within the alternative BMAA model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"calcium ion transmembrane transport\"], \"role\": \"central_effector\"}}, {\"id\": \"Atypical Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A severe rigido-akinetic parkinsonian syndrome is a defining component of Guam PDC and may occur with dementia or motor-neuron manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001300\"}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive global cognitive decline, memory impairment, disorientation, and behavioral or personality change characterize the dementia component.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000726\"}}, {\"id\": \"Dementia-Associated Neuronal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive cognitive deterioration accompanies the Guam PDC form. The entry conservatively represents a neuronal-system outcome without assigning a specific cortical circuit or asserting that one protein lesion alone causes it.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"effector\"}}, {\"id\": \"Distal Amyotrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal spinal muscular atrophy reflects lower-motor-neuron and denervation involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003693\"}}, {\"id\": \"Excitotoxic Motor Neuron Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BMAA produces selective motor-neuron loss in mixed spinal-cord cultures. This experimentally observed cell-death node belongs only to the alternative BMAA hypothesis and is not treated as proof of the lesion in human Guam tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"role\": \"downstream_effector\"}}, {\"id\": \"Gait Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance is often an initial symptom and reflects bradykinesia, rigidity, and impaired postural reflexes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001288\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperreflexia reflects pyramidal or upper-motor-neuron involvement in the Guam disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001347\"}}, {\"id\": \"L-BMAA Neurotoxic Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dietary L-BMAA is retained as the trigger of an alternative cycad-toxin hypothesis. Guam ecosystem measurements and experimental systems make the route biologically plausible, but neither those observations nor this node establish that human exposure caused Guam ALS-PDC.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Levodopa for Early Parkinsonian Symptoms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Some early-stage cases were reported to respond to levodopa. This is limited symptomatic evidence from a clinical overview, not evidence of durable benefit, disease modification, or efficacy across the ALS-PDC spectrum.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-dopa\"]}}, {\"id\": \"Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration affecting upper- and lower-motor-neuron systems produces the ALS component and associated pyramidal and denervation signs. This observed regional outcome is not assigned exclusively to tau, TDP-43, or BMAA.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"role\": \"effector\", \"locations\": [\"spinal cord\"]}}, {\"id\": \"Motor Neuron Disease (ALS)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An ALS-predominant form is part of the Guam ALS-PDC spectrum; the PDC form may also show upper- and lower-motor-neuron involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007354\"}}, {\"id\": \"Nigrostriatal Dopaminergic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PET demonstrates reduced presynaptic striatal fluorodopa uptake in Guam PDC, with intermediate reductions in Guam ALS and reductions in some clinically normal Guamanians. This is a living-subject readout of nigrostriatal injury, not a disease-specific diagnostic signature.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"striatum\"]}}, {\"id\": \"Oxidative Stress in Vulnerable Motor Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selective ROS generation occurs in cultured motor neurons exposed to BMAA. The evidence is experimental and does not demonstrate oxidative stress as a measured lesion in Guam patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"downstream_effector\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked axial and limb rigidity contributes to a flexed posture and severe movement impairment in the PDC-predominant form.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002063\"}}, {\"id\": \"TDP-43-Positive Cellular Inclusions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TDP-43-positive neuronal and glial inclusions occur in Guam ALS-PDC across both ALS and PDC forms. The available Guam evidence establishes inclusion-positive cells but does not specify cytoplasmic localization.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Tau-Dominant Neurofibrillary Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Widespread neuronal tau tangles are the dominant, consistently observed postmortem lesion in Guam ALS-PDC. Human bioassays also detect abundant tau prion activity. These observations establish the pathology but not its initiating cause or whether tau is the sole driver of regional neuronal loss.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"inclusion body assembly\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Tau-Dominant Neurofibrillary Pathology\", \"target\": \"Dementia-Associated Neuronal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neocortical tau pathology accompanies the dementia-bearing disease, but the human evidence does not resolve the causal intermediates or establish tau as the sole cause of cognitive decline.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tau-Dominant Neurofibrillary Pathology\", \"target\": \"Nigrostriatal Dopaminergic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tau pathology and presynaptic dopaminergic dysfunction coexist in the PDC form; a direct tau-to-nigrostriatal causal route has not been demonstrated.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TDP-43-Positive Cellular Inclusions\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TDP-43 inclusions occur in the ALS-bearing Guam disease, but human autopsy data do not establish a direct aggregation-to-motor-neuron-loss sequence.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Motor Neuron Disease (ALS)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-system degeneration produces the ALS-predominant component of the disease spectrum.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron and pyramidal-system dysfunction produces hyperactive stretch reflexes.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Upper-motor-neuron and pyramidal-tract dysfunction\"]}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Distal Amyotrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower-motor-neuron denervation produces distal spinal muscular atrophy.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Lower-motor-neuron denervation and skeletal-muscle wasting\"]}, {\"source\": \"Nigrostriatal Dopaminergic Dysfunction\", \"target\": \"Atypical Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Presynaptic nigrostriatal dopaminergic dysfunction produces the parkinsonian component.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopaminergic Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopaminergic and extrapyramidal dysfunction contributes to marked rigidity.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Striatal dopamine deficiency and extrapyramidal motor-circuit dysfunction\"]}, {\"source\": \"Nigrostriatal Dopaminergic Dysfunction\", \"target\": \"Gait Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bradykinesia, rigidity, and impaired postural reflexes disrupt gait.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bradykinesia, rigidity, and impaired postural reflexes\"]}, {\"source\": \"Dementia-Associated Neuronal Dysfunction\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neuronal dysfunction manifests clinically as dementia.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-BMAA Neurotoxic Exposure\", \"target\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In spinal-cord cultures, BMAA activates AMPA/kainate receptors and preferentially raises motor-neuron intracellular calcium.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-BMAA Neurotoxic Exposure\", \"target\": \"Tau-Dominant Neurofibrillary Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic dietary BMAA produced tau tangles in a vervet model; translation to human Guam disease remains unproven.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"target\": \"Oxidative Stress in Vulnerable Motor Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BMAA-induced calcium stress accompanies selective ROS generation in cultured motor neurons.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"target\": \"Excitotoxic Motor Neuron Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AMPA/kainate receptor activation is required for BMAA-induced death in cultured motor neurons.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Stress in Vulnerable Motor Neurons\", \"target\": \"Excitotoxic Motor Neuron Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective ROS generation accompanies BMAA-induced motor-neuron loss, but the experiment does not fully isolate ROS as the sole mediator.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oxidative injury and loss of cellular redox homeostasis\"]}, {\"source\": \"Excitotoxic Motor Neuron Death\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Experimental motor-neuron death is a possible route to the human motor-system lesion, but cross-system translation is unresolved.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Levodopa for Early Parkinsonian Symptoms\", \"target\": \"Atypical Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In dissociated spinal-cord cultures, L-BMAA-dependent AMPA/kainate receptor activation produces preferential intracellular calcium rises in motor neurons. This is an in-vitro mechanism within the alternative BMAA model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"calcium ion transmembrane transport\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Atypical Parkinsonism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A severe rigido-akinetic parkinsonian syndrome is a defining component of Guam PDC and may occur with dementia or motor-neuron manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001300\"}}, {\"id\": \"Dementia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive global cognitive decline, memory impairment, disorientation, and behavioral or personality change characterize the dementia component.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000726\"}}, {\"id\": \"Dementia-Associated Neuronal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive cognitive deterioration accompanies the Guam PDC form. The entry conservatively represents a neuronal-system outcome without assigning a specific cortical circuit or asserting that one protein lesion alone causes it.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Distal Amyotrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal spinal muscular atrophy reflects lower-motor-neuron and denervation involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003693\"}}, {\"id\": \"Excitotoxic Motor Neuron Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BMAA produces selective motor-neuron loss in mixed spinal-cord cultures. This experimentally observed cell-death node belongs only to the alternative BMAA hypothesis and is not treated as proof of the lesion in human Guam tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"role\": \"downstream_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Gait Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gait disturbance is often an initial symptom and reflects bradykinesia, rigidity, and impaired postural reflexes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001288\"}}, {\"id\": \"Hyperreflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperreflexia reflects pyramidal or upper-motor-neuron involvement in the Guam disease spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001347\"}}, {\"id\": \"L-BMAA Neurotoxic Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dietary L-BMAA is retained as the trigger of an alternative cycad-toxin hypothesis. Guam ecosystem measurements and experimental systems make the route biologically plausible, but neither those observations nor this node establish that human exposure caused Guam ALS-PDC.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Levodopa for Early Parkinsonian Symptoms\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Some early-stage cases were reported to respond to levodopa. This is limited symptomatic evidence from a clinical overview, not evidence of durable benefit, disease modification, or efficacy across the ALS-PDC spectrum.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-dopa\"]}}, {\"id\": \"Motor Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration affecting upper- and lower-motor-neuron systems produces the ALS component and associated pyramidal and denervation signs. This observed regional outcome is not assigned exclusively to tau, TDP-43, or BMAA.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"role\": \"effector\", \"locations\": [\"spinal cord\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Motor Neuron Disease (ALS)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An ALS-predominant form is part of the Guam ALS-PDC spectrum; the PDC form may also show upper- and lower-motor-neuron involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007354\"}}, {\"id\": \"Nigrostriatal Dopaminergic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PET demonstrates reduced presynaptic striatal fluorodopa uptake in Guam PDC, with intermediate reductions in Guam ALS and reductions in some clinically normal Guamanians. This is a living-subject readout of nigrostriatal injury, not a disease-specific diagnostic signature.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"striatum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Oxidative Stress in Vulnerable Motor Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Selective ROS generation occurs in cultured motor neurons exposed to BMAA. The evidence is experimental and does not demonstrate oxidative stress as a measured lesion in Guam patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"downstream_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked axial and limb rigidity contributes to a flexed posture and severe movement impairment in the PDC-predominant form.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002063\"}}, {\"id\": \"TDP-43-Positive Cellular Inclusions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TDP-43-positive neuronal and glial inclusions occur in Guam ALS-PDC across both ALS and PDC forms. The available Guam evidence establishes inclusion-positive cells but does not specify cytoplasmic localization.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Tau-Dominant Neurofibrillary Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Widespread neuronal tau tangles are the dominant, consistently observed postmortem lesion in Guam ALS-PDC. Human bioassays also detect abundant tau prion activity. These observations establish the pathology but not its initiating cause or whether tau is the sole driver of regional neuronal loss.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"inclusion body assembly\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Tau-Dominant Neurofibrillary Pathology\", \"target\": \"Dementia-Associated Neuronal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neocortical tau pathology accompanies the dementia-bearing disease, but the human evidence does not resolve the causal intermediates or establish tau as the sole cause of cognitive decline.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tau-Dominant Neurofibrillary Pathology\", \"target\": \"Nigrostriatal Dopaminergic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tau pathology and presynaptic dopaminergic dysfunction coexist in the PDC form; a direct tau-to-nigrostriatal causal route has not been demonstrated.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TDP-43-Positive Cellular Inclusions\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TDP-43 inclusions occur in the ALS-bearing Guam disease, but human autopsy data do not establish a direct aggregation-to-motor-neuron-loss sequence.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Motor Neuron Disease (ALS)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-system degeneration produces the ALS-predominant component of the disease spectrum.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Hyperreflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron and pyramidal-system dysfunction produces hyperactive stretch reflexes.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Upper-motor-neuron and pyramidal-tract dysfunction\"]}, {\"source\": \"Motor Neuron Degeneration\", \"target\": \"Distal Amyotrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower-motor-neuron denervation produces distal spinal muscular atrophy.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Lower-motor-neuron denervation and skeletal-muscle wasting\"]}, {\"source\": \"Nigrostriatal Dopaminergic Dysfunction\", \"target\": \"Atypical Parkinsonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Presynaptic nigrostriatal dopaminergic dysfunction produces the parkinsonian component.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nigrostriatal Dopaminergic Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dopaminergic and extrapyramidal dysfunction contributes to marked rigidity.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Striatal dopamine deficiency and extrapyramidal motor-circuit dysfunction\"]}, {\"source\": \"Nigrostriatal Dopaminergic Dysfunction\", \"target\": \"Gait Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bradykinesia, rigidity, and impaired postural reflexes disrupt gait.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bradykinesia, rigidity, and impaired postural reflexes\"]}, {\"source\": \"Dementia-Associated Neuronal Dysfunction\", \"target\": \"Dementia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neuronal dysfunction manifests clinically as dementia.\", \"hypothesis_groups\": [\"canonical_guam_multiple_proteinopathy\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-BMAA Neurotoxic Exposure\", \"target\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In spinal-cord cultures, BMAA activates AMPA/kainate receptors and preferentially raises motor-neuron intracellular calcium.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-BMAA Neurotoxic Exposure\", \"target\": \"Tau-Dominant Neurofibrillary Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic dietary BMAA produced tau tangles in a vervet model; translation to human Guam disease remains unproven.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"target\": \"Oxidative Stress in Vulnerable Motor Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BMAA-induced calcium stress accompanies selective ROS generation in cultured motor neurons.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AMPA/Kainate Receptor Overactivation and Calcium Overload\", \"target\": \"Excitotoxic Motor Neuron Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AMPA/kainate receptor activation is required for BMAA-induced death in cultured motor neurons.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Stress in Vulnerable Motor Neurons\", \"target\": \"Excitotoxic Motor Neuron Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective ROS generation accompanies BMAA-induced motor-neuron loss, but the experiment does not fully isolate ROS as the sole mediator.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oxidative injury and loss of cellular redox homeostasis\"]}, {\"source\": \"Excitotoxic Motor Neuron Death\", \"target\": \"Motor Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Experimental motor-neuron death is a possible route to the human motor-system lesion, but cross-system translation is unresolved.\", \"hypothesis_groups\": [\"cycad_bmaa_neurotoxicity_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Levodopa for Early Parkinsonian Symptoms\", \"target\": \"Atypical Parkinsonism\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6982,6 +7145,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6996,6 +7162,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7061,6 +7228,9 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7075,6 +7245,7 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7099,6 +7270,7 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7162,6 +7334,9 @@ This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7176,6 +7351,7 @@ This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7239,6 +7415,9 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7253,6 +7432,7 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7307,6 +7487,9 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7321,6 +7504,7 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7384,6 +7568,9 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7398,6 +7585,7 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7452,6 +7640,9 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7466,6 +7657,7 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7522,6 +7714,9 @@ This clinical feature is Amyotrophic lateral sclerosis (HP:0007354). HP:0007354 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7536,6 +7731,7 @@ This clinical feature is Amyotrophic lateral sclerosis (HP:0007354). HP:0007354 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7590,6 +7786,9 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7604,6 +7803,7 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7658,6 +7858,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7672,6 +7875,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7726,6 +7930,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7740,6 +7947,7 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7794,6 +8002,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7808,6 +8019,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7854,6 +8066,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7868,6 +8083,7 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7970,6 +8186,9 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7984,6 +8203,7 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8008,6 +8228,7 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8051,6 +8272,9 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8065,6 +8289,7 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8126,6 +8351,9 @@ This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8140,6 +8368,7 @@ This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8201,6 +8430,9 @@ This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8215,6 +8447,7 @@ This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8276,6 +8509,9 @@ This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8290,6 +8526,7 @@ This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from th
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8397,6 +8634,9 @@ This treatment uses L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8407,6 +8647,9 @@ This treatment uses L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -8456,6 +8699,7 @@ This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8544,6 +8788,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8568,6 +8813,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8589,6 +8835,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8697,6 +8944,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8783,6 +9031,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8875,6 +9124,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8961,6 +9211,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9053,6 +9304,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9139,6 +9391,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9284,6 +9537,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9350,6 +9604,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9404,6 +9659,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9455,6 +9711,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9525,6 +9782,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9571,6 +9829,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9623,6 +9882,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9669,6 +9929,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9770,6 +10031,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9844,6 +10106,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9915,6 +10178,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9993,6 +10257,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10064,6 +10329,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10205,6 +10471,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10303,6 +10570,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10388,6 +10656,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10468,6 +10737,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4231,6 +4299,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4324,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4276,6 +4346,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4351,6 +4422,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PHGDH
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8923</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PHGDH (hgnc:8923). hgnc:8923 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Classic severe neurodevelopmental presentation with congenital microcephaly, severe delay, variable seizures and spasticity, and possible hypomyelination.</div>
@@ -4373,6 +4463,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4413,6 +4504,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PHGDH
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8923</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PHGDH (hgnc:8923). hgnc:8923 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Milder presentation reported in two siblings with absence seizures, mild developmental delay, behavioral abnormalities, and no obligatory microcephaly or MRI abnormality.</div>
@@ -4435,6 +4545,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4475,6 +4586,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PHGDH
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:8923</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PHGDH (hgnc:8923). hgnc:8923 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Case-level presentation reported in one adult with axonal sensorimotor polyneuropathy, slight ataxia, congenital cataracts, and mild developmental impairment.</div>
@@ -4497,6 +4627,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4539,6 +4670,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PHGDH
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:8923</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PHGDH (hgnc:8923). hgnc:8923 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">PHGDH-related Neu-Laxova syndrome 1 is the severe prenatal end of this exact disease. Neu-Laxova syndromes caused by PSAT1 or PSPH are genetically distinct and are not included in this subtype.</div>
@@ -4561,6 +4711,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4692,6 +4843,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4713,6 +4865,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4875,6 +5028,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4896,6 +5050,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5039,6 +5194,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5060,6 +5216,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5217,6 +5374,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5238,6 +5396,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5276,6 +5435,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phgdh-enzyme-deficiency" data-dismech-node="PHGDH Enzyme Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">PHGDH Enzyme Deficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic PHGDH variants reduce 3-phosphoglycerate dehydrogenase activity, the first and rate-limiting step of the phosphorylated pathway of de novo L-serine biosynthesis.</div>
 
 
@@ -5298,11 +5464,11 @@
         PHGDH
 
 
-    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8923</a>
+    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8923</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PHGDH (hgnc:8923). hgnc:8923 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5340,11 +5506,11 @@ This pathophysiological event involves PHGDH (hgnc:8923). hgnc:8923 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006564" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006564</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006564" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006564</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased L-serine biosynthetic process (GO:0006564). GO:0006564 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5379,11 +5545,11 @@ This pathophysiological event involves decreased L-serine biosynthetic process (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0004617</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased phosphoglycerate dehydrogenase activity (GO:0004617). GO:0004617 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -5455,6 +5621,7 @@ This pathophysiological event involves decreased phosphoglycerate dehydrogenase 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5477,6 +5644,13 @@ This pathophysiological event involves decreased phosphoglycerate dehydrogenase 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-low-l-serine-and-downstream-metabolites" data-dismech-node="Low L-Serine and Downstream Metabolites" data-dismech-type="pathophysiology">
                 <div class="item-name">Low L-Serine and Downstream Metabolites</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PHGDH deficiency causes low L-serine in cerebrospinal fluid and usually low or borderline-low fasting plasma L-serine. Glycine and D-serine can also be reduced, but glycine may remain normal in milder PHGDH disease.</div>
 
@@ -5560,6 +5734,7 @@ This pathophysiological event involves decreased phosphoglycerate dehydrogenase 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5581,6 +5756,7 @@ This pathophysiological event involves decreased phosphoglycerate dehydrogenase 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5606,6 +5782,13 @@ This pathophysiological event involves decreased phosphoglycerate dehydrogenase 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serine-dependent-cns-biosynthetic-and-signaling-insufficiency" data-dismech-node="Serine-Dependent CNS Biosynthetic and Signaling Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Serine-Dependent CNS Biosynthetic and Signaling Insufficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Human metabolomics and model-system data support altered serine-derived phospholipids and PHGDH-dependent NMDA-coagonist supply. Neither pathway has been shown to be the dominant cause of human microcephaly, hypomyelination, seizures, or developmental impairment.</div>
 
@@ -5639,11 +5822,11 @@ This pathophysiological event involves decreased phosphoglycerate dehydrogenase 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006644</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006644" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006644</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased phospholipid metabolic process (GO:0006644). GO:0006644 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5673,11 +5856,11 @@ This pathophysiological event involves decreased phospholipid metabolic process 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035235" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0035235</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035235" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0035235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased ionotropic glutamate receptor signaling pathway (GO:0035235). GO:0035235 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5714,11 +5897,11 @@ This pathophysiological event involves decreased ionotropic glutamate receptor s
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000955</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5774,6 +5957,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5795,6 +5979,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5820,6 +6005,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-infantile-and-juvenile-neurologic-disease" data-dismech-node="Infantile and Juvenile Neurologic Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Infantile and Juvenile Neurologic Disease</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">PHGDH-specific reports establish infantile and juvenile neurologic presentations, while the molecular steps from serine deficiency to each manifestation remain incompletely resolved.</div>
 
@@ -5913,6 +6105,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5934,6 +6127,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5959,6 +6153,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adult-axonal-neuropathy-syndrome" data-dismech-node="Adult Axonal Neuropathy Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Adult Axonal Neuropathy Syndrome</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">One genetically confirmed adult case had chronic axonal sensorimotor polyneuropathy with slight cerebellar ataxia, congenital cataracts, and mild lifelong developmental impairment. This is a case-level association, not a well-characterized common subtype.</div>
 
@@ -6022,6 +6223,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6044,6 +6246,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prenatal-neu-laxova-multisystem-developmental-disruption" data-dismech-node="Prenatal Neu-Laxova Multisystem Developmental Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Prenatal Neu-Laxova Multisystem Developmental Disruption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic PHGDH variants cause Neu-Laxova syndrome 1, a severe prenatal multisystem phenotype. Neu-Laxova syndromes caused by PSAT1 or PSPH are separate genetic disorders and are differentials for this focal entry.</div>
 
@@ -6113,6 +6322,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6158,7 +6368,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjunct glycine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glycine has been added when high-dose L-serine did not control seizures. The evidence is limited to two siblings and should not be generalized as a universal requirement.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"glycine\"]}}, {\"id\": \"Adult Axonal Neuropathy Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One genetically confirmed adult case had chronic axonal sensorimotor polyneuropathy with slight cerebellar ataxia, congenital cataracts, and mild lifelong developmental impairment. This is a case-level association, not a well-characterized common subtype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"role\": \"outcome\"}}, {\"id\": \"Adult ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slight cerebellar ataxia accompanied the adult neuropathy presentation in one individual.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"term_id\": \"HP:0001251\"}}, {\"id\": \"Adult congenital cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cataracts were present in the single reported adult neuropathy case.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"term_id\": \"HP:0000519\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral and well-being changes were reported in the juvenile siblings and improved after L-serine.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Juvenile\"], \"term_id\": \"HP:0000708\"}}, {\"id\": \"Cerebral hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI can show hypomyelination with profound white-matter attenuation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"term_id\": \"HP:0006808\"}}, {\"id\": \"Cerebrospinal fluid D-serine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16523\", \"term_label\": \"D-serine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased CSF D-serine is a secondary biochemical consequence of reduced serine availability.\"}]}}, {\"id\": \"Cerebrospinal fluid L-serine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17115\", \"term_label\": \"L-serine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower CSF L-serine reports the central biochemical consequence of PHGDH deficiency.\"}]}}, {\"id\": \"Cerebrospinal fluid and plasma glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"VARIABLE\", \"term_id\": \"CHEBI:15428\", \"term_label\": \"glycine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low glycine can accompany serine deficiency, but normal glycine does not exclude PHGDH deficiency.\"}]}}, {\"id\": \"Congenital microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary microcephaly is characteristic of classic infantile PHGDH deficiency and is severe in the prenatal Neu-Laxova syndrome 1 spectrum, but is not required in the juvenile or reported adult presentations.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile\", \"Neu-Laxova\"], \"term_id\": \"HP:0011451\"}}, {\"id\": \"Fasting plasma L-serine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17115\", \"term_label\": \"L-serine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A low or borderline-low fasting value supports the biochemical diagnosis; a nonfasting value is less reliable.\"}]}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Collodion-like ichthyosis is part of the Neu-Laxova syndrome 1 malformation pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"term_id\": \"HP:0008064\"}}, {\"id\": \"Infantile and Juvenile Neurologic Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHGDH-specific reports establish infantile and juvenile neurologic presentations, while the molecular steps from serine deficiency to each manifestation remain incompletely resolved.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile\", \"Juvenile\"], \"role\": \"outcome\"}}, {\"id\": \"Infantile seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures can be severe in classic disease but were absent in three of six individuals in one PHGDH-specific cohort.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe fetal growth restriction is part of the Neu-Laxova syndrome 1 presentation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"term_id\": \"HP:0001511\"}}, {\"id\": \"Juvenile absence seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence seizures were the presenting seizure type in both reported juvenile siblings.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Juvenile\"], \"term_id\": \"HP:0002121\"}}, {\"id\": \"L-Serine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral L-serine bypasses the biosynthetic block and restores serine concentrations. Repeated small cohorts show the clearest benefit for seizure control and sometimes spasticity or well-being. Developmental improvement is inconsistent, especially after established injury; MRI improvement occurred in two of four treated individuals in one series.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"L-serine\"]}}, {\"id\": \"Low L-Serine and Downstream Metabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHGDH deficiency causes low L-serine in cerebrospinal fluid and usually low or borderline-low fasting plasma L-serine. Glycine and D-serine can also be reduced, but glycine may remain normal in milder PHGDH disease.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\"}}, {\"id\": \"Maternal prenatal L-serine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maternal L-serine was given after declining fetal head circumference in one affected pregnancy. Fetal head growth increased and development was reported as unremarkable at 48 months, but efficacy, safety, dose, and generalizability remain unestablished.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-serine\"]}}, {\"id\": \"Mild global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The two reported juvenile siblings had mild developmental delay rather than infantile developmental arrest.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Juvenile\"], \"severity\": \"MILD\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Neu-Laxova congenital cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral congenital cataracts are part of the Neu-Laxova malformation pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"term_id\": \"HP:0000519\"}}, {\"id\": \"PHGDH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHGDH\"], \"gene_terms\": [{\"label\": \"PHGDH\", \"id\": \"hgnc:8923\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PHGDH Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PHGDH variants reduce 3-phosphoglycerate dehydrogenase activity, the first and rate-limiting step of the phosphorylated pathway of de novo L-serine biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-serine biosynthetic process\"], \"molecular_functions\": [\"phosphoglycerate dehydrogenase activity\"], \"genes\": [\"PHGDH\"], \"gene_terms\": [{\"label\": \"PHGDH\", \"id\": \"hgnc:8923\"}], \"role\": \"trigger\"}}, {\"id\": \"PHGDH activity in cultured fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"PHGDH Enzyme Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced cultured-fibroblast activity functionally reports the enzyme defect.\"}]}}, {\"id\": \"Peripheral axonal neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic axonal sensorimotor polyneuropathy was the dominant manifestation in one adult PHGDH case.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"term_id\": \"HP:0003477\"}}, {\"id\": \"Plasma phospholipid species\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"interpretation\": \"Decreased plasma phospholipid species report one candidate downstream pathway but do not prove CNS causality.\"}]}}, {\"id\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PHGDH variants cause Neu-Laxova syndrome 1, a severe prenatal multisystem phenotype. Neu-Laxova syndromes caused by PSAT1 or PSPH are separate genetic disorders and are differentials for this focal entry.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"role\": \"outcome\"}}, {\"id\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human metabolomics and model-system data support altered serine-derived phospholipids and PHGDH-dependent NMDA-coagonist supply. Neither pathway has been shown to be the dominant cause of human microcephaly, hypomyelination, seizures, or developmental impairment.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid metabolic process\", \"ionotropic glutamate receptor signaling pathway\"], \"subtypes\": [\"Infantile\", \"Juvenile\"], \"role\": \"consequence\", \"locations\": [\"brain\"]}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe psychomotor or global developmental delay is typical of the classic infantile presentation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"severity\": \"SEVERE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe spastic quadriplegia can emerge during early childhood in classic infantile PHGDH deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"term_id\": \"HP:0002510\"}}], \"edges\": [{\"source\": \"PHGDH Enzyme Deficiency\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PHGDH activity decreases de novo L-serine synthesis and can secondarily reduce glycine and D-serine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHGDH Enzyme Deficiency\", \"target\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe biallelic PHGDH dysfunction can produce Neu-Laxova syndrome 1, but the developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate metabolic and signaling consequences may contribute to CNS disease, but their relative causal importance in patients is unresolved.\", \"hypothesis_groups\": [\"serine_derived_cns_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Serine-derived phospholipid synthesis and glycine/D-serine availability.\"]}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Adult Axonal Neuropathy Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low serine is associated with the reported adult neuropathy presentation, but the nerve-injury mechanism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"target\": \"Infantile and Juvenile Neurologic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"These candidate pathways may contribute to the established CNS phenotype, but required human intermediates remain unproven.\", \"hypothesis_groups\": [\"serine_derived_cns_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Congenital microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Severe global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Infantile seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Cerebral hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Juvenile absence seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Mild global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adult Axonal Neuropathy Syndrome\", \"target\": \"Peripheral axonal neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adult Axonal Neuropathy Syndrome\", \"target\": \"Adult ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adult Axonal Neuropathy Syndrome\", \"target\": \"Adult congenital cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Congenital microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Neu-Laxova congenital cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"L-Serine supplementation\", \"target\": \"PHGDH Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Infantile seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Severe global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Cerebral hypomyelination\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Adjunct glycine supplementation\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunct glycine supplementation\", \"target\": \"Infantile seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Maternal prenatal L-serine supplementation\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maternal prenatal L-serine supplementation\", \"target\": \"Congenital microcephaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Cerebrospinal fluid L-serine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower CSF L-serine reports the central biochemical consequence of PHGDH deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Fasting plasma L-serine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A low or borderline-low fasting value supports the biochemical diagnosis; a nonfasting value is less reliable.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Cerebrospinal fluid and plasma glycine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low glycine can accompany serine deficiency, but normal glycine does not exclude PHGDH deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Cerebrospinal fluid D-serine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased CSF D-serine is a secondary biochemical consequence of reduced serine availability.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PHGDH Enzyme Deficiency\", \"target\": \"PHGDH activity in cultured fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced cultured-fibroblast activity functionally reports the enzyme defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"target\": \"Plasma phospholipid species\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased plasma phospholipid species report one candidate downstream pathway but do not prove CNS causality.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\"}, {\"source\": \"PHGDH\", \"target\": \"PHGDH Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjunct glycine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glycine has been added when high-dose L-serine did not control seizures. The evidence is limited to two siblings and should not be generalized as a universal requirement.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"glycine\"]}}, {\"id\": \"Adult Axonal Neuropathy Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One genetically confirmed adult case had chronic axonal sensorimotor polyneuropathy with slight cerebellar ataxia, congenital cataracts, and mild lifelong developmental impairment. This is a case-level association, not a well-characterized common subtype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"role\": \"outcome\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Adult ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slight cerebellar ataxia accompanied the adult neuropathy presentation in one individual.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"term_id\": \"HP:0001251\"}}, {\"id\": \"Adult congenital cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cataracts were present in the single reported adult neuropathy case.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"term_id\": \"HP:0000519\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral and well-being changes were reported in the juvenile siblings and improved after L-serine.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Juvenile\"], \"term_id\": \"HP:0000708\"}}, {\"id\": \"Cerebral hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI can show hypomyelination with profound white-matter attenuation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"term_id\": \"HP:0006808\"}}, {\"id\": \"Cerebrospinal fluid D-serine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:16523\", \"term_label\": \"D-serine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased CSF D-serine is a secondary biochemical consequence of reduced serine availability.\"}]}}, {\"id\": \"Cerebrospinal fluid L-serine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17115\", \"term_label\": \"L-serine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower CSF L-serine reports the central biochemical consequence of PHGDH deficiency.\"}]}}, {\"id\": \"Cerebrospinal fluid and plasma glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"VARIABLE\", \"term_id\": \"CHEBI:15428\", \"term_label\": \"glycine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low glycine can accompany serine deficiency, but normal glycine does not exclude PHGDH deficiency.\"}]}}, {\"id\": \"Congenital microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Primary microcephaly is characteristic of classic infantile PHGDH deficiency and is severe in the prenatal Neu-Laxova syndrome 1 spectrum, but is not required in the juvenile or reported adult presentations.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile\", \"Neu-Laxova\"], \"term_id\": \"HP:0011451\"}}, {\"id\": \"Fasting plasma L-serine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:17115\", \"term_label\": \"L-serine\", \"readouts\": [{\"target\": \"Low L-Serine and Downstream Metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A low or borderline-low fasting value supports the biochemical diagnosis; a nonfasting value is less reliable.\"}]}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Collodion-like ichthyosis is part of the Neu-Laxova syndrome 1 malformation pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"term_id\": \"HP:0008064\"}}, {\"id\": \"Infantile and Juvenile Neurologic Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHGDH-specific reports establish infantile and juvenile neurologic presentations, while the molecular steps from serine deficiency to each manifestation remain incompletely resolved.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Infantile\", \"Juvenile\"], \"role\": \"outcome\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Infantile seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures can be severe in classic disease but were absent in three of six individuals in one PHGDH-specific cohort.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"term_id\": \"HP:0001250\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe fetal growth restriction is part of the Neu-Laxova syndrome 1 presentation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"term_id\": \"HP:0001511\"}}, {\"id\": \"Juvenile absence seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence seizures were the presenting seizure type in both reported juvenile siblings.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Juvenile\"], \"term_id\": \"HP:0002121\"}}, {\"id\": \"L-Serine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral L-serine bypasses the biosynthetic block and restores serine concentrations. Repeated small cohorts show the clearest benefit for seizure control and sometimes spasticity or well-being. Developmental improvement is inconsistent, especially after established injury; MRI improvement occurred in two of four treated individuals in one series.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"L-serine\"]}}, {\"id\": \"Low L-Serine and Downstream Metabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PHGDH deficiency causes low L-serine in cerebrospinal fluid and usually low or borderline-low fasting plasma L-serine. Glycine and D-serine can also be reduced, but glycine may remain normal in milder PHGDH disease.\", \"meta\": {\"evidence_count\": 2, \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Maternal prenatal L-serine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maternal L-serine was given after declining fetal head circumference in one affected pregnancy. Fetal head growth increased and development was reported as unremarkable at 48 months, but efficacy, safety, dose, and generalizability remain unestablished.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-serine\"]}}, {\"id\": \"Mild global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The two reported juvenile siblings had mild developmental delay rather than infantile developmental arrest.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Juvenile\"], \"severity\": \"MILD\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Neu-Laxova congenital cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral congenital cataracts are part of the Neu-Laxova malformation pattern.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"term_id\": \"HP:0000519\"}}, {\"id\": \"PHGDH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PHGDH\"], \"gene_terms\": [{\"label\": \"PHGDH\", \"id\": \"hgnc:8923\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PHGDH Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PHGDH variants reduce 3-phosphoglycerate dehydrogenase activity, the first and rate-limiting step of the phosphorylated pathway of de novo L-serine biosynthesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"L-serine biosynthetic process\"], \"molecular_functions\": [\"phosphoglycerate dehydrogenase activity\"], \"genes\": [\"PHGDH\"], \"gene_terms\": [{\"label\": \"PHGDH\", \"id\": \"hgnc:8923\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"PHGDH activity in cultured fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"PHGDH Enzyme Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Reduced cultured-fibroblast activity functionally reports the enzyme defect.\"}]}}, {\"id\": \"Peripheral axonal neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic axonal sensorimotor polyneuropathy was the dominant manifestation in one adult PHGDH case.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Adult\"], \"term_id\": \"HP:0003477\"}}, {\"id\": \"Plasma phospholipid species\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"interpretation\": \"Decreased plasma phospholipid species report one candidate downstream pathway but do not prove CNS causality.\"}]}}, {\"id\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PHGDH variants cause Neu-Laxova syndrome 1, a severe prenatal multisystem phenotype. Neu-Laxova syndromes caused by PSAT1 or PSPH are separate genetic disorders and are differentials for this focal entry.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Neu-Laxova\"], \"role\": \"outcome\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human metabolomics and model-system data support altered serine-derived phospholipids and PHGDH-dependent NMDA-coagonist supply. Neither pathway has been shown to be the dominant cause of human microcephaly, hypomyelination, seizures, or developmental impairment.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"phospholipid metabolic process\", \"ionotropic glutamate receptor signaling pathway\"], \"subtypes\": [\"Infantile\", \"Juvenile\"], \"role\": \"consequence\", \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Severe global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe psychomotor or global developmental delay is typical of the classic infantile presentation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"severity\": \"SEVERE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Spastic tetraplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe spastic quadriplegia can emerge during early childhood in classic infantile PHGDH deficiency.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Infantile\"], \"term_id\": \"HP:0002510\"}}], \"edges\": [{\"source\": \"PHGDH Enzyme Deficiency\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PHGDH activity decreases de novo L-serine synthesis and can secondarily reduce glycine and D-serine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PHGDH Enzyme Deficiency\", \"target\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe biallelic PHGDH dysfunction can produce Neu-Laxova syndrome 1, but the developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Candidate metabolic and signaling consequences may contribute to CNS disease, but their relative causal importance in patients is unresolved.\", \"hypothesis_groups\": [\"serine_derived_cns_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Serine-derived phospholipid synthesis and glycine/D-serine availability.\"]}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Adult Axonal Neuropathy Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low serine is associated with the reported adult neuropathy presentation, but the nerve-injury mechanism is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"target\": \"Infantile and Juvenile Neurologic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"These candidate pathways may contribute to the established CNS phenotype, but required human intermediates remain unproven.\", \"hypothesis_groups\": [\"serine_derived_cns_insufficiency_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Congenital microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Severe global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Infantile seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Spastic tetraplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Cerebral hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Juvenile absence seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Mild global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infantile and Juvenile Neurologic Disease\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adult Axonal Neuropathy Syndrome\", \"target\": \"Peripheral axonal neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adult Axonal Neuropathy Syndrome\", \"target\": \"Adult ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adult Axonal Neuropathy Syndrome\", \"target\": \"Adult congenital cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Congenital microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Neu-Laxova congenital cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Neu-Laxova Multisystem Developmental Disruption\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"L-Serine supplementation\", \"target\": \"PHGDH Enzyme Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Infantile seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Severe global developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-Serine supplementation\", \"target\": \"Cerebral hypomyelination\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Adjunct glycine supplementation\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunct glycine supplementation\", \"target\": \"Infantile seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Maternal prenatal L-serine supplementation\", \"target\": \"Low L-Serine and Downstream Metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maternal prenatal L-serine supplementation\", \"target\": \"Congenital microcephaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Cerebrospinal fluid L-serine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower CSF L-serine reports the central biochemical consequence of PHGDH deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Fasting plasma L-serine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A low or borderline-low fasting value supports the biochemical diagnosis; a nonfasting value is less reliable.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Cerebrospinal fluid and plasma glycine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low glycine can accompany serine deficiency, but normal glycine does not exclude PHGDH deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Low L-Serine and Downstream Metabolites\", \"target\": \"Cerebrospinal fluid D-serine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased CSF D-serine is a secondary biochemical consequence of reduced serine availability.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"PHGDH Enzyme Deficiency\", \"target\": \"PHGDH activity in cultured fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reduced cultured-fibroblast activity functionally reports the enzyme defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Serine-Dependent CNS Biosynthetic and Signaling Insufficiency\", \"target\": \"Plasma phospholipid species\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased plasma phospholipid species report one candidate downstream pathway but do not prove CNS causality.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\"}, {\"source\": \"PHGDH\", \"target\": \"PHGDH Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6216,15 +6426,18 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000519</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000519</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental cataract (HP:0000519). HP:0000519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6244,6 +6457,7 @@ This clinical feature is Developmental cataract (HP:0000519). HP:0000519 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6286,15 +6500,18 @@ This clinical feature is Developmental cataract (HP:0000519). HP:0000519 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000519</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000519</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental cataract (HP:0000519). HP:0000519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6314,6 +6531,7 @@ This clinical feature is Developmental cataract (HP:0000519). HP:0000519 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6365,15 +6583,18 @@ This clinical feature is Developmental cataract (HP:0000519). HP:0000519 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011451" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0011451</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011451" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011451</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary microcephaly (HP:0011451). HP:0011451 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6393,6 +6614,7 @@ This clinical feature is Primary microcephaly (HP:0011451). HP:0011451 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6417,6 +6639,7 @@ This clinical feature is Primary microcephaly (HP:0011451). HP:0011451 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6466,15 +6689,18 @@ This clinical feature is Primary microcephaly (HP:0011451). HP:0011451 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0008064</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6494,6 +6720,7 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6543,15 +6770,18 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6571,6 +6801,7 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6620,15 +6851,18 @@ This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6648,6 +6882,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6688,10 +6923,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250), qualified as temporality recurrent. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6720,6 +6955,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6734,6 +6972,7 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6774,15 +7013,18 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0006808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6802,6 +7044,7 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6844,10 +7087,10 @@ This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002121</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized non-motor (absence) seizure (HP:0002121), qualified as temporality recurrent. HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6876,6 +7119,9 @@ This clinical feature is Generalized non-motor (absence) seizure (HP:0002121), q
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6890,6 +7136,7 @@ This clinical feature is Generalized non-motor (absence) seizure (HP:0002121), q
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6930,15 +7177,18 @@ This clinical feature is Generalized non-motor (absence) seizure (HP:0002121), q
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6958,6 +7208,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6998,15 +7249,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7026,6 +7280,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7066,15 +7321,18 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003477</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003477</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7094,6 +7352,7 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7134,15 +7393,18 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7162,6 +7424,7 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7211,15 +7474,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001511</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7239,6 +7505,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7320,10 +7587,10 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                         Gene: PHGDH
 
 
-    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:8923</a>
+    <a href="https://bioregistry.io/hgnc:8923" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8923</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PHGDH (hgnc:8923). hgnc:8923 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7335,6 +7602,9 @@ This disease-associated gene is PHGDH (hgnc:8923). hgnc:8923 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7353,6 +7623,7 @@ This disease-associated gene is PHGDH (hgnc:8923). hgnc:8923 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7377,6 +7648,7 @@ This disease-associated gene is PHGDH (hgnc:8923). hgnc:8923 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7429,7 +7701,7 @@ This disease-associated gene is PHGDH (hgnc:8923). hgnc:8923 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">amino acid supplementation<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">amino acid supplementation<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is amino acid supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7471,16 +7743,22 @@ This treatment is amino acid supplementation, annotated with Nutritional Supplem
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17115" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:17115</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17115" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:17115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7522,6 +7800,7 @@ This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7572,6 +7851,7 @@ This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7606,11 +7886,11 @@ This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7623,11 +7903,11 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001263</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7640,11 +7920,11 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0006808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0006808</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cerebral hypomyelination (HP:0006808). HP:0006808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7668,6 +7948,7 @@ This treatment targets Cerebral hypomyelination (HP:0006808). HP:0006808 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7695,6 +7976,7 @@ This treatment targets Cerebral hypomyelination (HP:0006808). HP:0006808 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7716,6 +7998,7 @@ This treatment targets Cerebral hypomyelination (HP:0006808). HP:0006808 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7751,7 +8034,7 @@ This treatment targets Cerebral hypomyelination (HP:0006808). HP:0006808 is a ph
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">amino acid supplementation<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">amino acid supplementation<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is amino acid supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7793,16 +8076,22 @@ This treatment is amino acid supplementation, annotated with Nutritional Supplem
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15428" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:15428</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15428" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:15428</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses glycine (CHEBI:15428). CHEBI:15428 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -7847,6 +8136,7 @@ This treatment uses glycine (CHEBI:15428). CHEBI:15428 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7881,11 +8171,11 @@ This treatment uses glycine (CHEBI:15428). CHEBI:15428 is a therapeutic agent fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7909,6 +8199,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7942,7 +8233,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">amino acid supplementation<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">amino acid supplementation<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is amino acid supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7984,16 +8275,22 @@ This treatment is amino acid supplementation, annotated with Nutritional Supplem
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17115" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:17115</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17115" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:17115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8038,6 +8335,7 @@ This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8072,11 +8370,11 @@ This treatment uses L-serine (CHEBI:17115). CHEBI:17115 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011451" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011451</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011451" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0011451</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8100,6 +8398,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8144,6 +8443,12 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Follow-up should be individualized across the broad PHGDH spectrum and monitor seizures, tone and contractures, development and behavior, growth and nutrition, feeding and constipation, respiratory and musculoskeletal issues, and family support needs. GeneReviews recommends dental evaluation every six months.</div>
 
 
@@ -8165,6 +8470,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8209,6 +8515,12 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Families should receive anticipatory counseling and illness planning around recognized seizure triggers, including infection and physical or emotional stress.</div>
 
 
@@ -8230,6 +8542,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8319,6 +8632,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8358,6 +8672,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8432,6 +8747,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8471,6 +8787,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8545,6 +8862,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8587,6 +8905,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8608,6 +8927,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8682,6 +9002,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8721,6 +9042,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8795,6 +9117,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8834,6 +9157,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8904,6 +9228,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8943,6 +9268,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9000,11 +9326,11 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
         clinical laboratory procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C25294</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C25294</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9042,6 +9368,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9087,11 +9414,11 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
         clinical laboratory procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C25294</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C25294</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9132,6 +9459,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9153,6 +9481,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9198,11 +9527,11 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9243,6 +9572,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9264,6 +9594,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9309,11 +9640,11 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
         clinical laboratory procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C25294</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C25294</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9351,6 +9682,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9422,11 +9754,11 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
         Cerebral hypomyelination
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0006808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0006808</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)</span>
     </span>
 
 
@@ -9458,11 +9790,11 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
         brain white matter
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-38">UBERON:0003544</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0003544</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-38">Uberon multi-species anatomy ontology (UBERON)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)</span>
     </span>
 
 
@@ -9494,11 +9826,11 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
         Cerebral hypomyelination
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0006808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0006808</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)</span>
     </span>
 
 
@@ -9536,14 +9868,15 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Pre-treatment MRI demonstrated hypomyelination and profound white matter attenuation in all patients."</div>
+                <div class="evidence-snippet">"Recently, patients were reported with a potentially treatable disorder of serine biosynthesis. They presented with congenital microcephaly, severe psychomotor retardation and intractable seizures. Low concentrations of the amino acids serine, glycine as well as 5-methyltetrahydrofolate were..."</div>
 
 
-                <div class="evidence-explanation">Establishes the pretreatment imaging pattern in the four-person series.</div>
+                <div class="evidence-explanation">Restores the severe early presentation, 3-PGDH deficiency, four-patient age range and treatment-response observation. The excerpt keeps the pretreatment result separate from progress reported in two treated patients.</div>
 
 
 
@@ -9557,6 +9890,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9626,6 +9960,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9647,6 +9982,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9704,6 +10040,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9725,6 +10062,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9782,6 +10120,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9833,6 +10172,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9901,6 +10241,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10004,6 +10345,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10077,6 +10419,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10147,6 +10490,7 @@ This treatment targets Primary microcephaly (HP:0011451). HP:0011451 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11079,8 +11423,21 @@ imaging_findings:
     reference_title: Hypomyelination and reversible white matter attenuation in 3-phosphoglycerate dehydrogenase deficiency.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: Pre-treatment MRI demonstrated hypomyelination and profound white matter attenuation in all patients.
-    explanation: Establishes the pretreatment imaging pattern in the four-person series.
+    snippet: &gt;-
+      Recently, patients were reported with a potentially treatable disorder of serine biosynthesis.
+      They presented with congenital microcephaly, severe psychomotor retardation and intractable
+      seizures. Low concentrations of the amino acids serine, glycine as well as
+      5-methyltetrahydrofolate were found in plasma and CSF and were due to a deficiency of the
+      enzyme 3-phosphoglycerate dehydrogenase (3-PGDH). We studied four patients aged 10 months to 7
+      years by MRI before and after treatment with amino acids with a follow-up of 16 months to 6
+      years. Magnetic resonance spectroscopy (MRS) was performed in two patients at 4 and 16 months
+      of treatment. Pre-treatment MRI demonstrated hypomyelination and profound white matter
+      attenuation in all patients. During treatment, a significant increase in white matter volume
+      was found and a progress of myelination in two patients.
+    explanation: &gt;-
+      Restores the severe early presentation, 3-PGDH deficiency, four-patient age range and
+      treatment-response observation. The excerpt keeps the pretreatment result separate from
+      progress reported in two treated patients.
   - reference: PMID:11508546
     reference_title: Hypomyelination and reversible white matter attenuation in 3-phosphoglycerate dehydrogenase deficiency.
     supports: SUPPORT
@@ -11286,6 +11643,11 @@ genetic:
 has_subtypes:
 - name: Infantile
   display_name: Infantile PHGDH deficiency
+  genes:
+  - preferred_term: PHGDH
+    term:
+      id: hgnc:8923
+      label: PHGDH
   description: Classic severe neurodevelopmental presentation with congenital microcephaly, severe delay, variable seizures and spasticity, and possible hypomyelination.
   evidence:
   - reference: PMID:28135894
@@ -11296,6 +11658,11 @@ has_subtypes:
     explanation: Supports the PHGDH-specific infantile subtype.
 - name: Juvenile
   display_name: Juvenile-onset PHGDH deficiency
+  genes:
+  - preferred_term: PHGDH
+    term:
+      id: hgnc:8923
+      label: PHGDH
   description: Milder presentation reported in two siblings with absence seizures, mild developmental delay, behavioral abnormalities, and no obligatory microcephaly or MRI abnormality.
   evidence:
   - reference: DOI:10.1007/s10545-010-9249-5
@@ -11306,6 +11673,11 @@ has_subtypes:
     explanation: Defines the juvenile subtype.
 - name: Adult
   display_name: Reported adult PHGDH neuropathy presentation
+  genes:
+  - preferred_term: PHGDH
+    term:
+      id: hgnc:8923
+      label: PHGDH
   description: Case-level presentation reported in one adult with axonal sensorimotor polyneuropathy, slight ataxia, congenital cataracts, and mild developmental impairment.
   evidence:
   - reference: PMID:22393170
@@ -11321,6 +11693,11 @@ has_subtypes:
     term:
       id: MONDO:0009736
       label: Neu-Laxova syndrome 1
+  genes:
+  - preferred_term: PHGDH
+    term:
+      id: hgnc:8923
+      label: PHGDH
   description: &gt;-
     PHGDH-related Neu-Laxova syndrome 1 is the severe prenatal end of this exact
     disease. Neu-Laxova syndromes caused by PSAT1 or PSPH are genetically
@@ -12127,7 +12504,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "3-Phosphoglycerate Dehydrogenase Deficiency", "mondoId": "MONDO:0011152", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-Phosphoglycerate_Dehydrogenase_Deficiency", "yamlRevision": "d15de7df2f85"};
+        const OS_CONFIG = {"diseaseName": "3-Phosphoglycerate Dehydrogenase Deficiency", "mondoId": "MONDO:0011152", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "3-Phosphoglycerate_Dehydrogenase_Deficiency", "yamlRevision": "44f1d372e1e2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

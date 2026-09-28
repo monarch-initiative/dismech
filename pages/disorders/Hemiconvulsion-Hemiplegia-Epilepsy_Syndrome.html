@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4278,6 +4346,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4477,6 +4546,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4501,6 +4571,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4522,6 +4593,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4658,6 +4730,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4682,6 +4755,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4703,6 +4777,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4740,6 +4815,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-predisposing-factors-facilitating-prolonged-seizure" data-dismech-node="Predisposing Factors Facilitating Prolonged Seizure" data-dismech-type="pathophysiology">
                 <div class="item-name">Predisposing Factors Facilitating Prolonged Seizure</div>
+
 
                 <div class="item-desc">An upstream node covering what makes a particular child&#39;s febrile seizure run on rather than stop. It is also where the boundary between idiopathic and symptomatic cases sits. Two kinds of predisposition are recognized: a focal epileptogenic lesion, which in some cases is a mild cortical malformation only found after surgery, and genetic factors, for which CACNA1A is the one gene the primary literature names in connection with this syndrome. This node is deliberately upstream of, and not identical with, the status epilepticus itself; it is why some children with prolonged febrile seizures develop the syndrome and most do not. It is not a necessary node, since the syndrome occurs in children with no identified predisposition at all.</div>
 
@@ -4791,6 +4867,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4812,6 +4889,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4837,6 +4915,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-unilateral-febrile-status-epilepticus" data-dismech-node="Prolonged Unilateral Febrile Status Epilepticus" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Unilateral Febrile Status Epilepticus</div>
+
 
                 <div class="item-desc">The initiating event, and it is an event rather than a state: a convulsive seizure during a febrile illness in a child under about four, clonic and predominantly one-sided, which does not stop. Everything that follows is downstream of how long it ran. This is also why the syndrome is in principle preventable in a way most epilepsies are not, since the damage accrues during a window in which someone could be terminating the seizure.</div>
 
@@ -4894,6 +4973,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4915,6 +4995,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4940,6 +5021,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammation-and-blood-brain-barrier-breakdown" data-dismech-node="Inflammation and Blood-Brain Barrier Breakdown" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammation and Blood-Brain Barrier Breakdown</div>
+
 
                 <div class="item-desc">Two processes are proposed to convert a long seizure into tissue injury, and they reinforce each other. Fever and the underlying illness supply an inflammatory context thought to worsen the cell injury a seizure inflicts, and inflammation together with sustained ictal activity is proposed to compromise the blood-brain barrier. A leaking barrier in a seizing hemisphere is a plausible route from electrical activity to the oedema seen on imaging. Both remain proposals rather than demonstrations here.</div>
 
@@ -5029,6 +5111,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5051,6 +5134,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unexplained-hemispheric-selectivity" data-dismech-node="Unexplained Hemispheric Selectivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Unexplained Hemispheric Selectivity</div>
+
 
                 <div class="item-desc">The node this entry cannot fill, kept explicit rather than hidden. Whatever converts a prolonged seizure into injury does so on one side of the brain and stops at the midline, and the review that assembles the candidate mechanisms concludes that none of them accounts for this. Suggested directions include the maturational state of interhemispheric connections, the corpus callosum in particular, and genetic factors, but these are offered as hypotheses to test rather than answers. Any model of this syndrome that does not explain the midline is incomplete, and this one does not.</div>
 
@@ -5123,6 +5207,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5144,6 +5229,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5169,6 +5255,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-unilateral-cytotoxic-oedema" data-dismech-node="Acute Unilateral Cytotoxic Oedema" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Unilateral Cytotoxic Oedema</div>
+
 
                 <div class="item-desc">During and immediately after the status epilepticus, imaging shows the seizing hemisphere swollen with cytotoxic oedema, meaning water has moved into cells that are failing rather than into the interstitium. This is the acute radiological signature and the point at which the diagnosis can be made rather than inferred in retrospect, which matters because it is also the only point at which intervention could plausibly alter the outcome.</div>
 
@@ -5247,6 +5334,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5268,6 +5356,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5293,6 +5382,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemiplegia" data-dismech-node="Hemiplegia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemiplegia</div>
+
 
                 <div class="item-desc">Weakness of the side opposite the affected hemisphere, present when the seizure stops rather than developing later, which distinguishes it from a post-ictal Todd paresis that resolves. Its degree varies and it is the second element of the syndrome&#39;s name.</div>
 
@@ -5331,6 +5421,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5353,6 +5444,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebral-hemiatrophy" data-dismech-node="Progressive Cerebral Hemiatrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebral Hemiatrophy</div>
+
 
                 <div class="item-desc">Over the months after the acute event the swollen hemisphere shrinks, ending in severe chronic atrophy of that side alone. The swelling and the atrophy are the same process seen at two timepoints, which is why serial imaging is more informative than any single scan, and why a scan obtained late shows a picture that could be mistaken for a congenital malformation.</div>
 
@@ -5425,6 +5517,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5447,6 +5540,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptogenic-reorganization-of-the-damaged-hemisphere" data-dismech-node="Epileptogenic Reorganization of the Damaged Hemisphere" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptogenic Reorganization of the Damaged Hemisphere</div>
+
 
                 <div class="item-desc">Between the hemiatrophy and the epilepsy there is a latent interval, the classic signature of epileptogenesis rather than of ongoing seizures: the damaged tissue reorganizes into a network that generates seizures, and that takes time. The interval is variable, which is part of why the eventual epilepsy can seem to arrive out of nowhere in a child whose acute illness was months or years earlier.</div>
 
@@ -5498,6 +5592,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5520,6 +5615,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-drug-resistant-focal-epilepsy-from-the-affected-hemisphere" data-dismech-node="Drug-Resistant Focal Epilepsy from the Affected Hemisphere" data-dismech-type="pathophysiology">
                 <div class="item-name">Drug-Resistant Focal Epilepsy from the Affected Hemisphere</div>
+
 
                 <div class="item-desc">The third element of the name and the reason this is a lifelong diagnosis rather than an acute illness. Seizures arise from the atrophic hemisphere and are typically refractory to medication, which is what brings these children to epilepsy surgery: the damaged side is already largely non-functional and the healthy side has had years to take over, so disconnection has an unusually favourable ratio of benefit to further loss.</div>
 
@@ -5555,6 +5651,7 @@ This pathophysiological event occurs in cerebral hemisphere (UBERON:0001869). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5665,6 +5762,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5679,6 +5779,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5742,6 +5843,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5756,6 +5860,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5812,6 +5917,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5826,6 +5934,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5850,6 +5959,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5904,6 +6014,9 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5918,6 +6031,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5992,6 +6106,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6006,6 +6123,7 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6104,6 +6222,9 @@ This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6118,6 +6239,7 @@ This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6175,6 +6297,9 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6189,6 +6314,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6213,6 +6339,7 @@ This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from th
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6298,6 +6425,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6308,6 +6438,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6351,6 +6484,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6417,6 +6551,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6427,6 +6564,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6473,6 +6613,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6494,6 +6635,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6560,6 +6702,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6570,6 +6715,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6613,6 +6761,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6679,6 +6828,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6689,6 +6841,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6732,6 +6887,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6842,6 +6998,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6931,6 +7088,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6998,6 +7156,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7047,6 +7206,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7115,6 +7275,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7223,6 +7384,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7301,6 +7463,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7322,6 +7485,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7398,6 +7562,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8680,6 +8845,27 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope note. The MONDO term used here names the idiopathic form, deliberately: the review literature reports idiopathic HH/HHE as the commonest form, and symptomatic cases, in which a pre-existing lesion or a genetic epilepsy predisposes to the prolonged seizure, are modeled here as a predisposing-factor node rather than as a separate disease. The two share the cascade from prolonged unilateral status onward; what differs is what let the seizure run that long.
+On the central gap. This entry curates a mechanism it cannot complete. Each step from prolonged febrile seizure through inflammation and blood-brain barrier failure to cytotoxic oedema, hemiatrophy, and late epilepsy is supported, but none of it explains the syndrome&#39;s defining feature, which is that the injury respects the midline. The standard review states plainly that the proposed factors cannot account for the elective involvement of an entire hemisphere. That is recorded as an explicit knowledge gap rather than smoothed over with a plausible-sounding chain, and the graph carries a node whose content is honestly incomplete.
+Sourcing note. The entry was drafted from the standard review and the clinical summaries, then cross-checked against a deep-research report generated with the falcon provider (Edison Scientific), committed here as research/Hemiconvulsion-Hemiplegia-Epilepsy_Syndrome-deep-research-falcon.md. One property of that report shapes how it was used: it states in its own evidence-limitations section that direct abstract quotations could not be supplied reliably, because most articles on this syndrome were not available as searchable full text, and that it therefore omitted PMIDs rather than risk supplying incorrect identifiers. That is the right call by the tool, and the consequence for curation is that the report was used as a completeness cross-check only. No snippet in this entry is taken from it; every quotation here comes from a reference fetched and verified against its own cache. The report also records that an Open Targets query for this syndrome returned zero results, which is itself informative about how little tractable target biology exists here.
+Module conformance note. Two nodes conform to epilepsy_excitation_inhibition_imbalance, at the hyperexcitability and recurrent-seizure nodes. The module&#39;s ion-channel trigger is not claimed: the proximal event is a prolonged provoked seizure in a normally developing child, not a channel defect, and the late epilepsy arises from acquired structural damage.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hemiconvulsion-Hemiplegia-Epilepsy Syndrome</strong> · 2026-08-05T22:29:28Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hemiconvulsion-Hemiplegia-Epilepsy_Syndrome/2026-08-05T222928Z-claude-code-b1497f.yaml">View source</a></p>
+                        <p class="research-review-text">Created the HHE entry as an eight-node pathograph running from prolonged unilateral febrile status epilepticus through inflammation and blood-brain-barrier breakdown to acute unilateral cytotoxic oedema, then splitting into hemiplegia and progressive cerebral hemiatrophy, and converging on epileptogenic reorganization of the damaged hemisphere and drug-resistant focal epilepsy. Two nodes declare conformance to epilepsy_excitation_inhibition_imbalance. Two discussions are attached: a knowledge gap on why injury is confined to one hemisphere, and a controversy on the immature-brain resistance paradox. Deep research was run with the falcon provider; that report states in its own limitations section that it could not supply reliable abstract quotations and deliberately omitted PMIDs, so it was used as a completeness cross-check only and contributed no snippets. All 31 snippets were verified against their own fetched caches, and term validation passes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4215,6 +4283,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4237,6 +4306,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4451,6 +4521,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-orai1-variants" data-dismech-node="Biallelic Loss-of-Function ORAI1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss-of-Function ORAI1 Variants</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous ORAI1 variants. Reported alleles include the founding p.R91W missense change, frameshift/nonsense alleles (p.A88SfsX25, p.V181SfsX8), and missense alleles p.A103E, p.L194P and p.G98R. Frameshift and several missense alleles abolish ORAI1 protein expression outright; p.R91W leaves protein expressed but non-conducting, so both null and functionally-null genotypes converge on the same cellular phenotype.
 </div>
 
@@ -4516,6 +4587,8 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4534,6 +4607,9 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic ORAI1 alleles. Both protein-abolishing (frameshift, nonsense, several missense) and expression-preserving but pore-inactivating (p.R91W) mechanisms are represented.</div>
 
@@ -4583,6 +4659,7 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4605,6 +4682,7 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4631,6 +4709,7 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-crac-channel-pore-function" data-dismech-node="Loss of CRAC Channel Pore Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CRAC Channel Pore Function</div>
+
 
                 <div class="item-desc">ORAI1 is the pore-forming subunit of the CRAC channel. Without functional ORAI1, STIM1 has no pore to gate on store depletion, and the CRAC current (I_CRAC) is absent. That ORAI1 is the pore rather than a regulator is established by the rescue experiment: expressing wild-type Orai1 in patient SCID T cells restores both store-operated calcium influx and I_CRAC.
 </div>
@@ -4723,6 +4802,7 @@ This pathophysiological event involves store-operated calcium channel activity (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4746,6 +4826,7 @@ This pathophysiological event involves store-operated calcium channel activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abolished-store-operated-calcium-entry" data-dismech-node="Abolished Store-Operated Calcium Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Abolished Store-Operated Calcium Entry</div>
+
 
                 <div class="item-desc">Store-operated calcium entry is the dominant sustained calcium influx pathway in lymphocytes. Its loss is demonstrable in patient T cells, fibroblasts and other cell types, and is the single cellular lesion from which every downstream arm of the disease follows. Because ORAI1 is expressed almost ubiquitously, the lesion is present in far more tissues than are clinically affected — the restriction of the phenotype reflects where SOCE is non-redundant, not where ORAI1 is expressed.
 </div>
@@ -4954,6 +5035,7 @@ This pathophysiological event involves decreased store-operated calcium entry (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4977,6 +5059,7 @@ This pathophysiological event involves decreased store-operated calcium entry (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-calcineurin-nfat-dependent-transcription" data-dismech-node="Failure of Calcineurin-NFAT Dependent Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Calcineurin-NFAT Dependent Transcription</div>
+
 
                 <div class="item-desc">NFAT is heavily phosphorylated and cytoplasmic in resting lymphocytes and enters the nucleus only when dephosphorylated by the calcium/calmodulin dependent phosphatase calcineurin. Without sustained calcium entry calcineurin is not activated, NFAT does not translocate, and the large NFAT-dependent transcriptional programme — cytokines, chemokines and many other genes required for a productive immune response — is not induced.
 </div>
@@ -5077,6 +5160,7 @@ This pathophysiological event involves decreased calcineurin-NFAT signaling casc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5100,6 +5184,7 @@ This pathophysiological event involves decreased calcineurin-NFAT signaling casc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-t-cell-effector-function" data-dismech-node="Impaired T Cell Effector Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired T Cell Effector Function</div>
+
 
                 <div class="item-desc">The defining immunological abnormality. T cells are present in normal numbers and develop normally, but fail to produce cytokines and fail to proliferate on stimulation. This is a functional, not a developmental, combined immunodeficiency — the point at which ORAI1 deficiency separates from the classical T-negative severe combined immunodeficiencies.
 </div>
@@ -5260,6 +5345,7 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5283,6 +5369,7 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-invariant-nkt-and-regulatory-t-cell-numbers" data-dismech-node="Reduced Invariant NKT and Regulatory T Cell Numbers" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Invariant NKT and Regulatory T Cell Numbers</div>
+
 
                 <div class="item-desc">Beyond the functional defect in conventional T cells, ORAI1-deficient patients have strongly reduced numbers of invariant natural killer T cells and regulatory T cells, and altered composition of gamma-delta T cell and NK cell subsets. Loss of the regulatory compartment is the most plausible route from a calcium-signalling defect to the autoimmunity these patients develop, which is otherwise a counterintuitive feature of an immunodeficiency.
 </div>
@@ -5413,6 +5500,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5436,6 +5524,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-severe-infection" data-dismech-node="Susceptibility to Severe Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Severe Infection</div>
+
 
                 <div class="item-desc">Recurrent and life-threatening infection presenting in infancy, the clinical presentation that brings these patients to attention. Untreated, the immunodeficiency is fatal in early childhood.
 </div>
@@ -5490,6 +5579,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5513,6 +5603,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmunity</div>
+
 
                 <div class="item-desc">Autoimmune cytopenias — haemolytic anaemia and thrombocytopenia — occur in ORAI1-deficient patients alongside the immunodeficiency, and where they occur they are attributed to loss of the regulatory T cell compartment rather than to the effector defect. How often they occur is disputed and the entry does not settle it. The published series up to 2015 record the same single autoimmune patient — 1 of 6 in the 2009 report, which states it covers every ORAI1 patient then known, and 1 of 7 in the 2015 review, whose denominator is those six plus one later patient — and the review calls autoimmunity less common in ORAI1 than in STIM1 deficiency on that basis. Lian 2018 then reported three affected patients in one series. So the disagreement is between an early near-complete census and a later series, not between two independent cohorts. The review itself notes that the small patient numbers and early mortality may censor the observation rather than establish a low rate. The node is retained because the phenomenon is real and mechanistically informative about the Treg compartment, not because it is a recurrent feature of every patient.
 </div>
@@ -5567,6 +5658,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5589,6 +5681,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5617,6 +5710,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5642,6 +5736,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-muscle-calcium-handling" data-dismech-node="Impaired Skeletal Muscle Calcium Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Muscle Calcium Handling</div>
+
 
                 <div class="item-desc">A congenital, non-progressive muscular hypotonia is part of the core syndrome. Store-operated calcium entry contributes to refilling sarcoplasmic reticulum calcium stores in skeletal muscle, and its loss produces a myopathy that is present from birth and does not progress in the way an inflammatory or dystrophic myopathy would.
 </div>
@@ -5802,6 +5897,7 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5825,6 +5921,7 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-enamel-mineralization" data-dismech-node="Defective Enamel Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Enamel Mineralization</div>
+
 
                 <div class="item-desc">Ameloblasts depend on CRAC-mediated calcium influx to supply the calcium used to mineralize enamel. Loss of that supply produces an amelogenesis imperfecta-like enamel phenotype affecting both deciduous and permanent teeth, with discoloration, hypoplasia, increased wear and chipping. In some reported patients the dental problem was the chief presenting complaint.
 </div>
@@ -5951,6 +6048,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5973,6 +6071,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5999,6 +6098,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sweat-gland-secretory-failure" data-dismech-node="Sweat Gland Secretory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sweat Gland Secretory Failure</div>
+
 
                 <div class="item-desc">Anhidrosis or hypohidrosis, part of the ectodermal dysplasia component of the syndrome. Sweat gland fluid secretion is calcium-dependent, and loss of store-operated calcium entry in sweat gland secretory cells is the presumed mechanism. The step from SOCE loss to failed secretion has been reasoned from the phenotype rather than measured directly in patient sweat gland tissue, which is why the incoming edge is marked indirect.
 </div>
@@ -6050,6 +6150,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6167,6 +6268,9 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6181,6 +6285,7 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6238,6 +6343,9 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6252,6 +6360,7 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6316,6 +6425,9 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6330,6 +6442,7 @@ This clinical feature is Amelogenesis imperfecta (HP:0000705). HP:0000705 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6394,6 +6507,9 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6408,6 +6524,7 @@ This clinical feature is Combined immunodeficiency (HP:0005387). HP:0005387 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6472,6 +6589,9 @@ This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6486,6 +6606,7 @@ This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6570,6 +6691,9 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as course
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6584,6 +6708,7 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as course
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6683,6 +6808,9 @@ This disease-associated gene is ORAI1 (hgnc:25896). hgnc:25896 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6697,6 +6825,7 @@ This disease-associated gene is ORAI1 (hgnc:25896). hgnc:25896 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6722,6 +6851,7 @@ This disease-associated gene is ORAI1 (hgnc:25896). hgnc:25896 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6809,6 +6939,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6819,6 +6952,9 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
     </div>
+
+
+
 
 
 
@@ -6897,6 +7033,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6907,6 +7046,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6986,6 +7128,9 @@ This treatment is dental restorative treatment, annotated with Therapeutic Proce
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6996,6 +7141,9 @@ This treatment is dental restorative treatment, annotated with Therapeutic Proce
 
 
     </div>
+
+
+
 
 
 
@@ -7042,6 +7190,7 @@ This treatment is dental restorative treatment, annotated with Therapeutic Proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7109,6 +7258,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7119,6 +7271,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7197,6 +7352,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7207,6 +7365,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7295,6 +7456,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7348,6 +7510,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7426,14 +7589,15 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"We identified 3 novel autosomal recessive mutations in ORAI1 in unrelated kindreds"</div>
+                <div class="evidence-snippet">"We identified 3 novel autosomal recessive mutations in ORAI1 in unrelated kindreds with CID, autoimmunity, ectodermal dysplasia with anhidrosis, and muscular dysplasia. The patients were homozygous for p.V181SfsX8, p.L194P, and p.G98R mutations in the ORAI1 gene that suppressed ORAI1 protein..."</div>
 
 
-                <div class="evidence-explanation">Illustrates the scale of the reported literature: novel kindreds are still being reported one to three at a time more than a decade after gene discovery.</div>
+                <div class="evidence-explanation">The study describes four patients from three unrelated kindreds with recessive ORAI1 mutations, combined immunodeficiency and abolished ORAI1 expression/SOCE. These are study case counts, not a complete worldwide census or a population rate.</div>
 
 
 
@@ -7563,6 +7727,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7804,11 +7969,17 @@ prevalence:
     reference_title: &#34;ORAI1 mutations abolishing store-operated Ca(2+) entry cause anhidrotic ectodermal dysplasia with immunodeficiency.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;We identified 3 novel autosomal recessive mutations in ORAI1 in unrelated kindreds&#34;
+    snippet: &gt;-
+      We identified 3 novel autosomal recessive mutations in ORAI1 in unrelated kindreds with CID,
+      autoimmunity, ectodermal dysplasia with anhidrosis, and muscular dysplasia. The patients were
+      homozygous for p.V181SfsX8, p.L194P, and p.G98R mutations in the ORAI1 gene that suppressed
+      ORAI1 protein expression and SOCE in the patients&#39; lymphocytes and fibroblasts. ... We here
+      identify 4 patients from unrelated kindreds with 3 novel autosomal recessive mutations in
+      ORAI1. All mutations resulted in abolished ORAI1 protein expression and SOCE.
     explanation: &gt;-
-      Illustrates the scale of the reported literature: novel kindreds are
-      still being reported one to three at a time more than a decade after
-      gene discovery.
+      The study describes four patients from three unrelated kindreds with recessive ORAI1
+      mutations, combined immunodeficiency and abolished ORAI1 expression/SOCE. These are study case
+      counts, not a complete worldwide census or a population rate.
 pathophysiology:
 - name: Biallelic Loss-of-Function ORAI1 Variants
   biological_scale: MOLECULAR
@@ -8680,6 +8851,33 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Ultra-rare. The published cohort is a small number of kindreds: the founding SCID family with the homozygous ORAI1 p.R91W missense allele (Feske et al., Nature 2006), two further unrelated families with a frameshift and a compound heterozygous missense genotype (McCarl et al., JACI 2009), and three further unrelated kindreds homozygous for p.V181SfsX8, p.L194P and p.G98R (Lian et al., JACI 2018). Counts in this entry are therefore counts of kindreds or patients, never frequencies, and `frequency` is deliberately left unset throughout rather than computed from a cohort this small.
+The entry is deliberately careful about one distinction that the disease name invites people to get wrong. This is a combined immunodeficiency of lymphocyte *function*, not of lymphocyte *development*: patients have normal or near-normal T, B and NK cell counts and normal thymic output, and the defect appears on stimulation. That is what separates ORAI1 deficiency from the classical T-B-NK- severe combined immunodeficiencies it is often grouped with, and it is why the pathograph routes through cytokine transcription rather than through a lymphopoiesis node.
+The sibling disease STIM1 deficiency (MONDO:0013006) produces a closely overlapping syndrome through loss of the ER calcium sensor that gates ORAI1, and both sit under `combined immunodeficiency due to CRAC channel dysfunction` (MONDO:0015695). The 2015 review calls the two phenotypes &#34;almost identical&#34; and names autoimmune cytopenias as the one apparent difference, being commoner in STIM1 deficiency — while cautioning that the small patient numbers and early mortality may be what produces that difference. The Autoimmunity node below carries that dispute.
+No `has_subtypes` relationship is asserted between them here: they are separate genes and separate MONDO concepts, and the right structure for the pair is a future grouping, not a subtype list.
+Anhidrotic ectodermal dysplasia with immunodeficiency (AED-ID) is also caused by defects in NF-kappaB signalling (IKBKG/NEMO, NFKBIA). The ORAI1-associated form is a phenotypic convergence on a different mechanism, not a variant of those, and Lian et al. make that point explicitly. It is recorded in `discussions` rather than left implicit, because the overlap is a real differential-diagnosis trap.
+**ORAI1 is a two-faced gene, and this entry is only one of its faces.** Autosomal *dominant* gain-of-function ORAI1 variants constitutively activate the CRAC channel and cause an entirely different, overlapping spectrum that includes tubular aggregate myopathy and Stormorken syndrome. Those are not &#34;ORAI1 deficiency&#34; and are not curated here. The distinction matters practically: a literature search on ORAI1 returns both, and the myopathy in the gain-of-function diseases is a different lesion from the congenital hypotonia described below, despite both being muscle.
+**`channelopathy_category` is deliberately unset.** `ChannelopathyOrganSystemEnum` offers cardiac, skeletal muscle, neurological and epithelial, and none of them names an immune channelopathy — which is what this disease principally is. Recording that here so a future curator does not force one of the four onto it; the enum needs an immune value, not this entry needs a wrong one.
+No `conforms_to` was declared. The candidate module families were searched and none matches: this is a channel-gated transcription-factor activation failure, not an inflammatory, fibrotic, or degeneration chain. If a calcium-signalling-failure module is ever created, this entry and STIM1 deficiency are its first two conformers.
+**Deep-research provenance.** An OpenScientist run (`research/ORAI1_Deficiency-deep-research-openscientist.md`) is committed alongside this entry; `just preflight-dr` scores it PASS with ORAI1 at 59 mentions and a matching OMIM (612782), and 13/13 of its references resolved with 11/13 on topic. It contributed the haemophagocytic lymphohistiocytosis presentation (PMID:28633876) and the gain-of-function contrast (PMID:26469693) recorded above. Every quote used was re-verified against the fetched reference cache rather than taken from the report.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: ORAI1 Deficiency (combined immunodeficiency due to CRAC channelopathy)</strong> · 2026-08-31T21:58:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/ORAI1_Deficiency/2026-08-31T215846Z-claude-code-19d55f.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of combined immunodeficiency due to ORAI1 deficiency (MONDO:0013007) resolving curation claim #10296, which replaced claim #10291 after autosomal dominant brachyolmia turned out to be already curated. The pathograph runs biallelic ORAI1 loss of function -&gt; loss of CRAC channel pore function -&gt; abolished store-operated calcium entry, then branches into four organ arms: calcineurin/NFAT transcriptional failure (the immune arm), skeletal muscle calcium handling, ameloblast enamel mineralization, and sweat gland secretion. The immune arm is deliberately modelled as a defect of lymphocyte function rather than development - patients have normal T, B and NK counts and the defect appears on stimulation - which is what separates this from the classical T-negative severe combined immunodeficiencies it is usually grouped with. Autoimmunity is routed through reduced invariant NKT and regulatory T cell numbers rather than asserted directly. The sweat gland edge is marked INDIRECT_KNOWN_INTERMEDIATES because the cellular step has not been measured in patient sweat gland tissue. Three knowledge gaps recorded: why the phenotype is restricted when ORAI1 protein is broadly expressed; whether HSCT leaves the myopathic and ectodermal arms untouched on long follow-up; and whether the autoimmunity is Treg-loss-driven or an independent consequence. The Orai1 null mouse is linked as PARTIALLY_RECAPITULATES with the caveat that its reported male-infertility phenotype has no observable human counterpart because ORAI1-null patients rarely reach reproductive age. Deep research: one OpenScientist run, committed; preflight-dr PASS (ORAI1=59 mentions, OMIM 612782 matching), 13/13 references resolved and 11/13 on topic. It contributed the HLH presentation (PMID:28633876) and the ORAI1 gain-of-function contrast with tubular aggregate myopathy and Stormorken syndrome (PMID:26469693), the latter now recorded in notes so a future curator does not merge the two faces of this gene. Two term errors caught in curation: NCIT device-versus-action confusion was avoided by binding clinical actions only, and HP:0012311 was rejected by linkml-term-validator as Increased total monocyte count - the correct hemophagocytosis term is HP:0012156. Validated with just validate (29/29 snippets verified), just validate-terms, check-entity-refs, check-enum-values, check-snippet-length and check-folded-hyphens.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9214,7 +9412,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ORAI1 Deficiency", "mondoId": "MONDO:0013007", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ORAI1_Deficiency", "yamlRevision": "afa0df665ef9"};
+        const OS_CONFIG = {"diseaseName": "ORAI1 Deficiency", "mondoId": "MONDO:0013007", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ORAI1_Deficiency", "yamlRevision": "51001eae2310"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

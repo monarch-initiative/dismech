@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4220,6 +4288,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4244,6 +4313,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4265,6 +4335,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4397,6 +4468,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4454,6 +4526,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4475,6 +4548,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4525,6 +4599,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4546,6 +4621,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4623,6 +4699,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4644,6 +4721,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4776,6 +4854,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4833,6 +4912,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4880,6 +4960,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4904,6 +4985,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4925,6 +5007,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4964,6 +5047,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heparin-exposure-and-pf4-heparin-neoepitope-formation" data-dismech-node="Heparin Exposure and PF4-Heparin Neoepitope Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heparin Exposure and PF4-Heparin Neoepitope Formation</div>
+
 
                 <div class="item-desc">Heparin is a polyanion; platelet factor 4 (PF4, CXCL4) is a small positively charged tetramer stored in platelet alpha-granules. When the two meet at the right stoichiometric ratio they assemble into ultralarge multimolecular complexes, and the conformational change this imposes on PF4 exposes epitopes that the immune system has never seen. The antigen is therefore neither the drug nor a self protein but a complex of the two - which is why the disease is an adverse drug reaction with the mechanics of autoimmunity.</div>
 
@@ -5060,6 +5144,7 @@ This pathophysiological event involves PF4 (hgnc:8861). hgnc:8861 is a gene from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5081,6 +5166,7 @@ This pathophysiological event involves PF4 (hgnc:8861). hgnc:8861 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5106,6 +5192,7 @@ This pathophysiological event involves PF4 (hgnc:8861). hgnc:8861 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anti-pf4-heparin-igg-antibody-response" data-dismech-node="Anti-PF4/Heparin IgG Antibody Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Anti-PF4/Heparin IgG Antibody Response</div>
+
 
                 <div class="item-desc">Antibodies against the PF4-heparin neoepitope appear rapidly, typically within five to ten days of first exposure, and the pathogenic isotype is IgG. Two features distinguish this from a conventional secondary immune response: it does not require prior sensitization to reach IgG, and it is transient, with antibodies typically becoming undetectable over weeks to months. Only a minority of antibodies that bind the complex can activate platelets, which is the single most important fact for interpreting a positive immunoassay.</div>
 
@@ -5205,6 +5292,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5226,6 +5314,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5251,6 +5340,7 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fcgammariia-mediated-platelet-activation-by-immune-complexes" data-dismech-node="FcgammaRIIA-Mediated Platelet Activation by Immune Complexes" data-dismech-type="pathophysiology">
                 <div class="item-name">FcgammaRIIA-Mediated Platelet Activation by Immune Complexes</div>
+
 
                 <div class="item-desc">Multivalent IgG immune complexes assembled on the platelet surface cross-link FcgammaRIIA (CD32a), the only Fc receptor human platelets carry, and trigger full platelet activation. This is the central effector step and the point at which an immune event becomes a coagulation event. Activation causes alpha-granule release, which liberates yet more PF4 into the local environment and feeds the antigen supply - a self-amplifying loop that helps explain why the syndrome escalates rather than self-limiting while heparin continues.</div>
 
@@ -5523,6 +5613,7 @@ This pathophysiological event involves increased platelet degranulation (GO:0002
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5544,6 +5635,7 @@ This pathophysiological event involves increased platelet degranulation (GO:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5569,6 +5661,7 @@ This pathophysiological event involves increased platelet degranulation (GO:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-procoagulant-platelet-microparticle-release" data-dismech-node="Procoagulant Platelet Microparticle Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Procoagulant Platelet Microparticle Release</div>
+
 
                 <div class="item-desc">Activated platelets shed submicron membrane vesicles that expose anionic phospholipid and assemble coagulation factor complexes on their surface. These microparticles carry the procoagulant activity of a platelet without being counted as one, which is part of why the measured platelet count and the thrombotic risk move in opposite directions in this disease.</div>
 
@@ -5694,6 +5787,7 @@ This pathophysiological event involves increased blood microparticle formation (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5716,6 +5810,13 @@ This pathophysiological event involves increased blood microparticle formation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monocyte-tissue-factor-expression-and-endothelial-activation" data-dismech-node="Monocyte Tissue Factor Expression and Endothelial Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Monocyte Tissue Factor Expression and Endothelial Activation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The immune complexes are not platelet-specific. They also engage Fc receptors on monocytes, inducing tissue factor expression, and PF4 bound to endothelial heparan sulfate makes the vessel wall itself a target. The result is a procoagulant surface spanning several cell types rather than a purely platelet event. This node is curated as PROVISIONAL because the endothelial arm is hedged in the source literature.</div>
 
@@ -5914,6 +6015,7 @@ This pathophysiological event involves increased positive regulation of blood co
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5936,6 +6038,7 @@ This pathophysiological event involves increased positive regulation of blood co
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-explosive-thrombin-generation" data-dismech-node="Explosive Thrombin Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Explosive Thrombin Generation</div>
+
 
                 <div class="item-desc">Platelet microparticles, monocyte tissue factor, and an activated endothelial surface converge on massive thrombin generation. This is the hinge of the entire disease: it is what converts a syndrome named for a low platelet count into one of the most intensely prothrombotic states in medicine, and it is why the therapeutic answer is a thrombin inhibitor rather than platelet support.</div>
 
@@ -6035,6 +6138,7 @@ This pathophysiological event involves increased activation of blood coagulation
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6056,6 +6160,7 @@ This pathophysiological event involves increased activation of blood coagulation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6081,6 +6186,7 @@ This pathophysiological event involves increased activation of blood coagulation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-platelet-consumption-and-thrombocytopenia" data-dismech-node="Accelerated Platelet Consumption and Thrombocytopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Platelet Consumption and Thrombocytopenia</div>
+
 
                 <div class="item-desc">Platelets that have been activated and opsonized by immune complexes are cleared from the circulation, and the count typically falls by more than half from its peak. The fall is usually moderate rather than profound, and that matters diagnostically: a platelet count of 20 x 10^9/L or below is atypical and should raise the possibility of autoimmune HIT with associated consumptive coagulopathy. Critically, this thrombocytopenia is a marker of consumption by activation, not a bleeding lesion.</div>
 
@@ -6173,6 +6279,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6194,6 +6301,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6220,6 +6328,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-venous-and-arterial-thrombosis" data-dismech-node="Venous and Arterial Thrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Venous and Arterial Thrombosis</div>
+
 
                 <div class="item-desc">Thrombosis is the outcome that kills in HIT, and it occurs on both sides of the circulation - deep venous thrombosis and pulmonary embolism most often, but also limb artery occlusion, myocardial infarction, and stroke. The combination is unusual: most prothrombotic states favour one vascular bed. The risk is not abolished by stopping heparin, which is the single most consequential clinical fact about this disease, because the antibodies and the thrombin they generate persist after the drug is withdrawn.</div>
 
@@ -6293,6 +6402,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6314,6 +6424,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6339,6 +6450,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thrombotic-occlusion-and-ischemic-tissue-injury" data-dismech-node="Thrombotic Occlusion and Ischemic Tissue Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Thrombotic Occlusion and Ischemic Tissue Injury</div>
+
 
                 <div class="item-desc">Occlusion of a vessel by thrombus deprives the tissue it supplies. In HIT the consequences range from pulmonary embolism to limb ischemia requiring amputation, which is why limb loss appears alongside death and new thrombosis in the composite endpoints of HIT treatment trials.</div>
 
@@ -6377,6 +6489,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6399,6 +6512,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-warfarin-induced-protein-c-depletion-and-microvascular-thrombosis" data-dismech-node="Warfarin-Induced Protein C Depletion and Microvascular Thrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Warfarin-Induced Protein C Depletion and Microvascular Thrombosis</div>
+
 
                 <div class="item-desc">Warfarin lowers protein C, a short-half-life vitamin-K-dependent natural anticoagulant, faster than it lowers the procoagulant factors it is given to suppress. In an ordinary patient this transient imbalance is tolerated. In a patient with active HIT, whose thrombin generation is already unrestrained, the loss of protein C removes the last brake on microvascular thrombin and can produce venous limb gangrene - progressive necrosis of a limb whose large veins are thrombosed but whose arteries remain patent. This is an iatrogenic node: the pathology is created by the treatment, and it is the mechanistic reason warfarin is contraindicated until platelet recovery and adequate alternative anticoagulation.</div>
 
@@ -6480,6 +6594,7 @@ This pathophysiological event involves PROC (hgnc:9451). hgnc:9451 is a gene fro
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6501,6 +6616,7 @@ This pathophysiological event involves PROC (hgnc:9451). hgnc:9451 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6526,6 +6642,13 @@ This pathophysiological event involves PROC (hgnc:9451). hgnc:9451 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heparin-independent-platelet-activation-in-autoimmune-hit" data-dismech-node="Heparin-Independent Platelet Activation in Autoimmune HIT" data-dismech-type="pathophysiology">
                 <div class="item-name">Heparin-Independent Platelet Activation in Autoimmune HIT</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In a distinct subset, the antibodies activate platelets strongly without any heparin present. This changes the disease&#39;s behaviour in ways that matter clinically: it can begin or worsen after heparin has already been stopped (delayed-onset HIT), persist for weeks, or arise with no heparin exposure at all (spontaneous HIT syndrome). The laboratory signature is characteristic rather than absent - these sera still show the classic inhibition of platelet activation at high heparin concentrations, and on serial dilution usually reveal heparin-dependent activation, so the antibodies are a variant of the same species rather than a different one.</div>
 
@@ -6651,6 +6774,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6675,6 +6799,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6696,6 +6821,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6744,7 +6870,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Platelet Consumption and Thrombocytopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelets that have been activated and opsonized by immune complexes are cleared from the circulation, and the count typically falls by more than half from its peak. The fall is usually moderate rather than profound, and that matters diagnostically: a platelet count of 20 x 10^9/L or below is atypical and should raise the possibility of autoimmune HIT with associated consumptive coagulopathy. Critically, this thrombocytopenia is a marker of consumption by activation, not a bleeding lesion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"role\": \"outcome\", \"animal_models\": [{\"name\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human FcgammaRIIA and human PF4\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Double-transgenic animals given KKO and heparin develop a profound platelet fall that single-transgene controls do not.\"}]}}, {\"id\": \"Anti-PF4/Heparin IgG Antibody Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibodies against the PF4-heparin neoepitope appear rapidly, typically within five to ten days of first exposure, and the pathogenic isotype is IgG. Two features distinguish this from a conventional secondary immune response: it does not require prior sensitization to reach IgG, and it is transient, with antibodies typically becoming undetectable over weeks to months. Only a minority of antibodies that bind the complex can activate platelets, which is the single most important fact for interpreting a positive immunoassay.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Immunoglobulin production\"], \"role\": \"mediator\"}}, {\"id\": \"Argatroban\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A direct thrombin inhibitor given intravenously, and the treatment whose evidence base in HIT is strongest. It acts at the node that actually causes the harm - thrombin generation - rather than at the platelet count. In a prospective multicentre study against historical controls it reduced the composite of death, amputation, and new thrombosis, with the benefit concentrated in new thrombosis and thrombotic death, and without an excess of bleeding. Hepatically cleared, so it is the practical choice in renal impairment.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"argatroban\"]}}, {\"id\": \"Cessation of All Heparin Exposure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Withdrawal of every source of heparin, including flushes and coated catheters, removes the antigen and stops further immune complex formation. It is necessary and it is not sufficient: the antibodies already present continue to activate platelets and generate thrombin, so a patient managed by withdrawal alone remains at high thrombotic risk. This is the single most common management error the mechanism predicts, and the reason substitution rather than simple cessation is the standard.\"}, {\"id\": \"Deferral of Vitamin K Antagonist Until Platelet Recovery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Withholding warfarin during the acute phase, and overlapping it with a non-heparin anticoagulant once the platelet count has recovered, is an intervention in its own right rather than an omission. Its target is the iatrogenic node: warfarin depletes protein C faster than the procoagulant factors, and in a patient with unrestrained thrombin generation that imbalance can produce venous limb gangrene. Deferral removes that precipitant.\", \"meta\": {\"therapeutic_agents\": [\"warfarin\"]}}, {\"id\": \"Direct Oral Anticoagulants\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rivaroxaban and apixaban are among the non-heparin agents guidelines endorse for acute HIT. They are attractive because they need no parenteral access or APTT titration - which also removes the APTT-confounding problem that threatens direct thrombin inhibitor dosing in the autoimmune subset. The recommendation is conditional rather than strong, and they sit here as one option among several rather than as a preferred agent.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rivaroxaban\", \"apixaban\"]}}, {\"id\": \"Explosive Thrombin Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelet microparticles, monocyte tissue factor, and an activated endothelial surface converge on massive thrombin generation. This is the hinge of the entire disease: it is what converts a syndrome named for a low platelet count into one of the most intensely prothrombotic states in medicine, and it is why the therapeutic answer is a thrombin inhibitor rather than platelet support.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"activation of blood coagulation via clotting cascade\"], \"role\": \"central_effector\"}}, {\"id\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multivalent IgG immune complexes assembled on the platelet surface cross-link FcgammaRIIA (CD32a), the only Fc receptor human platelets carry, and trigger full platelet activation. This is the central effector step and the point at which an immune event becomes a coagulation event. Activation causes alpha-granule release, which liberates yet more PF4 into the local environment and feeds the antigen supply - a self-amplifying loop that helps explain why the syndrome escalates rather than self-limiting while heparin continues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"Fc-gamma receptor signaling pathway\", \"platelet activation\", \"platelet degranulation\"], \"genes\": [\"FCGR2A\"], \"gene_terms\": [{\"label\": \"FCGR2A\", \"id\": \"hgnc:3616\"}], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human FcgammaRIIA and human PF4\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Disease requires the human FcgammaRIIA transgene: animals transgenic for hPF4 alone do not develop it despite receiving the same antibody and heparin challenge. This is the in vivo demonstration that the receptor step is causal rather than correlative.\"}]}}, {\"id\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice engineered to express both human platelet FcgammaRIIA and human PF4, then injected with KKO - a monoclonal antibody specific for hPF4/heparin complexes - followed by heparin. The design is a direct test of the entry\u0027s central causal claim, because the two transgenes are precisely the two human components the pathograph asserts are required. Single-transgene controls receiving the same challenge do not develop the disease, so the model establishes not merely that the pathway is sufficient but that both components are necessary. Wild-type mice cannot develop HIT at all: mouse platelets lack FcgammaRIIA, which is itself an argument that the human receptor is the effector.\"}, {\"id\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heparin is a polyanion; platelet factor 4 (PF4, CXCL4) is a small positively charged tetramer stored in platelet alpha-granules. When the two meet at the right stoichiometric ratio they assemble into ultralarge multimolecular complexes, and the conformational change this imposes on PF4 exposes epitopes that the immune system has never seen. The antigen is therefore neither the drug nor a self protein but a complex of the two - which is why the disease is an adverse drug reaction with the mechanics of autoimmunity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PF4\"], \"gene_terms\": [{\"label\": \"PF4\", \"id\": \"hgnc:8861\"}], \"role\": \"trigger\"}}, {\"id\": \"Heparin-Independent Platelet Activation in Autoimmune HIT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a distinct subset, the antibodies activate platelets strongly without any heparin present. This changes the disease\u0027s behaviour in ways that matter clinically: it can begin or worsen after heparin has already been stopped (delayed-onset HIT), persist for weeks, or arise with no heparin exposure at all (spontaneous HIT syndrome). The laboratory signature is characteristic rather than absent - these sera still show the classic inhibition of platelet activation at high heparin concentrations, and on serial dilution usually reveal heparin-dependent activation, so the antibodies are a variant of the same species rather than a different one.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\"], \"role\": \"mediator\"}}, {\"id\": \"High-Dose Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose IVIG saturates and competitively blocks FcgammaRIIA, interrupting antibody-induced platelet activation at the receptor rather than downstream at thrombin. It is reserved for autoimmune HIT, and the reason is mechanistic: in aHIT the antibodies activate platelets without heparin, so stopping heparin does not de-escalate the process and something must act on the effector step itself. Therapeutic plasma exchange is the fallback when IVIG fails.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Monocyte Tissue Factor Expression and Endothelial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune complexes are not platelet-specific. They also engage Fc receptors on monocytes, inducing tissue factor expression, and PF4 bound to endothelial heparan sulfate makes the vessel wall itself a target. The result is a procoagulant surface spanning several cell types rather than a purely platelet event. This node is curated as PROVISIONAL because the endothelial arm is hedged in the source literature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\", \"vascular endothelial cell\"], \"biological_processes\": [\"positive regulation of blood coagulation\"], \"genes\": [\"F3\"], \"gene_terms\": [{\"label\": \"F3\", \"id\": \"hgnc:3541\"}], \"role\": \"amplifier\"}}, {\"id\": \"Non-Heparin Anticoagulant Substitution\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The general principle behind the specific drugs: once HIT is suspected, an alternative anticoagulant must replace heparin rather than merely follow it. Guidelines treat the choice among argatroban, bivalirudin, danaparoid, fondaparinux, and direct oral anticoagulants as conditional, reflecting genuine uncertainty about comparative efficacy rather than equivalence established by trial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bivalirudin\", \"fondaparinux\", \"danaparoid\"]}}, {\"id\": \"Procoagulant Platelet Microparticle Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated platelets shed submicron membrane vesicles that expose anionic phospholipid and assemble coagulation factor complexes on their surface. These microparticles carry the procoagulant activity of a platelet without being counted as one, which is part of why the measured platelet count and the thrombotic risk move in opposite directions in this disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood microparticle formation\"], \"role\": \"amplifier\"}}, {\"id\": \"Therapeutic Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removal of circulating pathogenic antibody by apheresis, used as rescue in autoimmune HIT when high-dose IVIG fails. It is the only curated intervention that acts on the antibody itself rather than on the receptor it engages or the thrombin it generates, which is why it remains available when the receptor-level and coagulation-level approaches have both been tried.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Therapeutic heparin exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The exposure that defines the disease. Unfractionated heparin carries roughly thirteen times the risk of low-molecular-weight heparin, and even catheter flushes have been implicated in the autoimmune variant. This is a case where the environmental factor is a drug the patient was given for a good reason, which is what makes the entry a toxicity mechanism rather than an exposure hazard.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombotic Occlusion and Ischemic Tissue Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Occlusion of a vessel by thrombus deprives the tissue it supplies. In HIT the consequences range from pulmonary embolism to limb ischemia requiring amputation, which is why limb loss appears alongside death and new thrombosis in the composite endpoints of HIT treatment trials.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Venous and Arterial Thrombosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thrombosis is the outcome that kills in HIT, and it occurs on both sides of the circulation - deep venous thrombosis and pulmonary embolism most often, but also limb artery occlusion, myocardial infarction, and stroke. The combination is unusual: most prothrombotic states favour one vascular bed. The risk is not abolished by stopping heparin, which is the single most consequential clinical fact about this disease, because the antibodies and the thrombin they generate persist after the drug is withdrawn.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"animal_models\": [{\"name\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human FcgammaRIIA and human PF4\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"At higher heparin doses the animals develop shock and fibrin-rich thrombi in multiple organs, reproducing the thrombotic arm of the disease.\"}]}}, {\"id\": \"Warfarin-Induced Protein C Depletion and Microvascular Thrombosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warfarin lowers protein C, a short-half-life vitamin-K-dependent natural anticoagulant, faster than it lowers the procoagulant factors it is given to suppress. In an ordinary patient this transient imbalance is tolerated. In a patient with active HIT, whose thrombin generation is already unrestrained, the loss of protein C removes the last brake on microvascular thrombin and can produce venous limb gangrene - progressive necrosis of a limb whose large veins are thrombosed but whose arteries remain patent. This is an iatrogenic node: the pathology is created by the treatment, and it is the mechanistic reason warfarin is contraindicated until platelet recovery and adequate alternative anticoagulation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PROC\"], \"gene_terms\": [{\"label\": \"PROC\", \"id\": \"hgnc:9451\"}], \"role\": \"outcome\"}}], \"edges\": [{\"source\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"target\": \"Anti-PF4/Heparin IgG Antibody Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The exposed neoepitope is immunogenic and elicits a specific antibody response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-PF4/Heparin IgG Antibody Response\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IgG bound to surface PF4-heparin complexes presents its Fc portion to platelet Fc receptors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-PF4/Heparin IgG Antibody Response\", \"target\": \"Heparin-Independent Platelet Activation in Autoimmune HIT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a subset of patients the antibodies acquire the ability to activate platelets without heparin present.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"target\": \"Procoagulant Platelet Microparticle Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated platelets shed procoagulant microparticles.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"target\": \"Monocyte Tissue Factor Expression and Endothelial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same immune complexes engage monocytes and the endothelial surface, extending activation beyond the platelet compartment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"target\": \"Accelerated Platelet Consumption and Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated and opsonized platelets are cleared from the circulation faster than they are replaced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Procoagulant Platelet Microparticle Release\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microparticle surfaces support assembly of the coagulation complexes that generate thrombin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monocyte Tissue Factor Expression and Endothelial Activation\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue factor on monocytes and a procoagulant endothelial surface initiate and sustain coagulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Explosive Thrombin Generation\", \"target\": \"Venous and Arterial Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombin drives fibrin formation and platelet recruitment into thrombi.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Explosive Thrombin Generation\", \"target\": \"Warfarin-Induced Protein C Depletion and Microvascular Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When warfarin is given during active HIT, ongoing thrombin generation meets a collapsing protein C anticoagulant system.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Venous and Arterial Thrombosis\", \"target\": \"Thrombotic Occlusion and Ischemic Tissue Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombi occlude vessels and produce downstream ischemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heparin-Independent Platelet Activation in Autoimmune HIT\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The autoimmune variant converges on the same FcgammaRIIA effector step, which is why it produces the same disease with a different time course.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Therapeutic heparin exposure\", \"target\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Administered heparin is one of the two components of the antigenic complex, so exposure is the initiating event of the whole cascade.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cessation of All Heparin Exposure\", \"target\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Argatroban\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Non-Heparin Anticoagulant Substitution\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deferral of Vitamin K Antagonist Until Platelet Recovery\", \"target\": \"Warfarin-Induced Protein C Depletion and Microvascular Thrombosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-Dose Intravenous Immunoglobulin\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Direct Oral Anticoagulants\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Therapeutic Plasma Exchange\", \"target\": \"Anti-PF4/Heparin IgG Antibody Response\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Disease requires the human FcgammaRIIA transgene: animals transgenic for hPF4 alone do not develop it despite receiving the same antibody and heparin challenge. This is the in vivo demonstration that the receptor step is causal rather than correlative.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A humanised construct rather than a native disease. Both key components are transgenes on a mouse background, expression levels need not match human platelets, and the immune arm is bypassed entirely - a monoclonal antibody is injected rather than raised, so the model tests the effector limb and says nothing about why only some patients mount a pathogenic antibody response. That question is the subject of a curated knowledge gap in this entry.\"}, {\"source\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"target\": \"Accelerated Platelet Consumption and Thrombocytopenia\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Double-transgenic animals given KKO and heparin develop a profound platelet fall that single-transgene controls do not.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The platelet nadir is deeper than typical human HIT, where the fall is usually moderate; the model is driven by a bolus of a high-avidity monoclonal antibody rather than by a polyclonal response of mixed pathogenicity, which is the very heterogeneity that makes the human disease hard to diagnose.\"}, {\"source\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"target\": \"Venous and Arterial Thrombosis\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"At higher heparin doses the animals develop shock and fibrin-rich thrombi in multiple organs, reproducing the thrombotic arm of the disease.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recorded as PARTIALLY_RECAPITULATES because the reported thrombosis is disseminated and multi-organ, closer to a shock syndrome than to the discrete deep venous, pulmonary, and limb-artery events that dominate human HIT, and it required a heparin dose two and a half times that used for the thrombocytopenia readout.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Platelet Consumption and Thrombocytopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelets that have been activated and opsonized by immune complexes are cleared from the circulation, and the count typically falls by more than half from its peak. The fall is usually moderate rather than profound, and that matters diagnostically: a platelet count of 20 x 10^9/L or below is atypical and should raise the possibility of autoimmune HIT with associated consumptive coagulopathy. Critically, this thrombocytopenia is a marker of consumption by activation, not a bleeding lesion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"role\": \"outcome\", \"animal_models\": [{\"name\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human FcgammaRIIA and human PF4\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Double-transgenic animals given KKO and heparin develop a profound platelet fall that single-transgene controls do not.\"}]}}, {\"id\": \"Anti-PF4/Heparin IgG Antibody Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Antibodies against the PF4-heparin neoepitope appear rapidly, typically within five to ten days of first exposure, and the pathogenic isotype is IgG. Two features distinguish this from a conventional secondary immune response: it does not require prior sensitization to reach IgG, and it is transient, with antibodies typically becoming undetectable over weeks to months. Only a minority of antibodies that bind the complex can activate platelets, which is the single most important fact for interpreting a positive immunoassay.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Immunoglobulin production\"], \"role\": \"mediator\"}}, {\"id\": \"Argatroban\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A direct thrombin inhibitor given intravenously, and the treatment whose evidence base in HIT is strongest. It acts at the node that actually causes the harm - thrombin generation - rather than at the platelet count. In a prospective multicentre study against historical controls it reduced the composite of death, amputation, and new thrombosis, with the benefit concentrated in new thrombosis and thrombotic death, and without an excess of bleeding. Hepatically cleared, so it is the practical choice in renal impairment.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"argatroban\"]}}, {\"id\": \"Cessation of All Heparin Exposure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Withdrawal of every source of heparin, including flushes and coated catheters, removes the antigen and stops further immune complex formation. It is necessary and it is not sufficient: the antibodies already present continue to activate platelets and generate thrombin, so a patient managed by withdrawal alone remains at high thrombotic risk. This is the single most common management error the mechanism predicts, and the reason substitution rather than simple cessation is the standard.\"}, {\"id\": \"Deferral of Vitamin K Antagonist Until Platelet Recovery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Withholding warfarin during the acute phase, and overlapping it with a non-heparin anticoagulant once the platelet count has recovered, is an intervention in its own right rather than an omission. Its target is the iatrogenic node: warfarin depletes protein C faster than the procoagulant factors, and in a patient with unrestrained thrombin generation that imbalance can produce venous limb gangrene. Deferral removes that precipitant.\", \"meta\": {\"therapeutic_agents\": [\"warfarin\"]}}, {\"id\": \"Direct Oral Anticoagulants\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rivaroxaban and apixaban are among the non-heparin agents guidelines endorse for acute HIT. They are attractive because they need no parenteral access or APTT titration - which also removes the APTT-confounding problem that threatens direct thrombin inhibitor dosing in the autoimmune subset. The recommendation is conditional rather than strong, and they sit here as one option among several rather than as a preferred agent.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rivaroxaban\", \"apixaban\"]}}, {\"id\": \"Explosive Thrombin Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelet microparticles, monocyte tissue factor, and an activated endothelial surface converge on massive thrombin generation. This is the hinge of the entire disease: it is what converts a syndrome named for a low platelet count into one of the most intensely prothrombotic states in medicine, and it is why the therapeutic answer is a thrombin inhibitor rather than platelet support.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"activation of blood coagulation via clotting cascade\"], \"role\": \"central_effector\"}}, {\"id\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multivalent IgG immune complexes assembled on the platelet surface cross-link FcgammaRIIA (CD32a), the only Fc receptor human platelets carry, and trigger full platelet activation. This is the central effector step and the point at which an immune event becomes a coagulation event. Activation causes alpha-granule release, which liberates yet more PF4 into the local environment and feeds the antigen supply - a self-amplifying loop that helps explain why the syndrome escalates rather than self-limiting while heparin continues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"Fc-gamma receptor signaling pathway\", \"platelet activation\", \"platelet degranulation\"], \"genes\": [\"FCGR2A\"], \"gene_terms\": [{\"label\": \"FCGR2A\", \"id\": \"hgnc:3616\"}], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human FcgammaRIIA and human PF4\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Disease requires the human FcgammaRIIA transgene: animals transgenic for hPF4 alone do not develop it despite receiving the same antibody and heparin challenge. This is the in vivo demonstration that the receptor step is causal rather than correlative.\"}]}}, {\"id\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mice engineered to express both human platelet FcgammaRIIA and human PF4, then injected with KKO - a monoclonal antibody specific for hPF4/heparin complexes - followed by heparin. The design is a direct test of the entry\u0027s central causal claim, because the two transgenes are precisely the two human components the pathograph asserts are required. Single-transgene controls receiving the same challenge do not develop the disease, so the model establishes not merely that the pathway is sufficient but that both components are necessary. Wild-type mice cannot develop HIT at all: mouse platelets lack FcgammaRIIA, which is itself an argument that the human receptor is the effector.\"}, {\"id\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heparin is a polyanion; platelet factor 4 (PF4, CXCL4) is a small positively charged tetramer stored in platelet alpha-granules. When the two meet at the right stoichiometric ratio they assemble into ultralarge multimolecular complexes, and the conformational change this imposes on PF4 exposes epitopes that the immune system has never seen. The antigen is therefore neither the drug nor a self protein but a complex of the two - which is why the disease is an adverse drug reaction with the mechanics of autoimmunity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PF4\"], \"gene_terms\": [{\"label\": \"PF4\", \"id\": \"hgnc:8861\"}], \"role\": \"trigger\"}}, {\"id\": \"Heparin-Independent Platelet Activation in Autoimmune HIT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a distinct subset, the antibodies activate platelets strongly without any heparin present. This changes the disease\u0027s behaviour in ways that matter clinically: it can begin or worsen after heparin has already been stopped (delayed-onset HIT), persist for weeks, or arise with no heparin exposure at all (spontaneous HIT syndrome). The laboratory signature is characteristic rather than absent - these sera still show the classic inhibition of platelet activation at high heparin concentrations, and on serial dilution usually reveal heparin-dependent activation, so the antibodies are a variant of the same species rather than a different one.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"High-Dose Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose IVIG saturates and competitively blocks FcgammaRIIA, interrupting antibody-induced platelet activation at the receptor rather than downstream at thrombin. It is reserved for autoimmune HIT, and the reason is mechanistic: in aHIT the antibodies activate platelets without heparin, so stopping heparin does not de-escalate the process and something must act on the effector step itself. Therapeutic plasma exchange is the fallback when IVIG fails.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Monocyte Tissue Factor Expression and Endothelial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune complexes are not platelet-specific. They also engage Fc receptors on monocytes, inducing tissue factor expression, and PF4 bound to endothelial heparan sulfate makes the vessel wall itself a target. The result is a procoagulant surface spanning several cell types rather than a purely platelet event. This node is curated as PROVISIONAL because the endothelial arm is hedged in the source literature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\", \"vascular endothelial cell\"], \"biological_processes\": [\"positive regulation of blood coagulation\"], \"genes\": [\"F3\"], \"gene_terms\": [{\"label\": \"F3\", \"id\": \"hgnc:3541\"}], \"role\": \"amplifier\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Non-Heparin Anticoagulant Substitution\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The general principle behind the specific drugs: once HIT is suspected, an alternative anticoagulant must replace heparin rather than merely follow it. Guidelines treat the choice among argatroban, bivalirudin, danaparoid, fondaparinux, and direct oral anticoagulants as conditional, reflecting genuine uncertainty about comparative efficacy rather than equivalence established by trial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bivalirudin\", \"fondaparinux\", \"danaparoid\"]}}, {\"id\": \"Procoagulant Platelet Microparticle Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated platelets shed submicron membrane vesicles that expose anionic phospholipid and assemble coagulation factor complexes on their surface. These microparticles carry the procoagulant activity of a platelet without being counted as one, which is part of why the measured platelet count and the thrombotic risk move in opposite directions in this disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood microparticle formation\"], \"role\": \"amplifier\"}}, {\"id\": \"Therapeutic Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removal of circulating pathogenic antibody by apheresis, used as rescue in autoimmune HIT when high-dose IVIG fails. It is the only curated intervention that acts on the antibody itself rather than on the receptor it engages or the thrombin it generates, which is why it remains available when the receptor-level and coagulation-level approaches have both been tried.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Therapeutic heparin exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The exposure that defines the disease. Unfractionated heparin carries roughly thirteen times the risk of low-molecular-weight heparin, and even catheter flushes have been implicated in the autoimmune variant. This is a case where the environmental factor is a drug the patient was given for a good reason, which is what makes the entry a toxicity mechanism rather than an exposure hazard.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombotic Occlusion and Ischemic Tissue Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Occlusion of a vessel by thrombus deprives the tissue it supplies. In HIT the consequences range from pulmonary embolism to limb ischemia requiring amputation, which is why limb loss appears alongside death and new thrombosis in the composite endpoints of HIT treatment trials.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Venous and Arterial Thrombosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thrombosis is the outcome that kills in HIT, and it occurs on both sides of the circulation - deep venous thrombosis and pulmonary embolism most often, but also limb artery occlusion, myocardial infarction, and stroke. The combination is unusual: most prothrombotic states favour one vascular bed. The risk is not abolished by stopping heparin, which is the single most consequential clinical fact about this disease, because the antibodies and the thrombin they generate persist after the drug is withdrawn.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"animal_models\": [{\"name\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human FcgammaRIIA and human PF4\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"At higher heparin doses the animals develop shock and fibrin-rich thrombi in multiple organs, reproducing the thrombotic arm of the disease.\"}]}}, {\"id\": \"Warfarin-Induced Protein C Depletion and Microvascular Thrombosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warfarin lowers protein C, a short-half-life vitamin-K-dependent natural anticoagulant, faster than it lowers the procoagulant factors it is given to suppress. In an ordinary patient this transient imbalance is tolerated. In a patient with active HIT, whose thrombin generation is already unrestrained, the loss of protein C removes the last brake on microvascular thrombin and can produce venous limb gangrene - progressive necrosis of a limb whose large veins are thrombosed but whose arteries remain patent. This is an iatrogenic node: the pathology is created by the treatment, and it is the mechanistic reason warfarin is contraindicated until platelet recovery and adequate alternative anticoagulation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PROC\"], \"gene_terms\": [{\"label\": \"PROC\", \"id\": \"hgnc:9451\"}], \"role\": \"outcome\"}}], \"edges\": [{\"source\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"target\": \"Anti-PF4/Heparin IgG Antibody Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The exposed neoepitope is immunogenic and elicits a specific antibody response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-PF4/Heparin IgG Antibody Response\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IgG bound to surface PF4-heparin complexes presents its Fc portion to platelet Fc receptors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anti-PF4/Heparin IgG Antibody Response\", \"target\": \"Heparin-Independent Platelet Activation in Autoimmune HIT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a subset of patients the antibodies acquire the ability to activate platelets without heparin present.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"target\": \"Procoagulant Platelet Microparticle Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated platelets shed procoagulant microparticles.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"target\": \"Monocyte Tissue Factor Expression and Endothelial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same immune complexes engage monocytes and the endothelial surface, extending activation beyond the platelet compartment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"target\": \"Accelerated Platelet Consumption and Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated and opsonized platelets are cleared from the circulation faster than they are replaced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Procoagulant Platelet Microparticle Release\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microparticle surfaces support assembly of the coagulation complexes that generate thrombin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monocyte Tissue Factor Expression and Endothelial Activation\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue factor on monocytes and a procoagulant endothelial surface initiate and sustain coagulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Explosive Thrombin Generation\", \"target\": \"Venous and Arterial Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombin drives fibrin formation and platelet recruitment into thrombi.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Explosive Thrombin Generation\", \"target\": \"Warfarin-Induced Protein C Depletion and Microvascular Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When warfarin is given during active HIT, ongoing thrombin generation meets a collapsing protein C anticoagulant system.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Venous and Arterial Thrombosis\", \"target\": \"Thrombotic Occlusion and Ischemic Tissue Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombi occlude vessels and produce downstream ischemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heparin-Independent Platelet Activation in Autoimmune HIT\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The autoimmune variant converges on the same FcgammaRIIA effector step, which is why it produces the same disease with a different time course.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Therapeutic heparin exposure\", \"target\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Administered heparin is one of the two components of the antigenic complex, so exposure is the initiating event of the whole cascade.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cessation of All Heparin Exposure\", \"target\": \"Heparin Exposure and PF4-Heparin Neoepitope Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Argatroban\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Non-Heparin Anticoagulant Substitution\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deferral of Vitamin K Antagonist Until Platelet Recovery\", \"target\": \"Warfarin-Induced Protein C Depletion and Microvascular Thrombosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-Dose Intravenous Immunoglobulin\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Direct Oral Anticoagulants\", \"target\": \"Explosive Thrombin Generation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Therapeutic Plasma Exchange\", \"target\": \"Anti-PF4/Heparin IgG Antibody Response\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"target\": \"FcgammaRIIA-Mediated Platelet Activation by Immune Complexes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Disease requires the human FcgammaRIIA transgene: animals transgenic for hPF4 alone do not develop it despite receiving the same antibody and heparin challenge. This is the in vivo demonstration that the receptor step is causal rather than correlative.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A humanised construct rather than a native disease. Both key components are transgenes on a mouse background, expression levels need not match human platelets, and the immune arm is bypassed entirely - a monoclonal antibody is injected rather than raised, so the model tests the effector limb and says nothing about why only some patients mount a pathogenic antibody response. That question is the subject of a curated knowledge gap in this entry.\"}, {\"source\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"target\": \"Accelerated Platelet Consumption and Thrombocytopenia\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Double-transgenic animals given KKO and heparin develop a profound platelet fall that single-transgene controls do not.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The platelet nadir is deeper than typical human HIT, where the fall is usually moderate; the model is driven by a bolus of a high-avidity monoclonal antibody rather than by a polyclonal response of mixed pathogenicity, which is the very heterogeneity that makes the human disease hard to diagnose.\"}, {\"source\": \"FcgammaRIIA/hPF4 double-transgenic mouse challenged with KKO and heparin\", \"target\": \"Venous and Arterial Thrombosis\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"At higher heparin doses the animals develop shock and fibrin-rich thrombi in multiple organs, reproducing the thrombotic arm of the disease.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Recorded as PARTIALLY_RECAPITULATES because the reported thrombosis is disseminated and multi-organ, closer to a shock syndrome than to the discrete deep venous, pulmonary, and limb-artery events that dominate human HIT, and it required a heparin dose two and a half times that used for the thrombocytopenia readout.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6812,6 +6938,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6826,6 +6955,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6880,6 +7010,9 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6894,6 +7027,7 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6948,6 +7082,9 @@ This clinical feature is Cerebral venous sinus thrombosis (HP:0033724). HP:00337
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6962,6 +7099,7 @@ This clinical feature is Cerebral venous sinus thrombosis (HP:0033724). HP:00337
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7013,6 +7151,9 @@ This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. Arterial events are consistently described as a prominent part of the thrombotic spectrum, but no cached abstract in this curation pass gives a proportion for arterial thrombosis specifically.</div>
 
 
@@ -7032,6 +7173,7 @@ This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7056,6 +7198,7 @@ This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7116,6 +7259,9 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">No frequency band is asserted. Thromboembolism is described as markedly increased in the cited guideline, but no cached abstract in this curation pass gives a proportion for pulmonary embolism specifically.</div>
 
 
@@ -7135,6 +7281,7 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7200,6 +7347,9 @@ This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7214,6 +7364,7 @@ This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7238,6 +7389,7 @@ This clinical feature is Cutaneous necrosis (HP:0033126). HP:0033126 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7301,6 +7453,9 @@ This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7315,6 +7470,7 @@ This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7339,6 +7495,7 @@ This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7457,6 +7614,9 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7467,6 +7627,9 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
     </div>
+
+
+
 
 
 
@@ -7503,6 +7666,7 @@ This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7600,6 +7764,9 @@ This treatment uses argatroban (NCIT:C28833). NCIT:C28833 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7610,6 +7777,9 @@ This treatment uses argatroban (NCIT:C28833). NCIT:C28833 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7646,6 +7816,7 @@ This treatment uses argatroban (NCIT:C28833). NCIT:C28833 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7692,6 +7863,7 @@ This treatment uses argatroban (NCIT:C28833). NCIT:C28833 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7716,6 +7888,7 @@ This treatment uses argatroban (NCIT:C28833). NCIT:C28833 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7737,6 +7910,7 @@ This treatment uses argatroban (NCIT:C28833). NCIT:C28833 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7860,6 +8034,9 @@ This treatment uses danaparoid (NCIT:C200706). NCIT:C200706 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7870,6 +8047,9 @@ This treatment uses danaparoid (NCIT:C200706). NCIT:C200706 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7906,6 +8086,7 @@ This treatment uses danaparoid (NCIT:C200706). NCIT:C200706 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7949,6 +8130,7 @@ This treatment uses danaparoid (NCIT:C200706). NCIT:C200706 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8038,6 +8220,9 @@ This treatment uses warfarin, annotated with Warfarin Sodium (NCIT:C1658). NCIT:
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8048,6 +8233,9 @@ This treatment uses warfarin, annotated with Warfarin Sodium (NCIT:C1658). NCIT:
 
 
     </div>
+
+
+
 
 
 
@@ -8084,6 +8272,7 @@ This treatment uses warfarin, annotated with Warfarin Sodium (NCIT:C1658). NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8160,6 +8349,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8170,6 +8362,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -8206,6 +8401,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8252,6 +8448,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8273,6 +8470,7 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8379,6 +8577,9 @@ This treatment uses apixaban (NCIT:C61308). NCIT:C61308 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8389,6 +8590,9 @@ This treatment uses apixaban (NCIT:C61308). NCIT:C61308 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -8425,6 +8629,7 @@ This treatment uses apixaban (NCIT:C61308). NCIT:C61308 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8471,6 +8676,7 @@ This treatment uses apixaban (NCIT:C61308). NCIT:C61308 is a therapeutic agent f
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8537,6 +8743,9 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8547,6 +8756,9 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -8583,6 +8795,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8626,6 +8839,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8693,6 +8907,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8741,6 +8956,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8817,6 +9033,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8841,6 +9058,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8862,6 +9080,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8919,6 +9138,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8940,6 +9160,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8997,6 +9218,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9018,6 +9240,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9088,6 +9311,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9109,6 +9333,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9185,6 +9410,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9243,6 +9469,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9264,6 +9491,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9364,6 +9592,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9434,6 +9663,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9455,6 +9685,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9525,6 +9756,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9674,6 +9906,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9755,6 +9988,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9842,6 +10076,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9891,6 +10126,7 @@ Outcome is poor when the disease is not recognized. In the untreated historical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12393,6 +12629,95 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Heparin-Induced Thrombocytopenia</strong> · 2026-08-16T03:08:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Heparin-Induced_Thrombocytopenia/2026-08-16T030813Z-claude-code-96e9e9.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Heparin-Induced_Thrombocytopenia.yaml (MONDO:0018048) from
+a claude_code deep-research run plus independent primary-literature
+verification.
+
+Model: HIT as a drug-induced immunothrombotic disorder whose defining feature is
+an inversion - the falling platelet count marks consumption by activation, not
+bleeding risk. Eleven pathophysiology nodes trace heparin-PF4 neoepitope
+formation through the anti-PF4/heparin IgG response, FcgammaRIIA-mediated
+platelet activation, procoagulant microparticle release and monocyte tissue
+factor expression, explosive thrombin generation, and then the two divergent
+outcomes that share one cause: thrombocytopenia and venous/arterial thrombosis.
+A parallel autoimmune branch (heparin-independent platelet activation) converges
+back on the FcgammaRIIA effector node.
+
+Four nodes declare conforms_to against the thrombogenesis module (platelet
+activation, coagulation/thrombin, thrombus formation, occlusion/ischemia). Worth
+noting for future curators: that module carries a node named &#34;Anticoagulation
+via Heparin-Potentiated Antithrombin&#34; as its drug-target pattern, and this entry
+is the disease in which administering exactly that drug initiates the pathology.
+The pairing was a reason to pick this disease.
+
+Treatment logic is wired to mechanism rather than listed. Argatroban targets the
+thrombin-generation node; IVIG targets the FcgammaRIIA node instead, because in
+autoimmune HIT stopping heparin does not de-escalate antibody-induced activation
+and something must act at the receptor. Heparin cessation targets the trigger
+node and is explicitly curated as necessary but not sufficient.
+
+The warfarin contraindication is modeled as a node plus a treatment rather than
+left as prose. &#34;Warfarin-Induced Protein C Depletion and Microvascular
+Thrombosis&#34; is an iatrogenic pathophysiology node, and &#34;Deferral of Vitamin K
+Antagonist Until Platelet Recovery&#34; is a treatment whose target_mechanisms
+INHIBITS edge points at it. The schema has no contraindication slot; recording
+this only as prose would have left the entry&#39;s most counterintuitive clinical
+rule detached from the node that explains it. That modeling choice is documented
+in the treatment&#39;s notes.
+
+Discussions: a CONTROVERSY on direct thrombin inhibitor failure in autoimmune
+HIT (APTT confounding by concurrent DIC causes systematic underdosing, and DTIs
+also inhibit thrombin-induced protein C activation - connecting back to the
+warfarin-gangrene node), plus two KNOWLEDGE_GAPs: the unexplained difference
+between platelet-activating and merely-binding anti-PF4 antibodies, which is why
+no binding assay can be made specific; and non-random under-ascertainment of
+autoimmune HIT, since most laboratories do not test for it and the patients
+missed are exactly those whose disease begins after heparin stops.
+
+Deep-research handling. The report&#39;s reference_validation block reported 38/38
+identifiers resolved with confabulation_rate 0.0, but reported no quotes_checked
+count, so quote fidelity had no signal at all and every snippet was independently
+derived from cached abstracts rather than taken from the report. One DR-suggested
+ontology term was corrected on lookup: GO:0038096 (Fc-gamma receptor signaling
+pathway involved in phagocytosis) is the phagocytosis-specific child and is wrong
+for platelet activation; GO:0038094 (the parent) was used instead.
+
+NEC handling. This disease carries two genuine naming hazards, both flagged by
+the priority dashboard: the acronym HIT is ambiguous, and &#34;type 1 versus type 2&#34;
+is a numbered series. MONDO:0018048 lists &#34;heparin-induced thrombocytopenia type
+2&#34; among its exact synonyms, confirming this term is the immune disease. The
+non-immune type 1 phenomenon is curated as an explicit differential diagnosis
+and the scoping is stated in the entry&#39;s header notes.
+
+One evidence item quotes mid-sentence because a bracketed abbreviation ([APTT])
+does not survive reference-validator normalization; the omitted words are stated
+verbatim in the adjacent explanation, following the convention used elsewhere in
+the KB. This is the fourth entry in this curation series to hit that
+normalization behaviour.
+
+Two deliberate omissions rather than weak curation: the environmental heparin
+exposure carries no exposure_term because ECTO&#39;s exposure branches do not
+obviously cover a therapeutic drug and no term beats a bad one; and no frequency
+band is asserted for pulmonary embolism because no cached abstract quantifies it.
+
+Validation: just validate, just validate-terms, just count-verified-snippets
+(77/77), and the full batched just validate-disorders sweep all pass. Compliance
+97.7 percent global / 98.2 percent weighted. Folded-hyphen, snippet-length, and
+title-snippet gates clean. tests/test_data.py subset (12,218 tests covering
+conforms_to references, foreign keys, environmental mechanism targets, and
+history layout) passes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4222,6 +4290,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4246,6 +4315,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4267,6 +4337,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4469,6 +4540,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4490,6 +4562,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4788,6 +4861,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-med12-p-arg961trp-alters-cdk8-kinase-module-function" data-dismech-node="MED12 p.Arg961Trp Alters CDK8 Kinase Module Function" data-dismech-type="pathophysiology">
                 <div class="item-name">MED12 p.Arg961Trp Alters CDK8 Kinase Module Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">MED12 is a subunit of the dissociable CDK8 kinase module (MED12, MED13, cyclin C, CDK8) that reversibly associates with core Mediator and acts as the hub through which DNA-bound transcription factors communicate with RNA polymerase II. The recurrent germline hemizygous c.2881C&gt;T (p.Arg961Trp) missense substitution does not abolish MED12 function globally; the evidence favors a pathway-selective altered-function defect that impairs recruitment of, or response to, particular regulatory complexes while sparing others. This distinguishes FGS1 from complete MED12 loss of function, which has broader and developmentally more severe consequences.</div>
 
 
@@ -4986,6 +5066,7 @@ This pathophysiological event involves transcription corepressor activity (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5007,6 +5088,7 @@ This pathophysiological event involves transcription corepressor activity (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5034,6 +5116,7 @@ This pathophysiological event involves transcription corepressor activity (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5058,6 +5141,13 @@ This pathophysiological event involves transcription corepressor activity (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-rest-dependent-silencing-of-neuronal-genes" data-dismech-node="Impaired REST-Dependent Silencing of Neuronal Genes" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired REST-Dependent Silencing of Neuronal Genes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mediator, the G9a histone methyltransferase, and the RE1 silencing transcription factor (REST/NRSF) form a protein interaction network that keeps neuronal genes silenced in non-neuronal cells, with the MED12 interface linking REST to G9a-dependent histone H3K9 dimethylation. Missense MED12 changes causing FG and Lujan syndromes disrupt this REST corepressor function, so neuronal genes escape scheduled repression. Rescue experiments indicate that p.Arg961Trp specifically fails to restore REST-mediated silencing while retaining beta-catenin rescue capacity, marking this as a pathway-selective, kinase-independent defect.</div>
 
@@ -5217,6 +5307,7 @@ This pathophysiological event involves chromatin organization (GO:0006325). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5238,6 +5329,7 @@ This pathophysiological event involves chromatin organization (GO:0006325). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5263,6 +5355,13 @@ This pathophysiological event involves chromatin organization (GO:0006325). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepression-of-gli3-dependent-sonic-hedgehog-target-transcription" data-dismech-node="Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Activated GLI3 physically targets the MED12 interface within Mediator to reverse Mediator-dependent suppression of Sonic hedgehog target-gene transcription, placing MED12 as a direct restraint on the pathway. In patient-derived lymphoblastoid lines carrying MED12 XLID variants, transcripts of the GLI3-dependent SHH targets CREB5, BMP4, and NEUROG2 are significantly elevated, and p.Arg961Trp fails to restore normal SHH inhibition while showing reduced CDK8 recruitment at GLI3 sites. Because SHH-GLI signalling patterns the forebrain, craniofacial skeleton, limb, gut, and heart, this arm offers a plausible unifying explanation for the multi-system malformation pattern of FGS1.</div>
 
@@ -5412,6 +5511,7 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5433,6 +5533,7 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5460,6 +5561,7 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5484,6 +5586,13 @@ This pathophysiological event involves regulation of transcription by RNA polyme
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-immediate-early-gene-response" data-dismech-node="Dysregulated Immediate-Early Gene Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Immediate-Early Gene Response</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In EBV-immortalized lymphoblastoid cells from patients, individual MED12 variants including p.Arg961Trp generate variant-specific expression patterns of the immediate-early genes JUN, FOS, and EGR1, mirrored by the presence or absence of the MED12-containing complex and RNA polymerase II at their promoters. The effect is cell-type specific, and downstream late-response genes involved in neural plasticity and neuronal gene specification are consequently disturbed. This arm supports a model in which stimulus-responsive transcription, rather than constitutive housekeeping transcription, is the vulnerable process.</div>
 
@@ -5579,6 +5688,7 @@ This pathophysiological event involves transcription by RNA polymerase II (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5600,6 +5710,7 @@ This pathophysiological event involves transcription by RNA polymerase II (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5625,6 +5736,13 @@ This pathophysiological event involves transcription by RNA polymerase II (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-corpus-callosum-formation" data-dismech-node="Failure of Corpus Callosum Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Corpus Callosum Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Agenesis or hypoplasia of the corpus callosum was present in all 13 individuals of the molecularly confirmed cohort who underwent neuroimaging, making it the single most characteristic structural consequence of the MED12 lesion. The developmental step that fails is midline commissural axon guidance and callosal tract formation. The link from the upstream transcriptional arms to this specific structure is biologically coherent but has not been demonstrated in affected human fetal brain.</div>
 
@@ -5746,6 +5864,7 @@ This pathophysiological event involves corpus callosum development (GO:0022038).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5768,6 +5887,13 @@ This pathophysiological event involves corpus callosum development (GO:0022038).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-differentiation-and-cortical-development" data-dismech-node="Impaired Neuronal Differentiation and Cortical Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Differentiation and Cortical Development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Loss of scheduled neuronal gene regulation is proposed to perturb neuronal differentiation and cortical development, yielding the universal cognitive impairment and the congenital hypotonia of FGS1. This node carries the cellular consequence; the evidence for the underlying regulatory defect is lymphoblastoid and engineered-rescue rather than neural, which is the subject of the HUMAN_MODEL_MISMATCH discussion.</div>
 
@@ -5951,6 +6077,7 @@ This pathophysiological event involves neuron differentiation (GO:0030182). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5972,6 +6099,7 @@ This pathophysiological event involves neuron differentiation (GO:0030182). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5997,6 +6125,13 @@ This pathophysiological event involves neuron differentiation (GO:0030182). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anorectal-malformation" data-dismech-node="Anorectal Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Anorectal Malformation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Anal fistula, stenosis, and atresia occurred in 11 of 19 evaluable molecularly confirmed males. Hindgut and anorectal septation is a classic hedgehog-patterning-dependent process, which is why the GLI3 arm is the most plausible upstream route; enteric neuron development is placed here rather than on a pan-organ node because the severe constipation of FGS1 persists even without a structural anorectal defect.</div>
 
@@ -6116,6 +6251,7 @@ This pathophysiological event involves enteric neuron (CL:0007011). CL:0007011 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6138,6 +6274,13 @@ This pathophysiological event involves enteric neuron (CL:0007011). CL:0007011 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-septation-defect" data-dismech-node="Cardiac Septation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Septation Defect</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Congenital cardiac anomalies, including septal defects, were documented in 11 of 18 evaluable molecularly confirmed males. This is the rationale for baseline echocardiography at diagnosis.</div>
 
@@ -6237,6 +6380,7 @@ This pathophysiological event involves abnormal ventricular septum development (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6259,6 +6403,13 @@ This pathophysiological event involves abnormal ventricular septum development (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-and-skeletal-dysmorphogenesis" data-dismech-node="Craniofacial and Skeletal Dysmorphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial and Skeletal Dysmorphogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The recognizable facial gestalt was present in all 13 fully evaluated mutation-positive males, accompanied by broad thumbs and halluces, syndactyly, pectus deformity, vertebral and rib anomalies, joint contractures, and hip dysplasia. Craniofacial and limb patterning are hedgehog-dependent, making the GLI3 arm the most plausible upstream route.</div>
 
@@ -6502,6 +6653,7 @@ This pathophysiological event involves abnormal neural crest cell differentiatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6523,6 +6675,7 @@ This pathophysiological event involves abnormal neural crest cell differentiatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6571,7 +6724,7 @@ This pathophysiological event involves abnormal neural crest cell differentiatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal vertebral morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral and rib anomalies, and spinal curvature, are reported among the FGS1 axial skeletal findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003468\"}}, {\"id\": \"Agenesis or hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum was present in all 13 individuals in the confirmed cohort who underwent neuroimaging. Note that the denominator is restricted to those imaged.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007370\"}}, {\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic aggressive and self-injurious behavior emerges more frequently around puberty and early adulthood; it affects some but not all individuals and is described alongside impulsivity and obsessive-compulsive traits.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anal fistula, anal stenosis, and anal atresia (imperforate anus) together occurred in 11 of 19 evaluable molecularly confirmed males. Imperforate anus was one of the defining features in the original 1974 Opitz-Kaveggia family.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004378\"}}, {\"id\": \"Anal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Imperforate anus was one of the cardinal malformations in the original Opitz-Kaveggia description and remains part of the FGS1 anorectal spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002023\"}}, {\"id\": \"Anal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anal stenosis is part of the anorectal malformation spectrum contributing to the severe constipation phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002025\"}}, {\"id\": \"Anorectal Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anal fistula, stenosis, and atresia occurred in 11 of 19 evaluable molecularly confirmed males. Hindgut and anorectal septation is a classic hedgehog-patterning-dependent process, which is why the GLI3 arm is the most plausible upstream route; enteric neuron development is placed here rather than on a pan-organ node because the severe constipation of FGS1 persists even without a structural anorectal defect.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enteric neuron\"]}}, {\"id\": \"Atrial septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is documented as a case-level congenital cardiac finding in the molecularly confirmed cohort (including one that resolved by age 4). It is retained as a queryable specific lesion under the Congenital heart defect roll-up; no frequency band is asserted from case observations alone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001631\"}}, {\"id\": \"Behavioral management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized management of behavior problems, with structured routines, advance warning of transitions, and behavioral intervention. Mood stabilizers may be considered for adolescents and young adults with aggressive or self-injurious outbursts, and a careful medical examination should precede escalation since unrecognized medical problems (including constipation and ocular anomalies) can drive behavior change.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Bowel management for chronic constipation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive constipation management is required in essentially all affected individuals. Structural anorectal disease should be excluded or treated, since constipation may be functional, obstructive, or both.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"laxative\"]}}, {\"id\": \"Broad halluces\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad great toes accompany the broad thumbs, reflecting a shared distal limb patterning effect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010055\"}}, {\"id\": \"Broad thumbs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad, flat thumbs are one of the cardinal skeletal features described from the original Opitz-Kaveggia family onward and are listed by GeneReviews as a defining FGS1 feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011304\"}}, {\"id\": \"Cardiac Septation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Congenital cardiac anomalies, including septal defects, were documented in 11 of 18 evaluable molecularly confirmed males. This is the rationale for baseline echocardiography at diagnosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ventricular septum development\"]}}, {\"id\": \"Characteristic facial gestalt\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A recognizable facial appearance was present in all 13 fully evaluated mutation-positive males and comprises a tall prominent forehead, frontal hair upsweep, ocular hypertelorism, downslanted palpebral fissures, and small simple ears. The gestalt is most readily recognized in early childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Chronic constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, chronic constipation is one of the defining features of FGS1, present with or without a structural anorectal malformation, and part of the infantile triad used in the diagnostic algorithm.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012450\"}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cardiac anomalies were documented in 11 of 18 evaluable molecularly confirmed males, supporting baseline echocardiography in any newly diagnosed individual.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Congenital hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital/infantile hypotonia is a hallmark presenting feature, part of the infantile triad (hypotonia, feeding difficulties, constipation) present in all 13 fully evaluated mutation-positive males. Hypotonia improves or resolves with age.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recognizable facial gestalt was present in all 13 fully evaluated mutation-positive males, accompanied by broad thumbs and halluces, syndactyly, pectus deformity, vertebral and rib anomalies, joint contractures, and hip dysplasia. Craniofacial and limb patterning are hedgehog-dependent, making the GLI3 arm the most plausible upstream route.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neural crest cell differentiation\"]}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Craniosynostosis was found in 2 of the 23 molecularly confirmed males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001363\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Communication skills are disproportionately impaired relative to socialization and daily living skills, making speech-language therapy and augmentative communication a management priority.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated GLI3 physically targets the MED12 interface within Mediator to reverse Mediator-dependent suppression of Sonic hedgehog target-gene transcription, placing MED12 as a direct restraint on the pathway. In patient-derived lymphoblastoid lines carrying MED12 XLID variants, transcripts of the GLI3-dependent SHH targets CREB5, BMP4, and NEUROG2 are significantly elevated, and p.Arg961Trp fails to restore normal SHH inhibition while showing reduced CDK8 recruitment at GLI3 sites. Because SHH-GLI signalling patterns the forebrain, craniofacial skeleton, limb, gut, and heart, this arm offers a plausible unifying explanation for the multi-system malformation pattern of FGS1.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"smoothened signaling pathway\", \"regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Dolichocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A dolichocephalic (long, narrow) head shape is listed among the key elements of the molecularly confirmed FGS1 clinical phenotype. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000268\"}}, {\"id\": \"Downslanted palpebral fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downslanting palpebral fissures are a component of the FGS1 facial gestalt and one of the features listed in the GeneReviews clinical characteristics.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000494\"}}, {\"id\": \"Dysregulated Immediate-Early Gene Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In EBV-immortalized lymphoblastoid cells from patients, individual MED12 variants including p.Arg961Trp generate variant-specific expression patterns of the immediate-early genes JUN, FOS, and EGR1, mirrored by the presence or absence of the MED12-containing complex and RNA polymerase II at their promoters. The effect is cell-type specific, and downstream late-response genes involved in neural plasticity and neuronal gene specification are consequently disturbed. This arm supports a model in which stimulus-responsive transcription, rather than constitutive housekeeping transcription, is the vulnerable process.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transcription by RNA polymerase II\"]}}, {\"id\": \"Failure of Corpus Callosum Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum was present in all 13 individuals of the molecularly confirmed cohort who underwent neuroimaging, making it the single most characteristic structural consequence of the MED12 lesion. The developmental step that fails is midline commissural axon guidance and callosal tract formation. The link from the upstream transcriptional arms to this specific structure is biologically coherent but has not been demonstrated in affected human fetal brain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"corpus callosum development\"]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile feeding difficulty is part of the presenting triad, was present in all affected individuals in the molecularly confirmed cohort, and may require nasogastric or gastrostomy feeding. It accompanies poor oral motor function, decreased gastric motility, and reflux.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Frontal upsweep of hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An upswept frontal hairline is one of the more distinctive components of the FGS1 facial gestalt and was even noted in one obligate carrier mother.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002236\"}}, {\"id\": \"Gastrostomy feeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical gastrostomy placement for enteral feeding when severe infantile feeding difficulty is not met by oral intake, following feeding and swallowing assessment. Non-surgical nasogastric feeding is a distinct intervention and is not asserted by this entry.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"High forehead\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A tall, prominent forehead is a component of the FGS1 facial gestalt and one of the features enumerated in the GeneReviews clinical characteristics. No per-feature denominator is reported, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000348\"}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dysplasia is among the skeletal anomalies reported as frequent in the molecularly confirmed cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Impaired Neuronal Differentiation and Cortical Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of scheduled neuronal gene regulation is proposed to perturb neuronal differentiation and cortical development, yielding the universal cognitive impairment and the congenital hypotonia of FGS1. This node carries the cellular consequence; the evidence for the underlying regulatory defect is lymphoblastoid and engineered-rescue rather than neural, which is the subject of the HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"biological_processes\": [\"neuron differentiation\"]}}, {\"id\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mediator, the G9a histone methyltransferase, and the RE1 silencing transcription factor (REST/NRSF) form a protein interaction network that keeps neuronal genes silenced in non-neuronal cells, with the MED12 interface linking REST to G9a-dependent histone H3K9 dimethylation. Missense MED12 changes causing FG and Lujan syndromes disrupt this REST corepressor function, so neuronal genes escape scheduled repression. Rescue experiments indicate that p.Arg961Trp specifically fails to restore REST-mediated silencing while retaining beta-catenin rescue capacity, marking this as a pathway-selective, kinase-independent defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"negative regulation of transcription by RNA polymerase II\", \"chromatin organization\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All molecularly confirmed males have cognitive impairment, but severity is variable from borderline to severe; most have IQ scores below 70. Even the least affected proband functions below his unaffected family members.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint contractures, hip dysplasia, pectus deformities, vertebral and rib anomalies, and syndactyly or oligodactyly of the fingers were reported as frequent accompaniments in the confirmed cohort, but the source gives no per-feature denominator, so no frequency band is asserted. Limited forearm pronation/supination is curated as a separate phenotype with its own count.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Limited pronation/supination of forearm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limited supination of the elbow was reported in six of 23 molecularly confirmed males and may be a useful clinical sign in the older child evaluated in clinic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006394\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-set ear position is listed among the key facial elements of molecularly confirmed FGS1 (\\\"small, simple, low-set, prominent ears\\\"). No per-feature denominator is given for position alone, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000369\"}}, {\"id\": \"MED12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MED12 c.2881C\u003eT (p.Arg961Trp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The defining FGS1 variant: NM_005120.3:c.2881C\u003eT in exon 21 of MED12, causing the p.Arg961Trp missense substitution. It is germline and hemizygous in affected males, recurrent across unrelated families, and maternally transmitted rather than de novo in the reported cohort. Functionally it produces a pathway-selective altered-function defect rather than complete loss of MED12 function.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MED12 is a subunit of the dissociable CDK8 kinase module (MED12, MED13, cyclin C, CDK8) that reversibly associates with core Mediator and acts as the hub through which DNA-bound transcription factors communicate with RNA polymerase II. The recurrent germline hemizygous c.2881C\u003eT (p.Arg961Trp) missense substitution does not abolish MED12 function globally; the evidence favors a pathway-selective altered-function defect that impairs recruitment of, or response to, particular regulatory complexes while sparing others. This distinguishes FGS1 from complete MED12 loss of function, which has broader and developmentally more severe consequences.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription corepressor activity\"], \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}]}}, {\"id\": \"MED12 p.Gly958Glu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A second, non-recurrent MED12 missense variant reported in one family with three affected cousins whose clinical phenotype matched Opitz-Kaveggia syndrome. It demonstrated for the first time that FGS1 is not exclusively caused by p.Arg961Trp, although p.Arg961Trp remains the defining and by far the most common allele.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Megacolon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Megacolon is named among the additional anomalies that were frequent in the molecularly confirmed cohort, and at least one confirmed male underwent partial colonic resection for megacolon. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:6000852\"}}, {\"id\": \"Ocular hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular hypertelorism is part of the classic FGS1 facial description from the original family onward.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Open mouth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An open-mouth appearance is listed among the key facial elements of molecularly confirmed FGS1. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000194\"}}, {\"id\": \"Pectus deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus excavatum and related chest wall deformities are part of the FGS1 skeletal spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000767\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy addresses congenital hypotonia, delayed motor milestones, contractures, and mobility. Some children achieve walking only in later childhood.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prominent fingertip pads\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent fetal fingertip pads are a recognized soft dysmorphic sign in molecularly confirmed FGS1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001212\"}}, {\"id\": \"Protruding ear\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominence of the ears is listed with the other ear descriptors in the key facial elements of molecularly confirmed FGS1. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000411\"}}, {\"id\": \"Simple ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The helical pattern is simplified. This is a distinct feature from ear size: one of the 13 fully evaluated males had simple ears without measured small size, and GeneReviews lists \\\"small and simple ears\\\" as two co-occurring descriptors. No per-feature denominator is reported for simplification, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0020206\"}}, {\"id\": \"Small ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ears measuring below the 10th percentile were documented in 12 of 13 fully evaluated mutation-positive males, and ear size is one of the six criteria in the diagnostic algorithm.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0400005\"}}, {\"id\": \"Speech and language therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sustained speech-language therapy, with augmentative and alternative communication where needed, targets the disproportionate communication deficit documented on the Vineland scales in p.Arg961Trp-confirmed males.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical repair of congenital anomalies\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction of imperforate anus and other anorectal malformations, repair of significant congenital heart defects, and orthopedic management of contractures, hip dysplasia, and spinal deformity as indicated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial syndactyly (and less commonly oligodactyly) of the fingers is reported in molecularly confirmed FGS1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006101\"}}], \"edges\": [{\"source\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"target\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The MED12 interface within Mediator is the physical link between REST/NRSF and G9a-dependent repressive chromatin marking; the FGS1 missense change disrupts that corepressor function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"target\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MED12 normally restrains GLI3-dependent SHH target-gene transcription; the FGS1 variant fails to restore that suppression and shows reduced CDK8 recruitment at GLI3 target sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"target\": \"Dysregulated Immediate-Early Gene Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Each MED12 patient variant, including p.Arg961Trp, produces its own immediate-early gene expression signature tracking MED12/Pol II promoter occupancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"target\": \"Impaired Neuronal Differentiation and Cortical Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"REST/NRSF silences neuronal genes in non-neuronal and progenitor cells, so unscheduled derepression is proposed to disturb the timing of neuronal differentiation directly; the link has not been demonstrated in affected human fetal tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"target\": \"Failure of Corpus Callosum Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal projection neurons must differentiate on schedule before their axons can cross the midline, so mistimed REST-dependent derepression is proposed to act on callosal formation via the neuronal-differentiation defect above rather than independently of it; not demonstrated in affected human fetal tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Failure of Corpus Callosum Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GLI3 dose sets dorsoventral forebrain and midline patterning, and callosal agenesis is a recognised feature of GLI3-related disorders, making this the most plausible of the three arms for the callosal defect; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Impaired Neuronal Differentiation and Cortical Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SHH-GLI3 signalling regulates cortical progenitor proliferation and the neurogenic-to-gliogenic transition, so altered GLI3-dependent output is a plausible route to disturbed neuronal differentiation; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Anorectal Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SHH-GLI3 signalling patterns hindgut and cloacal septation, and anorectal malformation is part of the Gli3-mutant and SHH-pathway phenotype, making this arm the plausible route to the anorectal defect; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Cardiac Septation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hedgehog signalling in second-heart-field and atrial septal progenitors is required for normal septation, so altered GLI3-dependent output is a plausible route to the septal defect; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GLI3 is the principal SHH effector in frontonasal, palatal and limb patterning, and craniofacial and digital anomalies are cardinal features of GLI3-related disorders, making this arm the plausible route to the dysmorphic features; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Immediate-Early Gene Response\", \"target\": \"Impaired Neuronal Differentiation and Cortical Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immediate-early gene programmes couple extracellular cues to the activity-dependent transcription that neuronal differentiation and circuit maturation depend on, so variant-specific IEG dysregulation is proposed to impair that step; the evidence base is lymphoblastoid rather than tissue-resident, so the neural relevance is inferred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Immediate-Early Gene Response\", \"target\": \"Failure of Corpus Callosum Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midline axon guidance and callosal targeting are activity- and stimulus-responsive, so disturbed IEG programmes are proposed to reach the callosal defect through the neuronal-differentiation step above; the evidence base is lymphoblastoid rather than tissue-resident.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Corpus Callosum Formation\", \"target\": \"Agenesis or hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging phenotype is the direct structural readout of failed callosal tract formation; agenesis or hypoplasia of the corpus callosum was present in all 13 imaged members of the molecularly confirmed cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognitive impairment is the organism-level readout of disturbed neuronal differentiation and cortical development; the cited mechanistic work proposes exactly this route for MED12-associated intellectual disability, but the intermediate steps have not been demonstrated in affected human brain (see the HUMAN_MODEL_MISMATCH discussion).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disproportionate communication deficit is a facet of the cognitive phenotype, further compounded at the motor-speech level by low facial muscle tone and oral-motor discoordination.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Congenital hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital hypotonia of FGS1 is central in character and improves or resolves with age; it is routed through the neurodevelopmental arm per this node\u0027s model, and a muscle-intrinsic contribution has not been characterised.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Open mouth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Open-mouth posture reads as a sign of orofacial hypotonia (the myopathic facies described in affected males) rather than a structural malformation, so it is routed through the neurodevelopmental hypotonia mechanism; the facial-gestalt enumeration also lists it, but the dysmorphogenesis node makes a structural claim this sign does not carry.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile feeding difficulty travels with the congenital hypotonia and poor oral motor function in all affected individuals; the co-occurring gastric dysmotility component is a separate contribution that remains mechanistically unexplained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Anal anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anal fistula, stenosis, and atresia (11 of 19 evaluable males) are the direct clinical readout of failed anorectal septation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Anal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Imperforate anus, cardinal in the original Opitz-Kaveggia family, is the severe end of the anorectal malformation spectrum this node carries.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Anal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anal stenosis is the milder end of the same anorectal malformation spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Chronic constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constipation in FGS1 may be obstructive (structural anorectal disease), functional (the enteric neuromuscular dysfunction this node also carries), or both; because severe constipation persists in males with no structural anorectal defect, this edge explains the phenotype only partially and the functional component remains uncharacterised.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Megacolon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megacolon is interpreted as secondary to chronic outlet dysfunction and longstanding constipation; at least one confirmed male required partial colonic resection. A primary enteric neuropathy has not been excluded.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Septation Defect\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital cardiac anomalies (11 of 18 evaluable males) are the clinical readout of disturbed cardiac septation and related morphogenesis; the composite includes some non-septal lesions this node does not fully account for.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Septation Defect\", \"target\": \"Atrial septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial septal defect is the specific documented septation lesion within the congenital heart defect composite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Characteristic facial gestalt\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The composite facial gestalt (13 of 13 examined males) is the direct readout of the craniofacial dysmorphogenesis this node carries.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"High forehead\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Component of the craniofacial gestalt readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Dolichocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-shape component of the craniofacial dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Downslanted palpebral fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Component of the craniofacial gestalt readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Frontal upsweep of hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scalp-hair-patterning component of the craniofacial gestalt.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Ocular hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Component of the craniofacial gestalt readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Small ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ear size below the 10th percentile (12 of 13) is the most discriminating facial component of the dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Simple ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Helical-pattern component of the ear dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ear-position component of the craniofacial dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Protruding ear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ear-prominence component of the craniofacial dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial-suture component of the skull dysmorphogenesis (2 of 23 confirmed males).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Broad thumbs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal-limb-patterning component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Broad halluces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal-limb-patterning component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Prominent fingertip pads\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent fetal fingertip pads, a soft distal-limb component of the readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digit-separation component of the distal limb dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Limited pronation/supination of forearm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Forearm skeletal component of the dysmorphogenesis readout (6 of 23).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Joint contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Articular component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Articular component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Pectus deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chest-wall component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Abnormal vertebral morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Physical therapy\", \"target\": \"Congenital hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and language therapy\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral management\", \"target\": \"Aggressive behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bowel management for chronic constipation\", \"target\": \"Chronic constipation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical repair of congenital anomalies\", \"target\": \"Anal atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical repair of congenital anomalies\", \"target\": \"Congenital heart defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gastrostomy feeding\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MED12\", \"target\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MED12 c.2881C\u003eT (p.Arg961Trp)\", \"target\": \"MED12\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"MED12 p.Gly958Glu\", \"target\": \"MED12\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal vertebral morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral and rib anomalies, and spinal curvature, are reported among the FGS1 axial skeletal findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003468\"}}, {\"id\": \"Agenesis or hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum was present in all 13 individuals in the confirmed cohort who underwent neuroimaging. Note that the denominator is restricted to those imaged.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007370\"}}, {\"id\": \"Aggressive behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic aggressive and self-injurious behavior emerges more frequently around puberty and early adulthood; it affects some but not all individuals and is described alongside impulsivity and obsessive-compulsive traits.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000718\"}}, {\"id\": \"Anal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anal fistula, anal stenosis, and anal atresia (imperforate anus) together occurred in 11 of 19 evaluable molecularly confirmed males. Imperforate anus was one of the defining features in the original 1974 Opitz-Kaveggia family.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004378\"}}, {\"id\": \"Anal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Imperforate anus was one of the cardinal malformations in the original Opitz-Kaveggia description and remains part of the FGS1 anorectal spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002023\"}}, {\"id\": \"Anal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anal stenosis is part of the anorectal malformation spectrum contributing to the severe constipation phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002025\"}}, {\"id\": \"Anorectal Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anal fistula, stenosis, and atresia occurred in 11 of 19 evaluable molecularly confirmed males. Hindgut and anorectal septation is a classic hedgehog-patterning-dependent process, which is why the GLI3 arm is the most plausible upstream route; enteric neuron development is placed here rather than on a pan-organ node because the severe constipation of FGS1 persists even without a structural anorectal defect.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enteric neuron\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Atrial septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is documented as a case-level congenital cardiac finding in the molecularly confirmed cohort (including one that resolved by age 4). It is retained as a queryable specific lesion under the Congenital heart defect roll-up; no frequency band is asserted from case observations alone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001631\"}}, {\"id\": \"Behavioral management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized management of behavior problems, with structured routines, advance warning of transitions, and behavioral intervention. Mood stabilizers may be considered for adolescents and young adults with aggressive or self-injurious outbursts, and a careful medical examination should precede escalation since unrecognized medical problems (including constipation and ocular anomalies) can drive behavior change.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Bowel management for chronic constipation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive constipation management is required in essentially all affected individuals. Structural anorectal disease should be excluded or treated, since constipation may be functional, obstructive, or both.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"laxative\"]}}, {\"id\": \"Broad halluces\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad great toes accompany the broad thumbs, reflecting a shared distal limb patterning effect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010055\"}}, {\"id\": \"Broad thumbs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Broad, flat thumbs are one of the cardinal skeletal features described from the original Opitz-Kaveggia family onward and are listed by GeneReviews as a defining FGS1 feature.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011304\"}}, {\"id\": \"Cardiac Septation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Congenital cardiac anomalies, including septal defects, were documented in 11 of 18 evaluable molecularly confirmed males. This is the rationale for baseline echocardiography at diagnosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ventricular septum development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Characteristic facial gestalt\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A recognizable facial appearance was present in all 13 fully evaluated mutation-positive males and comprises a tall prominent forehead, frontal hair upsweep, ocular hypertelorism, downslanted palpebral fissures, and small simple ears. The gestalt is most readily recognized in early childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Chronic constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, chronic constipation is one of the defining features of FGS1, present with or without a structural anorectal malformation, and part of the infantile triad used in the diagnostic algorithm.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012450\"}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cardiac anomalies were documented in 11 of 18 evaluable molecularly confirmed males, supporting baseline echocardiography in any newly diagnosed individual.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Congenital hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital/infantile hypotonia is a hallmark presenting feature, part of the infantile triad (hypotonia, feeding difficulties, constipation) present in all 13 fully evaluated mutation-positive males. Hypotonia improves or resolves with age.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recognizable facial gestalt was present in all 13 fully evaluated mutation-positive males, accompanied by broad thumbs and halluces, syndactyly, pectus deformity, vertebral and rib anomalies, joint contractures, and hip dysplasia. Craniofacial and limb patterning are hedgehog-dependent, making the GLI3 arm the most plausible upstream route.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neural crest cell differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Craniosynostosis was found in 2 of the 23 molecularly confirmed males.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001363\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Communication skills are disproportionately impaired relative to socialization and daily living skills, making speech-language therapy and augmentative communication a management priority.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated GLI3 physically targets the MED12 interface within Mediator to reverse Mediator-dependent suppression of Sonic hedgehog target-gene transcription, placing MED12 as a direct restraint on the pathway. In patient-derived lymphoblastoid lines carrying MED12 XLID variants, transcripts of the GLI3-dependent SHH targets CREB5, BMP4, and NEUROG2 are significantly elevated, and p.Arg961Trp fails to restore normal SHH inhibition while showing reduced CDK8 recruitment at GLI3 sites. Because SHH-GLI signalling patterns the forebrain, craniofacial skeleton, limb, gut, and heart, this arm offers a plausible unifying explanation for the multi-system malformation pattern of FGS1.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"smoothened signaling pathway\", \"regulation of transcription by RNA polymerase II\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Dolichocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A dolichocephalic (long, narrow) head shape is listed among the key elements of the molecularly confirmed FGS1 clinical phenotype. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000268\"}}, {\"id\": \"Downslanted palpebral fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downslanting palpebral fissures are a component of the FGS1 facial gestalt and one of the features listed in the GeneReviews clinical characteristics.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000494\"}}, {\"id\": \"Dysregulated Immediate-Early Gene Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In EBV-immortalized lymphoblastoid cells from patients, individual MED12 variants including p.Arg961Trp generate variant-specific expression patterns of the immediate-early genes JUN, FOS, and EGR1, mirrored by the presence or absence of the MED12-containing complex and RNA polymerase II at their promoters. The effect is cell-type specific, and downstream late-response genes involved in neural plasticity and neuronal gene specification are consequently disturbed. This arm supports a model in which stimulus-responsive transcription, rather than constitutive housekeeping transcription, is the vulnerable process.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transcription by RNA polymerase II\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Failure of Corpus Callosum Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum was present in all 13 individuals of the molecularly confirmed cohort who underwent neuroimaging, making it the single most characteristic structural consequence of the MED12 lesion. The developmental step that fails is midline commissural axon guidance and callosal tract formation. The link from the upstream transcriptional arms to this specific structure is biologically coherent but has not been demonstrated in affected human fetal brain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"corpus callosum development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile feeding difficulty is part of the presenting triad, was present in all affected individuals in the molecularly confirmed cohort, and may require nasogastric or gastrostomy feeding. It accompanies poor oral motor function, decreased gastric motility, and reflux.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Frontal upsweep of hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An upswept frontal hairline is one of the more distinctive components of the FGS1 facial gestalt and was even noted in one obligate carrier mother.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002236\"}}, {\"id\": \"Gastrostomy feeding\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical gastrostomy placement for enteral feeding when severe infantile feeding difficulty is not met by oral intake, following feeding and swallowing assessment. Non-surgical nasogastric feeding is a distinct intervention and is not asserted by this entry.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"High forehead\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A tall, prominent forehead is a component of the FGS1 facial gestalt and one of the features enumerated in the GeneReviews clinical characteristics. No per-feature denominator is reported, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000348\"}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dysplasia is among the skeletal anomalies reported as frequent in the molecularly confirmed cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Impaired Neuronal Differentiation and Cortical Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of scheduled neuronal gene regulation is proposed to perturb neuronal differentiation and cortical development, yielding the universal cognitive impairment and the congenital hypotonia of FGS1. This node carries the cellular consequence; the evidence for the underlying regulatory defect is lymphoblastoid and engineered-rescue rather than neural, which is the subject of the HUMAN_MODEL_MISMATCH discussion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"biological_processes\": [\"neuron differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mediator, the G9a histone methyltransferase, and the RE1 silencing transcription factor (REST/NRSF) form a protein interaction network that keeps neuronal genes silenced in non-neuronal cells, with the MED12 interface linking REST to G9a-dependent histone H3K9 dimethylation. Missense MED12 changes causing FG and Lujan syndromes disrupt this REST corepressor function, so neuronal genes escape scheduled repression. Rescue experiments indicate that p.Arg961Trp specifically fails to restore REST-mediated silencing while retaining beta-catenin rescue capacity, marking this as a pathway-selective, kinase-independent defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"negative regulation of transcription by RNA polymerase II\", \"chromatin organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All molecularly confirmed males have cognitive impairment, but severity is variable from borderline to severe; most have IQ scores below 70. Even the least affected proband functions below his unaffected family members.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Joint contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint contractures, hip dysplasia, pectus deformities, vertebral and rib anomalies, and syndactyly or oligodactyly of the fingers were reported as frequent accompaniments in the confirmed cohort, but the source gives no per-feature denominator, so no frequency band is asserted. Limited forearm pronation/supination is curated as a separate phenotype with its own count.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Limited pronation/supination of forearm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limited supination of the elbow was reported in six of 23 molecularly confirmed males and may be a useful clinical sign in the older child evaluated in clinic.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006394\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-set ear position is listed among the key facial elements of molecularly confirmed FGS1 (\\\"small, simple, low-set, prominent ears\\\"). No per-feature denominator is given for position alone, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000369\"}}, {\"id\": \"MED12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MED12 c.2881C\u003eT (p.Arg961Trp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The defining FGS1 variant: NM_005120.3:c.2881C\u003eT in exon 21 of MED12, causing the p.Arg961Trp missense substitution. It is germline and hemizygous in affected males, recurrent across unrelated families, and maternally transmitted rather than de novo in the reported cohort. Functionally it produces a pathway-selective altered-function defect rather than complete loss of MED12 function.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MED12 is a subunit of the dissociable CDK8 kinase module (MED12, MED13, cyclin C, CDK8) that reversibly associates with core Mediator and acts as the hub through which DNA-bound transcription factors communicate with RNA polymerase II. The recurrent germline hemizygous c.2881C\u003eT (p.Arg961Trp) missense substitution does not abolish MED12 function globally; the evidence favors a pathway-selective altered-function defect that impairs recruitment of, or response to, particular regulatory complexes while sparing others. This distinguishes FGS1 from complete MED12 loss of function, which has broader and developmentally more severe consequences.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"], \"molecular_functions\": [\"transcription corepressor activity\"], \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"MED12 p.Gly958Glu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A second, non-recurrent MED12 missense variant reported in one family with three affected cousins whose clinical phenotype matched Opitz-Kaveggia syndrome. It demonstrated for the first time that FGS1 is not exclusively caused by p.Arg961Trp, although p.Arg961Trp remains the defining and by far the most common allele.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MED12\"], \"gene_terms\": [{\"label\": \"MED12\", \"id\": \"hgnc:11957\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Megacolon\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Megacolon is named among the additional anomalies that were frequent in the molecularly confirmed cohort, and at least one confirmed male underwent partial colonic resection for megacolon. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:6000852\"}}, {\"id\": \"Ocular hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular hypertelorism is part of the classic FGS1 facial description from the original family onward.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Open mouth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An open-mouth appearance is listed among the key facial elements of molecularly confirmed FGS1. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000194\"}}, {\"id\": \"Pectus deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus excavatum and related chest wall deformities are part of the FGS1 skeletal spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000767\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical therapy addresses congenital hypotonia, delayed motor milestones, contractures, and mobility. Some children achieve walking only in later childhood.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prominent fingertip pads\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent fetal fingertip pads are a recognized soft dysmorphic sign in molecularly confirmed FGS1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001212\"}}, {\"id\": \"Protruding ear\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominence of the ears is listed with the other ear descriptors in the key facial elements of molecularly confirmed FGS1. No per-feature denominator is given, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000411\"}}, {\"id\": \"Simple ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The helical pattern is simplified. This is a distinct feature from ear size: one of the 13 fully evaluated males had simple ears without measured small size, and GeneReviews lists \\\"small and simple ears\\\" as two co-occurring descriptors. No per-feature denominator is reported for simplification, so no frequency band is asserted.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0020206\"}}, {\"id\": \"Small ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ears measuring below the 10th percentile were documented in 12 of 13 fully evaluated mutation-positive males, and ear size is one of the six criteria in the diagnostic algorithm.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0400005\"}}, {\"id\": \"Speech and language therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sustained speech-language therapy, with augmentative and alternative communication where needed, targets the disproportionate communication deficit documented on the Vineland scales in p.Arg961Trp-confirmed males.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical repair of congenital anomalies\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical correction of imperforate anus and other anorectal malformations, repair of significant congenital heart defects, and orthopedic management of contractures, hip dysplasia, and spinal deformity as indicated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Partial syndactyly (and less commonly oligodactyly) of the fingers is reported in molecularly confirmed FGS1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006101\"}}], \"edges\": [{\"source\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"target\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The MED12 interface within Mediator is the physical link between REST/NRSF and G9a-dependent repressive chromatin marking; the FGS1 missense change disrupts that corepressor function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"target\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MED12 normally restrains GLI3-dependent SHH target-gene transcription; the FGS1 variant fails to restore that suppression and shows reduced CDK8 recruitment at GLI3 target sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"target\": \"Dysregulated Immediate-Early Gene Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Each MED12 patient variant, including p.Arg961Trp, produces its own immediate-early gene expression signature tracking MED12/Pol II promoter occupancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"target\": \"Impaired Neuronal Differentiation and Cortical Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"REST/NRSF silences neuronal genes in non-neuronal and progenitor cells, so unscheduled derepression is proposed to disturb the timing of neuronal differentiation directly; the link has not been demonstrated in affected human fetal tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired REST-Dependent Silencing of Neuronal Genes\", \"target\": \"Failure of Corpus Callosum Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal projection neurons must differentiate on schedule before their axons can cross the midline, so mistimed REST-dependent derepression is proposed to act on callosal formation via the neuronal-differentiation defect above rather than independently of it; not demonstrated in affected human fetal tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Failure of Corpus Callosum Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GLI3 dose sets dorsoventral forebrain and midline patterning, and callosal agenesis is a recognised feature of GLI3-related disorders, making this the most plausible of the three arms for the callosal defect; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Impaired Neuronal Differentiation and Cortical Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SHH-GLI3 signalling regulates cortical progenitor proliferation and the neurogenic-to-gliogenic transition, so altered GLI3-dependent output is a plausible route to disturbed neuronal differentiation; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Anorectal Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SHH-GLI3 signalling patterns hindgut and cloacal septation, and anorectal malformation is part of the Gli3-mutant and SHH-pathway phenotype, making this arm the plausible route to the anorectal defect; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Cardiac Septation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hedgehog signalling in second-heart-field and atrial septal progenitors is required for normal septation, so altered GLI3-dependent output is a plausible route to the septal defect; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Derepression of GLI3-Dependent Sonic Hedgehog Target Transcription\", \"target\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GLI3 is the principal SHH effector in frontonasal, palatal and limb patterning, and craniofacial and digital anomalies are cardinal features of GLI3-related disorders, making this arm the plausible route to the dysmorphic features; not demonstrated directly in affected human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Immediate-Early Gene Response\", \"target\": \"Impaired Neuronal Differentiation and Cortical Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immediate-early gene programmes couple extracellular cues to the activity-dependent transcription that neuronal differentiation and circuit maturation depend on, so variant-specific IEG dysregulation is proposed to impair that step; the evidence base is lymphoblastoid rather than tissue-resident, so the neural relevance is inferred.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated Immediate-Early Gene Response\", \"target\": \"Failure of Corpus Callosum Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midline axon guidance and callosal targeting are activity- and stimulus-responsive, so disturbed IEG programmes are proposed to reach the callosal defect through the neuronal-differentiation step above; the evidence base is lymphoblastoid rather than tissue-resident.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Corpus Callosum Formation\", \"target\": \"Agenesis or hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imaging phenotype is the direct structural readout of failed callosal tract formation; agenesis or hypoplasia of the corpus callosum was present in all 13 imaged members of the molecularly confirmed cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cognitive impairment is the organism-level readout of disturbed neuronal differentiation and cortical development; the cited mechanistic work proposes exactly this route for MED12-associated intellectual disability, but the intermediate steps have not been demonstrated in affected human brain (see the HUMAN_MODEL_MISMATCH discussion).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disproportionate communication deficit is a facet of the cognitive phenotype, further compounded at the motor-speech level by low facial muscle tone and oral-motor discoordination.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Congenital hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital hypotonia of FGS1 is central in character and improves or resolves with age; it is routed through the neurodevelopmental arm per this node\u0027s model, and a muscle-intrinsic contribution has not been characterised.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Open mouth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Open-mouth posture reads as a sign of orofacial hypotonia (the myopathic facies described in affected males) rather than a structural malformation, so it is routed through the neurodevelopmental hypotonia mechanism; the facial-gestalt enumeration also lists it, but the dysmorphogenesis node makes a structural claim this sign does not carry.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neuronal Differentiation and Cortical Development\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile feeding difficulty travels with the congenital hypotonia and poor oral motor function in all affected individuals; the co-occurring gastric dysmotility component is a separate contribution that remains mechanistically unexplained.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Anal anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anal fistula, stenosis, and atresia (11 of 19 evaluable males) are the direct clinical readout of failed anorectal septation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Anal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Imperforate anus, cardinal in the original Opitz-Kaveggia family, is the severe end of the anorectal malformation spectrum this node carries.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Anal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anal stenosis is the milder end of the same anorectal malformation spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Chronic constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constipation in FGS1 may be obstructive (structural anorectal disease), functional (the enteric neuromuscular dysfunction this node also carries), or both; because severe constipation persists in males with no structural anorectal defect, this edge explains the phenotype only partially and the functional component remains uncharacterised.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Anorectal Malformation\", \"target\": \"Megacolon\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megacolon is interpreted as secondary to chronic outlet dysfunction and longstanding constipation; at least one confirmed male required partial colonic resection. A primary enteric neuropathy has not been excluded.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Septation Defect\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital cardiac anomalies (11 of 18 evaluable males) are the clinical readout of disturbed cardiac septation and related morphogenesis; the composite includes some non-septal lesions this node does not fully account for.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Septation Defect\", \"target\": \"Atrial septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial septal defect is the specific documented septation lesion within the congenital heart defect composite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Characteristic facial gestalt\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The composite facial gestalt (13 of 13 examined males) is the direct readout of the craniofacial dysmorphogenesis this node carries.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"High forehead\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Component of the craniofacial gestalt readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Dolichocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-shape component of the craniofacial dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Downslanted palpebral fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Component of the craniofacial gestalt readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Frontal upsweep of hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scalp-hair-patterning component of the craniofacial gestalt.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Ocular hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Component of the craniofacial gestalt readout of this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Small ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ear size below the 10th percentile (12 of 13) is the most discriminating facial component of the dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Simple ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Helical-pattern component of the ear dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ear-position component of the craniofacial dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Protruding ear\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ear-prominence component of the craniofacial dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial-suture component of the skull dysmorphogenesis (2 of 23 confirmed males).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Broad thumbs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal-limb-patterning component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Broad halluces\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal-limb-patterning component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Prominent fingertip pads\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent fetal fingertip pads, a soft distal-limb component of the readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Digit-separation component of the distal limb dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Limited pronation/supination of forearm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Forearm skeletal component of the dysmorphogenesis readout (6 of 23).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Joint contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Articular component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Articular component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Pectus deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chest-wall component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial and Skeletal Dysmorphogenesis\", \"target\": \"Abnormal vertebral morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial component of the skeletal dysmorphogenesis readout.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Physical therapy\", \"target\": \"Congenital hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and language therapy\", \"target\": \"Delayed speech and language development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral management\", \"target\": \"Aggressive behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bowel management for chronic constipation\", \"target\": \"Chronic constipation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical repair of congenital anomalies\", \"target\": \"Anal atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical repair of congenital anomalies\", \"target\": \"Congenital heart defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gastrostomy feeding\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"MED12\", \"target\": \"MED12 p.Arg961Trp Alters CDK8 Kinase Module Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MED12 c.2881C\u003eT (p.Arg961Trp)\", \"target\": \"MED12\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"MED12 p.Gly958Glu\", \"target\": \"MED12\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6655,6 +6808,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6669,6 +6825,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6693,6 +6850,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6747,6 +6905,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6761,6 +6922,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6844,6 +7006,9 @@ This clinical feature is Chronic constipation (HP:0012450), qualified as tempora
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6858,6 +7023,7 @@ This clinical feature is Chronic constipation (HP:0012450), qualified as tempora
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6882,6 +7048,7 @@ This clinical feature is Chronic constipation (HP:0012450), qualified as tempora
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6938,6 +7105,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6952,6 +7122,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7006,6 +7177,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7020,6 +7194,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7078,6 +7253,9 @@ This clinical feature is Abnormality of the anus (HP:0004378). HP:0004378 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7092,6 +7270,7 @@ This clinical feature is Abnormality of the anus (HP:0004378). HP:0004378 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7146,6 +7325,9 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7160,6 +7342,7 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7214,6 +7397,9 @@ This clinical feature is Anal stenosis (HP:0002025). HP:0002025 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7228,6 +7414,7 @@ This clinical feature is Anal stenosis (HP:0002025). HP:0002025 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7282,6 +7469,9 @@ This clinical feature is Pyloric stenosis (HP:0002021). HP:0002021 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7296,6 +7486,7 @@ This clinical feature is Pyloric stenosis (HP:0002021). HP:0002021 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7350,6 +7541,9 @@ This clinical feature is Megacolon (HP:6000852). HP:6000852 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7364,6 +7558,7 @@ This clinical feature is Megacolon (HP:6000852). HP:6000852 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7388,6 +7583,7 @@ This clinical feature is Megacolon (HP:6000852). HP:6000852 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7442,6 +7638,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7456,6 +7655,7 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7483,6 +7683,7 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7504,6 +7705,7 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7571,6 +7773,9 @@ This clinical feature is Small ears, annotated with Short ear (HP:0400005). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7585,6 +7790,7 @@ This clinical feature is Small ears, annotated with Short ear (HP:0400005). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7639,6 +7845,9 @@ This clinical feature is Simple ear (HP:0020206). HP:0020206 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7653,6 +7862,7 @@ This clinical feature is Simple ear (HP:0020206). HP:0020206 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7677,6 +7887,7 @@ This clinical feature is Simple ear (HP:0020206). HP:0020206 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7731,6 +7942,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7745,6 +7959,7 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7799,6 +8014,9 @@ This clinical feature is Protruding ear (HP:0000411). HP:0000411 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7813,6 +8031,7 @@ This clinical feature is Protruding ear (HP:0000411). HP:0000411 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7837,6 +8056,7 @@ This clinical feature is Protruding ear (HP:0000411). HP:0000411 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7893,6 +8113,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7907,6 +8130,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7931,6 +8155,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7994,6 +8219,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8008,6 +8236,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8066,6 +8295,9 @@ This clinical feature is Ocular anomaly (any), annotated with Abnormality of the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8080,6 +8312,7 @@ This clinical feature is Ocular anomaly (any), annotated with Abnormality of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8104,6 +8337,7 @@ This clinical feature is Ocular anomaly (any), annotated with Abnormality of the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8160,6 +8394,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8174,6 +8411,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8230,6 +8468,9 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8244,6 +8485,7 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8307,6 +8549,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8321,6 +8566,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8348,6 +8594,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8369,6 +8616,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8423,6 +8671,9 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8437,6 +8688,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8461,6 +8713,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8515,6 +8768,9 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8529,6 +8785,7 @@ This clinical feature is Renal cyst (HP:0000107). HP:0000107 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8583,6 +8840,9 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8597,6 +8857,7 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8662,6 +8923,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8676,6 +8940,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8700,6 +8965,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8756,6 +9022,9 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8770,6 +9039,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8797,6 +9067,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8818,6 +9089,7 @@ This clinical feature is Relative macrocephaly (HP:0004482). HP:0004482 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8876,6 +9148,9 @@ This clinical feature is Characteristic FG syndrome facial gestalt, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8890,6 +9165,7 @@ This clinical feature is Characteristic FG syndrome facial gestalt, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8944,6 +9220,9 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8958,6 +9237,7 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9012,6 +9292,9 @@ This clinical feature is Open mouth (HP:0000194). HP:0000194 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9026,6 +9309,7 @@ This clinical feature is Open mouth (HP:0000194). HP:0000194 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9080,6 +9364,9 @@ This clinical feature is High forehead (HP:0000348). HP:0000348 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9094,6 +9381,7 @@ This clinical feature is High forehead (HP:0000348). HP:0000348 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9148,6 +9436,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9162,6 +9453,7 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9218,6 +9510,9 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9232,6 +9527,7 @@ This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9295,6 +9591,9 @@ This clinical feature is Frontal upsweep of hair (HP:0002236). HP:0002236 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9309,6 +9608,7 @@ This clinical feature is Frontal upsweep of hair (HP:0002236). HP:0002236 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9363,6 +9663,9 @@ This clinical feature is Prominent fingertip pads (HP:0001212). HP:0001212 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9377,6 +9680,7 @@ This clinical feature is Prominent fingertip pads (HP:0001212). HP:0001212 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9440,6 +9744,9 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9454,6 +9761,7 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9478,6 +9786,7 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9534,6 +9843,9 @@ This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9548,6 +9860,7 @@ This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9604,6 +9917,9 @@ This clinical feature is Limited pronation/supination of forearm (HP:0006394). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9618,6 +9934,7 @@ This clinical feature is Limited pronation/supination of forearm (HP:0006394). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9674,6 +9991,9 @@ This clinical feature is Syndactyly of the fingers, annotated with Finger syndac
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9688,6 +10008,7 @@ This clinical feature is Syndactyly of the fingers, annotated with Finger syndac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9755,6 +10076,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9769,6 +10093,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9796,6 +10121,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9817,6 +10143,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9871,6 +10198,9 @@ This clinical feature is Joint contractures, annotated with Joint contracture (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9885,6 +10215,7 @@ This clinical feature is Joint contractures, annotated with Joint contracture (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9909,6 +10240,7 @@ This clinical feature is Joint contractures, annotated with Joint contracture (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9963,6 +10295,9 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9977,6 +10312,7 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10033,6 +10369,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10047,6 +10386,7 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10101,6 +10441,9 @@ This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10115,6 +10458,7 @@ This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10180,6 +10524,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10194,6 +10541,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10221,6 +10569,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10242,6 +10591,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10300,6 +10650,9 @@ This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotate
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10314,6 +10667,7 @@ This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10338,6 +10692,7 @@ This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10396,6 +10751,9 @@ This clinical feature is Friendly, loquacious, eager-to-please personality, anno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10410,6 +10768,7 @@ This clinical feature is Friendly, loquacious, eager-to-please personality, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10437,6 +10796,7 @@ This clinical feature is Friendly, loquacious, eager-to-please personality, anno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10458,6 +10818,7 @@ This clinical feature is Friendly, loquacious, eager-to-please personality, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10514,6 +10875,9 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10528,6 +10892,7 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10584,6 +10949,9 @@ This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10598,6 +10966,7 @@ This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10652,6 +11021,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10666,6 +11038,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10690,6 +11063,7 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10746,6 +11120,9 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10760,6 +11137,7 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10784,6 +11162,7 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10840,6 +11219,9 @@ This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10854,6 +11236,7 @@ This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10910,6 +11293,9 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10924,6 +11310,7 @@ This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10980,6 +11367,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10994,6 +11384,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11018,6 +11409,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11074,6 +11466,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11088,6 +11483,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11142,6 +11538,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11156,6 +11555,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11183,6 +11583,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11204,6 +11605,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11267,6 +11669,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11281,6 +11686,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11379,6 +11785,9 @@ This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive inheritance</span>
@@ -11401,6 +11810,7 @@ This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11428,6 +11838,7 @@ This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11449,6 +11860,7 @@ This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11495,6 +11907,7 @@ This disease-associated gene is MED12 (hgnc:11957). hgnc:11957 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11514,11 +11927,17 @@ This variant is in MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The defining FGS1 variant: NM_005120.3:c.2881C&gt;T in exon 21 of MED12, causing the p.Arg961Trp missense substitution. It is germline and hemizygous in affected males, recurrent across unrelated families, and maternally transmitted rather than de novo in the reported cohort. Functionally it produces a pathway-selective altered-function defect rather than complete loss of MED12 function.</div>
@@ -11548,6 +11967,7 @@ This variant is in MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11569,6 +11989,7 @@ This variant is in MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11604,6 +12025,7 @@ This variant is in MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11623,11 +12045,17 @@ This variant is in MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A second, non-recurrent MED12 missense variant reported in one family with three affected cousins whose clinical phenotype matched Opitz-Kaveggia syndrome. It demonstrated for the first time that FGS1 is not exclusively caused by p.Arg961Trp, although p.Arg961Trp remains the defining and by far the most common allele.</div>
@@ -11654,6 +12082,7 @@ This variant is in MED12 (hgnc:11957). hgnc:11957 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11740,6 +12169,9 @@ This treatment is early intervention services, annotated with Early Intervention
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11750,6 +12182,9 @@ This treatment is early intervention services, annotated with Early Intervention
 
 
     </div>
+
+
+
 
 
 
@@ -11777,6 +12212,7 @@ This treatment is early intervention services, annotated with Early Intervention
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11846,6 +12282,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11856,6 +12295,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -11905,6 +12347,7 @@ This treatment targets Neonatal hypotonia (HP:0001319). HP:0001319 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11974,6 +12417,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11984,6 +12430,9 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -12011,6 +12460,7 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12080,6 +12530,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12090,6 +12543,9 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -12139,6 +12595,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12208,6 +12665,9 @@ This treatment is individualized behavioral management, annotated with Behaviora
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12218,6 +12678,9 @@ This treatment is individualized behavioral management, annotated with Behaviora
 
 
     </div>
+
+
+
 
 
 
@@ -12270,6 +12733,7 @@ This treatment targets Aggressive behavior (HP:0000718). HP:0000718 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12291,6 +12755,7 @@ This treatment targets Aggressive behavior (HP:0000718). HP:0000718 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12381,6 +12846,9 @@ This treatment uses laxative (NCIT:C29697). NCIT:C29697 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12391,6 +12859,9 @@ This treatment uses laxative (NCIT:C29697). NCIT:C29697 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -12440,6 +12911,7 @@ This treatment targets Chronic constipation (HP:0012450). HP:0012450 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12509,6 +12981,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12519,6 +12994,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12588,6 +13066,7 @@ This treatment targets Abnormal heart morphology (HP:0001627). HP:0001627 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12654,6 +13133,9 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12664,6 +13146,9 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -12713,6 +13198,7 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12782,6 +13268,9 @@ This treatment is clinical surveillance, annotated with Supportive Care (NCIT:C1
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12792,6 +13281,9 @@ This treatment is clinical surveillance, annotated with Supportive Care (NCIT:C1
 
 
     </div>
+
+
+
 
 
 
@@ -12822,6 +13314,7 @@ This treatment is clinical surveillance, annotated with Supportive Care (NCIT:C1
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12843,6 +13336,7 @@ This treatment is clinical surveillance, annotated with Supportive Care (NCIT:C1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12912,6 +13406,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12922,6 +13419,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -12952,6 +13452,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12973,6 +13474,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13048,6 +13550,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13069,6 +13572,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13126,6 +13630,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13147,6 +13652,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13204,6 +13710,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13225,6 +13732,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13279,6 +13787,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13349,6 +13858,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13398,6 +13908,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13453,6 +13964,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13474,6 +13986,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13545,6 +14058,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13608,6 +14122,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13697,6 +14212,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13764,6 +14280,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13839,6 +14356,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13911,6 +14429,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13932,6 +14451,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -17391,6 +17911,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: FG Syndrome 1</strong> · 2026-07-31T01:22:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/FG_Syndrome_1/2026-07-31T012209Z-claude-code-32e547.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of FG syndrome 1 (FGS1 / Opitz-Kaveggia syndrome; MONDO:0010590, OMIM:305450, MED12 p.Arg961Trp). Deep research provider: falcon (Edison Scientific), run via `just research-disorder falcon FG_Syndrome_1`; report and citations committed under research/. NEC preflight passed: the report&#39;s dominant gene (MED12) and asserted OMIM (305450) both match the MONDO:0010590 record, so no named-entity confusion. GeneReviews baseline PMID:20301719 (MED12-Related Disorders) was fetched, tagged in the top-level references block, and cross-referenced feature-by-feature against the curated phenotypes. Curated a 5-node pathograph with causal edges: MED12 p.Arg961Trp alters CDK8 kinase module function, feeding three parallel arms (impaired REST-dependent neuronal gene silencing; derepression of GLI3-dependent SHH target transcription; dysregulated immediate-early gene response) converging on abnormal neurodevelopment and morphogenesis. Added 35 phenotypes with HPO bindings and frequency bands anchored to explicit denominators from the Clark 2009 cohort of 23 molecularly confirmed males from 10 families; genetic block plus two variants (p.Arg961Trp, p.Gly958Glu); three diagnosis entries including the clinical triage algorithm (100% sensitivity, 90% specificity); four differential diagnoses covering the MED12 allelic series (Lujan-Fryns, X-linked Ohdo, Hardikar) plus MED12-negative FG phenotypes; ten supportive treatments derived from GeneReviews management guidance; inheritance, prevalence, progression, and clinical burden blocks; and one HUMAN_MODEL_MISMATCH discussion recording that all mechanistic evidence is lymphoblastoid or engineered-rescue rather than from affected human tissue, with two proposed resolving experiments. Key PMIDs: 20301719, 19938245, 17334363, 18973276, 20981778, 18805826, 18691967, 17000779, 30729724, 28369444, 33925166, 24123922, 34670449, 20507344. Validation: `just validate kb/disorders/FG_Syndrome_1.yaml` passed schema, term, and reference validation with no issues. Post-curation red-team review (dismech-pr-review skill, subagent) verified all evidence snippets as exact substrings of their caches and re-checked every ontology term with OAK; its findings were then applied: replaced a composite-triad snippet with the Clark 2009 sentence that names congenital hypotonia and feeding difficulties as present in all affected individuals (raising feeding difficulties to VERY_FREQUENT); stated the deliberate 13/13-to-VERY_FREQUENT departure explicitly on the three 100%-denominator phenotypes rather than silently down-banding; dropped unsupported frequency bands from joint contractures, cryptorchidism, renal cysts/stones, pyloric stenosis, short stature, hearing loss, and seizures; split composite rows from their bound components (ocular anomalies vs strabismus, facial gestalt vs high forehead, small ears vs simple ears); rebound terms to more precise matches (HP:0007370, HP:0001999, HP:0008551, HP:0100025, HP:0000478, GO:1990508, MAXO:0000010); removed a diagnostic-yield record that did not belong in structured prevalence; added sleep disturbance and a baseline-echocardiography diagnosis entry; and corrected evidence_source and support levels where a source characterized the historical pre-molecular label rather than the MED12-confirmed cohort. Automated PR review (ai4c-reviewer, PR #7254) returned REQUEST_CHANGES on two findings, both applied: the single ORGANISM-scale terminal node was unbundled into five organ-specific terminal nodes (Failure of Corpus Callosum Formation, Impaired Neuronal Differentiation and Cortical Development, Anorectal Malformation, Cardiac Septation Defect, Craniofacial and Skeletal Dysmorphogenesis), each carrying its own per-organ denominator from the Clark 2009 cohort and each reached by all three mechanistic arms via INDIRECT_UNKNOWN_INTERMEDIATES edges, taking the pathograph from 5 nodes/6 edges to 9 nodes/18 edges; and the contradictory OBLIGATE band on the identical 13/13 callosal datum in Mediator_Complex_Neurodevelopmental_Disorder.yaml was brought into line at VERY_FREQUENT with matching rationale. Two minor findings also applied: Small ears rebound from HP:0008551 Microtia (an auricular malformation claim) to HP:0400005 Short ear (defined by ear-length measurement, matching the below-10th-percentile source), and Renal cysts and stones split into separate Renal cyst (HP:0000107) and Nephrolithiasis (HP:0000787) rows so both are independently queryable.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

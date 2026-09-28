@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4107,6 +4175,7 @@ Collagen XXVII is a minor fibrillar collagen of the cartilage pericellular matri
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4128,6 +4197,7 @@ Collagen XXVII is a minor fibrillar collagen of the cartilage pericellular matri
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4294,6 +4364,7 @@ Collagen XXVII is a minor fibrillar collagen of the cartilage pericellular matri
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4315,6 +4386,7 @@ Collagen XXVII is a minor fibrillar collagen of the cartilage pericellular matri
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4352,6 +4424,7 @@ Collagen XXVII is a minor fibrillar collagen of the cartilage pericellular matri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col27a1-biallelic-pathogenic-variants" data-dismech-node="COL27A1 Biallelic Pathogenic Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">COL27A1 Biallelic Pathogenic Variants</div>
+
 
                 <div class="item-desc">Steel syndrome is initiated by biallelic pathogenic variants in COL27A1 on chromosome 9q32. The Puerto Rican founder allele c.2089G&gt;C substitutes arginine for a conserved glycine of a Gly-Xaa-Yaa repeat inside the triple-helical domain. Elsewhere in the world, private missense alleles and null alleles (frameshift, nonsense, splice-site and multi-exon deletion) have been reported in consanguineous and non-consanguineous families.
 </div>
@@ -4450,6 +4523,7 @@ This pathophysiological event involves COL27A1 (hgnc:22986). hgnc:22986 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4471,6 +4545,7 @@ This pathophysiological event involves COL27A1 (hgnc:22986). hgnc:22986 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4496,6 +4571,7 @@ This pathophysiological event involves COL27A1 (hgnc:22986). hgnc:22986 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structurally-defective-or-absent-collagen-xxvii" data-dismech-node="Structurally Defective or Absent Collagen XXVII" data-dismech-type="pathophysiology">
                 <div class="item-name">Structurally Defective or Absent Collagen XXVII</div>
+
 
                 <div class="item-desc">Collagen XXVII is a fibrillar collagen whose triple-helical domain depends on an uninterrupted Gly-Xaa-Yaa repeat. Substituting a helical glycine causes modest endoplasmic-reticulum retention of the mutant protein in chondrogenic cells, consistent with abnormal folding and impaired secretion, and behaves as a hypomorph; null alleles remove the protein outright.
 </div>
@@ -4713,6 +4789,7 @@ This pathophysiological event involves decreased extracellular matrix structural
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4734,6 +4811,7 @@ This pathophysiological event involves decreased extracellular matrix structural
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4759,6 +4837,7 @@ This pathophysiological event involves decreased extracellular matrix structural
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-growth-plate-pericellular-matrix" data-dismech-node="Disrupted Growth Plate Pericellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Growth Plate Pericellular Matrix</div>
+
 
                 <div class="item-desc">Collagen XXVII is expressed throughout the growth plate, most strongly in the resting and proliferative zones, and accumulates in the pericellular matrix around chondrocytes at the cartilage-to-bone transition. In mice expressing a mutant form the pericellular matrix of proliferative chondrocytes is disrupted, and the knock-in of the human founder allele shows abnormal collagen deposition in the extracellular matrix.
 </div>
@@ -4941,6 +5020,7 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4962,6 +5042,7 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4989,6 +5070,7 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5011,6 +5093,7 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collapse-of-the-growth-plate-proliferative-zone" data-dismech-node="Collapse of the Growth Plate Proliferative Zone" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of the Growth Plate Proliferative Zone</div>
+
 
                 <div class="item-desc">Chondrocytes still differentiate, but they lose their columnar organisation. Homozygous knock-in mice carrying the murine equivalent of the Steel founder allele lose the normal architecture of the proliferative zone, with absence and disorganisation of columnar chondrocytes, while proteoglycan accumulation, mineralisation, and collagen II and X staining are not overtly changed. Human fetal material shows the corresponding lesion, with severely disorganised metaphyseal cartilage and hypercellular resting cartilage arranged in irregular nests bounded by acellular matrix.
 </div>
@@ -5193,6 +5276,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5214,6 +5298,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5241,6 +5326,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5265,6 +5351,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-bone-growth" data-dismech-node="Impaired Endochondral Bone Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endochondral Bone Growth</div>
+
 
                 <div class="item-desc">Cartilage calcification and its replacement by bone are the processes in which collagen XXVII normally participates. With the growth plate disorganised, longitudinal growth is curtailed and the ossification of epiphyseal and articular elements is delayed or incomplete.
 </div>
@@ -5528,6 +5615,7 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5549,6 +5637,7 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5574,6 +5663,7 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysplastic-articular-element-formation" data-dismech-node="Dysplastic Articular Element Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysplastic Articular Element Formation</div>
+
 
                 <div class="item-desc">Joint-forming skeletal elements are malformed. Radiographs in the gene-discovery family showed dislocated femoral heads with under-ossification of the capital femoral epiphysis and shallow acetabula; fetal autopsy showed bilateral absence of the capitulum humeri, which mechanically explains the dislocated radial heads. Failure of orderly cartilage segmentation and ossification in the wrist yields carpal coalitions.
 </div>
@@ -5736,6 +5826,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5757,6 +5848,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5782,6 +5874,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-xxvii-deficiency-in-inner-ear-cartilage" data-dismech-node="Collagen XXVII Deficiency in Inner Ear Cartilage" data-dismech-type="pathophysiology">
                 <div class="item-name">Collagen XXVII Deficiency in Inner Ear Cartilage</div>
+
 
                 <div class="item-desc">Col27a1 is expressed in the cartilaginous structures of the developing inner ear and in the cochlear epithelium in mouse, which offers a route from the same collagen deficit to the sensorineural hearing loss seen in patients with severe and loss-of-function COL27A1 alleles. In patients homozygous for the milder Puerto Rican founder missense allele, hearing loss appears instead in adult life.
 </div>
@@ -5872,6 +5965,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5893,6 +5987,7 @@ This pathophysiological event involves abnormal cartilage development (GO:005121
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6015,6 +6110,9 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6029,6 +6127,7 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6053,6 +6152,7 @@ This clinical feature is Sensorineural hearing loss, annotated with Sensorineura
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6116,6 +6216,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6130,6 +6233,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6184,6 +6288,9 @@ This clinical feature is Iris and chorioretinal coloboma, annotated with Colobom
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6198,6 +6305,7 @@ This clinical feature is Iris and chorioretinal coloboma, annotated with Colobom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6261,6 +6369,9 @@ This clinical feature is Bilateral cryptorchidism, annotated with Cryptorchidism
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6275,6 +6386,7 @@ This clinical feature is Bilateral cryptorchidism, annotated with Cryptorchidism
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6299,6 +6411,7 @@ This clinical feature is Bilateral cryptorchidism, annotated with Cryptorchidism
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6364,6 +6477,9 @@ This clinical feature is Dental abnormality, annotated with Abnormality of the d
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6378,6 +6494,7 @@ This clinical feature is Dental abnormality, annotated with Abnormality of the d
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6432,6 +6549,9 @@ This clinical feature is Prominent forehead with frontal bossing, annotated with
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6446,6 +6566,7 @@ This clinical feature is Prominent forehead with frontal bossing, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6500,6 +6621,9 @@ This clinical feature is Broad nasal bridge, annotated with Wide nasal bridge (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6514,6 +6638,7 @@ This clinical feature is Broad nasal bridge, annotated with Wide nasal bridge (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6568,6 +6693,9 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6582,6 +6710,7 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6636,6 +6765,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6650,6 +6782,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6713,6 +6846,9 @@ This clinical feature is Mild skin syndactyly, annotated with Cutaneous syndacty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6727,6 +6863,7 @@ This clinical feature is Mild skin syndactyly, annotated with Cutaneous syndacty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6781,6 +6918,9 @@ This clinical feature is Short mid phalanges, annotated with Short middle phalan
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6795,6 +6935,7 @@ This clinical feature is Short mid phalanges, annotated with Short middle phalan
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6851,6 +6992,9 @@ This clinical feature is Bilateral congenital hip dislocation, annotated with Co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6865,6 +7009,7 @@ This clinical feature is Bilateral congenital hip dislocation, annotated with Co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6889,6 +7034,7 @@ This clinical feature is Bilateral congenital hip dislocation, annotated with Co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6943,6 +7089,9 @@ This clinical feature is Under-ossification of the capital femoral epiphysis, an
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6957,6 +7106,7 @@ This clinical feature is Under-ossification of the capital femoral epiphysis, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6981,6 +7131,7 @@ This clinical feature is Under-ossification of the capital femoral epiphysis, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7037,6 +7188,9 @@ This clinical feature is Dislocated radial head (HP:0003083). HP:0003083 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7051,6 +7205,7 @@ This clinical feature is Dislocated radial head (HP:0003083). HP:0003083 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7107,6 +7262,9 @@ This clinical feature is Carpal coalition, annotated with Carpal synostosis (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7121,6 +7279,7 @@ This clinical feature is Carpal coalition, annotated with Carpal synostosis (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7145,6 +7304,7 @@ This clinical feature is Carpal coalition, annotated with Carpal synostosis (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7199,6 +7359,9 @@ This clinical feature is Delayed carpal bone ossification, annotated with Delaye
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7213,6 +7376,7 @@ This clinical feature is Delayed carpal bone ossification, annotated with Delaye
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7269,6 +7433,9 @@ This clinical feature is Talipes cavus, annotated with Pes cavus (HP:0001761). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7283,6 +7450,7 @@ This clinical feature is Talipes cavus, annotated with Pes cavus (HP:0001761). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7337,6 +7505,9 @@ This clinical feature is Vertical talus, annotated with Rocker bottom foot (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7351,6 +7522,7 @@ This clinical feature is Vertical talus, annotated with Rocker bottom foot (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7405,6 +7577,9 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7419,6 +7594,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7473,6 +7649,9 @@ This clinical feature is Fixed patellar dislocation, annotated with Patellar dis
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7487,6 +7666,7 @@ This clinical feature is Fixed patellar dislocation, annotated with Patellar dis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7541,6 +7721,9 @@ This clinical feature is Bilateral fifth finger clinodactyly, annotated with Cli
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7558,11 +7741,12 @@ This clinical feature is Bilateral fifth finger clinodactyly, annotated with Cli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"showed short stature (&lt;5%), mild midface hypoplasia with slightly anteverted nares, bilateral fifth finger clinodactyly, decreased adduction of the hips bilaterally"</div>
+                <div class="evidence-snippet">"Follow-up examinations of patients II-1 and II-2 at 14 and 12 years of age, respectively, showed short stature (&lt;5%), mild midface hypoplasia with slightly anteverted nares, bilateral fifth finger clinodactyly, decreased adduction of the hips bilaterally andpes planus."</div>
 
 
                 <div class="evidence-explanation">Records bilateral fifth finger clinodactyly in the gene-discovery siblings.</div>
@@ -7579,6 +7763,7 @@ This clinical feature is Bilateral fifth finger clinodactyly, annotated with Cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7642,6 +7827,9 @@ This clinical feature is Lordosis, annotated with Hyperlordosis (HP:0003307). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7656,6 +7844,7 @@ This clinical feature is Lordosis, annotated with Hyperlordosis (HP:0003307). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7710,6 +7899,9 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7724,6 +7916,7 @@ This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7780,6 +7973,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7794,6 +7990,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7848,6 +8045,9 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7862,6 +8062,7 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7886,6 +8087,7 @@ This clinical feature is Odontoid hypoplasia, annotated with Hypoplasia of the o
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7951,6 +8153,9 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7965,6 +8170,7 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7989,6 +8195,7 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8052,6 +8259,9 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8066,6 +8276,7 @@ This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8122,6 +8333,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8136,6 +8350,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8160,6 +8375,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8258,6 +8474,9 @@ This disease-associated gene is COL27A1 (hgnc:22986). hgnc:22986 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8280,6 +8499,7 @@ This disease-associated gene is COL27A1 (hgnc:22986). hgnc:22986 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8307,6 +8527,7 @@ This disease-associated gene is COL27A1 (hgnc:22986). hgnc:22986 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8328,6 +8549,7 @@ This disease-associated gene is COL27A1 (hgnc:22986). hgnc:22986 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8414,6 +8636,9 @@ This treatment is hip reduction surgery, annotated with Orthopedic Surgical Proc
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8424,6 +8649,9 @@ This treatment is hip reduction surgery, annotated with Orthopedic Surgical Proc
 
 
     </div>
+
+
+
 
 
 
@@ -8474,6 +8702,7 @@ This treatment is hip reduction surgery, annotated with Orthopedic Surgical Proc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8495,6 +8724,7 @@ This treatment is hip reduction surgery, annotated with Orthopedic Surgical Proc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8562,6 +8792,9 @@ This treatment is spinal arthrodesis with correction, annotated with Spinal Fusi
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8572,6 +8805,9 @@ This treatment is spinal arthrodesis with correction, annotated with Spinal Fusi
 
 
     </div>
+
+
+
 
 
 
@@ -8619,6 +8855,7 @@ This treatment is spinal arthrodesis with correction, annotated with Spinal Fusi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8686,6 +8923,9 @@ This treatment is cervical spinal decompression, annotated with Surgical Procedu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8696,6 +8936,9 @@ This treatment is cervical spinal decompression, annotated with Surgical Procedu
 
 
     </div>
+
+
+
 
 
 
@@ -8743,6 +8986,7 @@ This treatment is cervical spinal decompression, annotated with Surgical Procedu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8810,6 +9054,9 @@ This treatment is hearing amplification with a hearing aid, annotated with Rehab
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8820,6 +9067,9 @@ This treatment is hearing amplification with a hearing aid, annotated with Rehab
 
 
     </div>
+
+
+
 
 
 
@@ -8870,6 +9120,7 @@ This treatment is hearing amplification with a hearing aid, annotated with Rehab
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8891,6 +9142,7 @@ This treatment is hearing amplification with a hearing aid, annotated with Rehab
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8957,6 +9209,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8967,6 +9222,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8998,6 +9256,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9019,6 +9278,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9128,6 +9388,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9149,6 +9410,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9240,6 +9502,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9261,6 +9524,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9343,6 +9607,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9396,6 +9661,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9417,6 +9683,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9643,6 +9910,7 @@ This experimental model concerns COL27A1 (hgnc:22986). hgnc:22986 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9682,6 +9950,7 @@ This experimental model concerns COL27A1 (hgnc:22986). hgnc:22986 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9740,6 +10009,7 @@ This experimental model concerns COL27A1 (hgnc:22986). hgnc:22986 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9781,6 +10051,7 @@ This experimental model concerns COL27A1 (hgnc:22986). hgnc:22986 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9968,6 +10239,7 @@ This experimental model concerns COL27A1 (hgnc:22986). hgnc:22986 is a gene from
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10007,6 +10279,7 @@ This experimental model concerns COL27A1 (hgnc:22986). hgnc:22986 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10051,6 +10324,7 @@ This experimental model concerns COL27A1 (hgnc:22986). hgnc:22986 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11180,7 +11454,10 @@ phenotypes:
     reference_title: &#34;Mutations in COL27A1 cause Steel syndrome and suggest a founder mutation effect in the Puerto Rican population.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;showed short stature (&lt;5%), mild midface hypoplasia with slightly anteverted nares, bilateral fifth finger clinodactyly, decreased adduction of the hips bilaterally&#34;
+    snippet: &gt;-
+      Follow-up examinations of patients II-1 and II-2 at 14 and 12 years of age, respectively,
+      showed short stature (&lt;5%), mild midface hypoplasia with slightly anteverted nares, bilateral
+      fifth finger clinodactyly, decreased adduction of the hips bilaterally andpes planus.
     explanation: Records bilateral fifth finger clinodactyly in the gene-discovery siblings.
   - reference: PMID:35568358
     reference_title: &#34;Steel syndrome: Report of three patients, including monozygotic twins and review of clinical and mutation profiles.&#34;
@@ -11883,7 +12160,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Steel Syndrome", "mondoId": "MONDO:0014061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Steel_Syndrome", "yamlRevision": "203c5af5b08d"};
+        const OS_CONFIG = {"diseaseName": "Steel Syndrome", "mondoId": "MONDO:0014061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Steel_Syndrome", "yamlRevision": "07fe413ec18e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

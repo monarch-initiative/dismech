@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4353,6 +4421,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4374,6 +4443,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4427,6 +4497,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-putative-post-viral-immune-activation-in-the-geniculate-ganglion" data-dismech-node="Putative post-viral immune activation in the geniculate ganglion" data-dismech-type="pathophysiology">
                 <div class="item-name">Putative post-viral immune activation in the geniculate ganglion</div>
+
 
                 <div class="item-desc">Bell&#39;s palsy is widely modeled as a post-viral inflammatory neuropathy in which latent viral reactivation or other infection-related immune activation triggers inflammation around cranial nerve VII, particularly at the geniculate ganglion.</div>
 
@@ -4644,6 +4715,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4665,6 +4737,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4690,6 +4763,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-associated-inflammatory-signaling-and-immune-cell-recruitment" data-dismech-node="JAK-STAT-associated inflammatory signaling and immune-cell recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT-associated inflammatory signaling and immune-cell recruitment</div>
+
 
                 <div class="item-desc">Emerging systems-biology analyses implicate inflammatory protein networks, immune-cell traits, and JAK-STAT-associated signaling as candidate amplifiers of local facial-nerve inflammation in Bell&#39;s palsy.</div>
 
@@ -4805,6 +4879,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -4827,6 +4902,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-facial-nerve-edema-within-the-facial-canal" data-dismech-node="Facial nerve edema within the facial canal" data-dismech-type="pathophysiology">
                 <div class="item-name">Facial nerve edema within the facial canal</div>
+
 
                 <div class="item-desc">Inflammatory swelling of the facial nerve develops within the rigid Fallopian canal, a confined anatomic space that limits expansion and promotes secondary entrapment injury.</div>
 
@@ -4967,6 +5043,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4989,6 +5066,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracanalicular-compression-and-conduction-block-of-cranial-nerve-vii" data-dismech-node="Intracanalicular compression and conduction block of cranial nerve VII" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracanalicular compression and conduction block of cranial nerve VII</div>
+
 
                 <div class="item-desc">Entrapment of the swollen facial nerve impairs neural conduction and produces acute lower motor neuron facial dysfunction.</div>
 
@@ -5113,6 +5191,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5135,6 +5214,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-recovery-with-aberrant-reinnervation" data-dismech-node="Incomplete recovery with aberrant reinnervation" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete recovery with aberrant reinnervation</div>
+
 
                 <div class="item-desc">A minority of patients have incomplete recovery after the acute episode, with residual weakness or aberrant facial motor reinnervation leading to synkinesis.</div>
 
@@ -5241,6 +5321,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5262,6 +5343,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5310,7 +5392,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal taste sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bell\u0027s palsy can impair taste sensation over the anterior tongue because facial nerve dysfunction affects the chorda tympani pathway.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000223\"}}, {\"id\": \"Adjunctive antiviral therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiviral therapy is sometimes added to corticosteroids, particularly in more severe acute Bell\u0027s palsy, with evidence suggesting improved recovery or reduced synkinesis in selected patients.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Botulinum toxin type A therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin injections can be used in patients with persistent facial synkinesis or troublesome asymmetry after incomplete recovery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Facial nerve edema within the facial canal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory swelling of the facial nerve develops within the rigid Fallopian canal, a confined anatomic space that limits expansion and promotes secondary entrapment injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"facial nerve\"]}}, {\"id\": \"Facial synkinesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some patients develop persistent involuntary linked facial movements as a sequela of incomplete recovery and aberrant facial motor reinnervation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0034979\"}}, {\"id\": \"Facial weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute unilateral lower motor neuron weakness of the muscles of facial expression is the defining phenotype of Bell\u0027s palsy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Hyperacusis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heightened sound sensitivity can occur when facial nerve dysfunction impairs stapedius muscle function.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010780\"}}, {\"id\": \"Incomplete recovery with aberrant reinnervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients have incomplete recovery after the acute episode, with residual weakness or aberrant facial motor reinnervation leading to synkinesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"facial nerve\"]}}, {\"id\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Entrapment of the swollen facial nerve impairs neural conduction and produces acute lower motor neuron facial dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"facial nerve\"]}}, {\"id\": \"JAK-STAT-associated inflammatory signaling and immune-cell recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Emerging systems-biology analyses implicate inflammatory protein networks, immune-cell traits, and JAK-STAT-associated signaling as candidate amplifiers of local facial-nerve inflammation in Bell\u0027s palsy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"JAK-STAT cascade\", \"inflammatory response\"]}}, {\"id\": \"Lagophthalmos\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incomplete eyelid closure is common during the acute phase because of facial muscle weakness and creates risk of ocular surface exposure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030001\"}}, {\"id\": \"Putative post-viral immune activation in the geniculate ganglion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bell\u0027s palsy is widely modeled as a post-viral inflammatory neuropathy in which latent viral reactivation or other infection-related immune activation triggers inflammation around cranial nerve VII, particularly at the geniculate ganglion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"biological_processes\": [\"response to virus\", \"inflammatory response\"], \"locations\": [\"geniculate ganglion\", \"facial nerve\"]}}], \"edges\": [{\"source\": \"Putative post-viral immune activation in the geniculate ganglion\", \"target\": \"Facial nerve edema within the facial canal\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"JAK-STAT-associated inflammatory signaling and immune-cell recruitment\", \"target\": \"Facial nerve edema within the facial canal\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Facial nerve edema within the facial canal\", \"target\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Facial weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Lagophthalmos\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Abnormal taste sensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Hyperacusis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Incomplete recovery with aberrant reinnervation\", \"target\": \"Facial synkinesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adjunctive antiviral therapy\", \"target\": \"Putative post-viral immune activation in the geniculate ganglion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum toxin type A therapy\", \"target\": \"Facial synkinesis\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal taste sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bell\u0027s palsy can impair taste sensation over the anterior tongue because facial nerve dysfunction affects the chorda tympani pathway.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000223\"}}, {\"id\": \"Adjunctive antiviral therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiviral therapy is sometimes added to corticosteroids, particularly in more severe acute Bell\u0027s palsy, with evidence suggesting improved recovery or reduced synkinesis in selected patients.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"acyclovir\", \"valacyclovir\"]}}, {\"id\": \"Botulinum toxin type A therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin injections can be used in patients with persistent facial synkinesis or troublesome asymmetry after incomplete recovery.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Facial nerve edema within the facial canal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory swelling of the facial nerve develops within the rigid Fallopian canal, a confined anatomic space that limits expansion and promotes secondary entrapment injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"facial nerve\"]}}, {\"id\": \"Facial synkinesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some patients develop persistent involuntary linked facial movements as a sequela of incomplete recovery and aberrant facial motor reinnervation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0034979\"}}, {\"id\": \"Facial weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute unilateral lower motor neuron weakness of the muscles of facial expression is the defining phenotype of Bell\u0027s palsy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Hyperacusis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Heightened sound sensitivity can occur when facial nerve dysfunction impairs stapedius muscle function.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010780\"}}, {\"id\": \"Incomplete recovery with aberrant reinnervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients have incomplete recovery after the acute episode, with residual weakness or aberrant facial motor reinnervation leading to synkinesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"facial nerve\"]}}, {\"id\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Entrapment of the swollen facial nerve impairs neural conduction and produces acute lower motor neuron facial dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"facial nerve\"]}}, {\"id\": \"JAK-STAT-associated inflammatory signaling and immune-cell recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Emerging systems-biology analyses implicate inflammatory protein networks, immune-cell traits, and JAK-STAT-associated signaling as candidate amplifiers of local facial-nerve inflammation in Bell\u0027s palsy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"JAK-STAT cascade\", \"inflammatory response\"]}}, {\"id\": \"Lagophthalmos\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incomplete eyelid closure is common during the acute phase because of facial muscle weakness and creates risk of ocular surface exposure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030001\"}}, {\"id\": \"Putative post-viral immune activation in the geniculate ganglion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bell\u0027s palsy is widely modeled as a post-viral inflammatory neuropathy in which latent viral reactivation or other infection-related immune activation triggers inflammation around cranial nerve VII, particularly at the geniculate ganglion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"peripheral nervous system neuron\", \"Schwann cell\"], \"biological_processes\": [\"response to virus\", \"inflammatory response\"], \"locations\": [\"geniculate ganglion\", \"facial nerve\"]}}], \"edges\": [{\"source\": \"Putative post-viral immune activation in the geniculate ganglion\", \"target\": \"Facial nerve edema within the facial canal\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"JAK-STAT-associated inflammatory signaling and immune-cell recruitment\", \"target\": \"Facial nerve edema within the facial canal\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Facial nerve edema within the facial canal\", \"target\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Facial weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Lagophthalmos\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Abnormal taste sensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intracanalicular compression and conduction block of cranial nerve VII\", \"target\": \"Hyperacusis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Incomplete recovery with aberrant reinnervation\", \"target\": \"Facial synkinesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adjunctive antiviral therapy\", \"target\": \"Putative post-viral immune activation in the geniculate ganglion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum toxin type A therapy\", \"target\": \"Facial synkinesis\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5376,6 +5458,9 @@ This clinical feature is acute unilateral peripheral facial weakness, annotated 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5390,6 +5475,7 @@ This clinical feature is acute unilateral peripheral facial weakness, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5446,6 +5532,9 @@ This clinical feature is lagophthalmos (HP:0030001). HP:0030001 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5460,6 +5549,7 @@ This clinical feature is lagophthalmos (HP:0030001). HP:0030001 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5518,6 +5608,9 @@ This clinical feature is loss of taste sensation, annotated with Abnormality of 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5532,6 +5625,7 @@ This clinical feature is loss of taste sensation, annotated with Abnormality of 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5597,6 +5691,9 @@ This clinical feature is hyperacusis (HP:0010780). HP:0010780 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5611,6 +5708,7 @@ This clinical feature is hyperacusis (HP:0010780). HP:0010780 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5667,6 +5765,9 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5681,6 +5782,7 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5757,6 +5859,9 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5771,6 +5876,7 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5851,6 +5957,34 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        prednisone
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:8382</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
 
 
 
@@ -5885,6 +6019,7 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5913,7 +6048,7 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">antiviral therapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">antiviral therapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is antiviral therapy (NCIT:C16119), qualified as route of administration oral route of administration; therapeutic agent acyclovir. NCIT:C16119 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5941,6 +6076,51 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
 
 
                     </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        acyclovir
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2453" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:2453</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acyclovir (CHEBI:2453). CHEBI:2453 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        valacyclovir
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_35854" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:35854</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valacyclovir (CHEBI:35854). CHEBI:35854 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
 
 
 
@@ -5982,6 +6162,7 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6028,6 +6209,7 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6049,6 +6231,7 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6080,7 +6263,7 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6116,6 +6299,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6126,6 +6312,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6153,6 +6342,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6184,7 +6374,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">botulinum toxin type A therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">botulinum toxin type A therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is botulinum toxin type A therapy, annotated with Botulinum Toxin Therapy (NCIT:C157775). NCIT:C157775 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6225,6 +6415,12 @@ This treatment is botulinum toxin type A therapy, annotated with Botulinum Toxin
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Botulinum toxin injections can be used in patients with persistent facial synkinesis or troublesome asymmetry after incomplete recovery.</div>
 
 
@@ -6240,11 +6436,11 @@ This treatment is botulinum toxin type A therapy, annotated with Botulinum Toxin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0034979</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0034979</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6268,6 +6464,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6331,11 +6528,11 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
         physical examination
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20989" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C20989</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20989" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C20989</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6373,6 +6570,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6418,11 +6616,11 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
         electromyography procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38056" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C38056</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38056" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C38056</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6460,6 +6658,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6505,11 +6704,11 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
         nerve conduction study
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C88502" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C88502</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C88502" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C88502</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6547,6 +6746,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6615,6 +6815,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6665,6 +6866,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6686,6 +6888,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6762,6 +6965,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6835,6 +7039,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6856,6 +7061,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6910,6 +7116,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6956,6 +7163,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7058,6 +7266,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7132,6 +7341,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7203,6 +7413,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7304,6 +7515,7 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7361,11 +7573,11 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030319</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets acute unilateral peripheral facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7388,6 +7600,7 @@ This clinical trial targets acute unilateral peripheral facial weakness, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7436,11 +7649,11 @@ This clinical trial targets acute unilateral peripheral facial weakness, annotat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030319</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets acute unilateral peripheral facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7463,6 +7676,7 @@ This clinical trial targets acute unilateral peripheral facial weakness, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8076,6 +8290,11 @@ treatments:
         term:
           id: CHEBI:8382
           label: prednisone
+    therapeutic_agent:
+    - preferred_term: prednisone
+      term:
+        id: CHEBI:8382
+        label: prednisone
   evidence:
   - reference: PMID:39939082
     reference_title: &#34;Bell&#39;s Palsy.&#34;
@@ -8114,6 +8333,15 @@ treatments:
         term:
           id: CHEBI:2453
           label: acyclovir
+    therapeutic_agent:
+    - preferred_term: acyclovir
+      term:
+        id: CHEBI:2453
+        label: acyclovir
+    - preferred_term: valacyclovir
+      term:
+        id: CHEBI:35854
+        label: valacyclovir
   target_mechanisms:
   - target: Putative post-viral immune activation in the geniculate ganglion
     evidence:
@@ -8573,6 +8801,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8991,7 +9221,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bell\u0027s palsy", "mondoId": "MONDO:0005665", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bell\u0027s_palsy", "yamlRevision": "cbc949af489c"};
+        const OS_CONFIG = {"diseaseName": "Bell\u0027s palsy", "mondoId": "MONDO:0005665", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bell\u0027s_palsy", "yamlRevision": "d32fc6947bdd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

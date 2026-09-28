@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4201,6 +4269,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4284,6 +4353,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4305,6 +4375,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4378,6 +4449,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4448,6 +4520,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4515,6 +4588,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4668,6 +4742,7 @@ This subtype is caused by variation in SRY (hgnc:11311). hgnc:11311 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4752,6 +4827,7 @@ This subtype is caused by variation in NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4842,6 +4918,7 @@ This subtype is caused by variation in NR5A1 (hgnc:7983). hgnc:7983 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4926,6 +5003,7 @@ This subtype is caused by variation in DMRT1 (hgnc:2934). hgnc:2934 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5016,6 +5094,7 @@ This subtype is caused by variation in MAP3K1 (hgnc:6848). hgnc:6848 is a gene f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5103,6 +5182,7 @@ This subtype is caused by variation in DHH (hgnc:2865). hgnc:2865 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5185,6 +5265,7 @@ This subtype is caused by variation in SOX8 (hgnc:11203). hgnc:11203 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5275,6 +5356,7 @@ This subtype is caused by variation in SOX9 (hgnc:11204). hgnc:11204 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5362,6 +5444,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5426,6 +5509,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5522,6 +5606,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5546,6 +5631,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5567,6 +5653,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5604,6 +5691,7 @@ This subtype is caused by variation in DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sry-sox9-sox8-dmrt1-transcriptional-network-failure" data-dismech-node="SRY-SOX9-SOX8-DMRT1 transcriptional network failure" data-dismech-type="pathophysiology">
                 <div class="item-name">SRY-SOX9-SOX8-DMRT1 transcriptional network failure</div>
+
 
                 <div class="item-desc">Loss or inadequate activation of the core pro-testis transcriptional network prevents stable supporting-cell commitment. This branch includes SRY defects, SOX9 enhancer deletion, rare SOX8 defects, and DMRT1 haploinsufficiency.</div>
 
@@ -5889,6 +5977,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5910,6 +5999,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5937,6 +6027,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5959,6 +6050,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-map3k1-gain-of-function-pro-ovarian-signaling-bias" data-dismech-node="MAP3K1 gain-of-function pro-ovarian signaling bias" data-dismech-type="pathophysiology">
                 <div class="item-name">MAP3K1 gain-of-function pro-ovarian signaling bias</div>
+
 
                 <div class="item-desc">Pathogenic MAP3K1 variants increase ERK1/2 and p38 signaling, interfere with testis determination, and permit a pro-ovarian signaling state.</div>
 
@@ -6093,6 +6185,7 @@ This pathophysiological event involves abnormal sex determination (GO:0007530). 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6115,6 +6208,7 @@ This pathophysiological event involves abnormal sex determination (GO:0007530). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr5a1-gonadal-transcription-failure" data-dismech-node="NR5A1 gonadal transcription failure" data-dismech-type="pathophysiology">
                 <div class="item-name">NR5A1 gonadal transcription failure</div>
+
 
                 <div class="item-desc">Pathogenic NR5A1 variants impair transcriptional control of gonadal development and steroidogenic programs, with variable phenotypic severity.</div>
 
@@ -6249,6 +6343,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6271,6 +6366,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dhh-paracrine-signaling-failure" data-dismech-node="DHH paracrine signaling failure" data-dismech-type="pathophysiology">
                 <div class="item-name">DHH paracrine signaling failure</div>
+
 
                 <div class="item-desc">Biallelic DHH variants impair Sertoli-derived paracrine signaling needed for Leydig and peritubular-cell development. DHH is therefore modeled as a differentiation-signaling branch rather than as an SRY-equivalent trigger.</div>
 
@@ -6431,6 +6527,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6452,6 +6549,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6477,6 +6575,7 @@ This pathophysiological event involves DHH (hgnc:2865). hgnc:2865 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dhx37-related-gonadal-development-failure" data-dismech-node="DHX37-related gonadal-development failure" data-dismech-type="pathophysiology">
                 <div class="item-name">DHX37-related gonadal-development failure</div>
+
 
                 <div class="item-desc">Heterozygous DHX37 variants are associated with 46,XY gonadal dysgenesis, but whether ribosome synthesis, cell-cycle, NF-κB, Wnt, or another pathway mediates the gonadal defect remains unresolved.</div>
 
@@ -6573,6 +6672,7 @@ This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6595,6 +6695,7 @@ This pathophysiological event involves DHX37 (hgnc:17210). hgnc:17210 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nr0b1-dosage-gain" data-dismech-node="NR0B1 dosage gain" data-dismech-type="pathophysiology">
                 <div class="item-name">NR0B1 dosage gain</div>
+
 
                 <div class="item-desc">Duplication of an Xp21.2 interval containing NR0B1/DAX1 increases dosage of a sex-determination regulator and can antagonize testis development.</div>
 
@@ -6691,6 +6792,7 @@ This pathophysiological event involves NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6713,6 +6815,7 @@ This pathophysiological event involves NR0B1 (hgnc:7960). hgnc:7960 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-supporting-cell-differentiation-and-testis-cord-formation" data-dismech-node="Failure of supporting-cell differentiation and testis-cord formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of supporting-cell differentiation and testis-cord formation</div>
+
 
                 <div class="item-desc">Diverse lesions converge on failure of Sertoli/supporting-cell differentiation and testis-cord formation, so a functional testis and its dependent fetal hormone-producing compartments do not develop.</div>
 
@@ -6854,6 +6957,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6876,6 +6980,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bilateral-streak-or-dysgenetic-gonads" data-dismech-node="Bilateral streak or dysgenetic gonads" data-dismech-type="pathophysiology">
                 <div class="item-name">Bilateral streak or dysgenetic gonads</div>
+
 
                 <div class="item-desc">Bilateral gonadal remnants consist predominantly of fibrous or severely dysgenetic tissue without useful steroidogenic or gametogenic function.</div>
 
@@ -6999,6 +7104,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7021,6 +7127,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-fetal-amh-secretion" data-dismech-node="Absent fetal AMH secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent fetal AMH secretion</div>
+
 
                 <div class="item-desc">Failed fetal Sertoli-cell function removes anti-Müllerian hormone signaling.</div>
 
@@ -7108,6 +7215,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7130,6 +7238,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-m-llerian-duct-persistence" data-dismech-node="Müllerian-duct persistence" data-dismech-type="pathophysiology">
                 <div class="item-name">Müllerian-duct persistence</div>
+
 
                 <div class="item-desc">Müllerian structures are present, although prolonged hypoestrogenism can leave the uterus small or difficult to visualize before hormone treatment.</div>
 
@@ -7183,6 +7292,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7205,6 +7315,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-fetal-testicular-androgen-secretion" data-dismech-node="Absent fetal testicular androgen secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent fetal testicular androgen secretion</div>
+
 
                 <div class="item-desc">Failure of functional fetal Leydig cells removes testicular testosterone and dihydrotestosterone exposure. Adult serum testosterone may remain detectable from adrenal or peripheral sources and should be interpreted against sex- and age-appropriate ranges rather than described as absolutely absent.</div>
 
@@ -7330,6 +7441,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7352,6 +7464,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-female-external-genital-development-in-a-46-xy-individual" data-dismech-node="Female external genital development in a 46,XY individual" data-dismech-type="pathophysiology">
                 <div class="item-name">Female external genital development in a 46,XY individual</div>
+
 
                 <div class="item-desc">External genital development follows a typical female pattern despite the 46,XY chromosomal complement.</div>
 
@@ -7405,6 +7518,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7427,6 +7541,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-pubertal-gonadal-hormone-secretion" data-dismech-node="Absent pubertal gonadal hormone secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent pubertal gonadal hormone secretion</div>
+
 
                 <div class="item-desc">Nonfunctional streak gonads do not produce physiologic pubertal estradiol or inhibin, preventing spontaneous pubertal progression and normal uterine and skeletal estrogenization.</div>
 
@@ -7550,6 +7665,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7572,6 +7688,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-gonadal-negative-feedback" data-dismech-node="Loss of gonadal negative feedback" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of gonadal negative feedback</div>
+
 
                 <div class="item-desc">Low gonadal estradiol and inhibin release the hypothalamic-pituitary axis from negative feedback, raising FSH and LH and producing hypergonadotropic hypogonadism.</div>
 
@@ -7625,6 +7742,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7647,6 +7765,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysgenetic-y-bearing-germ-cell-niche" data-dismech-node="Dysgenetic Y-bearing germ-cell niche" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysgenetic Y-bearing germ-cell niche</div>
+
 
                 <div class="item-desc">Germ cells persisting in a poorly differentiated gonadal environment with Y-chromosome material can form gonadoblastoma or related precursor lesions.</div>
 
@@ -7700,6 +7819,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7722,6 +7842,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gonadal-germ-cell-neoplasia-risk" data-dismech-node="Gonadal germ-cell neoplasia risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Gonadal germ-cell neoplasia risk</div>
+
 
                 <div class="item-desc">Complete gonadal dysgenesis carries clinically important risk of gonadoblastoma and invasive tumors, especially dysgerminoma. Published percentages vary substantially because cohorts are small, retrospective, referral-selected, pathology-selected, or combine multiple XY DSD diagnoses; no single percentage should be presented as population risk.</div>
 
@@ -7775,6 +7896,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7796,6 +7918,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7858,6 +7981,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7905,6 +8029,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7926,6 +8051,7 @@ This pathophysiological event involves decreased steroid hormone biosynthetic pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8037,6 +8163,9 @@ This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8051,6 +8180,7 @@ This clinical feature is Breast hypoplasia (HP:0003187). HP:0003187 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8114,6 +8244,9 @@ This clinical feature is delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8128,6 +8261,7 @@ This clinical feature is delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8182,6 +8316,9 @@ This clinical feature is hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8196,6 +8333,7 @@ This clinical feature is hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8259,6 +8397,9 @@ This clinical feature is gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8273,6 +8414,7 @@ This clinical feature is gonadal dysgenesis (HP:0000133). HP:0000133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8327,6 +8469,9 @@ This clinical feature is Streak gonad (HP:0025733). HP:0025733 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8341,6 +8486,7 @@ This clinical feature is Streak gonad (HP:0025733). HP:0025733 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8395,6 +8541,9 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8409,6 +8558,7 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8463,6 +8613,9 @@ This clinical feature is primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8477,6 +8630,7 @@ This clinical feature is primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8531,6 +8685,9 @@ This clinical feature is hypoplastic uterus, annotated with Hypoplasia of the ut
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8545,6 +8702,7 @@ This clinical feature is hypoplastic uterus, annotated with Hypoplasia of the ut
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8599,6 +8757,9 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8613,6 +8774,7 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8667,6 +8829,9 @@ This clinical feature is Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8681,6 +8846,7 @@ This clinical feature is Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8744,6 +8910,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8758,6 +8927,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8860,6 +9030,9 @@ This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8874,6 +9047,7 @@ This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8898,6 +9072,7 @@ This disease-associated gene is SRY (hgnc:11311). hgnc:11311 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8959,6 +9134,9 @@ This disease-associated gene is NR0B1 (hgnc:7960). hgnc:7960 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8973,6 +9151,7 @@ This disease-associated gene is NR0B1 (hgnc:7960). hgnc:7960 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9034,6 +9213,9 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9048,6 +9230,7 @@ This disease-associated gene is NR5A1 (hgnc:7983). hgnc:7983 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9109,6 +9292,9 @@ This disease-associated gene is DMRT1 (hgnc:2934). hgnc:2934 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9123,6 +9309,7 @@ This disease-associated gene is DMRT1 (hgnc:2934). hgnc:2934 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9184,6 +9371,9 @@ This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9198,6 +9388,7 @@ This disease-associated gene is MAP3K1 (hgnc:6848). hgnc:6848 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9259,6 +9450,9 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9273,6 +9467,7 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9297,6 +9492,7 @@ This disease-associated gene is DHH (hgnc:2865). hgnc:2865 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9358,6 +9554,9 @@ This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9372,6 +9571,7 @@ This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9396,6 +9596,7 @@ This disease-associated gene is SOX8 (hgnc:11203). hgnc:11203 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9457,6 +9658,9 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9471,6 +9675,7 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9495,6 +9700,7 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9556,6 +9762,9 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9570,6 +9779,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9594,6 +9804,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9687,6 +9898,12 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Once classic complete 46,XY gonadal dysgenesis is confirmed, current expert practice favors arranging bilateral removal of nonfunctional streak/dysgenetic gonads without avoidable delay after informed, developmentally appropriate discussion. The gonads provide no useful pubertal function and retain clinically important tumor risk, but the literature does not define a precise post-diagnosis interval. Numerical risk estimates should be presented as cohort-dependent rather than as precise population probabilities.</div>
 
 
@@ -9717,6 +9934,7 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9785,6 +10003,7 @@ This treatment targets Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9806,6 +10025,7 @@ This treatment targets Gonadoblastoma (HP:0000150). HP:0000150 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9918,6 +10138,12 @@ This treatment uses progesterone (CHEBI:17026). CHEBI:17026 is a therapeutic age
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Hormone treatment proceeds in parallel with tumor-risk management; it is not contingent on waiting until after surgery. Near the expected age of puberty, use low-dose physiologic 17-beta-estradiol with gradual individualized escalation; later diagnosis can justify a faster individualized induction. If an endometrium-bearing uterine cavity is present, add progestogen to avoid unopposed estrogen; with patent outflow, cyclic progesterone is generally introduced after about two years of estrogen or first breakthrough bleeding. Obstructed or noncommunicating anatomy requires specialist management of the outflow and hormone regimen. Replacement usually continues through the expected age of natural menopause, followed by individualized reassessment. Treatment induces secondary sexual development and, when anatomy permits, scheduled withdrawal bleeding; it does not restore spontaneous menarche or ovulatory menstrual cycles. These regimen details derive from broader congenital gonadal-hormone-deficiency guidance and expert practice, not Swyer-specific comparative trials.</div>
 
 
@@ -9948,6 +10174,7 @@ This treatment uses progesterone (CHEBI:17026). CHEBI:17026 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10050,6 +10277,7 @@ This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10071,6 +10299,7 @@ This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10145,6 +10374,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Provide individualized multidisciplinary follow-up during induction and maintenance, assessing pubertal and uterine response, adherence, and adverse effects. Bone and cardiometabolic assessment should reflect the duration and severity of hypoestrogenism, baseline findings, and individual risk. Exact tests and intervals are extrapolated from broader hypogonadism guidance rather than established by Swyer-specific outcome studies.</div>
 
 
@@ -10169,6 +10404,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10190,6 +10426,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10263,6 +10500,12 @@ This treatment is In Vitro Fertilization (NCIT:C16580). NCIT:C16580 is a clinica
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Classic complete disease lacks usable gonadal gametes, but donor-oocyte or donor-embryo IVF can achieve pregnancy when estrogen treatment produces an adequate uterine response. Preconception uterine assessment and maternal-fetal-medicine counseling are appropriate; evidence consists mainly of case reports and small series.</div>
 
 
@@ -10306,6 +10549,7 @@ This treatment targets Female infertility (HP:0008222). HP:0008222 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10379,6 +10623,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Explain gene- and lesion-specific inheritance, penetrance, variant origin, and recurrence risk; offer parental or cascade testing when a cause is identified. Evaluate subtype-specific associated risks when relevant, such as adrenal disease in selected NR5A1 presentations or later neuropathy in biallelic DHH disease.</div>
 
 
@@ -10400,6 +10650,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10474,6 +10725,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Provide staged, confidential, developmentally appropriate disclosure; psychological and peer support; infertility and reproductive counseling; sexual-health care; and support for autonomy and gender identity. Care should be coordinated by an experienced multidisciplinary DSD team.</div>
 
 
@@ -10498,6 +10755,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10519,6 +10777,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10610,6 +10869,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10649,6 +10909,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10725,6 +10986,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10764,6 +11026,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10840,6 +11103,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10879,6 +11143,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10930,6 +11195,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11006,6 +11272,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11045,6 +11312,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11149,6 +11417,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11235,6 +11504,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11325,6 +11595,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11409,6 +11680,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11499,6 +11771,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11583,6 +11856,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11673,6 +11947,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11694,6 +11969,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11776,6 +12052,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11840,6 +12117,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11910,6 +12188,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11931,6 +12210,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11998,6 +12278,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12047,6 +12328,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12102,6 +12384,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12154,6 +12437,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12175,6 +12459,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12243,6 +12528,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12335,6 +12621,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12396,6 +12683,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12448,6 +12736,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12506,6 +12795,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12561,6 +12851,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12613,6 +12904,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12677,6 +12969,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12729,6 +13022,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12787,6 +13081,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12839,6 +13134,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16029,6 +16325,61 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: 46,XY complete gonadal dysgenesis (Changes required)</strong> · 2026-05-30T04:58:51Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/46_XY_complete_gonadal_dysgenesis/2026-05-30T045851Z-github-review-3445.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3445
+Issue state: OPEN
+Issue created: 2026-05-30T04:58:51Z
+Issue updated: 2026-05-30T05:04:18Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **46,XY complete gonadal dysgenesis**
+- Entry: `kb/disorders/46_XY_complete_gonadal_dysgenesis.yaml`
+- Selection basis: #53 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **Inheritance and subtype structure are missing.** The YAML lists SRY, DHH, and NR5A1 but has no inheritance section or subtype mapping. 46,XY complete gonadal dysgenesis is genetically heterogeneous; SRY is often de novo or Y-linked, DHH can be autosomal recessive, and NR5A1 can be autosomal dominant with variable expressivity.
+2. **Management is incomplete and too narrow.** Prophylactic gonadectomy is essential because dysgenetic gonads with Y-chromosome material carry gonadoblastoma risk, but the entry should also include estrogen replacement/puberty induction, fertility counseling, bone-health monitoring, DSD multidisciplinary care, psychosocial support, and genetic counseling.
+3. **Diagnosis should include the full clinical workup.** Karyotype, gonadal histopathology, and targeted molecular testing are present; add endocrine labs, pelvic/abdominal imaging for uterus/gonads, tumor-risk evaluation, and differential diagnosis with androgen insensitivity and other 46,XY DSD.
+4. **Phenotype coverage is too narrow.** The YAML captures gonadal dysgenesis, delayed puberty, primary amenorrhea, hypergonadotropic hypogonadism, and female phenotype with 46,XY karyotype. Add streak gonads, normal Mullerian structures/uterus where applicable, infertility, and tumor predisposition.
+5. **Mechanisms should map by gene.** `Failure of testis-determining signaling` is correct but should distinguish SRY testis-determination failure, DHH/Sertoli-Leydig development, and NR5A1 steroidogenic/gonadal development effects.
+
+## Research-artifact cross-check
+
+Matching artifacts: `research/46_XY_complete_gonadal_dysgenesis-deep-research-asta.md` and `.citations.md`. Because this is Asta retrieval, gene-specific claims should be verified against primary DSD literature before updating YAML.
+
+## Content-completeness summary
+
+- **Phenotypes:** add tumor risk, streak gonads, infertility, Mullerian anatomy.
+- **Subtype/lumping:** major gap; map genes to inheritance and clinical subtypes.
+- **Pathophysiology:** needs gene-specific testis-determination branches.
+- **Management/diagnosis:** expand beyond gonadectomy.
+- **References:** verify gene-specific evidence before adding claims.
+
+## Sources used
+
+- GeneReviews, NR5A1-Related Adrenal-Gonadal Disorders: https://www.ncbi.nlm.nih.gov/books/NBK279001/
+- 46,XY DSD review, PMID:36791315: https://pubmed.ncbi.nlm.nih.gov/36791315/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

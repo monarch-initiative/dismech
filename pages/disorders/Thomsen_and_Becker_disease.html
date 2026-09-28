@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4112,6 +4180,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4182,6 +4251,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4231,6 +4301,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4348,6 +4419,7 @@ This subtype is caused by variation in CLCN1 (hgnc:2019). hgnc:2019 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4433,6 +4505,7 @@ This subtype is caused by variation in CLCN1 (hgnc:2019). hgnc:2019 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4477,6 +4550,7 @@ This subtype is caused by variation in CLCN1 (hgnc:2019). hgnc:2019 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clcn1-chloride-channel-dysfunction" data-dismech-node="CLCN1 chloride channel dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">CLCN1 chloride channel dysfunction</div>
+
 
                 <div class="item-desc">Pathogenic CLCN1 variants reduce skeletal muscle chloride channel function and impair stabilization of the resting membrane potential.</div>
 
@@ -4605,6 +4679,44 @@ This pathophysiological event involves abnormal chloride transport (GO:0006821).
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        voltage-gated chloride channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005247" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005247</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased voltage-gated chloride channel activity (GO:0005247). GO:0005247 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4645,6 +4757,7 @@ This pathophysiological event involves abnormal chloride transport (GO:0006821).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4668,6 +4781,7 @@ This pathophysiological event involves abnormal chloride transport (GO:0006821).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-membrane-hyperexcitability" data-dismech-node="Skeletal muscle membrane hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal muscle membrane hyperexcitability</div>
 
+
                 <div class="item-desc">Hyperexcitable muscle fibers continue to discharge after voluntary contraction or percussion.</div>
 
 
@@ -4682,11 +4796,11 @@ This pathophysiological event involves abnormal chloride transport (GO:0006821).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4723,11 +4837,11 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042391</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal regulation of membrane potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4816,6 +4930,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4839,6 +4954,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-muscle-relaxation" data-dismech-node="Delayed muscle relaxation" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed muscle relaxation</div>
 
+
                 <div class="item-desc">Persistent muscle firing after contraction produces clinically evident myotonia.</div>
 
 
@@ -4853,11 +4969,11 @@ This pathophysiological event involves abnormal regulation of membrane potential
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4914,6 +5030,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-activity-related-muscle-stiffness" data-dismech-node="Activity-related muscle stiffness" data-dismech-type="pathophysiology">
                 <div class="item-name">Activity-related muscle stiffness</div>
 
+
                 <div class="item-desc">Hyperexcitable muscle fibers produce stiffness that is often worst after rest and improves with repeated movement.</div>
 
 
@@ -4928,11 +5045,11 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5011,7 +5128,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activity-related muscle stiffness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers produce stiffness that is often worst after rest and improves with repeated movement.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"CLCN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CLCN1\"], \"gene_terms\": [{\"label\": \"CLCN1\", \"id\": \"hgnc:2019\"}], \"association\": \"Causal dominant or recessive pathogenic variant causing myotonia congenita\"}}, {\"id\": \"CLCN1 chloride channel dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic CLCN1 variants reduce skeletal muscle chloride channel function and impair stabilization of the resting membrane potential.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"chloride transport\"], \"genes\": [\"CLCN1\"], \"gene_terms\": [{\"label\": \"CLCN1\", \"id\": \"hgnc:2019\"}]}}, {\"id\": \"Carbamazepine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbamazepine is also used for symptomatic control of myotonia in some patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Delayed muscle relaxation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent muscle firing after contraction produces clinically evident myotonia.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Creatine kinase can be abnormal in myotonia congenita and is useful as a supportive laboratory feature, although normal CK does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Skeletal muscle membrane hyperexcitability\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Skeletal-muscle membrane hyperexcitability can be associated with abnormal serum creatine kinase in myotonia congenita.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"Lamotrigine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lamotrigine is an alternative sodium-channel blocker for symptomatic reduction of myotonia and is particularly relevant when mexiletine is unavailable, poorly tolerated, or not preferred.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mexiletine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel blocking therapy with mexiletine has randomized-trial and aggregated N-of-1 evidence for reducing stiffness in nondystrophic myotonia. Cardiac contraindications and QTc/conduction risk should be reviewed before and during treatment.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"Muscle hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle hypertrophy can occur in myotonia congenita and may be more apparent in Becker disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003712\"}}, {\"id\": \"Muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stiffness is often most prominent after rest and improves with repeated movement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003552\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient weakness after rest and minor progressive distal weakness are especially associated with the recessive Becker form.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Becker disease\"], \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed relaxation after contraction is the defining clinical feature and is often improved by repeated contractions.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002486\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stretching, conditioning, and practical mobility strategies help patients manage stiffness and weakness.\"}, {\"id\": \"Skeletal muscle membrane hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers continue to discharge after voluntary contraction or percussion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"regulation of membrane potential\"]}}], \"edges\": [{\"source\": \"CLCN1 chloride channel dysfunction\", \"target\": \"Skeletal muscle membrane hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced chloride conductance increases repetitive muscle fiber firing.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Delayed muscle relaxation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed relaxation is the direct clinical expression of membrane hyperexcitability.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Activity-related muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive muscle firing produces stiffness, especially after rest.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive firing and impaired relaxation can be accompanied by transient or distal weakness, especially in Becker disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Muscle hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic skeletal-muscle hyperexcitability is associated with the hypertrophic muscle habitus of myotonia congenita.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Delayed muscle relaxation\", \"target\": \"Myotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent firing after contraction is clinically observed as myotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Activity-related muscle stiffness\", \"target\": \"Muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activity-related delayed relaxation produces the characteristic muscle stiffness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mexiletine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lamotrigine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carbamazepine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Skeletal-muscle membrane hyperexcitability can be associated with abnormal serum creatine kinase in myotonia congenita.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CLCN1\", \"target\": \"CLCN1 chloride channel dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Activity-related muscle stiffness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers produce stiffness that is often worst after rest and improves with repeated movement.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"CLCN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CLCN1\"], \"gene_terms\": [{\"label\": \"CLCN1\", \"id\": \"hgnc:2019\"}], \"association\": \"Causal dominant or recessive pathogenic variant causing myotonia congenita\"}}, {\"id\": \"CLCN1 chloride channel dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic CLCN1 variants reduce skeletal muscle chloride channel function and impair stabilization of the resting membrane potential.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"chloride transport\"], \"molecular_functions\": [\"voltage-gated chloride channel activity\"], \"genes\": [\"CLCN1\"], \"gene_terms\": [{\"label\": \"CLCN1\", \"id\": \"hgnc:2019\"}]}}, {\"id\": \"Carbamazepine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carbamazepine is also used for symptomatic control of myotonia in some patients.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Delayed muscle relaxation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent muscle firing after contraction produces clinically evident myotonia.\", \"meta\": {\"cell_types\": [\"skeletal muscle fiber\"]}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Creatine kinase can be abnormal in myotonia congenita and is useful as a supportive laboratory feature, although normal CK does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Skeletal muscle membrane hyperexcitability\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Skeletal-muscle membrane hyperexcitability can be associated with abnormal serum creatine kinase in myotonia congenita.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"Lamotrigine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lamotrigine is an alternative sodium-channel blocker for symptomatic reduction of myotonia and is particularly relevant when mexiletine is unavailable, poorly tolerated, or not preferred.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mexiletine therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel blocking therapy with mexiletine has randomized-trial and aggregated N-of-1 evidence for reducing stiffness in nondystrophic myotonia. Cardiac contraindications and QTc/conduction risk should be reviewed before and during treatment.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"Muscle hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle hypertrophy can occur in myotonia congenita and may be more apparent in Becker disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003712\"}}, {\"id\": \"Muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stiffness is often most prominent after rest and improves with repeated movement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003552\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient weakness after rest and minor progressive distal weakness are especially associated with the recessive Becker form.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Becker disease\"], \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed relaxation after contraction is the defining clinical feature and is often improved by repeated contractions.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002486\"}}, {\"id\": \"Physical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Stretching, conditioning, and practical mobility strategies help patients manage stiffness and weakness.\"}, {\"id\": \"Skeletal muscle membrane hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperexcitable muscle fibers continue to discharge after voluntary contraction or percussion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"regulation of membrane potential\"]}}], \"edges\": [{\"source\": \"CLCN1 chloride channel dysfunction\", \"target\": \"Skeletal muscle membrane hyperexcitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced chloride conductance increases repetitive muscle fiber firing.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Delayed muscle relaxation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed relaxation is the direct clinical expression of membrane hyperexcitability.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Activity-related muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive muscle firing produces stiffness, especially after rest.\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repetitive firing and impaired relaxation can be accompanied by transient or distal weakness, especially in Becker disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Muscle hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic skeletal-muscle hyperexcitability is associated with the hypertrophic muscle habitus of myotonia congenita.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Delayed muscle relaxation\", \"target\": \"Myotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent firing after contraction is clinically observed as myotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Activity-related muscle stiffness\", \"target\": \"Muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activity-related delayed relaxation produces the characteristic muscle stiffness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mexiletine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lamotrigine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carbamazepine therapy\", \"target\": \"Myotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Skeletal muscle membrane hyperexcitability\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Skeletal-muscle membrane hyperexcitability can be associated with abnormal serum creatine kinase in myotonia congenita.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CLCN1\", \"target\": \"CLCN1 chloride channel dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5056,18 +5173,23 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0003236</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003236</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated serum creatine kinase, annotated with Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated serum creatine kinase, annotated with Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5087,6 +5209,7 @@ This clinical feature is Elevated serum creatine kinase, annotated with Elevated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5136,15 +5259,18 @@ This clinical feature is Elevated serum creatine kinase, annotated with Elevated
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5164,6 +5290,7 @@ This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5188,6 +5315,7 @@ This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5228,15 +5356,18 @@ This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003552</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5256,6 +5387,7 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5315,6 +5447,7 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
             </div>
 
 
+
             <div class="context-notes">Thomsen disease is usually milder than Becker disease and commonly starts in infancy or early childhood.</div>
 
 
@@ -5333,6 +5466,7 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5387,6 +5521,7 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
             </div>
 
 
+
             <div class="context-notes">Becker disease has a slightly later average onset and more severe manifestations than Thomsen disease.</div>
 
 
@@ -5405,6 +5540,7 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5447,15 +5583,18 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001324</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5475,6 +5614,7 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5517,15 +5657,18 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003712</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003712</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle hypertrophy, annotated with Skeletal muscle hypertrophy (HP:0003712). HP:0003712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5545,6 +5688,7 @@ This clinical feature is Muscle hypertrophy, annotated with Skeletal muscle hype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5628,10 +5772,10 @@ This clinical feature is Muscle hypertrophy, annotated with Skeletal muscle hype
                         Gene: CLCN1
 
 
-    <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:2019</a>
+    <a href="https://bioregistry.io/hgnc:2019" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:2019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CLCN1 (hgnc:2019). hgnc:2019 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5639,6 +5783,9 @@ This disease-associated gene is CLCN1 (hgnc:2019). hgnc:2019 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5665,6 +5812,7 @@ This disease-associated gene is CLCN1 (hgnc:2019). hgnc:2019 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5715,7 +5863,7 @@ This disease-associated gene is CLCN1 (hgnc:2019). hgnc:2019 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Anesthesia and drug precautions<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Anesthesia and drug precautions<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Anesthesia and drug precautions, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5756,6 +5904,12 @@ This treatment is Anesthesia and drug precautions, annotated with Pharmacotherap
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Several agents can aggravate myotonia in CLCN1-related myotonia congenita and should be avoided or used with caution, especially during anesthesia.</div>
 
 
@@ -5777,6 +5931,7 @@ This treatment is Anesthesia and drug precautions, annotated with Pharmacotherap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5808,7 +5963,7 @@ This treatment is Anesthesia and drug precautions, annotated with Pharmacotherap
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5849,16 +6004,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:6916</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:6916</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses mexiletine (CHEBI:6916). CHEBI:6916 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -5885,11 +6046,11 @@ This treatment uses mexiletine (CHEBI:6916). CHEBI:6916 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002486</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5913,6 +6074,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5940,6 +6102,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5961,6 +6124,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5994,7 +6158,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">electrocardiography<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">electrocardiography<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is electrocardiography (NCIT:C38053). NCIT:C38053 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6035,6 +6199,12 @@ This treatment is electrocardiography (NCIT:C38053). NCIT:C38053 is a clinical i
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Before and during mexiletine treatment, clinicians should screen for QTc, conduction, cardiac, hepatic, and renal contraindications because mexiletine is an antiarrhythmic sodium-channel blocker.</div>
 
 
@@ -6059,6 +6229,7 @@ This treatment is electrocardiography (NCIT:C38053). NCIT:C38053 is a clinical i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6080,6 +6251,7 @@ This treatment is electrocardiography (NCIT:C38053). NCIT:C38053 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6111,7 +6283,7 @@ This treatment is electrocardiography (NCIT:C38053). NCIT:C38053 is a clinical i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6152,16 +6324,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:6367</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:6367</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6188,11 +6366,11 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002486</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6216,6 +6394,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6243,6 +6422,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6264,6 +6444,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6295,7 +6476,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6336,16 +6517,22 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:3387</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:3387</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6372,11 +6559,11 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002486</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6400,6 +6587,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6431,7 +6619,7 @@ This treatment targets Myotonia (HP:0002486). HP:0002486 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6467,6 +6655,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6477,6 +6668,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -6498,11 +6692,11 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003552</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Muscle stiffness (HP:0003552). HP:0003552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6515,11 +6709,11 @@ This treatment targets Muscle stiffness (HP:0003552). HP:0003552 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001324</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6578,6 +6772,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6632,11 +6827,11 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6676,6 +6871,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6721,11 +6917,11 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
         electromyography procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38056" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C38056</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38056" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C38056</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6768,6 +6964,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6789,6 +6986,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6834,11 +7032,11 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
         blood chemistry measurement
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47868" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C47868</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47868" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C47868</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6878,6 +7076,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6923,11 +7122,11 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6965,6 +7164,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7035,6 +7235,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7056,6 +7257,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7108,6 +7310,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7219,6 +7422,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7290,6 +7494,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7368,6 +7573,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7443,6 +7649,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7515,6 +7722,7 @@ This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7771,6 +7979,12 @@ pathophysiology:
     term:
       id: CL:0008002
       label: skeletal muscle fiber
+  molecular_functions:
+  - preferred_term: voltage-gated chloride channel activity
+    term:
+      id: GO:0005247
+      label: voltage-gated chloride channel activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: chloride transport
     modifier: ABNORMAL
@@ -7977,7 +8191,7 @@ phenotypes:
     preferred_term: Elevated serum creatine kinase
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:35170402
     reference_title: &#34;Clinical and molecular characteristics of myotonia congenita in China: Case series and a literature review.&#34;
@@ -8653,6 +8867,65 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Thomsen and Becker disease (Changes required)</strong> · 2026-05-30T02:52:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Thomsen_and_Becker_disease/2026-05-30T025235Z-github-review-3407.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3407
+Issue state: OPEN
+Issue created: 2026-05-30T02:52:35Z
+Issue updated: 2026-05-30T02:55:38Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Thomsen and Becker disease**
+- Entry: `kb/disorders/Thomsen_and_Becker_disease.yaml`
+- Selection basis: #20 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **GeneReviews exists and should be tagged/used.** Myotonia congenita GeneReviews explicitly covers autosomal dominant Thomsen disease and autosomal recessive Becker disease. The YAML has no top-level inheritance and should use this as a baseline. Source: https://www.ncbi.nlm.nih.gov/books/NBK1355/
+2. **Top-level inheritance is missing despite subtype definitions.** The entry has `has_subtypes` for Thomsen and Becker but no `inheritance:` section. Curators should model AD Thomsen and AR Becker, with subtype-specific counseling.
+3. **Subtype-specific phenotype severity is under-modeled.** Myotonia, stiffness, weakness, and hypertrophy are listed, but Becker disease is usually more severe with transient weakness and later onset; Thomsen is typically milder/AD. These differences should be attached to the subtypes rather than collapsed.
+4. **Treatment section needs stronger evidence and safety framing.** Mexiletine, carbamazepine, and physical therapy are present. Curators should verify treatment evidence and add avoidance/precaution content where relevant, including anesthesia considerations and drug-trigger/caution guidance from GeneReviews if supported.
+5. **Diagnosis should include EMG and genetic testing but also differential diagnosis.** EMG and CLCN1 genetic testing are present; the entry should also distinguish nondystrophic myotonia from myotonic dystrophy and sodium-channel myotonias where clinically relevant.
+
+## Research-artifact cross-check
+
+Checked `research/Thomsen_and_Becker_disease-deep-research-asta.md` and `.citations.md`. The Asta artifact is a lead list; GeneReviews should be the authoritative clinical baseline for subtype inheritance, diagnosis, and management.
+
+## Content-completeness summary
+
+- **Phenotypes:** present but needs subtype-specific onset/severity/weakness.
+- **Subtype/lumping:** subtypes are present; top-level inheritance and subtype counseling are missing.
+- **Pathophysiology:** adequate CLCN1 chloride-channel hyperexcitability chain.
+- **Treatments/diagnosis:** diagnosis present but incomplete; treatment needs evidence/safety refinement.
+- **References:** add/tag GeneReviews if updating YAML.
+
+## Suggested remediation
+
+Add GeneReviews, explicit AD/AR inheritance, subtype-specific clinical distinctions, and expanded diagnosis/management safety guidance.
+
+## Sources used
+
+- GeneReviews, Myotonia Congenita: https://www.ncbi.nlm.nih.gov/books/NBK1355/
+- StatPearls Myotonia Congenita: https://www.ncbi.nlm.nih.gov/books/NBK562335/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9083,7 +9356,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thomsen and Becker disease", "mondoId": "MONDO:0009710", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thomsen_and_Becker_disease", "yamlRevision": "f7dc3ff45f9a"};
+        const OS_CONFIG = {"diseaseName": "Thomsen and Becker disease", "mondoId": "MONDO:0009710", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thomsen_and_Becker_disease", "yamlRevision": "5ce8e6548eee"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

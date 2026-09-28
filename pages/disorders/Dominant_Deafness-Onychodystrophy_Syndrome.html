@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4232,6 +4300,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4253,6 +4322,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4396,6 +4466,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4417,6 +4488,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4539,6 +4611,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4563,6 +4636,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4584,6 +4658,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4706,6 +4781,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4825,6 +4901,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4849,6 +4926,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4870,6 +4948,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5032,6 +5111,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5053,6 +5133,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5090,6 +5171,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp6v1b2-c-terminal-truncation-and-weakened-v-atpase-subunit-interaction" data-dismech-node="ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction</div>
+
 
                 <div class="item-desc">The recurrent heterozygous c.1516C&gt;T (p.Arg506*) variant inserts a premature stop codon that removes the last six, highly conserved residues of the ATP6V1B2 B2 subunit. Because the transcript is stable and escapes nonsense-mediated decay, the truncated subunit is produced and incorporated into the pump rather than being absent. The truncation weakens the interaction between the V1B2 and V1E subunits and ATP hydrolysis by the complex falls. The node is deliberately named for the weakened subunit interaction rather than for failed assembly: the V-ATPase complex still assembles with the truncated subunit, so this is a defective pump rather than an absent one, which is exactly why the dominant-negative reading remains live.
 </div>
@@ -5149,6 +5231,8 @@ This genetic context concerns ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: nonsense single-nucleotide variant</span>
 
 
@@ -5164,6 +5248,9 @@ This genetic context concerns ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline NM_001693.4:c.1516C&gt;T (p.Arg506*), recurrent and usually de novo, removing the C-terminal six residues of the B2 subunit.</div>
 
@@ -5253,6 +5340,7 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5274,6 +5362,7 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5301,6 +5390,7 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5323,6 +5413,7 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endolysosomal-acidification" data-dismech-node="Impaired Endolysosomal Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endolysosomal Acidification</div>
+
 
                 <div class="item-desc">Reduced V-ATPase proton pumping raises lysosomal luminal pH. In cells expressing the DDOD allele, and in cochlear tissue from the corresponding mouse models, lysosomal acidification is reduced, cathepsin-D activity falls and lysosomal membrane and ion-channel proteins are upregulated, consistent with failure of the acidic compartment to support hydrolase activity. This node is the disease&#39;s rate-limiting molecular lesion.
 </div>
@@ -5533,6 +5624,7 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5554,6 +5646,7 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5581,6 +5674,7 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5603,6 +5697,7 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagic-flux-blockade" data-dismech-node="Autophagic Flux Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagic Flux Blockade</div>
+
 
                 <div class="item-desc">Undegraded autophagosomes accumulate because fusion-competent, acidified lysosomes are not available to complete cargo breakdown. In cochlear tissue this manifests as accumulation of large autophagosomes together with the lysosomal morphological abnormalities seen in the mouse models.
 </div>
@@ -5729,6 +5824,7 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5751,6 +5847,7 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptotic-degeneration-of-spiral-ganglion-neurons-and-hair-cells" data-dismech-node="Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells</div>
+
 
                 <div class="item-desc">Autophagosome accumulation shifts the Bcl-2 to Bax ratio, permeabilizing the mitochondrial outer membrane and releasing cytochrome c, which activates caspase-3. The resulting apoptosis produces loss of spiral ganglion neurons and, in the hair-cell-specific knockout model, hair cell degeneration. In the knock-in mouse the earliest cochlear lesion is demyelination of auditory nerve fibres, followed by fibre and spiral ganglion cell body loss, with the organ of Corti morphologically normal, so the degeneration in that model is neural rather than sensory. Atp6v1b2 is expressed in exactly these compartments, which is what makes the cochlea the tissue that fails first. This node is the DDOD-specific instance of the conserved spiral-ganglion arm of the sensorineural hearing loss module. It attaches at the spiral ganglion node rather than the module&#39;s upstream `#Hair Cell Mechanotransduction Failure and Death` node because the p.Arg506* evidence describes apoptotic neurodegeneration downstream of lysosomal failure, not a primary mechanotransduction defect.
 </div>
@@ -5974,6 +6071,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5995,6 +6093,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6022,6 +6121,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6046,6 +6146,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nail-matrix-and-distal-digit-development" data-dismech-node="Impaired Nail Matrix and Distal Digit Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Nail Matrix and Distal Digit Development</div>
+
 
                 <div class="item-desc">The second obligate arm of DDOD is failure of nail-plate formation with associated hypoplasia of the terminal and middle phalanges, giving absent or hypoplastic nails, bulbous fingertips and triphalangeal or finger-like thumbs. Nail-matrix keratinocytes are a highly differentiating, keratinisation-dependent lineage in which endolysosomal proteolysis is required, which is the plausible route from the same V-ATPase lesion to the integumentary and distal skeletal phenotype. This node is deliberately curated without a mechanistic evidence item for the acidification-to-nail step. The observation that DDOD patients have onychodystrophy is well-evidenced, but no study has yet demonstrated the lysosomal mechanism in nail matrix or developing digit, which is recorded as a KNOWLEDGE_GAP.
 </div>
@@ -6134,6 +6235,7 @@ This pathophysiological event involves Nail matrix keratinocyte, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6179,7 +6281,7 @@ This pathophysiological event involves Nail matrix keratinocyte, annotated with 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP6V1B2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP6V1B2\"], \"gene_terms\": [{\"label\": \"ATP6V1B2\", \"id\": \"hgnc:854\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent heterozygous c.1516C\u003eT (p.Arg506*) variant inserts a premature stop codon that removes the last six, highly conserved residues of the ATP6V1B2 B2 subunit. Because the transcript is stable and escapes nonsense-mediated decay, the truncated subunit is produced and incorporated into the pump rather than being absent. The truncation weakens the interaction between the V1B2 and V1E subunits and ATP hydrolysis by the complex falls. The node is deliberately named for the weakened subunit interaction rather than for failed assembly: the V-ATPase complex still assembles with the truncated subunit, so this is a defective pump rather than an absent one, which is exactly why the dominant-negative reading remains live.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"V-ATPase proton transmembrane transporter activity\"], \"genetic_context\": {\"allele_type\": \"nonsense single-nucleotide variant\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline NM_001693.4:c.1516C\u003eT (p.Arg506*), recurrent and usually de novo, removing the C-terminal six residues of the B2 subunit.\", \"gene_terms\": [{\"label\": \"ATP6V1B2\", \"id\": \"hgnc:854\"}]}}}, {\"id\": \"ATP6V1B2 p.Arg506*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"NM_001693.4:c.1516C\u003eT; p.Arg506* recurrent de novo truncating variant removing the C-terminal six residues.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autophagosome accumulation shifts the Bcl-2 to Bax ratio, permeabilizing the mitochondrial outer membrane and releasing cytochrome c, which activates caspase-3. The resulting apoptosis produces loss of spiral ganglion neurons and, in the hair-cell-specific knockout model, hair cell degeneration. In the knock-in mouse the earliest cochlear lesion is demyelination of auditory nerve fibres, followed by fibre and spiral ganglion cell body loss, with the organ of Corti morphologically normal, so the degeneration in that model is neural rather than sensory. Atp6v1b2 is expressed in exactly these compartments, which is what makes the cochlea the tissue that fails first. This node is the DDOD-specific instance of the conserved spiral-ganglion arm of the sensorineural hearing loss module. It attaches at the spiral ganglion node rather than the module\u0027s upstream `#Hair Cell Mechanotransduction Failure and Death` node because the p.Arg506* evidence describes apoptotic neurodegeneration downstream of lysosomal failure, not a primary mechanotransduction defect.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Spiral ganglion neuron\", \"Cochlear hair cell\"], \"biological_processes\": [\"Neuron apoptotic process\", \"Apoptotic process\"], \"animal_models\": [{\"name\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b2 c.1516C\u003eT (p.Arg506*) knock-in, heterozygous and homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The knock-in reproduces apoptotic spiral ganglion neuron degeneration downstream of lysosomal dysfunction and autophagic blockade, which is the human mechanism, but on a delayed timescale.\"}, {\"name\": \"Hair-cell-specific Atp6v1b2 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b2 fl/fl; Atoh1-Cre/+ conditional knockout\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"A single postnatal administration of AAV-ie-Eh3-mAtp6v1b2 into the scala media prevented hair cell degeneration and restored lysosome morphology and auditory and vestibular function, providing the strongest available causal test that the cochlear degeneration node is Atp6v1b2-dependent and in principle reversible.\"}]}}, {\"id\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"CRISPR-generated knock-in of the human DDOD allele. Two independent lines exist, one characterised for cochlear pathology and one phenotyped through the IMPC pipeline with EEG. Together they establish the lysosomal to autophagic to apoptotic chain in spiral ganglion neurons, and they also demonstrate the model\u0027s key limitation, namely that the hearing loss is late-onset rather than congenital.\\n\"}, {\"id\": \"Autophagic Flux Blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undegraded autophagosomes accumulate because fusion-competent, acidified lysosomes are not available to complete cargo breakdown. In cochlear tissue this manifests as accumulation of large autophagosomes together with the lysosomal morphological abnormalities seen in the mouse models.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Autophagosome maturation\", \"Autophagy\"]}}, {\"id\": \"CPT-cAMP Lysosomal Reacidification (preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one mechanism-directed candidate for this disorder rather than a supportive measure. CPT-cAMP is a membrane-permeable cAMP analogue that restored lysosomal acidification in a concentration-dependent manner in isogenic p.Arg506* cells, crosses the blood-brain barrier, and in Atp6v1b2 p.Arg506* mice reduced seizure frequency, improved cognitive performance, and resolved autophagosome accumulation. It is therefore aimed squarely at the rate-limiting node of this entry rather than at a downstream consequence. NOT an available therapy: this is proof-of-concept work in cells and mice with no human data, and the reported benefits are on the neurological and cognitive arm, which is precisely the arm that classic DDOD largely lacks, so the read-across to DDOD patients is an inference rather than a demonstrated result.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"CPT-cAMP (8-(4-chlorophenylthio)adenosine 3\u0027,5\u0027-cyclic monophosphate)\"]}}, {\"id\": \"Cochlea-specific Atp6v1b2 morpholino knockdown mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Acute knockdown of Atp6v1b2 in the cochlea by microinjection of a splice-blocking morpholino into the scala media before postnatal day 3. This was the original demonstration that Atp6v1b2 deficiency alone is sufficient to cause sensorineural hearing loss, and the same approach was later used to profile the lysosomal and autophagic changes in cochlear tissue.\\n\"}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation is the principal intervention for the congenital severe-to-profound sensorineural hearing loss of DDOD. Device-level and auditory outcomes are consistently good: successful oral-language rehabilitation was reported in the original probands implanted between 2 and 18 years of age, and a child receiving bilateral sequential implants showed continued gains in auditory and communication performance. Language outcome is less uniformly good than auditory outcome, and this should be stated plainly rather than smoothed over. Follow-up of implanted DDOD patients has documented unsatisfactory language rehabilitation despite a well-functioning implant on standard cochlear-mapping indicators, which the reporting group attributed to subtle learning and memory problems. Molecular diagnosis is therefore prognostically useful in syndromic congenital hearing loss, but it should not be presented to families as a guarantee of language outcome.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Congenital Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral severe-to-profound sensorineural hearing loss present from birth and detected on auditory brainstem response testing in infancy. It is the single most consistent feature of DDOD and is present in essentially all reported individuals with the p.Arg506* allele.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008527\", \"animal_models\": [{\"name\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b2 c.1516C\u003eT (p.Arg506*) knock-in, heterozygous and homozygous\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Neither knock-in line reproduces the congenital severe-to-profound deafness that defines human DDOD.\"}]}}, {\"id\": \"Hair-cell-specific Atp6v1b2 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional deletion of Atp6v1b2 in cochlear hair cells, generated to provide a tractable platform for inner-ear gene therapy. It reproduces hair cell loss and abnormal lysosomal morphology, and a single intracochlear dose of an AAV vector carrying wild-type Atp6v1b2 rescued both.\\n\"}, {\"id\": \"Impaired Endolysosomal Acidification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced V-ATPase proton pumping raises lysosomal luminal pH. In cells expressing the DDOD allele, and in cochlear tissue from the corresponding mouse models, lysosomal acidification is reduced, cathepsin-D activity falls and lysosomal membrane and ion-channel proteins are upregulated, consistent with failure of the acidic compartment to support hydrolase activity. This node is the disease\u0027s rate-limiting molecular lesion.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Spiral ganglion neuron\", \"Cochlear hair cell\"], \"biological_processes\": [\"Lysosomal lumen acidification\", \"Vacuolar acidification\"], \"animal_models\": [{\"name\": \"Cochlea-specific Atp6v1b2 morpholino knockdown mouse\", \"species\": \"Mouse\", \"genotype\": \"Wild-type mouse with intracochlear Atp6v1b2 splice-blocking morpholino\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cochlear knockdown reproduces the reduction in V-ATPase activity and lysosomal acidification that underlies the human disease, measured in cochlear tissue rather than in a heterologous cell line.\"}]}}, {\"id\": \"Impaired Nail Matrix and Distal Digit Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second obligate arm of DDOD is failure of nail-plate formation with associated hypoplasia of the terminal and middle phalanges, giving absent or hypoplastic nails, bulbous fingertips and triphalangeal or finger-like thumbs. Nail-matrix keratinocytes are a highly differentiating, keratinisation-dependent lineage in which endolysosomal proteolysis is required, which is the plausible route from the same V-ATPase lesion to the integumentary and distal skeletal phenotype. This node is deliberately curated without a mechanistic evidence item for the acidification-to-nail step. The observation that DDOD patients have onychodystrophy is well-evidenced, but no study has yet demonstrated the lysosomal mechanism in nail matrix or developing digit, which is recorded as a KNOWLEDGE_GAP.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nail matrix keratinocyte\"]}}, {\"id\": \"Onychodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or hypoplastic finger- and toenails. Involvement is characteristically patterned rather than uniform. The thumb and fifth finger are most severely affected in the hands, with relative sparing of the second to fourth digits, while in the feet the great toenail is hypoplastic and the second to fifth toenails are typically absent.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008404\"}}], \"edges\": [{\"source\": \"ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction\", \"target\": \"Impaired Endolysosomal Acidification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced V1 domain assembly and ATP hydrolysis lower proton pumping into the lysosomal lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Endolysosomal Acidification\", \"target\": \"Autophagic Flux Blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomes that cannot acidify cannot complete degradation of autophagosomal cargo, so autophagic flux stalls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autophagic Flux Blockade\", \"target\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent autophagic blockade activates the intrinsic apoptotic program in cochlear neurons and sensory cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"target\": \"Congenital Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cochlear sensory cells and their afferent neurons abolishes auditory transduction and transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Nail Matrix and Distal Digit Development\", \"target\": \"Onychodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of nail-matrix differentiation produces the absent or hypoplastic nails that define the disorder\u0027s second arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Congenital Sensorineural Hearing Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CPT-cAMP Lysosomal Reacidification (preclinical)\", \"target\": \"Impaired Endolysosomal Acidification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"target\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The knock-in reproduces apoptotic spiral ganglion neuron degeneration downstream of lysosomal dysfunction and autophagic blockade, which is the human mechanism, but on a delayed timescale.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Hearing loss in the mouse is late-onset and preceded by hidden hearing loss, whereas human DDOD deafness is congenital and severe to profound. Compensatory upregulation of the paralogue Atp6v1b1 in hair cells blunts the murine phenotype, and much of the characterisation used homozygotes rather than the heterozygous state that models patients.\"}, {\"source\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"target\": \"Congenital Sensorineural Hearing Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Neither knock-in line reproduces the congenital severe-to-profound deafness that defines human DDOD.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"In the IMPC-phenotyped line, auditory brainstem responses were normal at 14 weeks of age. In the cochlear-pathology line, hearing loss appeared only late and was attributed to compensatory Atp6v1b1 upregulation in hair cells. Any therapeutic inference drawn from restored hearing in these mice therefore starts from a milder baseline than the human disease.\"}, {\"source\": \"Cochlea-specific Atp6v1b2 morpholino knockdown mouse\", \"target\": \"Impaired Endolysosomal Acidification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cochlear knockdown reproduces the reduction in V-ATPase activity and lysosomal acidification that underlies the human disease, measured in cochlear tissue rather than in a heterologous cell line.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Morpholino knockdown reduces wild-type transcript rather than expressing the truncated p.Arg506* subunit, so it models a pure dose reduction and cannot distinguish haploinsufficiency from a dominant-negative effect of the truncated protein. The effect is also acute and postnatal rather than developmental.\"}, {\"source\": \"Hair-cell-specific Atp6v1b2 conditional knockout mouse\", \"target\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"A single postnatal administration of AAV-ie-Eh3-mAtp6v1b2 into the scala media prevented hair cell degeneration and restored lysosome morphology and auditory and vestibular function, providing the strongest available causal test that the cochlear degeneration node is Atp6v1b2-dependent and in principle reversible.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model is a hair-cell-restricted complete knockout, not the heterozygous truncating genotype of human DDOD, and it does not address the spiral ganglion neuron compartment. Rescue was delivered at postnatal days 0 to 2, a developmental window with no direct human equivalent given that DDOD deafness is already present at birth. This is a preclinical result, not an available therapy.\"}, {\"source\": \"ATP6V1B2 p.Arg506*\", \"target\": \"ATP6V1B2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP6V1B2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ATP6V1B2\"], \"gene_terms\": [{\"label\": \"ATP6V1B2\", \"id\": \"hgnc:854\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent heterozygous c.1516C\u003eT (p.Arg506*) variant inserts a premature stop codon that removes the last six, highly conserved residues of the ATP6V1B2 B2 subunit. Because the transcript is stable and escapes nonsense-mediated decay, the truncated subunit is produced and incorporated into the pump rather than being absent. The truncation weakens the interaction between the V1B2 and V1E subunits and ATP hydrolysis by the complex falls. The node is deliberately named for the weakened subunit interaction rather than for failed assembly: the V-ATPase complex still assembles with the truncated subunit, so this is a defective pump rather than an absent one, which is exactly why the dominant-negative reading remains live.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"V-ATPase proton transmembrane transporter activity\"], \"genetic_context\": {\"allele_type\": \"nonsense single-nucleotide variant\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous germline NM_001693.4:c.1516C\u003eT (p.Arg506*), recurrent and usually de novo, removing the C-terminal six residues of the B2 subunit.\", \"gene_terms\": [{\"label\": \"ATP6V1B2\", \"id\": \"hgnc:854\"}]}}}, {\"id\": \"ATP6V1B2 p.Arg506*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"NM_001693.4:c.1516C\u003eT; p.Arg506* recurrent de novo truncating variant removing the C-terminal six residues.\", \"meta\": {\"evidence_count\": 2, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autophagosome accumulation shifts the Bcl-2 to Bax ratio, permeabilizing the mitochondrial outer membrane and releasing cytochrome c, which activates caspase-3. The resulting apoptosis produces loss of spiral ganglion neurons and, in the hair-cell-specific knockout model, hair cell degeneration. In the knock-in mouse the earliest cochlear lesion is demyelination of auditory nerve fibres, followed by fibre and spiral ganglion cell body loss, with the organ of Corti morphologically normal, so the degeneration in that model is neural rather than sensory. Atp6v1b2 is expressed in exactly these compartments, which is what makes the cochlea the tissue that fails first. This node is the DDOD-specific instance of the conserved spiral-ganglion arm of the sensorineural hearing loss module. It attaches at the spiral ganglion node rather than the module\u0027s upstream `#Hair Cell Mechanotransduction Failure and Death` node because the p.Arg506* evidence describes apoptotic neurodegeneration downstream of lysosomal failure, not a primary mechanotransduction defect.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Spiral ganglion neuron\", \"Cochlear hair cell\"], \"biological_processes\": [\"Neuron apoptotic process\", \"Apoptotic process\"], \"animal_models\": [{\"name\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b2 c.1516C\u003eT (p.Arg506*) knock-in, heterozygous and homozygous\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The knock-in reproduces apoptotic spiral ganglion neuron degeneration downstream of lysosomal dysfunction and autophagic blockade, which is the human mechanism, but on a delayed timescale.\"}, {\"name\": \"Hair-cell-specific Atp6v1b2 conditional knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b2 fl/fl; Atoh1-Cre/+ conditional knockout\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"A single postnatal administration of AAV-ie-Eh3-mAtp6v1b2 into the scala media prevented hair cell degeneration and restored lysosome morphology and auditory and vestibular function, providing the strongest available causal test that the cochlear degeneration node is Atp6v1b2-dependent and in principle reversible.\"}]}}, {\"id\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"CRISPR-generated knock-in of the human DDOD allele. Two independent lines exist, one characterised for cochlear pathology and one phenotyped through the IMPC pipeline with EEG. Together they establish the lysosomal to autophagic to apoptotic chain in spiral ganglion neurons, and they also demonstrate the model\u0027s key limitation, namely that the hearing loss is late-onset rather than congenital.\\n\"}, {\"id\": \"Autophagic Flux Blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undegraded autophagosomes accumulate because fusion-competent, acidified lysosomes are not available to complete cargo breakdown. In cochlear tissue this manifests as accumulation of large autophagosomes together with the lysosomal morphological abnormalities seen in the mouse models.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Autophagosome maturation\", \"Autophagy\"]}}, {\"id\": \"CPT-cAMP Lysosomal Reacidification (preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one mechanism-directed candidate for this disorder rather than a supportive measure. CPT-cAMP is a membrane-permeable cAMP analogue that restored lysosomal acidification in a concentration-dependent manner in isogenic p.Arg506* cells, crosses the blood-brain barrier, and in Atp6v1b2 p.Arg506* mice reduced seizure frequency, improved cognitive performance, and resolved autophagosome accumulation. It is therefore aimed squarely at the rate-limiting node of this entry rather than at a downstream consequence. NOT an available therapy: this is proof-of-concept work in cells and mice with no human data, and the reported benefits are on the neurological and cognitive arm, which is precisely the arm that classic DDOD largely lacks, so the read-across to DDOD patients is an inference rather than a demonstrated result.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"CPT-cAMP (8-(4-chlorophenylthio)adenosine 3\u0027,5\u0027-cyclic monophosphate)\"]}}, {\"id\": \"Cochlea-specific Atp6v1b2 morpholino knockdown mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Acute knockdown of Atp6v1b2 in the cochlea by microinjection of a splice-blocking morpholino into the scala media before postnatal day 3. This was the original demonstration that Atp6v1b2 deficiency alone is sufficient to cause sensorineural hearing loss, and the same approach was later used to profile the lysosomal and autophagic changes in cochlear tissue.\\n\"}, {\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation is the principal intervention for the congenital severe-to-profound sensorineural hearing loss of DDOD. Device-level and auditory outcomes are consistently good: successful oral-language rehabilitation was reported in the original probands implanted between 2 and 18 years of age, and a child receiving bilateral sequential implants showed continued gains in auditory and communication performance. Language outcome is less uniformly good than auditory outcome, and this should be stated plainly rather than smoothed over. Follow-up of implanted DDOD patients has documented unsatisfactory language rehabilitation despite a well-functioning implant on standard cochlear-mapping indicators, which the reporting group attributed to subtle learning and memory problems. Molecular diagnosis is therefore prognostically useful in syndromic congenital hearing loss, but it should not be presented to families as a guarantee of language outcome.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Congenital Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral severe-to-profound sensorineural hearing loss present from birth and detected on auditory brainstem response testing in infancy. It is the single most consistent feature of DDOD and is present in essentially all reported individuals with the p.Arg506* allele.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008527\", \"animal_models\": [{\"name\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Atp6v1b2 c.1516C\u003eT (p.Arg506*) knock-in, heterozygous and homozygous\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Neither knock-in line reproduces the congenital severe-to-profound deafness that defines human DDOD.\"}]}}, {\"id\": \"Hair-cell-specific Atp6v1b2 conditional knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional deletion of Atp6v1b2 in cochlear hair cells, generated to provide a tractable platform for inner-ear gene therapy. It reproduces hair cell loss and abnormal lysosomal morphology, and a single intracochlear dose of an AAV vector carrying wild-type Atp6v1b2 rescued both.\\n\"}, {\"id\": \"Impaired Endolysosomal Acidification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced V-ATPase proton pumping raises lysosomal luminal pH. In cells expressing the DDOD allele, and in cochlear tissue from the corresponding mouse models, lysosomal acidification is reduced, cathepsin-D activity falls and lysosomal membrane and ion-channel proteins are upregulated, consistent with failure of the acidic compartment to support hydrolase activity. This node is the disease\u0027s rate-limiting molecular lesion.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Spiral ganglion neuron\", \"Cochlear hair cell\"], \"biological_processes\": [\"Lysosomal lumen acidification\", \"Vacuolar acidification\"], \"animal_models\": [{\"name\": \"Cochlea-specific Atp6v1b2 morpholino knockdown mouse\", \"species\": \"Mouse\", \"genotype\": \"Wild-type mouse with intracochlear Atp6v1b2 splice-blocking morpholino\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cochlear knockdown reproduces the reduction in V-ATPase activity and lysosomal acidification that underlies the human disease, measured in cochlear tissue rather than in a heterologous cell line.\"}]}}, {\"id\": \"Impaired Nail Matrix and Distal Digit Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second obligate arm of DDOD is failure of nail-plate formation with associated hypoplasia of the terminal and middle phalanges, giving absent or hypoplastic nails, bulbous fingertips and triphalangeal or finger-like thumbs. Nail-matrix keratinocytes are a highly differentiating, keratinisation-dependent lineage in which endolysosomal proteolysis is required, which is the plausible route from the same V-ATPase lesion to the integumentary and distal skeletal phenotype. This node is deliberately curated without a mechanistic evidence item for the acidification-to-nail step. The observation that DDOD patients have onychodystrophy is well-evidenced, but no study has yet demonstrated the lysosomal mechanism in nail matrix or developing digit, which is recorded as a KNOWLEDGE_GAP.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Nail matrix keratinocyte\"]}}, {\"id\": \"Onychodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or hypoplastic finger- and toenails. Involvement is characteristically patterned rather than uniform. The thumb and fifth finger are most severely affected in the hands, with relative sparing of the second to fourth digits, while in the feet the great toenail is hypoplastic and the second to fifth toenails are typically absent.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008404\"}}], \"edges\": [{\"source\": \"ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction\", \"target\": \"Impaired Endolysosomal Acidification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced V1 domain assembly and ATP hydrolysis lower proton pumping into the lysosomal lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Endolysosomal Acidification\", \"target\": \"Autophagic Flux Blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomes that cannot acidify cannot complete degradation of autophagosomal cargo, so autophagic flux stalls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autophagic Flux Blockade\", \"target\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent autophagic blockade activates the intrinsic apoptotic program in cochlear neurons and sensory cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"target\": \"Congenital Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cochlear sensory cells and their afferent neurons abolishes auditory transduction and transmission.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Nail Matrix and Distal Digit Development\", \"target\": \"Onychodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of nail-matrix differentiation produces the absent or hypoplastic nails that define the disorder\u0027s second arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Congenital Sensorineural Hearing Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CPT-cAMP Lysosomal Reacidification (preclinical)\", \"target\": \"Impaired Endolysosomal Acidification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"target\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The knock-in reproduces apoptotic spiral ganglion neuron degeneration downstream of lysosomal dysfunction and autophagic blockade, which is the human mechanism, but on a delayed timescale.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Hearing loss in the mouse is late-onset and preceded by hidden hearing loss, whereas human DDOD deafness is congenital and severe to profound. Compensatory upregulation of the paralogue Atp6v1b1 in hair cells blunts the murine phenotype, and much of the characterisation used homozygotes rather than the heterozygous state that models patients.\"}, {\"source\": \"Atp6v1b2 p.Arg506* knock-in mouse\", \"target\": \"Congenital Sensorineural Hearing Loss\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Neither knock-in line reproduces the congenital severe-to-profound deafness that defines human DDOD.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"In the IMPC-phenotyped line, auditory brainstem responses were normal at 14 weeks of age. In the cochlear-pathology line, hearing loss appeared only late and was attributed to compensatory Atp6v1b1 upregulation in hair cells. Any therapeutic inference drawn from restored hearing in these mice therefore starts from a milder baseline than the human disease.\"}, {\"source\": \"Cochlea-specific Atp6v1b2 morpholino knockdown mouse\", \"target\": \"Impaired Endolysosomal Acidification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Cochlear knockdown reproduces the reduction in V-ATPase activity and lysosomal acidification that underlies the human disease, measured in cochlear tissue rather than in a heterologous cell line.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Morpholino knockdown reduces wild-type transcript rather than expressing the truncated p.Arg506* subunit, so it models a pure dose reduction and cannot distinguish haploinsufficiency from a dominant-negative effect of the truncated protein. The effect is also acute and postnatal rather than developmental.\"}, {\"source\": \"Hair-cell-specific Atp6v1b2 conditional knockout mouse\", \"target\": \"Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"A single postnatal administration of AAV-ie-Eh3-mAtp6v1b2 into the scala media prevented hair cell degeneration and restored lysosome morphology and auditory and vestibular function, providing the strongest available causal test that the cochlear degeneration node is Atp6v1b2-dependent and in principle reversible.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model is a hair-cell-restricted complete knockout, not the heterozygous truncating genotype of human DDOD, and it does not address the spiral ganglion neuron compartment. Rescue was delivered at postnatal days 0 to 2, a developmental window with no direct human equivalent given that DDOD deafness is already present at birth. This is a preclinical result, not an available therapy.\"}, {\"source\": \"ATP6V1B2\", \"target\": \"ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATP6V1B2 p.Arg506*\", \"target\": \"ATP6V1B2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6269,6 +6371,9 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6283,6 +6388,7 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6307,6 +6413,7 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6374,6 +6481,9 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6388,6 +6498,7 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6412,6 +6523,7 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6466,6 +6578,9 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6480,6 +6595,7 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6547,6 +6663,9 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6561,6 +6680,7 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6585,6 +6705,7 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6639,6 +6760,9 @@ This clinical feature is Absent fingernail (HP:0001817). HP:0001817 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6653,6 +6777,7 @@ This clinical feature is Absent fingernail (HP:0001817). HP:0001817 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6707,6 +6832,9 @@ This clinical feature is Hypoplastic fingernail (HP:0001804). HP:0001804 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6721,6 +6849,7 @@ This clinical feature is Hypoplastic fingernail (HP:0001804). HP:0001804 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6775,6 +6904,9 @@ This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6789,6 +6921,7 @@ This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6854,6 +6987,9 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6868,6 +7004,7 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6892,6 +7029,7 @@ This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6948,6 +7086,9 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6962,6 +7103,7 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6986,6 +7128,7 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7042,6 +7185,9 @@ This clinical feature is Short middle phalanx of the 5th finger (HP:0004220). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7056,6 +7202,7 @@ This clinical feature is Short middle phalanx of the 5th finger (HP:0004220). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7119,6 +7266,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7133,6 +7283,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7157,6 +7308,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7259,6 +7411,9 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7273,6 +7428,7 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7300,6 +7456,7 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7321,6 +7478,7 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7359,6 +7517,12 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">NM_001693.4:c.1516C&gt;T; p.Arg506* recurrent de novo truncating variant removing the C-terminal six residues.</div>
 
 
@@ -7386,6 +7550,7 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7407,6 +7572,7 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7498,6 +7664,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7508,6 +7677,9 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -7545,6 +7717,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7591,6 +7764,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7615,6 +7789,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7636,6 +7811,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7716,6 +7892,9 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7726,6 +7905,9 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
 
     </div>
+
+
+
 
 
 
@@ -7763,6 +7945,7 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7809,6 +7992,7 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7833,6 +8017,7 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7899,6 +8084,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7909,6 +8097,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7940,6 +8131,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7961,6 +8153,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8039,6 +8232,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8060,6 +8254,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8120,6 +8315,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8174,6 +8370,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8298,6 +8495,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8322,6 +8520,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8343,6 +8542,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8423,6 +8623,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8444,6 +8645,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8527,6 +8729,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8548,6 +8751,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8689,6 +8893,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8728,6 +8933,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8772,6 +8978,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8900,6 +9107,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8939,6 +9147,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8983,6 +9192,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9111,6 +9321,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9150,6 +9361,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10739,6 +10951,25 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address review on PR 9201: deep-research artifact, diagnosis section, and corrected implant-outcome claim</strong> · 2026-08-24T16:49:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dominant_Deafness-Onychodystrophy_Syndrome/2026-08-24T164946Z-claude-code-3fef07.yaml">View source</a></p>
+                        <p class="research-review-text">Second curation round on DDOD, responding to the ai4c-reviewer CHANGES_REQUESTED on PR 9201 and to second-opinion feedback left on issue 9199. Blocker resolved: the falcon deep-research report returned after the first commit and is now committed under research/, together with its citations sidecar and artifact directory. NEC preflight was run against MONDO:0007420 and returned PASS with ATP6V1B2 mentioned 46 times against TBC1D24 at 4, and the report OMIM ids including 124480 matching the MONDO xref; the issue commenter predicted a WARN here on the grounds that ATP6V1B2 is canonical for DDOD, ZLS2 and part of DOORS, so the OMIM agreement rather than the gene frequency is what carries the verdict. Substantive corrections found by cross-checking the report against the entry, each verified against the cached abstract rather than taken from the report: the V-ATPase node was renamed from Impaired V-ATPase Assembly to Weakened V-ATPase Subunit Interaction because assembly still takes place with the truncated subunit and only the E to B2 interaction is weak, which is also why the dominant-negative reading stays live; the cochlear implantation claim that outcomes are good was corrected, since follow-up of implanted DDOD patients found language rehabilitation unsatisfactory despite a well-functioning device, attributed to learning and memory problems; and a new KNOWLEDGE_GAP discussion records that cognitive sparing in DDOD is supported at the level of frank intellectual disability but not demonstrated at the level of subtle learning and memory, with a deafness-matched control arm proposed as the experiment that would settle it. Additions: a diagnosis section covering molecular testing, ABR and the informative negative that temporal bone imaging is normal; auditory nerve fibre demyelination and the mitochondrial cytochrome c release step added to the cochlear degeneration node; enamel hypoplasia as a dental phenotype; CPT-cAMP lysosomal reacidification curated as an explicitly preclinical treatment targeting the rate-limiting acidification node, with the caveat that its demonstrated benefits are on the neurological arm that classic DDOD largely lacks; and independent isogenic CRISPR replication of the raised lysosomal pH, which removes the overexpression caveat from the original transfection result and sharpens the bidirectional pH knowledge gap. Reviewer suggestions addressed: PMID:34232384 now backs a real evidence item in the diagnosis section rather than sitting uncited in references; the p.Arg506-stop variant record gained clinical_significance PATHOGENIC and two evidence items including absence from 1053 controls. Declined: splitting the spiral ganglion and hair cell node, since no evidence separates their timelines in the same model and the reviewer marked it non-blocking. Validation: just validate and just validate-terms passed; just count-verified-snippets reported 87/87 verified against cached references; check-folded-hyphens, check-snippet-length, check-title-snippets, check-duplicate-keys and check-term-cache-integrity all clean; no cache rows were required by this round after re-deriving.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Dominant Deafness-Onychodystrophy Syndrome, DDOD, ATP6V1B2</strong> · 2026-08-21T21:21:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dominant_Deafness-Onychodystrophy_Syndrome/2026-08-21T212116Z-claude-code-f192b4.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DDOD, MONDO:0007420, the ATP6V1B2 p.Arg506-stop dominant deafness-onychodystrophy syndrome. Entry type decided as DISEASE: a MONDO leaf with its own OMIM identity 124480, and dismech already curates Zimmermann-Laband and DOORS as separate entries. Curated a five-node mechanistic chain: C-terminal truncation and impaired V-ATPase assembly, impaired endolysosomal acidification, autophagic flux blockade, apoptotic spiral ganglion neuron and hair cell degeneration, and impaired nail matrix and distal digit development. Also 10 phenotypes, 2 treatments, 3 animal models, 1 iPSC experimental-model pair, and 2 differential-diagnosis blocks for ZLS2 and DOORS that state the ATP6V1B2 continuum explicitly rather than leaving it implicit. Four discussions record what is genuinely unresolved: haploinsufficiency versus dominant negative for p.Arg506-stop; the opposite-direction lysosomal pH results between the DDOD truncating allele and the ZLS2 missense alleles, which were never measured side by side; the entirely unmeasured nail-matrix mechanism; and a HUMAN_MODEL_MISMATCH on the knock-in mice having normal early hearing via Atp6v1b1 paralogue compensation. functional_impact_category set to LOSS_OF_FUNCTION deliberately as the superordinate call the literature supports, NOT DOMINANT_NEGATIVE, since the route is explicitly left open by the cited review. Conformance declared only to sensorineural_hair_cell_loss, at the Cochlear Amplification Loss and Spiral Ganglion Neuron Degeneration node; conformance to lysosomal_substrate_accumulation deliberately NOT declared because the substrate-storage data come from ZLS2 missense lines rather than DDOD cells. Literature assembled directly from PubMed E-utilities searches over the ~30-paper ATP6V1B2 deafness/onychodystrophy corpus, and every cited abstract was read in full before curation; no GeneReviews article exists for DDOD, confirmed by PubMed search. A falcon deep-research run was launched as an independent cross-check but had not returned by the time this entry was completed, so nothing in this entry derives from it and no deep-research report is committed with it. Validation: just validate and just validate-terms passed via the pre-edit hook; just count-verified-snippets reported 68/68 verified against cached references, after two initially-unverified iPSC snippets were rewritten as exact abstract quotes; check-folded-hyphens, check-snippet-length, check-title-snippets, check-environmental-evidence and check-duplicate-keys were all clean; 8921 selected tests in tests/test_data.py passed; just validate-disorders was run as the batched pre-PR sweep.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

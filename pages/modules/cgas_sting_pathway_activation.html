@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2378,11 +2415,13 @@ A conforming node must evidence STING-dependence, not merely an interferon signa
             
             <div class="item-box anchor-target" id="module-pathophysiology-cytosolic-dna-accumulation-and-cgas-dependent-cgamp-synthesis" data-dismech-node="Cytosolic DNA Accumulation and cGAS-Dependent cGAMP Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytosolic DNA Accumulation and cGAS-Dependent cGAMP Synthesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Double-stranded DNA reaching the cytosol, from any source, is bound by cyclic GMP-AMP synthase (cGAS), which on binding assembles into higher-order cGAS-DNA complexes and synthesizes the second messenger 2&#39;3&#39;-cGAMP. Because cGAS recognizes DNA as such rather than any pathogen-specific feature, the ligand may be microbial, tumor-derived, mitochondrial, micronuclear, or retroelement-derived self DNA; the safeguard against spurious self activation is nucleic acid compartmentalization plus continuous cytosolic nuclease clearance, not ligand discrimination. Disorder-specific substitutions at this node: loss of TREX1, RNASEH2A/B/C or SAMHD1 in Aicardi-Goutieres syndrome; mitochondrial DNA release under cellular stress; micronuclei generated by chromosomal instability in cancer; tumor DNA taken up by tumor-resident dendritic cells. Pharmacologic STING agonists do not act here at all, and instead bypass this node.</div>
                 
@@ -2481,11 +2520,13 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
             
             <div class="item-box anchor-target" id="module-pathophysiology-sting-oligomerization-and-er-to-golgi-translocation" data-dismech-node="STING Oligomerization and ER-to-Golgi Translocation" data-dismech-type="pathophysiology">
                 <div class="item-name">STING Oligomerization and ER-to-Golgi Translocation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Ligand-bound STING dimers undergo conformational rearrangement, oligomerize side by side, and are exported from the endoplasmic reticulum in COPII vesicles through the ER-Golgi intermediate compartment to the Golgi, where downstream kinase recruitment occurs. Trafficking is the regulated, rate-setting step of the axis rather than a passive relocation: at steady state STING is continuously retrieved from the Golgi to the ER by COPI vesicles, so signalling reflects the balance between anterograde export and retrograde retrieval. This is the node at which two of the three monogenic interferonopathies place their lesion, and the node at which every pharmacologic agonist acts. Substitutions: ligand-independent STING1 gain-of-function variants (SAVI); failed COPI-dependent retrieval with accumulation of ER-resident STING at the Golgi (COPA syndrome); cyclic dinucleotide agonists such as 2&#39;3&#39;-cGAMP and non-nucleotide agonists such as MSA-2 (human) or DMXAA (mouse) occupying the ligand-binding domain.</div>
                 
@@ -2643,11 +2684,13 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
             
             <div class="item-box anchor-target" id="module-pathophysiology-tbk1-irf3-activation-and-type-i-interferon-induction" data-dismech-node="TBK1-IRF3 Activation and Type I Interferon Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">TBK1-IRF3 Activation and Type I Interferon Induction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">STING recruits TANK-binding kinase 1 to its C-terminal tail; TBK1 autophosphorylates, phosphorylates STING at Ser366 (Ser365 in mouse), and phosphorylates the recruited interferon regulatory factor 3, which dimerizes and translocates to the nucleus to drive transcription of type I interferons and other inflammatory mediators. This is the disorder-agnostic, rate-limiting node of the module and the key conformance target: every route into the pathway, genetic or pharmacologic, converges here, and downstream biology is a function of how strong and how sustained this signal is rather than of how it was initiated. TBK1 recruitment also activates NF-kB independently of interferon induction, so loss of the IRF3 arm alone does not abolish STING-dependent antiviral and antitumor immunity.</div>
                 
@@ -2788,11 +2831,13 @@ This pathophysiological event involves increased positive regulation of interfer
             
             <div class="item-box anchor-target" id="module-pathophysiology-interferon-stimulated-gene-expression-and-antigen-presenting-cell-maturation" data-dismech-node="Interferon-Stimulated Gene Expression and Antigen-Presenting Cell Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Interferon-Stimulated Gene Expression and Antigen-Presenting Cell Maturation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Autocrine and paracrine type I interferon induces interferon-stimulated genes and matures dendritic cells and macrophages: costimulatory CD86 and MHC class II are upregulated, cross-presentation of acquired antigen improves, and CXCL9, CXCL10 and CCL5 are secreted, recruiting effector T cells and further dendritic cells into the tissue. This is the arm the adjuvant and immunotherapy literature is built on, and it is myeloid-cell centred: the therapeutic effect tracks with activation in antigen-presenting cells rather than with total pathway activation across all cell types.</div>
                 
@@ -2940,11 +2985,13 @@ This pathophysiological event involves increased antigen processing and presenta
             
             <div class="item-box anchor-target" id="module-pathophysiology-th1-polarized-t-cell-priming-and-antitumor-immunity" data-dismech-node="Th1-Polarized T Cell Priming and Antitumor Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Th1-Polarized T Cell Priming and Antitumor Immunity</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Cross-primed antigen-specific CD8+ cytotoxic T cells and Th1-polarized CD4+ helper cells expand, infiltrate tumor tissue, and mediate regression, with immunologic memory sufficient to reject rechallenge and, after local administration, untreated distant lesions. This is the outcome that motivates STING agonists as vaccine adjuvants and as intratumoral in situ vaccines, and it is the arm a cancer entry conforms to. It is the therapeutic mirror image of the chronic inflammation arm, not a different pathway.</div>
                 
@@ -3050,11 +3097,13 @@ This pathophysiological event involves increased T-helper 1 type immune response
             
             <div class="item-box anchor-target" id="module-pathophysiology-chronic-type-i-interferon-driven-tissue-inflammation" data-dismech-node="Chronic Type I Interferon-Driven Tissue Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Type I Interferon-Driven Tissue Inflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">When the central effector runs constitutively rather than transiently, sustained type I interferon and interferon-stimulated gene expression become the disease. The clinical expression is organ-specific and set by which tissues signal: small-vessel and acral vasculopathy with endothelial activation and apoptosis, interstitial lung disease and pulmonary fibrosis, inflammatory arthritis, and, where the brain is involved, a calcifying encephalopathy with leukodystrophy. The shared laboratory readout is a peripheral blood interferon signature, which is necessary but not sufficient to place a disorder in this module.</div>
                 
@@ -3139,11 +3188,13 @@ This pathophysiological event involves increased type I interferon-mediated sign
             
             <div class="item-box anchor-target" id="module-pathophysiology-signal-strength-dependent-lymphocyte-apoptosis-and-regulatory-b-cell-induction" data-dismech-node="Signal-Strength-Dependent Lymphocyte Apoptosis and Regulatory B Cell Induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Signal-Strength-Dependent Lymphocyte Apoptosis and Regulatory B Cell Induction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">counter regulatory</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">STING is expressed as widely in lymphocytes as in myeloid cells, and in T cells the response is intensified: strong agonist exposure induces a distinct transcriptional program ending in apoptosis rather than activation. In B cells, agonist exposure drives differentiation of IL-35-producing and IL-10-producing regulatory B cells through an IRF3-dependent but type I interferon-independent route, which suppresses natural killer cell proliferation and blunts the antitumor response the therapy was intended to produce. This arm is why systemic, unrestricted STING agonism is self-limiting, and it is the mechanistic content behind the failure of agonist monotherapy in trials; it is not a route to disease in the interferonopathies, where cell-intrinsic constitutive signalling has a different tissue distribution.</div>
                 
@@ -3263,11 +3314,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             
             <div class="item-box anchor-target" id="module-pathophysiology-suppression-of-cap-dependent-mrna-translation" data-dismech-node="Suppression of Cap-Dependent mRNA Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Cap-Dependent mRNA Translation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">counter regulatory</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">STING activation restrains cap-dependent protein synthesis at the level of translation initiation, by at least two routes: an interferon-dependent route requiring IFNAR1 and IRF9, in which interferon-stimulated gene products drive dephosphorylation of 4E-BP1 and so prevent eIF4F assembly and ribosomal loading; and a non-canonical route in which STING at the endoplasmic reticulum directly activates PERK, which phosphorylates eIF2-alpha, ahead of and independently of TBK1-IRF3. The effect is physiologic in antiviral defence, where it restricts production of viral proteins, and adverse in mRNA vaccination, where the antigen is itself an exogenous transcript that must be translated: a codelivered agonist therefore suppresses the antigen it is meant to adjuvant. Timing rather than dose is the operative variable, since translation is spared while the interferon response has not yet been induced.</div>
                 
@@ -3331,11 +3384,13 @@ This pathophysiological event involves increased negative regulation of translat
             
             <div class="item-box anchor-target" id="module-pathophysiology-attenuated-antigen-expression-and-blunted-adaptive-response" data-dismech-node="Attenuated Antigen Expression and Blunted Adaptive Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated Antigen Expression and Blunted Adaptive Response</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The two counter-regulatory arms converge: less antigen is made, and fewer lymphocytes survive to respond to it, so an agonist added to an mRNA or peptide vaccine can reduce rather than increase antigen-specific T cell output. This node is what a delivery strategy has to defeat, and it is defeated by separation in time and in space rather than by lowering the dose: releasing the agonist only after antigen has been translated, and confining pathway activation to antigen-presenting cells. It has no counterpart in the interferonopathies and should not be conformed to by a genetic disease entry.</div>
                 
@@ -3477,6 +3532,9 @@ This treatment uses DMXAA (vadimezan), annotated with vadimezan (CHEBI:75934). C
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -3487,6 +3545,9 @@ This treatment uses DMXAA (vadimezan), annotated with vadimezan (CHEBI:75934). C
         
         
     </div>
+    
+    
+    
     
     
     
@@ -3594,6 +3655,9 @@ This treatment uses baricitinib (CHEBI:95341). CHEBI:95341 is a therapeutic agen
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -3604,6 +3668,9 @@ This treatment uses baricitinib (CHEBI:95341). CHEBI:95341 is a therapeutic agen
         
         
     </div>
+    
+    
+    
     
     
     

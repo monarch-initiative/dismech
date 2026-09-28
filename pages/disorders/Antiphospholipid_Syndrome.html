@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4249,6 +4317,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4313,6 +4382,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4351,6 +4421,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4457,6 +4528,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4527,6 +4599,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4548,6 +4621,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4589,6 +4663,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4691,6 +4766,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4755,6 +4831,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4816,6 +4893,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5280,6 +5358,7 @@ This readout is measured by antiphospholipid antibody titre assay.</span>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5301,6 +5380,7 @@ This readout is measured by antiphospholipid antibody titre assay.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5338,6 +5418,7 @@ This readout is measured by antiphospholipid antibody titre assay.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd4-t-cell-dysregulation-and-autoreactive-b-cell-licensing" data-dismech-node="CD4+ T cell dysregulation and autoreactive B cell licensing" data-dismech-type="pathophysiology">
                 <div class="item-name">CD4+ T cell dysregulation and autoreactive B cell licensing</div>
+
 
                 <div class="item-desc">Altered helper, regulatory, and follicular CD4+ T-cell profiles are reported in primary APS, but whether they initiate persistent aPL production or arise after established autoimmunity remains unresolved.</div>
 
@@ -5485,6 +5566,7 @@ This pathophysiological event involves T follicular helper cell (CL:0002038). CL
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5506,6 +5588,7 @@ This pathophysiological event involves T follicular helper cell (CL:0002038). CL
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5531,6 +5614,7 @@ This pathophysiological event involves T follicular helper cell (CL:0002038). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-generation-against-beta2gpi-and-phospholipid-complexes" data-dismech-node="Autoantibody generation against beta2GPI and phospholipid complexes" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody generation against beta2GPI and phospholipid complexes</div>
+
 
                 <div class="item-desc">Persistent aPL responses are heterogeneous but clinically important reactivity is commonly directed against phospholipid-binding proteins, especially beta2GPI. The immune events that initiate and sustain these responses are incompletely established.</div>
 
@@ -5738,6 +5822,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5759,6 +5844,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5784,6 +5870,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-surface-beta2gpi-binding" data-dismech-node="Cell-surface beta2GPI binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell-surface beta2GPI binding</div>
+
 
                 <div class="item-desc">Anti-beta2GPI/beta2GPI complexes can assemble along phospholipid-rich cell surfaces. Receptor usage and the importance of particular antibody specificities vary across experimental systems.</div>
 
@@ -5845,6 +5932,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5867,6 +5955,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-receptor-signaling" data-dismech-node="Innate receptor signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate receptor signaling</div>
+
 
                 <div class="item-desc">Experimental systems implicate TLR4, p38 MAPK, NF-kappaB, and related pathways after aPL-beta2GPI binding; no single receptor-signaling route has been established as universal across APS patients.</div>
 
@@ -5944,6 +6033,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5965,6 +6055,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5990,6 +6081,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-extracellular-trap-amplification" data-dismech-node="Neutrophil extracellular-trap amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil extracellular-trap amplification</div>
+
 
                 <div class="item-desc">APS neutrophils can release excess neutrophil extracellular traps (NETs), whose chromatin and granule proteins provide a candidate immunothrombotic scaffold. Human, in-vitro, and animal observations support this amplifier, but do not establish NETs as necessary in every thrombotic event.</div>
 
@@ -6111,6 +6203,7 @@ This pathophysiological event involves neutrophil extracellular trap formation (
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6133,6 +6226,7 @@ This pathophysiological event involves neutrophil extracellular trap formation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-activation" data-dismech-node="Endothelial activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial activation</div>
+
 
                 <div class="item-desc">aPL signaling converts endothelial cells into a proadhesive, inflammatory, and procoagulant vascular surface.</div>
 
@@ -6252,6 +6346,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6274,6 +6369,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monocyte-tissue-factor-induction" data-dismech-node="Monocyte tissue factor induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Monocyte tissue factor induction</div>
+
 
                 <div class="item-desc">Activated monocytes upregulate tissue factor and intensify thrombin generation.</div>
 
@@ -6361,6 +6457,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6383,6 +6480,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-activation" data-dismech-node="Platelet activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Platelet activation</div>
+
 
                 <div class="item-desc">In thrombotic APS, platelets exposed to aPL-dependent cell signaling become activated and aggregate, generating thromboxane-dependent prothrombotic amplification. This node represents the platelet arm of the conserved thrombogenesis chain, not a necessary lesion in obstetric-only APS.</div>
 
@@ -6550,6 +6648,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6571,6 +6670,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6598,6 +6698,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6620,6 +6721,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-activation" data-dismech-node="Complement activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement activation</div>
+
 
                 <div class="item-desc">Complement activation is a thromboinflammatory and placental-injury amplifier supported most strongly by experimental models and selected human biomarker or tissue studies; its contribution varies across APS phenotypes.</div>
 
@@ -6715,6 +6817,7 @@ This pathophysiological event involves complement activation (GO:0006956). GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6737,6 +6840,7 @@ This pathophysiological event involves complement activation (GO:0006956). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulation-cascade-activation-and-thrombin-driven-fibrin-formation" data-dismech-node="Coagulation cascade activation and thrombin-driven fibrin formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulation cascade activation and thrombin-driven fibrin formation</div>
+
 
                 <div class="item-desc">In thrombotic APS, aPL-associated cellular and tissue-factor activation increases cell-surface coagulation, thrombin generation, and fibrin-network formation. This atomic node represents only the conserved central coagulation/fibrin effector; impaired fibrinolysis is modeled separately, and this mapping does not imply that coagulation explains every obstetric manifestation.</div>
 
@@ -6896,6 +7000,7 @@ This pathophysiological event involves increased fibrin clot formation, annotate
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6917,6 +7022,7 @@ This pathophysiological event involves increased fibrin clot formation, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6944,6 +7050,7 @@ This pathophysiological event involves increased fibrin clot formation, annotate
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6968,6 +7075,7 @@ This pathophysiological event involves increased fibrin clot formation, annotate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fibrinolysis" data-dismech-node="Impaired fibrinolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired fibrinolysis</div>
+
 
                 <div class="item-desc">In APS, reduced fibrinolytic activity and fibrin morphology less amenable to lysis can favor persistence of an existing clot. This is a parallel, nonconforming persistence amplifier rather than part of the atomic conserved coagulation/thrombin/fibrin-formation node; it is also reported in obstetric APS and therefore is not specific to the mapped thrombotic branch.</div>
 
@@ -7059,6 +7167,7 @@ This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7080,6 +7189,7 @@ This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7105,6 +7215,7 @@ This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trigger-dependent-thromboinflammatory-amplification" data-dismech-node="Trigger-dependent thromboinflammatory amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Trigger-dependent thromboinflammatory amplification</div>
+
 
                 <div class="item-desc">Persistent aPL create susceptibility, but overt thrombosis is often intermittent. Infection, inflammation, vascular injury, surgery, pregnancy, or interruption of anticoagulation can supply an additional trigger; this two-hit model is useful but is not universal, especially for obstetric APS.</div>
 
@@ -7166,6 +7277,7 @@ This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7188,6 +7300,7 @@ This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arterial-and-venous-thrombosis" data-dismech-node="Arterial and venous thrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Arterial and venous thrombosis</div>
+
 
                 <div class="item-desc">In the conventional macrovascular thrombotic branch of APS, activated and aggregated platelets together with crosslinked fibrin form pathological arterial or venous thrombi that may propagate and may narrow or occlude a blood vessel. This conformance does not include APS microvascular disease, thrombotic microangiopathy, or catastrophic APS because the cached APS-specific evidence does not directly establish the same conventional fibrin-platelet thrombus composition in those settings. Objectively documented thrombosis is a core thrombotic manifestation, but competing risks affect attribution and classification weight. It is neither present in every obstetric-only APS case nor sufficient for APS diagnosis without persistent clinically relevant aPL.</div>
 
@@ -7382,6 +7495,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7403,6 +7517,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7430,6 +7545,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7454,6 +7570,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-immune-injury" data-dismech-node="Placental immune injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental immune injury</div>
+
 
                 <div class="item-desc">At the maternal-fetal interface, aPL can perturb trophoblast function, complement regulation, inflammatory signaling, and placental perfusion. Placental thrombosis can occur but is not a universal explanation for pregnancy loss.</div>
 
@@ -7562,6 +7679,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7583,6 +7701,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7608,6 +7727,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pregnancy-morbidity" data-dismech-node="Pregnancy morbidity" data-dismech-type="pathophysiology">
                 <div class="item-name">Pregnancy morbidity</div>
+
 
                 <div class="item-desc">The obstetric APS spectrum includes recurrent early pregnancy loss, fetal death, and delivery before 34 weeks because of severe preeclampsia or placental insufficiency. Other pregnancy complications may be associated but are not automatically APS-defining.</div>
 
@@ -7693,6 +7813,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7714,6 +7835,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7739,6 +7861,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-thrombotic-vascular-occlusion-and-ischemic-tissue-injury" data-dismech-node="Acute thrombotic vascular occlusion and ischemic tissue injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute thrombotic vascular occlusion and ischemic tissue injury</div>
+
 
                 <div class="item-desc">In the locally occlusive arterial branch of thrombotic APS, arterial thrombosis can reduce perfusion and cause acute ischemia or infarction. This conforming node does not claim a distant embolic mechanism, does not apply to every nonocclusive or venous thrombus, and excludes cumulative damage accrual and nonthrombotic placental immune injury.</div>
 
@@ -7813,6 +7936,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7835,6 +7959,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cumulative-organ-damage-accrual" data-dismech-node="Cumulative organ damage accrual" data-dismech-type="pathophysiology">
                 <div class="item-name">Cumulative organ damage accrual</div>
+
 
                 <div class="item-desc">APS can produce persistent organ or tissue impairment over longitudinal follow-up. Recurrent vascular events may contribute, but microangiopathy, non-criteria manifestations, coexistent systemic lupus erythematosus, and other pathways also shape cumulative damage; this node therefore does not conform to the module&#39;s atomic acute ischemic consequence.</div>
 
@@ -7928,6 +8053,7 @@ This pathophysiological event occurs in lungs, annotated with lung (UBERON:00020
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7949,6 +8075,7 @@ This pathophysiological event occurs in lungs, annotated with lung (UBERON:00020
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7976,6 +8103,7 @@ This pathophysiological event occurs in lungs, annotated with lung (UBERON:00020
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7998,6 +8126,7 @@ This pathophysiological event occurs in lungs, annotated with lung (UBERON:00020
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catastrophic-microvascular-thrombosis" data-dismech-node="Catastrophic microvascular thrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Catastrophic microvascular thrombosis</div>
+
 
                 <div class="item-desc">Catastrophic APS is the acute multiorgan extreme of APS, with rapidly developing large- and small-vessel thrombosis and frequent thrombotic microangiopathy; it is not simply a higher count of prior macrovascular events.</div>
 
@@ -8091,6 +8220,7 @@ This pathophysiological event occurs in lungs, annotated with lung (UBERON:00020
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8112,6 +8242,7 @@ This pathophysiological event occurs in lungs, annotated with lung (UBERON:00020
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8231,6 +8362,9 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
                     </div>
 
 
+
+
+
                     <div class="item-desc">An objectively documented deep venous thrombosis can satisfy a clinical APS domain; provoking and competing risks affect attribution and classification weight, and the event does not establish APS without the aPL context.</div>
 
 
@@ -8250,6 +8384,7 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8274,6 +8409,7 @@ This clinical feature is Deep venous thrombosis (HP:0002625). HP:0002625 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8325,6 +8461,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">Usually mild-to-moderate. It was traditionally considered a non-criteria manifestation but is a weighted hematologic domain in the 2023 ACR/EULAR research-classification system; it is not specific for APS. Prevalence varies substantially with platelet threshold, cohort, and CAPS status, so no universal frequency is assigned.</div>
 
 
@@ -8344,6 +8483,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8371,6 +8511,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8392,6 +8533,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8448,6 +8590,9 @@ This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8462,6 +8607,7 @@ This clinical feature is Arterial thrombosis (HP:0004420). HP:0004420 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8516,6 +8662,9 @@ This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8530,6 +8679,7 @@ This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8592,6 +8742,9 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
                     </div>
 
 
+
+
+
                     <div class="item-desc">Valve thickening and sterile vegetation are nonthrombotic clinical-domain manifestations in the 2023 classification system; infective endocarditis and other valve disorders must be excluded. Reported prevalence varies with cohort and echocardiographic method, so no universal frequency is assigned.</div>
 
 
@@ -8611,6 +8764,7 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8638,6 +8792,7 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8659,6 +8814,7 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8710,6 +8866,9 @@ This clinical feature is Livedo Reticularis (HP:0033505). HP:0033505 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Livedo reticularis is reported in APS but is nonspecific. The 2023 microvascular classification domain distinguishes persistent, irregular livedo racemosa from uniform, reversible livedo reticularis and does not score the latter.</div>
 
 
@@ -8729,6 +8888,7 @@ This clinical feature is Livedo Reticularis (HP:0033505). HP:0033505 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8780,6 +8940,9 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">Pulmonary embolism is a qualifying macrovascular venous thromboembolism when objectively confirmed. Competing risks affect attribution and classification weight, and APS still requires the persistent aPL context.</div>
 
 
@@ -8799,6 +8962,7 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8823,6 +8987,7 @@ This clinical feature is Pulmonary embolism (HP:0002204). HP:0002204 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8877,6 +9042,9 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8891,6 +9059,7 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8915,6 +9084,7 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8969,6 +9139,9 @@ This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8983,6 +9156,7 @@ This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9037,6 +9211,9 @@ This clinical feature is Livedo racemosa (HP:0033260). HP:0033260 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9051,6 +9228,7 @@ This clinical feature is Livedo racemosa (HP:0033260). HP:0033260 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9114,6 +9292,9 @@ This clinical feature is Antiphospholipid antibody positivity (HP:0003613). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9128,6 +9309,7 @@ This clinical feature is Antiphospholipid antibody positivity (HP:0003613). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9182,6 +9364,9 @@ This clinical feature is Anticardiolipin IgG antibody positivity (HP:0020136). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9196,6 +9381,7 @@ This clinical feature is Anticardiolipin IgG antibody positivity (HP:0020136). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9250,6 +9436,9 @@ This clinical feature is Anticardiolipin IgM antibody positivity (HP:0020137). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9264,6 +9453,7 @@ This clinical feature is Anticardiolipin IgM antibody positivity (HP:0020137). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9318,6 +9508,9 @@ This clinical feature is Lupus anticoagulant (HP:0025343). HP:0025343 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9332,6 +9525,7 @@ This clinical feature is Lupus anticoagulant (HP:0025343). HP:0025343 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9386,6 +9580,9 @@ This clinical feature is Anti-beta 2 glycoprotein I antibody positivity (HP:0032
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9400,6 +9597,7 @@ This clinical feature is Anti-beta 2 glycoprotein I antibody positivity (HP:0032
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9454,6 +9652,9 @@ This clinical feature is Anti-beta-2-Glycoprotein I IgG antibody positivity (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9468,6 +9669,7 @@ This clinical feature is Anti-beta-2-Glycoprotein I IgG antibody positivity (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9528,6 +9730,9 @@ This clinical feature is Migraine Headaches, annotated with Migraine (HP:0002076
                     </div>
 
 
+
+
+
                     <div class="item-desc">Migraine is a reported non-criteria association and is common in the general population. It should not be attributed to APS without evaluating more likely causes and does not itself establish thrombotic APS.</div>
 
 
@@ -9547,6 +9752,7 @@ This clinical feature is Migraine Headaches, annotated with Migraine (HP:0002076
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9609,6 +9815,9 @@ This clinical feature is Preterm Birth, annotated with Premature birth (HP:00016
                     </div>
 
 
+
+
+
                     <div class="item-desc">The defining obstetric context is delivery before 34 weeks because of severe preeclampsia or placental insufficiency; preterm birth from another cause is not automatically attributable to APS.</div>
 
 
@@ -9628,6 +9837,7 @@ This clinical feature is Preterm Birth, annotated with Premature birth (HP:00016
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9655,6 +9865,7 @@ This clinical feature is Preterm Birth, annotated with Premature birth (HP:00016
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9676,6 +9887,7 @@ This clinical feature is Preterm Birth, annotated with Premature birth (HP:00016
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9739,6 +9951,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9753,6 +9968,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9777,6 +9993,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9820,6 +10037,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </div>
 
 
+
+
+
                     <div class="item-desc">The 2023 low-weight obstetric item requires three or more consecutive, otherwise unexplained prefetal losses before 10 weeks and/or early fetal deaths from 10 through 15 weeks 6 days. It does not by itself reach the three-point clinical classification threshold; a single sporadic early miscarriage is not sufficient to establish APS.</div>
 
 
@@ -9839,6 +10059,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9863,6 +10084,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9897,6 +10119,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                     </div>
 
 
+
+
+
                     <div class="item-desc">The 2023 obstetric domain includes otherwise unexplained fetal death from 10 weeks through 34 weeks, with gestation and recurrence affecting weight. The The Stillbirth label captures only part of that broader fetal-death domain; alternative fetal, placental, and maternal causes must be assessed.</div>
 
 
@@ -9916,6 +10141,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9940,6 +10166,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9991,6 +10218,9 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
                     </div>
 
 
+
+
+
                     <div class="item-desc">The APS classification manifestation is severe preeclampsia leading to delivery before 34 weeks, not preeclampsia of any severity or gestation.</div>
 
 
@@ -10010,6 +10240,7 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10037,6 +10268,7 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10058,6 +10290,7 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10144,6 +10377,9 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10158,6 +10394,7 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10203,6 +10440,9 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10217,6 +10457,7 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10331,6 +10572,12 @@ This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Vitamin K antagonist therapy is standard secondary prevention for thrombotic APS. For a first unprovoked venous event, the usual target INR is 2-3; after an arterial event, INR 2-3 versus 3-4 is individualized to thrombosis and bleeding risk. Recurrent thrombosis despite adequate therapy prompts adherence/INR review and selected escalation rather than assuming universal treatment failure.</div>
 
 
@@ -10361,6 +10608,7 @@ This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10446,6 +10694,7 @@ This treatment targets Arterial thrombosis (HP:0004420). HP:0004420 is a phenoty
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10470,6 +10719,7 @@ This treatment targets Arterial thrombosis (HP:0004420). HP:0004420 is a phenoty
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10491,6 +10741,7 @@ This treatment targets Arterial thrombosis (HP:0004420). HP:0004420 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10604,6 +10855,12 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Low-dose aspirin plus prophylactic-dose heparin is recommended during pregnancy for women with prior obstetric APS. Dosing and peripartum timing require individualized obstetric and thrombosis planning; this statement does not extend the regimen to every aPL-positive pregnancy.</div>
 
 
@@ -10634,6 +10891,7 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10681,6 +10939,7 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10764,6 +11023,7 @@ This treatment targets Preterm Birth, annotated with Premature birth (HP:0001622
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10859,6 +11119,12 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Hydroxychloroquine may be considered as an add-on when pregnancy complications recur despite aspirin plus heparin. It is not a substitute for anticoagulation in thrombotic APS, and evidence for APS-specific benefit remains limited.</div>
 
 
@@ -10889,6 +11155,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10946,6 +11213,7 @@ This treatment targets Miscarriage.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11058,6 +11326,12 @@ This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic a
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Suspected catastrophic APS is a medical emergency. Standard combination treatment uses therapeutic intravenous heparin plus glucocorticoids and plasma exchange and/or IVIG while the precipitating factor and organ failure are treated. Diagnostic testing should not delay therapy when suspicion is high.</div>
 
 
@@ -11088,6 +11362,7 @@ This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11138,6 +11413,7 @@ This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11178,6 +11454,7 @@ This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11290,6 +11567,12 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">B-cell depletion with rituximab or C5 inhibition with eculizumab may be used in selected refractory CAPS, but support is based on poor-quality evidence rather than randomized trials. These agents are escalation options, not routine substitutes for combination therapy.</div>
 
 
@@ -11320,6 +11603,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11370,6 +11654,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11410,6 +11695,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11477,6 +11763,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11523,6 +11810,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11575,6 +11863,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11621,6 +11910,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11690,6 +11980,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11711,6 +12002,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11768,6 +12060,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11822,6 +12115,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11843,6 +12137,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11925,6 +12220,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11980,6 +12276,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12043,6 +12340,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12145,6 +12443,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12166,6 +12465,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12243,6 +12543,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12264,6 +12565,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12341,6 +12643,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12362,6 +12665,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12458,6 +12762,7 @@ This treatment uses eculizumab (NCIT:C48386). NCIT:C48386 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12572,6 +12877,7 @@ This dataset samples peripheral blood monocytes, annotated with monocyte (CL:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12678,6 +12984,7 @@ This dataset samples urine sample, annotated with urine (UBERON:0001088). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15262,6 +15569,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

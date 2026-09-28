@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4162,6 +4230,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification of inborn errors of immunity (Tangye et al., PMID:35748970), Table 10 &#34;Phenocopies of inborn errors of immunity&#34;, first section, &#34;Associated with somatic mutations&#34;. VEXAS is one of the three entities new to Table 10 in the 2022 update, added on the strength of the UBA1 somatic-mutation report. The placement is the whole point of the disease: the lesion is acquired postzygotically in haematopoietic progenitors rather than inherited in the germline, so it produces an inborn-error phenotype without being an inborn error. There is no germline counterpart entry in dismech for this to be confused with, which is why the value sits on the entry itself rather than on a subtype. Note also that VEXAS involves a dysplastic marrow, so it may look like a Table 9 candidate; it is not in Table 9, and iuis_category is single-valued in any case.">phenocopy of IEI</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4229,6 +4314,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4378,6 +4464,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4400,6 +4487,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4480,6 +4568,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4502,6 +4591,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4540,6 +4630,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-pathogenic-uba1-mutation-in-hematopoietic-stem-cells" data-dismech-node="Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells</div>
+
 
                 <div class="item-desc">The founding lesion of VEXAS is an acquired (post-zygotic, mosaic) somatic pathogenic variant in UBA1 within the hematopoietic stem and progenitor-cell compartment. Variants affecting methionine-41 (p.Met41) predominate, but pathogenic splice-site and selected non-Met41 variants broaden the molecular spectrum. Mutant cells are enriched in the myeloid compartment; in the original cohort, they were not detected in lymphocytes or fibroblasts.
 </div>
@@ -4681,6 +4772,7 @@ This pathophysiological event involves UBA1 (hgnc:12469). hgnc:12469 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4703,6 +4795,7 @@ This pathophysiological event involves UBA1 (hgnc:12469). hgnc:12469 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4731,6 +4824,7 @@ This pathophysiological event involves UBA1 (hgnc:12469). hgnc:12469 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4754,6 +4848,7 @@ This pathophysiological event involves UBA1 (hgnc:12469). hgnc:12469 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-canonical-p-met41-uba1b-loss-and-reduced-ubiquitylation" data-dismech-node="Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation</div>
+
 
                 <div class="item-desc">Mutations at p.Met41 abolish initiation of the canonical cytoplasmic UBA1 isoform (UBA1b) and force expression of a novel, catalytically impaired isoform initiated at a downstream methionine (p.Met67). The net effect is a reduction in cytoplasmic ubiquitylation. The level of residual UBA1b translation is genotype-dependent and tracks with disease severity and survival.
 </div>
@@ -4856,6 +4951,7 @@ This pathophysiological event involves decreased Protein ubiquitination (GO:0016
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4878,6 +4974,7 @@ This pathophysiological event involves decreased Protein ubiquitination (GO:0016
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4904,6 +5001,13 @@ This pathophysiological event involves decreased Protein ubiquitination (GO:0016
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-emerging-non-met41-uba1-enzymatic-dysfunction" data-dismech-node="Emerging Non-Met41 UBA1 Enzymatic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Emerging Non-Met41 UBA1 Enzymatic Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Recurrent, functionally defective non-Met41 UBA1 variants have been reported in hematologic cohorts. Unlike canonical p.Met41 variants, they can reduce the activity of both nuclear and cytoplasmic UBA1 isoforms and are associated with distinct hematologic and biochemical phenotypes. Their relationship to the classic inflammatory VEXAS phenotype is variable and remains under definition.
 </div>
@@ -4981,6 +5085,7 @@ This pathophysiological event involves decreased Protein ubiquitination (GO:0016
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5003,6 +5108,7 @@ This pathophysiological event involves decreased Protein ubiquitination (GO:0016
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5031,6 +5137,7 @@ This pathophysiological event involves decreased Protein ubiquitination (GO:0016
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5054,6 +5161,7 @@ This pathophysiological event involves decreased Protein ubiquitination (GO:0016
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-activation" data-dismech-node="Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Immune Activation</div>
+
 
                 <div class="item-desc">In UBA1-mutant peripheral-blood and myeloid cells, decreased ubiquitylation is associated with activation of innate immune pathways and the systemic autoinflammatory state.
 </div>
@@ -5181,6 +5289,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5203,6 +5312,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5229,6 +5339,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multi-organ-inflammation" data-dismech-node="Multi-Organ Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Multi-Organ Inflammation</div>
+
 
                 <div class="item-desc">The cytokine-driven inflammatory program produces recurrent, multi-organ inflammation. The cited source specifically describes neutrophilic cutaneous and pulmonary inflammation, alongside chondritis and vasculitis; it does not characterize every involved organ as neutrophilic. This effector phase is the clinical face of the autoinflammatory arm.
 </div>
@@ -5372,6 +5483,7 @@ This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5395,6 +5507,7 @@ This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myeloid-skewed-hematopoietic-dysfunction" data-dismech-node="Myeloid-Skewed Hematopoietic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Myeloid-Skewed Hematopoietic Dysfunction</div>
+
 
                 <div class="item-desc">The UBA1-mutant hematopoietic compartment is skewed toward myelopoiesis and shows cytologic and senescence-like abnormalities. Cytoplasmic vacuolization of myeloid and erythroid precursors is characteristic but neither specific nor required. Macrocytic anemia and other cytopenias are common, and a substantial subset of patients also meet criteria for myelodysplastic syndrome; coexistence does not by itself establish linear progression from VEXAS to MDS.
 </div>
@@ -5493,6 +5606,7 @@ This pathophysiological event involves Erythroid lineage cell (CL:0000764). CL:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5518,6 +5632,7 @@ This pathophysiological event involves Erythroid lineage cell (CL:0000764). CL:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5540,6 +5655,7 @@ This pathophysiological event involves Erythroid lineage cell (CL:0000764). CL:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,7 +5705,7 @@ This pathophysiological event involves Erythroid lineage cell (CL:0000764). CL:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is currently the only curative therapy identified in the cited clinical guidance, but it carries considerable transplant-related morbidity and mortality and is reserved for selected patients.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anakinra (IL-1 Inhibition)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra, a recombinant IL-1 receptor antagonist, is used as an anti-IL-1 steroid-sparing option with variable clinical success. It frequently causes severe injection-site reactions in VEXAS patients, a disease-specific safety signal.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory arthritis and polyarthralgia are common musculoskeletal manifestations.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001369\"}}, {\"id\": \"Azacitidine (Hypomethylating Agent)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The hypomethylating agent azacitidine is used particularly in patients with concurrent MDS, with variable clinical success.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"azacitidine\"]}}, {\"id\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations at p.Met41 abolish initiation of the canonical cytoplasmic UBA1 isoform (UBA1b) and force expression of a novel, catalytically impaired isoform initiated at a downstream methionine (p.Met67). The net effect is a reduction in cytoplasmic ubiquitylation. The level of residual UBA1b translation is genotype-dependent and tracks with disease severity and survival.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein ubiquitination\"]}}, {\"id\": \"Chondritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Relapsing auricular and nasal chondritis is a common manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100662\"}}, {\"id\": \"Cutaneous Leukocytoclastic Vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukocytoclastic vasculitis is a recognized cutaneous histopathologic pattern and is associated with the p.Met41Val genotype in a skin-focused cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034786\"}}, {\"id\": \"Emerging Non-Met41 UBA1 Enzymatic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent, functionally defective non-Met41 UBA1 variants have been reported in hematologic cohorts. Unlike canonical p.Met41 variants, they can reduce the activity of both nuclear and cytoplasmic UBA1 isoforms and are associated with distinct hematologic and biochemical phenotypes. Their relationship to the classic inflammatory VEXAS phenotype is variable and remains under definition.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Protein ubiquitination\"]}}, {\"id\": \"Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In UBA1-mutant peripheral-blood and myeloid cells, decreased ubiquitylation is associated with activation of innate immune pathways and the systemic autoinflammatory state.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Monocyte\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Macrocytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocytic anemia is a common hematologic feature of VEXAS and can be progressive and transfusion-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001972\"}}, {\"id\": \"Multi-Organ Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cytokine-driven inflammatory program produces recurrent, multi-organ inflammation. The cited source specifically describes neutrophilic cutaneous and pulmonary inflammation, alongside chondritis and vasculitis; it does not characterize every involved organ as neutrophilic. This effector phase is the clinical face of the autoinflammatory arm.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\"]}}, {\"id\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The UBA1-mutant hematopoietic compartment is skewed toward myelopoiesis and shows cytologic and senescence-like abnormalities. Cytoplasmic vacuolization of myeloid and erythroid precursors is characteristic but neither specific nor required. Macrocytic anemia and other cytopenias are common, and a substantial subset of patients also meet criteria for myelodysplastic syndrome; coexistence does not by itself establish linear progression from VEXAS to MDS.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Erythroid lineage cell\"]}}, {\"id\": \"Neutrophilic Dermatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin involvement is common and is frequently the presenting feature, with neutrophilic dermal infiltrates (often resembling histiocytoid Sweet syndrome), leukocytoclastic vasculitis, and perivascular dermatitis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0031234\"}}, {\"id\": \"Ocular Inflammation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pan-ocular inflammation is a common inflammatory manifestation; reported presentations span several ocular and orbital compartments.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100533\"}}, {\"id\": \"Pulmonary Infiltrates\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary infiltrates are a common inflammatory manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002113\"}}, {\"id\": \"Recurrent Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent fevers are a cardinal manifestation of the systemic autoinflammatory phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Ruxolitinib (JAK Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A retrospective multicenter study reported encouraging evidence for the JAK1/2 inhibitor ruxolitinib, with clinical remissions and steroid reduction in the majority of treated patients.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founding lesion of VEXAS is an acquired (post-zygotic, mosaic) somatic pathogenic variant in UBA1 within the hematopoietic stem and progenitor-cell compartment. Variants affecting methionine-41 (p.Met41) predominate, but pathogenic splice-site and selected non-Met41 variants broaden the molecular spectrum. Mutant cells are enriched in the myeloid compartment; in the original cohort, they were not detected in lymphocytes or fibroblasts.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hematopoietic stem cell\"], \"genes\": [\"UBA1\"], \"gene_terms\": [{\"label\": \"UBA1\", \"id\": \"hgnc:12469\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia frequently accompanies the macrocytic anemia and dysplastic hematopoiesis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tocilizumab (IL-6 Inhibition)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The anti-IL-6 receptor monoclonal antibody tocilizumab is used as a second-line steroid-sparing agent, with variable clinical success reported.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Tocilizumab\"]}}, {\"id\": \"UBA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"UBA1\"], \"gene_terms\": [{\"label\": \"UBA1\", \"id\": \"hgnc:12469\"}], \"association\": \"Somatic (post-zygotic, mosaic) mutations in UBA1 (Xp11.23), predominantly at p.Met41 (p.Met41Thr, p.Met41Val, p.Met41Leu), are the defining cause of VEXAS. Pathogenic splice-site and non-Met41 variants expand the genetic and mechanistic spectrum. Among canonical variants, p.Met41Val is associated with less residual UBA1b translation and decreased survival.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"SOMATIC\"}}], \"edges\": [{\"source\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"target\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the canonical p.Met41 branch, disruption of the UBA1b start codon reduces translation of functional cytoplasmic UBA1b and produces a catalytically impaired downstream isoform.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"target\": \"Emerging Non-Met41 UBA1 Enzymatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic variants outside p.Met41 can reduce both nuclear and cytoplasmic UBA1 activity through a mechanism distinct from the canonical UBA1b isoform switch.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"target\": \"Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cytoplasmic ubiquitylation triggers cellular stress responses and activates innate immune signaling in mutant myeloid cells.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"target\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a canonical p.Met41 model, mutation-engineered HSPCs reproduce cytologic, senescence-like, hematologic, and inflammatory abnormalities.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate Immune Activation\", \"target\": \"Multi-Organ Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune activation drives recurrent multi-organ inflammation; the cited neutrophilic involvement is specific to skin and lung.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Recurrent Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic inflammatory program manifests clinically with recurrent fever.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Neutrophilic Dermatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous inflammation commonly includes neutrophilic dermatosis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Cutaneous Leukocytoclastic Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cutaneous inflammatory spectrum includes leukocytoclastic vasculitis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Chondritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multi-organ inflammation commonly manifests as chondritis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Pulmonary Infiltrates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multi-organ inflammatory phenotype commonly involves pulmonary infiltrates.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Ocular Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multi-organ inflammatory phenotype commonly includes pan-ocular inflammation.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multi-organ inflammatory phenotype commonly manifests as arthritis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"target\": \"Macrocytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ineffective, myeloid-skewed hematopoiesis is accompanied by macrocytic anemia.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematopoietic dysfunction is commonly accompanied by thrombocytopenia.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ruxolitinib (JAK Inhibitor)\", \"target\": \"Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 Inhibition)\", \"target\": \"Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Azacitidine (Hypomethylating Agent)\", \"target\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anakinra (IL-1 Inhibition)\", \"target\": \"Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"UBA1\", \"target\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is currently the only curative therapy identified in the cited clinical guidance, but it carries considerable transplant-related morbidity and mortality and is reserved for selected patients.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anakinra (IL-1 Inhibition)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anakinra, a recombinant IL-1 receptor antagonist, is used as an anti-IL-1 steroid-sparing option with variable clinical success. It frequently causes severe injection-site reactions in VEXAS patients, a disease-specific safety signal.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\"]}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inflammatory arthritis and polyarthralgia are common musculoskeletal manifestations.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001369\"}}, {\"id\": \"Azacitidine (Hypomethylating Agent)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The hypomethylating agent azacitidine is used particularly in patients with concurrent MDS, with variable clinical success.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"azacitidine\"]}}, {\"id\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations at p.Met41 abolish initiation of the canonical cytoplasmic UBA1 isoform (UBA1b) and force expression of a novel, catalytically impaired isoform initiated at a downstream methionine (p.Met67). The net effect is a reduction in cytoplasmic ubiquitylation. The level of residual UBA1b translation is genotype-dependent and tracks with disease severity and survival.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein ubiquitination\"]}}, {\"id\": \"Chondritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Relapsing auricular and nasal chondritis is a common manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100662\"}}, {\"id\": \"Cutaneous Leukocytoclastic Vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukocytoclastic vasculitis is a recognized cutaneous histopathologic pattern and is associated with the p.Met41Val genotype in a skin-focused cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034786\"}}, {\"id\": \"Emerging Non-Met41 UBA1 Enzymatic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent, functionally defective non-Met41 UBA1 variants have been reported in hematologic cohorts. Unlike canonical p.Met41 variants, they can reduce the activity of both nuclear and cytoplasmic UBA1 isoforms and are associated with distinct hematologic and biochemical phenotypes. Their relationship to the classic inflammatory VEXAS phenotype is variable and remains under definition.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Protein ubiquitination\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In UBA1-mutant peripheral-blood and myeloid cells, decreased ubiquitylation is associated with activation of innate immune pathways and the systemic autoinflammatory state.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Monocyte\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Macrocytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocytic anemia is a common hematologic feature of VEXAS and can be progressive and transfusion-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001972\"}}, {\"id\": \"Multi-Organ Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cytokine-driven inflammatory program produces recurrent, multi-organ inflammation. The cited source specifically describes neutrophilic cutaneous and pulmonary inflammation, alongside chondritis and vasculitis; it does not characterize every involved organ as neutrophilic. This effector phase is the clinical face of the autoinflammatory arm.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\"]}}, {\"id\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The UBA1-mutant hematopoietic compartment is skewed toward myelopoiesis and shows cytologic and senescence-like abnormalities. Cytoplasmic vacuolization of myeloid and erythroid precursors is characteristic but neither specific nor required. Macrocytic anemia and other cytopenias are common, and a substantial subset of patients also meet criteria for myelodysplastic syndrome; coexistence does not by itself establish linear progression from VEXAS to MDS.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Erythroid lineage cell\"]}}, {\"id\": \"Neutrophilic Dermatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skin involvement is common and is frequently the presenting feature, with neutrophilic dermal infiltrates (often resembling histiocytoid Sweet syndrome), leukocytoclastic vasculitis, and perivascular dermatitis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0031234\"}}, {\"id\": \"Ocular Inflammation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pan-ocular inflammation is a common inflammatory manifestation; reported presentations span several ocular and orbital compartments.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100533\"}}, {\"id\": \"Pulmonary Infiltrates\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary infiltrates are a common inflammatory manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002113\"}}, {\"id\": \"Recurrent Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent fevers are a cardinal manifestation of the systemic autoinflammatory phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Ruxolitinib (JAK Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A retrospective multicenter study reported encouraging evidence for the JAK1/2 inhibitor ruxolitinib, with clinical remissions and steroid reduction in the majority of treated patients.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The founding lesion of VEXAS is an acquired (post-zygotic, mosaic) somatic pathogenic variant in UBA1 within the hematopoietic stem and progenitor-cell compartment. Variants affecting methionine-41 (p.Met41) predominate, but pathogenic splice-site and selected non-Met41 variants broaden the molecular spectrum. Mutant cells are enriched in the myeloid compartment; in the original cohort, they were not detected in lymphocytes or fibroblasts.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Hematopoietic stem cell\"], \"genes\": [\"UBA1\"], \"gene_terms\": [{\"label\": \"UBA1\", \"id\": \"hgnc:12469\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia frequently accompanies the macrocytic anemia and dysplastic hematopoiesis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tocilizumab (IL-6 Inhibition)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The anti-IL-6 receptor monoclonal antibody tocilizumab is used as a second-line steroid-sparing agent, with variable clinical success reported.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Tocilizumab\"]}}, {\"id\": \"UBA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"UBA1\"], \"gene_terms\": [{\"label\": \"UBA1\", \"id\": \"hgnc:12469\"}], \"association\": \"Somatic (post-zygotic, mosaic) mutations in UBA1 (Xp11.23), predominantly at p.Met41 (p.Met41Thr, p.Met41Val, p.Met41Leu), are the defining cause of VEXAS. Pathogenic splice-site and non-Met41 variants expand the genetic and mechanistic spectrum. Among canonical variants, p.Met41Val is associated with less residual UBA1b translation and decreased survival.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"SOMATIC\"}}], \"edges\": [{\"source\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"target\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the canonical p.Met41 branch, disruption of the UBA1b start codon reduces translation of functional cytoplasmic UBA1b and produces a catalytically impaired downstream isoform.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"target\": \"Emerging Non-Met41 UBA1 Enzymatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic variants outside p.Met41 can reduce both nuclear and cytoplasmic UBA1 activity through a mechanism distinct from the canonical UBA1b isoform switch.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"target\": \"Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cytoplasmic ubiquitylation triggers cellular stress responses and activates innate immune signaling in mutant myeloid cells.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical p.Met41 UBA1b Loss and Reduced Ubiquitylation\", \"target\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a canonical p.Met41 model, mutation-engineered HSPCs reproduce cytologic, senescence-like, hematologic, and inflammatory abnormalities.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Innate Immune Activation\", \"target\": \"Multi-Organ Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune activation drives recurrent multi-organ inflammation; the cited neutrophilic involvement is specific to skin and lung.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Recurrent Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic inflammatory program manifests clinically with recurrent fever.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Neutrophilic Dermatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous inflammation commonly includes neutrophilic dermatosis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Cutaneous Leukocytoclastic Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cutaneous inflammatory spectrum includes leukocytoclastic vasculitis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Chondritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multi-organ inflammation commonly manifests as chondritis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Pulmonary Infiltrates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multi-organ inflammatory phenotype commonly involves pulmonary infiltrates.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Ocular Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multi-organ inflammatory phenotype commonly includes pan-ocular inflammation.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multi-Organ Inflammation\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multi-organ inflammatory phenotype commonly manifests as arthritis.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"target\": \"Macrocytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ineffective, myeloid-skewed hematopoiesis is accompanied by macrocytic anemia.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematopoietic dysfunction is commonly accompanied by thrombocytopenia.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ruxolitinib (JAK Inhibitor)\", \"target\": \"Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab (IL-6 Inhibition)\", \"target\": \"Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Azacitidine (Hypomethylating Agent)\", \"target\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Myeloid-Skewed Hematopoietic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anakinra (IL-1 Inhibition)\", \"target\": \"Innate Immune Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"UBA1\", \"target\": \"Somatic Pathogenic UBA1 Mutation in Hematopoietic Stem Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5681,6 +5797,9 @@ This clinical feature is Macrocytic anemia (HP:0001972), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5695,6 +5814,7 @@ This clinical feature is Macrocytic anemia (HP:0001972), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5720,6 +5840,7 @@ This clinical feature is Macrocytic anemia (HP:0001972), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5777,6 +5898,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5791,6 +5915,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5848,6 +5973,9 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5862,6 +5990,7 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5919,6 +6048,9 @@ This clinical feature is Paraproteinemia (HP:0031047). HP:0031047 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5933,6 +6065,7 @@ This clinical feature is Paraproteinemia (HP:0031047). HP:0031047 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5988,6 +6121,9 @@ This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6002,6 +6138,7 @@ This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6066,6 +6203,9 @@ This clinical feature is Leukocytoclastic vasculitis (HP:0034786). HP:0034786 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6080,6 +6220,7 @@ This clinical feature is Leukocytoclastic vasculitis (HP:0034786). HP:0034786 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6146,6 +6287,9 @@ This clinical feature is Ocular inflammation, annotated with Inflammatory abnorm
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6160,6 +6304,7 @@ This clinical feature is Ocular inflammation, annotated with Inflammatory abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6226,6 +6371,9 @@ This clinical feature is Neutrophilic dermatosis, annotated with Neutrophilic in
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6240,6 +6388,7 @@ This clinical feature is Neutrophilic dermatosis, annotated with Neutrophilic in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6265,6 +6414,7 @@ This clinical feature is Neutrophilic dermatosis, annotated with Neutrophilic in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6338,6 +6488,9 @@ This clinical feature is Chondritis (HP:0100662), qualified as temporality recur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6352,6 +6505,7 @@ This clinical feature is Chondritis (HP:0100662), qualified as temporality recur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6434,6 +6588,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6448,6 +6605,7 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6512,6 +6670,9 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6526,6 +6687,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6590,6 +6752,9 @@ This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6604,6 +6769,7 @@ This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6708,6 +6874,9 @@ This disease-associated gene is UBA1 (hgnc:12469). hgnc:12469 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6722,6 +6891,7 @@ This disease-associated gene is UBA1 (hgnc:12469). hgnc:12469 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6750,6 +6920,7 @@ This disease-associated gene is UBA1 (hgnc:12469). hgnc:12469 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6772,6 +6943,7 @@ This disease-associated gene is UBA1 (hgnc:12469). hgnc:12469 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6880,6 +7052,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6890,6 +7065,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -6921,6 +7099,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6943,6 +7122,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7032,6 +7212,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7042,6 +7225,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7080,6 +7266,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7124,6 +7311,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7213,6 +7401,9 @@ This treatment uses Tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7223,6 +7414,9 @@ This treatment uses Tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -7261,6 +7455,7 @@ This treatment uses Tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7305,6 +7500,7 @@ This treatment uses Tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7395,6 +7591,9 @@ This treatment uses azacitidine, annotated with 5-azacytidine (CHEBI:2038). CHEB
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7405,6 +7604,9 @@ This treatment uses azacitidine, annotated with 5-azacytidine (CHEBI:2038). CHEB
 
 
     </div>
+
+
+
 
 
 
@@ -7443,6 +7645,7 @@ This treatment uses azacitidine, annotated with 5-azacytidine (CHEBI:2038). CHEB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,6 +7690,7 @@ This treatment uses azacitidine, annotated with 5-azacytidine (CHEBI:2038). CHEB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7555,6 +7759,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7565,6 +7772,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
     </div>
+
+
+
 
 
 
@@ -7603,6 +7813,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7647,6 +7858,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7736,6 +7948,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7746,6 +7961,9 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -7784,6 +8002,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7831,6 +8050,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7853,6 +8073,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7921,6 +8142,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7943,6 +8165,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7996,6 +8219,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8043,6 +8267,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8147,6 +8372,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8169,6 +8395,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8261,6 +8488,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8286,6 +8514,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8308,6 +8537,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8389,6 +8619,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8443,6 +8674,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8774,6 +9006,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8827,6 +9060,32 @@ classifications:
   harrisons_chapter:
   - classification_value: IMMUNE_RHEUMATOLOGIC
   - classification_value: ONCOLOGY_HEMATOLOGY
+  iuis_category:
+    classification_value: phenocopy of IEI
+    notes: &gt;-
+      IUIS 2022 phenotypic classification of inborn errors of immunity (Tangye et
+      al., PMID:35748970), Table 10 &#34;Phenocopies of inborn errors of immunity&#34;,
+      first section, &#34;Associated with somatic mutations&#34;. VEXAS is one of the three
+      entities new to Table 10 in the 2022 update, added on the strength of the
+      UBA1 somatic-mutation report. The placement is the whole point of the disease:
+      the lesion is acquired postzygotically in haematopoietic progenitors rather
+      than inherited in the germline, so it produces an inborn-error phenotype
+      without being an inborn error. There is no germline counterpart entry in
+      dismech for this to be confused with, which is why the value sits on the
+      entry itself rather than on a subtype. Note also that VEXAS involves a
+      dysplastic marrow, so it may look like a Table 9 candidate; it is not in
+      Table 9, and iuis_category is single-valued in any case.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;VEXAS (vacuoles, E1 enzyme, X-linked, autoinflammatory, somatic) syndrome Somatic mutation in UBA1&#34;
+      explanation: &gt;-
+        The Table 10 row for this disease, naming the syndrome and giving its
+        genetic defect as a somatic UBA1 mutation, which is what places it among
+        the phenocopies rather than in any germline table. Graded OTHER because the
+        cited source is an expert-committee nosology, not a primary study.
 description: &gt;
   VEXAS (Vacuoles, E1 enzyme, X-linked, Autoinflammatory, Somatic) syndrome is a
   severe, late-onset, treatment-refractory systemic autoinflammatory and
@@ -10212,6 +10471,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10624,7 +10885,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "VEXAS Syndrome", "mondoId": "MONDO:0026777", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "VEXAS_Syndrome", "yamlRevision": "d8491f839d8e"};
+        const OS_CONFIG = {"diseaseName": "VEXAS Syndrome", "mondoId": "MONDO:0026777", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "VEXAS_Syndrome", "yamlRevision": "48920baf5674"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">epilepsy_excitation_inhibition_imbalance</span>
-                <span class="badge badge-count">92 disorders</span>
+                <span class="badge badge-count">94 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1851,7 +1888,7 @@ This mechanism module involves increased Action Potential (GO:0001508). GO:00015
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">92</span>
+                <span class="card-count">94</span>
             </div>
             
             <div class="crosslink-list">
@@ -1864,42 +1901,7 @@ This mechanism module involves increased Action Potential (GO:0001508). GO:00015
                         
                         
                         
-                        Selective Interneuron and Pyramidal Neuron Loss in Occipital Cortex → Excitation-Inhibition Imbalance
-                        
-                        
-                        , 
-                        
-                        Intractable Focal Epilepsy and Epilepsia Partialis Continua → Recurrent Unprovoked Seizures
-                        
-                        
-                    </span>
-                    
-                </div>
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Disrupted LGI1-ADAM22 Trans-Synaptic Complex → Ion Channel and Synaptic Dysfunction
-                        
-                        
-                        , 
-                        
-                        Dysregulated AMPA Receptor Clustering and Synaptic Excitability → Excitation-Inhibition Imbalance
-                        
-                        
-                        , 
-                        
-                        Lateral Temporal Cortical Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
-                        
-                        
-                        , 
-                        
-                        Focal Seizures with Auditory Features → Recurrent Unprovoked Seizures
+                        Recurrent Seizure Activity → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2197,6 +2199,31 @@ This mechanism module involves increased Action Potential (GO:0001508). GO:00015
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_8.html">Developmental and Epileptic Encephalopathy 8</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Impaired Gephyrin Clustering at Inhibitory Postsynapses → Ion Channel and Synaptic Dysfunction
+                        
+                        
+                        , 
+                        
+                        Reduced GABAergic Synaptic Inhibition → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Cortical and Hippocampal Network Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_81.html">Developmental and Epileptic Encephalopathy 81</a>
                     
                     <span class="crosslink-desc">
@@ -2210,6 +2237,21 @@ This mechanism module involves increased Action Potential (GO:0001508). GO:00015
                         , 
                         
                         Neonatal-Onset Refractory Seizures → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_82.html">Developmental and Epileptic Encephalopathy 82</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Neuronal Hyperexcitability and Hypersynchrony
                         
                         
                     </span>
@@ -3532,6 +3574,41 @@ This mechanism module involves increased Action Potential (GO:0001508). GO:00015
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/SLC1A2-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC1A2-Related Developmental and Epileptic Encephalopathy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        SLC1A2 Trimerization-Domain Missense Variant → Ion Channel and Synaptic Dysfunction
+                        
+                        
+                        , 
+                        
+                        Extracellular Glutamate Accumulation and Excitotoxicity → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Excitation-Inhibition Imbalance and Neuronal Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Seizure Generation and Epileptogenesis
+                        
+                        
+                        , 
+                        
+                        Refractory Neonatal-Onset Multifocal Epilepsy → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/SLC25A12-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC25A12-Related Developmental and Epileptic Encephalopathy</a>
                     
                     <span class="crosslink-desc">
@@ -3835,11 +3912,13 @@ This mechanism module involves increased Action Potential (GO:0001508). GO:00015
             
             <div class="item-box anchor-target" id="module-pathophysiology-ion-channel-and-synaptic-dysfunction" data-dismech-node="Ion Channel and Synaptic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Ion Channel and Synaptic Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The conserved initiating lesion is an abnormality of neuronal ion channels or synaptic transmission that alters the intrinsic and synaptic excitability of neurons. This encompasses voltage-gated channel variants, neurotransmitter receptor defects, and synaptic-protein abnormalities across genetic and acquired epilepsies.</div>
                 
@@ -3946,13 +4025,6 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
-                            
-                            <span class="crosslink-desc">as Disrupted LGI1-ADAM22 Trans-Synaptic Complex</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Benign_Neonatal_Seizures.html">Benign Neonatal Seizures</a>
                             
                             <span class="crosslink-desc">as Kv7.2/Kv7.3 M-Channel Dysfunction</span>
@@ -3984,6 +4056,13 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                             <a href="../disorders/Developmental_And_Epileptic_Encephalopathy_46.html">Developmental And Epileptic Encephalopathy 46</a>
                             
                             <span class="crosslink-desc">as NMDA Receptor Gain-of-Function</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_8.html">Developmental and Epileptic Encephalopathy 8</a>
+                            
+                            <span class="crosslink-desc">as Impaired Gephyrin Clustering at Inhibitory Postsynapses</span>
                             
                         </div>
                         
@@ -4156,6 +4235,13 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/SLC1A2-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC1A2-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as SLC1A2 Trimerization-Domain Missense Variant</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/SPTAN1-Related_Developmental_and_Epileptic_Encephalopathy.html">SPTAN1-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Reduced Inhibitory Innervation</span>
@@ -4204,11 +4290,13 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
             
             <div class="item-box anchor-target" id="module-pathophysiology-excitation-inhibition-imbalance" data-dismech-node="Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-Inhibition Imbalance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Channel and synaptic dysfunction shift the balance between excitatory (glutamatergic) and inhibitory (GABAergic) signaling toward net excitation, through increased excitation, decreased inhibition, or both. Loss of GABAergic inhibitory tone is a recurrent contributor across epilepsy syndromes.</div>
                 
@@ -4287,20 +4375,6 @@ This pathophysiological event involves decreased GABA Signaling Pathway, annotat
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Alpers-Huttenlocher_Syndrome.html">Alpers-Huttenlocher Syndrome</a>
-                            
-                            <span class="crosslink-desc">as Selective Interneuron and Pyramidal Neuron Loss in Occipital Cortex</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
-                            <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
-                            
-                            <span class="crosslink-desc">as Dysregulated AMPA Receptor Clustering and Synaptic Excitability</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/CDKL5_Deficiency_Disorder.html">CDKL5 Deficiency Disorder</a>
                             
                             <span class="crosslink-desc">as Disrupted Cortical Excitation-Inhibition Balance</span>
@@ -4332,6 +4406,13 @@ This pathophysiological event involves decreased GABA Signaling Pathway, annotat
                             <a href="../disorders/Developmental_And_Epileptic_Encephalopathy_46.html">Developmental And Epileptic Encephalopathy 46</a>
                             
                             <span class="crosslink-desc">as Disrupted Cortical Excitation-Inhibition Balance</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_8.html">Developmental and Epileptic Encephalopathy 8</a>
+                            
+                            <span class="crosslink-desc">as Reduced GABAergic Synaptic Inhibition</span>
                             
                         </div>
                         
@@ -4526,6 +4607,13 @@ This pathophysiological event involves decreased GABA Signaling Pathway, annotat
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/SLC1A2-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC1A2-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as Extracellular Glutamate Accumulation and Excitotoxicity</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/SPTAN1-Related_Developmental_and_Epileptic_Encephalopathy.html">SPTAN1-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Cortical Network Disinhibition</span>
@@ -4567,11 +4655,13 @@ This pathophysiological event involves decreased GABA Signaling Pathway, annotat
             
             <div class="item-box anchor-target" id="module-pathophysiology-neuronal-hyperexcitability-and-hypersynchrony" data-dismech-node="Neuronal Hyperexcitability and Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Hypersynchrony</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Net excitatory bias produces a hyperexcitable neuronal state in which populations of neurons fire excessively and synchronously. This hypersynchrony is the central effector that converts altered excitability into paroxysmal network discharges.</div>
                 
@@ -4648,13 +4738,6 @@ This pathophysiological event involves increased Action Potential (GO:0001508). 
                 <div class="crosslink-block">
                     <div class="crosslink-title">Used by disorders</div>
                     <div class="crosslink-list">
-                        
-                        <div class="crosslink-item">
-                            <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
-                            
-                            <span class="crosslink-desc">as Lateral Temporal Cortical Hyperexcitability</span>
-                            
-                        </div>
                         
                         <div class="crosslink-item">
                             <a href="../disorders/Benign_Neonatal_Seizures.html">Benign Neonatal Seizures</a>
@@ -4739,7 +4822,19 @@ This pathophysiological event involves increased Action Potential (GO:0001508). 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_8.html">Developmental and Epileptic Encephalopathy 8</a>
+                            
+                            <span class="crosslink-desc">as Cortical and Hippocampal Network Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_81.html">Developmental and Epileptic Encephalopathy 81</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_82.html">Developmental and Epileptic Encephalopathy 82</a>
                             
                         </div>
                         
@@ -5028,6 +5123,13 @@ This pathophysiological event involves increased Action Potential (GO:0001508). 
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/SLC1A2-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC1A2-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as Excitation-Inhibition Imbalance and Neuronal Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/SLC25A12-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC25A12-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Neuronal Hyperexcitability and Seizure Generation</span>
@@ -5125,11 +5227,13 @@ This pathophysiological event involves increased Action Potential (GO:0001508). 
             
             <div class="item-box anchor-target" id="module-pathophysiology-seizure-generation-and-epileptogenesis" data-dismech-node="Seizure Generation and Epileptogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Seizure Generation and Epileptogenesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Hypersynchronous discharges manifest as seizures. Over time, seizure-related and lesion-related processes drive epileptogenesis — network reorganization that lowers seizure threshold and renders the brain chronically prone to spontaneous seizures.</div>
                 
@@ -5266,6 +5370,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/SLC1A2-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC1A2-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -5287,11 +5396,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             
             <div class="item-box anchor-target" id="module-pathophysiology-recurrent-unprovoked-seizures" data-dismech-node="Recurrent Unprovoked Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Unprovoked Seizures</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint is the state of recurrent, unprovoked seizures that defines epilepsy. Seizures may continue to evolve over the lifespan as the underlying network continues to reorganize.</div>
                 
@@ -5340,14 +5451,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <div class="crosslink-item">
                             <a href="../disorders/Alpers-Huttenlocher_Syndrome.html">Alpers-Huttenlocher Syndrome</a>
                             
-                            <span class="crosslink-desc">as Intractable Focal Epilepsy and Epilepsia Partialis Continua</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
-                            <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
-                            
-                            <span class="crosslink-desc">as Focal Seizures with Auditory Features</span>
+                            <span class="crosslink-desc">as Recurrent Seizure Activity</span>
                             
                         </div>
                         
@@ -5649,6 +5753,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                             <a href="../disorders/Self-Limited_Epilepsy_with_Centrotemporal_Spikes.html">Self-Limited Epilepsy with Centrotemporal Spikes</a>
                             
                             <span class="crosslink-desc">as Focal Sensorimotor (Rolandic) Seizures</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/SLC1A2-Related_Developmental_and_Epileptic_Encephalopathy.html">SLC1A2-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as Refractory Neonatal-Onset Multifocal Epilepsy</span>
                             
                         </div>
                         

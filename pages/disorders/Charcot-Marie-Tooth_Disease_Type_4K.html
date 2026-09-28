@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Charcot-Marie-Tooth%20Disease%20Type%204K"
@@ -3985,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4109,6 +4177,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4246,6 +4315,7 @@ The actual argument for a standalone entry is precedent plus clinical envelope. 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-surf1-loss-and-impaired-complex-iv-assembly" data-dismech-node="SURF1 Loss and Impaired Complex IV Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">SURF1 Loss and Impaired Complex IV Assembly</div>
 
+
                 <div class="item-desc">Biallelic SURF1 variants abolish the SURF1 assembly factor for cytochrome c oxidase. The index splice-site variant produced no normally spliced transcript and no SURF1 protein. Critically, complex IV activity was only partially reduced in muscle and fibroblasts rather than abolished.</div>
 
 
@@ -4301,6 +4371,8 @@ This genetic context concerns SURF1 (hgnc:11474). hgnc:11474 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
 
 
@@ -4308,6 +4380,9 @@ This genetic context concerns SURF1 (hgnc:11474). hgnc:11474 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4409,6 +4484,7 @@ This pathophysiological event involves decreased Mitochondrial Respiratory Chain
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4430,6 +4506,7 @@ This pathophysiological event involves decreased Mitochondrial Respiratory Chain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4455,6 +4532,7 @@ This pathophysiological event involves decreased Mitochondrial Respiratory Chain
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-schwann-cell-energy-failure-and-demyelination" data-dismech-node="Schwann Cell Energy Failure and Demyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Schwann Cell Energy Failure and Demyelination</div>
+
 
                 <div class="item-desc">Energy failure in myelinating Schwann cells produces severe demyelination with motor nerve conduction velocities below 25 m/s. The specific step by which reduced complex IV capacity injures the myelinating Schwann cell has not been demonstrated directly in this disease.</div>
 
@@ -4580,6 +4658,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4601,6 +4680,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4626,6 +4706,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-basal-ganglia-and-brainstem-injury" data-dismech-node="Delayed Basal Ganglia and Brainstem Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Basal Ganglia and Brainstem Injury</div>
+
 
                 <div class="item-desc">Complex IV deficiency also injures the putamen and periaqueductal grey — the lesion distribution of Leigh syndrome — but in CMT4K this appears years after the presenting polyneuropathy rather than as the initial event. This node is the mechanistic bridge between CMT4K and SURF1-related Leigh syndrome, and why the two are the same molecular defect with different tempo.</div>
 
@@ -4687,6 +4768,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4709,6 +4791,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-lactic-acidosis" data-dismech-node="Systemic Lactic Acidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Lactic Acidosis</div>
+
 
                 <div class="item-desc">Reduced terminal oxidation raises systemic lactate. Lactic acidosis is the metabolic clue that distinguishes CMT4K from the other CMT4 subtypes at the bedside.</div>
 
@@ -4747,6 +4830,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4769,6 +4853,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-childhood-onset-demyelinating-neuropathy" data-dismech-node="Severe Childhood-Onset Demyelinating Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Childhood-Onset Demyelinating Neuropathy</div>
+
 
                 <div class="item-desc">The defining clinical presentation: severe demyelinating polyneuropathy beginning in childhood, which may be followed years later by central nervous system involvement.</div>
 
@@ -4804,6 +4889,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4862,7 +4948,7 @@ This pathophysiological event involves decreased Myelination (GO:0042552). GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia developing years after the presenting polyneuropathy, in two of the three reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Delayed Basal Ganglia and Brainstem Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex IV deficiency also injures the putamen and periaqueductal grey \\u2014 the lesion distribution of Leigh syndrome \\u2014 but in CMT4K this appears years after the presenting polyneuropathy rather than as the initial event. This node is the mechanistic bridge between CMT4K and SURF1-related Leigh syndrome, and why the two are the same molecular defect with different tempo.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SURF1 variants abolish the SURF1 assembly factor for cytochrome c oxidase. The index splice-site variant produced no normally spliced transcript and no SURF1 protein. Critically, complex IV activity was only partially reduced in muscle and fibroblasts rather than abolished.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Mitochondrial Respiratory Chain Complex IV Assembly\"], \"genetic_context\": {\"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"SURF1\", \"id\": \"hgnc:11474\"}]}}}, {\"id\": \"Schwann Cell Energy Failure and Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy failure in myelinating Schwann cells produces severe demyelination with motor nerve conduction velocities below 25 m/s. The specific step by which reduced complex IV capacity injures the myelinating Schwann cell has not been demonstrated directly in this disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"Myelination\"]}}, {\"id\": \"Severe Childhood-Onset Demyelinating Neuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining clinical presentation: severe demyelinating polyneuropathy beginning in childhood, which may be followed years later by central nervous system involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic Lactic Acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced terminal oxidation raises systemic lactate. Lactic acidosis is the metabolic clue that distinguishes CMT4K from the other CMT4 subtypes at the bedside.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"imaging_findings#Putaminal and Periaqueductal Lesions\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"target\": \"Schwann Cell Energy Failure and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced oxidative phosphorylation capacity in the peripheral nerve compromises myelin maintenance, producing a demyelinating neuropathy.\"}, {\"source\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"target\": \"Delayed Basal Ganglia and Brainstem Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same complex IV deficit injures energy-demanding CNS grey matter, but years later than the nerve involvement in these patients.\"}, {\"source\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"target\": \"Systemic Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired terminal oxidation shifts pyruvate toward lactate, producing the lactic acidosis seen in all reported patients.\"}, {\"source\": \"Schwann Cell Energy Failure and Demyelination\", \"target\": \"Severe Childhood-Onset Demyelinating Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of myelin integrity manifests clinically as early, severe motor and sensory neuropathy.\"}, {\"source\": \"Delayed Basal Ganglia and Brainstem Injury\", \"target\": \"Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS grey-matter injury manifests as cerebellar ataxia developing years after the neuropathy.\"}, {\"source\": \"Delayed Basal Ganglia and Brainstem Injury\", \"target\": \"imaging_findings#Putaminal and Periaqueductal Lesions\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"The injury is visible on brain MRI as putaminal and periaqueductal lesions.\"}], \"orphan_targets\": [\"imaging_findings#Putaminal and Periaqueductal Lesions\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia developing years after the presenting polyneuropathy, in two of the three reported patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Delayed Basal Ganglia and Brainstem Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complex IV deficiency also injures the putamen and periaqueductal grey \\u2014 the lesion distribution of Leigh syndrome \\u2014 but in CMT4K this appears years after the presenting polyneuropathy rather than as the initial event. This node is the mechanistic bridge between CMT4K and SURF1-related Leigh syndrome, and why the two are the same molecular defect with different tempo.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SURF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SURF1\"], \"gene_terms\": [{\"label\": \"SURF1\", \"id\": \"hgnc:11474\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic SURF1 variants abolish the SURF1 assembly factor for cytochrome c oxidase. The index splice-site variant produced no normally spliced transcript and no SURF1 protein. Critically, complex IV activity was only partially reduced in muscle and fibroblasts rather than abolished.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Mitochondrial Respiratory Chain Complex IV Assembly\"], \"genetic_context\": {\"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"SURF1\", \"id\": \"hgnc:11474\"}]}}}, {\"id\": \"Schwann Cell Energy Failure and Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy failure in myelinating Schwann cells produces severe demyelination with motor nerve conduction velocities below 25 m/s. The specific step by which reduced complex IV capacity injures the myelinating Schwann cell has not been demonstrated directly in this disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Schwann cell\"], \"biological_processes\": [\"Myelination\"]}}, {\"id\": \"Severe Childhood-Onset Demyelinating Neuropathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining clinical presentation: severe demyelinating polyneuropathy beginning in childhood, which may be followed years later by central nervous system involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic Lactic Acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced terminal oxidation raises systemic lactate. Lactic acidosis is the metabolic clue that distinguishes CMT4K from the other CMT4 subtypes at the bedside.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"imaging_findings#Putaminal and Periaqueductal Lesions\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"target\": \"Schwann Cell Energy Failure and Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced oxidative phosphorylation capacity in the peripheral nerve compromises myelin maintenance, producing a demyelinating neuropathy.\"}, {\"source\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"target\": \"Delayed Basal Ganglia and Brainstem Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same complex IV deficit injures energy-demanding CNS grey matter, but years later than the nerve involvement in these patients.\"}, {\"source\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"target\": \"Systemic Lactic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired terminal oxidation shifts pyruvate toward lactate, producing the lactic acidosis seen in all reported patients.\"}, {\"source\": \"Schwann Cell Energy Failure and Demyelination\", \"target\": \"Severe Childhood-Onset Demyelinating Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of myelin integrity manifests clinically as early, severe motor and sensory neuropathy.\"}, {\"source\": \"Delayed Basal Ganglia and Brainstem Injury\", \"target\": \"Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS grey-matter injury manifests as cerebellar ataxia developing years after the neuropathy.\"}, {\"source\": \"Delayed Basal Ganglia and Brainstem Injury\", \"target\": \"imaging_findings#Putaminal and Periaqueductal Lesions\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"The injury is visible on brain MRI as putaminal and periaqueductal lesions.\"}, {\"source\": \"SURF1\", \"target\": \"SURF1 Loss and Impaired Complex IV Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"imaging_findings#Putaminal and Periaqueductal Lesions\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4930,6 +5016,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4944,6 +5033,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5025,6 +5115,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5039,6 +5132,7 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5113,6 +5207,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5127,6 +5224,7 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202), qualified as cour
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5221,6 +5319,9 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108), quali
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5235,6 +5336,7 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108), quali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5259,6 +5361,7 @@ This clinical feature is Demyelinating peripheral neuropathy (HP:0007108), quali
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5315,6 +5418,9 @@ This clinical feature is Decreased motor nerve conduction velocity (HP:0003431).
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5329,6 +5435,7 @@ This clinical feature is Decreased motor nerve conduction velocity (HP:0003431).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5383,6 +5490,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5397,6 +5507,7 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5453,6 +5564,9 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5467,6 +5581,7 @@ This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5534,6 +5649,9 @@ This clinical feature is Decreased activity of mitochondrial complex IV (HP:0008
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5551,6 +5669,7 @@ This clinical feature is Decreased activity of mitochondrial complex IV (HP:0008
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5558,7 +5677,7 @@ This clinical feature is Decreased activity of mitochondrial complex IV (HP:0008
                 <div class="evidence-snippet">"The c.107-2A&gt;G mutation produced no normally spliced transcript, leading to SURF1 absence. However, complex IV remained partially functional in muscle and fibroblasts."</div>
 
 
-                <div class="evidence-explanation">Residual complex IV activity measured in patient muscle and fibroblasts. Tagged VERY_FREQUENT on the 3/3 observation in this series, the same denominator as the other CMT4K-specific phenotypes here; no larger cohort has measured it in the CMT4K presentation specifically.</div>
+                <div class="evidence-explanation">Residual complex IV activity measured directly in the 2 patients from the consanguineous family carrying c.107-2A&gt;G. This paper&#39;s functional analysis is scoped to that variant; the third CMT4K patient in the same series carries two additional SURF1 mutations, and complex IV activity is not separately reported for that patient. So this quote is a 2/2 observation for the assayed variant, not a 3/3 observation across the whole series. Tagged VERY_FREQUENT on mechanistic grounds rather than on a cohort measurement: SURF1 is a complex IV assembly factor, so a complex IV assembly defect is close to definitional for a SURF1-related disorder, and it was measured directly in 2 of the 2 patients assayed here. No larger cohort has measured it in the CMT4K presentation specifically.</div>
 
 
 
@@ -5646,6 +5765,9 @@ This disease-associated gene is SURF1 (hgnc:11474). hgnc:11474 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5660,6 +5782,7 @@ This disease-associated gene is SURF1 (hgnc:11474). hgnc:11474 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5746,6 +5869,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5756,6 +5882,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -5808,6 +5937,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -5875,6 +6010,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5921,6 +6057,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5987,6 +6124,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6067,14 +6205,15 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Two patients had brain MRI abnormalities, including putaminal and periaqueductal lesions, and developed cerebellar ataxia years after polyneuropathy."</div>
+                <div class="evidence-snippet">"All 3 patients with SURF1-associated CMT4 presented with severe childhood-onset neuropathy, motor nerve conduction velocities &lt;25 m/s, and lactic acidosis. Two patients had brain MRI abnormalities, including putaminal and periaqueductal lesions, and developed cerebellar ataxia years after polyneuropathy."</div>
 
 
-                <div class="evidence-explanation">Documents the MRI distribution overlapping SURF1-related Leigh syndrome.</div>
+                <div class="evidence-explanation">Restores the SURF1-associated CMT4 context before the two patients&#39; putaminal/periaqueductal MRI findings. The comparison with Leigh syndrome remains a separate clinical interpretation.</div>
 
 
 
@@ -6158,6 +6297,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6179,6 +6319,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6524,10 +6665,17 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The c.107-2A&gt;G mutation produced no normally spliced transcript, leading to SURF1 absence. However, complex IV remained partially functional in muscle and fibroblasts.&#34;
     explanation: &gt;-
-      Residual complex IV activity measured in patient muscle and fibroblasts.
-      Tagged VERY_FREQUENT on the 3/3 observation in this series, the same
-      denominator as the other CMT4K-specific phenotypes here; no larger cohort
-      has measured it in the CMT4K presentation specifically.
+      Residual complex IV activity measured directly in the 2 patients from the
+      consanguineous family carrying c.107-2A&gt;G. This paper&#39;s functional
+      analysis is scoped to that variant; the third CMT4K patient in the same
+      series carries two additional SURF1 mutations, and complex IV activity is
+      not separately reported for that patient. So this quote is a 2/2
+      observation for the assayed variant, not a 3/3 observation across the
+      whole series. Tagged VERY_FREQUENT on mechanistic grounds rather than on a
+      cohort measurement: SURF1 is a complex IV assembly factor, so a complex IV
+      assembly defect is close to definitional for a SURF1-related disorder, and
+      it was measured directly in 2 of the 2 patients assayed here. No larger
+      cohort has measured it in the CMT4K presentation specifically.
 - category: Neurological
   name: Decreased Motor Nerve Conduction Velocity
   description: &gt;-
@@ -6653,9 +6801,14 @@ imaging_findings:
     reference_title: &#34;SURF1 deficiency causes demyelinating Charcot-Marie-Tooth disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Two patients had brain MRI abnormalities, including putaminal and periaqueductal lesions, and developed cerebellar ataxia years after polyneuropathy.&#34;
+    snippet: &gt;-
+      All 3 patients with SURF1-associated CMT4 presented with severe childhood-onset neuropathy,
+      motor nerve conduction velocities &lt;25 m/s, and lactic acidosis. Two patients had brain MRI
+      abnormalities, including putaminal and periaqueductal lesions, and developed cerebellar ataxia
+      years after polyneuropathy.
     explanation: &gt;-
-      Documents the MRI distribution overlapping SURF1-related Leigh syndrome.
+      Restores the SURF1-associated CMT4 context before the two patients&#39; putaminal/periaqueductal
+      MRI findings. The comparison with Leigh syndrome remains a separate clinical interpretation.
 biochemical:
 - name: Complex IV (cytochrome c oxidase) activity in muscle and fibroblasts
   notes: &gt;-
@@ -6967,6 +7120,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Ground complex IV deficiency to HP:0008347; correct a false no-term claim</strong> · 2026-08-27T17:54:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Charcot-Marie-Tooth_Disease_Type_4K/2026-08-27T175413Z-claude-code-177d61.yaml">View source</a></p>
+                        <p class="research-review-text">Round-5 review found that a notes paragraph added in the previous commit asserted something false: that HPO has no term for decreased cytochrome c oxidase activity. HP:0008347, &#34;Decreased activity of mitochondrial complex IV&#34;, exists, was already in cache/hp/terms.csv, and is already bound by five KB entries — two of them COX-deficiency entries this file cites as precedent for its own lump/split decision.
+
+Added the phenotype, following the COA3-Related_COX_Deficiency pattern: category Biochemical, bound to HP:0008347, tagged VERY_FREQUENT on the 3/3 observation in PMID:24027061, the same denominator as this entry&#39;s other CMT4K-specific phenotypes. Isolated complex IV deficiency is the defining laboratory criterion for CMT4K and the pivot of the entry&#39;s whole mechanistic argument, so it not being ontology-grounded anywhere was a real gap rather than a formality.
+
+Rewrote the notes paragraph. biomarker_term is still unbound, but for a schema reason rather than an ontology one: BiomarkerDescriptor binds BiomarkerTerm, rooted at NCIT:C16342, so an HP CURIE cannot go in that slot whatever its label. The peer SURF1-Related_Leigh_Syndrome entry leaves its own complex IV record unbound the same way.
+
+The paragraph also records how the false claim arrived, because the chain is instructive. The deep-research report twice named HP:0002850 as &#34;Cytochrome c oxidase deficiency&#34;; that CURIE is Decreased circulating IgM concentration. Review repeated the report&#39;s pairing without checking. This entry caught the wrong label but then searched HPO for &#34;cytochrome c oxidase&#34; and, finding only the stain finding HP:0003688, concluded no term existed — while the right term sat in the cache filed under complex IV, the vocabulary this entry uses in the record&#39;s own name and in every pathophysiology node. Four steps, and a single label lookup would have ended it at any of them.
+
+A bare &#34;no term exists&#34; in notes is a load-bearing negative claim, exactly as this entry&#39;s own notes already argue about natural history and prevalence. This one would have sent the next curator away from a term that was already cached.
+
+Validated with just validate, count-verified-snippets at 25 of 25, check-entity-refs and check-duplicate-keys, all clean. No cache churn: HP:0008347 was already present.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7415,7 +7591,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease Type 4K", "mondoId": "MONDO:0014733", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease_Type_4K", "yamlRevision": "33eeaeac2589"};
+        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease Type 4K", "mondoId": "MONDO:0014733", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease_Type_4K", "yamlRevision": "a433b1d1bec9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

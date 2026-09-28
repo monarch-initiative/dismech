@@ -494,3 +494,26 @@ psychiatric disease. METHODS: Participants were recruited from a birth cohort.
     assert supporting_text.startswith("Chronic disruptions to sleep in childhood")
     collapsed_body = " ".join(body.split())
     assert " ".join(supporting_text.split()) in collapsed_body
+
+
+def test_a_lowercased_doi_finds_its_mixed_case_cache_file(tmp_path: Path) -> None:
+    """``canonical_ref`` lowercases DOIs; the cache lookup must not (#9112).
+
+    Before this, a DOI cached as ``DOI_10.1172_JCI89626.md`` looked missing, and
+    ``--fetch-missing-cache`` fetched the lowercase spelling into a second file.
+
+    The resolution now lives in ``linkml-reference-validator``; this still pins
+    the behaviour dismech depends on, since losing it silently re-creates the
+    duplicate-cache bug rather than failing loudly.
+    """
+    from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+
+    ReferenceFetcher.forget_cache_listing()
+    write_cache(tmp_path, "---\nreference_id: DOI:10.1172/JCI89626\n---\n", "DOI_10.1172_JCI89626.md")
+
+    reference = backfill.canonical_ref("DOI:10.1172/JCI89626")
+    path = backfill.cache_path_for_ref(reference, str(tmp_path))
+
+    assert reference == "DOI:10.1172/jci89626"
+    assert path.name == "DOI_10.1172_JCI89626.md"
+    ReferenceFetcher.forget_cache_listing()

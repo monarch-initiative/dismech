@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4215,6 +4283,7 @@ CARD11 sits at the centre of an allelic series whose members are different disea
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4222,7 +4291,7 @@ CARD11 sits at the centre of an allelic series whose members are different disea
                 <div class="evidence-snippet">"Genetic evaluation revealed a homozygous deletion of exon 21 in CARD11 as the underlying defect."</div>
 
 
-                <div class="evidence-explanation">Documents homozygosity for the causal allele in the index patient.</div>
+                <div class="evidence-explanation">Documents homozygosity for the causal exon 21 deletion in the reported patient.</div>
 
 
 
@@ -4522,6 +4591,7 @@ CARD11 sits at the centre of an allelic series whose members are different disea
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-card11-loss-of-function" data-dismech-node="Biallelic CARD11 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CARD11 Loss of Function</div>
 
+
                 <div class="item-desc">Null variants abolish CARD11 protein. CARD11 is expressed only in lymphocytes, which is why a defect in a general signalling scaffold produces a purely immunological disease, and why haematopoietic stem cell transplantation is curative.</div>
 
 
@@ -4582,6 +4652,8 @@ This pathophysiological event involves CARD11 (hgnc:16393). hgnc:16393 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4594,6 +4666,9 @@ This pathophysiological event involves CARD11 (hgnc:16393). hgnc:16393 is a gene
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4639,6 +4714,7 @@ This pathophysiological event involves CARD11 (hgnc:16393). hgnc:16393 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4661,6 +4737,7 @@ This pathophysiological event involves CARD11 (hgnc:16393). hgnc:16393 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cbm-signalosome-assembly" data-dismech-node="Failure of CBM Signalosome Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CBM Signalosome Assembly</div>
+
 
                 <div class="item-desc">CARD11 is the scaffold that nucleates the CARD11-BCL10-MALT1 complex on antigen receptor engagement. Without it the complex does not form, so three outputs fail together: canonical NF-kappaB activation, JNK signalling, and MALT1 paracaspase activity.</div>
 
@@ -4924,6 +5001,7 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4946,6 +5024,7 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-antigen-receptor-driven-t-cell-activation" data-dismech-node="Loss of Antigen-Receptor-Driven T Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Antigen-Receptor-Driven T Cell Activation</div>
+
 
                 <div class="item-desc">T cells are present in normal numbers and cannot respond. The defect is in activation rather than development, which is the whole clinical problem: every quantitative measure of the T-cell compartment reads normal.</div>
 
@@ -5073,6 +5152,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5095,6 +5175,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-developmental-block-at-the-transitional-stage" data-dismech-node="B Cell Developmental Block at the Transitional Stage" data-dismech-type="pathophysiology">
                 <div class="item-name">B Cell Developmental Block at the Transitional Stage</div>
+
 
                 <div class="item-desc">B cells are numerically normal but arrested at the naive and type 1 transitional stage, with impaired circulating T follicular helper cell development, absent germinal centre output and failed antibody responses. This is the route to the agammaglobulinemia, and it is a developmental block rather than a production failure in mature cells.</div>
 
@@ -5180,6 +5261,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5201,6 +5283,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5249,7 +5332,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal T cell physiology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profoundly deficient T-cell function on stimulation testing, with normal T-cell numbers. HPO has no term for preserved-count-with-lost-function, so the binding is to the general physiology abnormality and the specific dissociation is carried in preferred_term and in the description.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011840\"}}, {\"id\": \"Agammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or profoundly reduced immunoglobulin despite numerically normal B cells, the laboratory counterpart of the transitional-stage developmental block. The founding report describes agammaglobulinemia in its index case and the second report hypogammaglobulinemia in another, so the antibody defect is attested across a spectrum rather than uniformly at its severe end.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004432\"}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only reported curative intervention. Both patients in the two-patient series were transplanted and their immune function normalised. The reason it is curative is the reason the disease is purely immunological: CARD11 expression is lymphocyte-restricted, so replacing the haematopoietic compartment replaces every cell in which the gene matters.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"B Cell Developmental Block at the Transitional Stage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B cells are numerically normal but arrested at the naive and type 1 transitional stage, with impaired circulating T follicular helper cell development, absent germinal centre output and failed antibody responses. This is the route to the agammaglobulinemia, and it is a developmental block rather than a production failure in mature cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"]}}, {\"id\": \"Biallelic CARD11 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Null variants abolish CARD11 protein. CARD11 is expressed only in lymphocytes, which is why a defect in a general signalling scaffold produces a purely immunological disease, and why haematopoietic stem cell transplantation is curative.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CARD11\"], \"gene_terms\": [{\"label\": \"CARD11\", \"id\": \"hgnc:16393\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"CARD11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CARD11\"], \"gene_terms\": [{\"label\": \"CARD11\", \"id\": \"hgnc:16393\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CARMA1-knockout mouse (Th17 differentiation and EAE)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The same null background used to show that CBM signalling is required to complete Th17 differentiation, with resistance to experimental autoimmune encephalomyelitis as the in vivo consequence.\"}, {\"id\": \"CARMA1-knockout mouse (thymic regulatory T cell development)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Germline Card11-null mice, used to place the CBM requirement at an early checkpoint in thymic regulatory T cell development. This is the strongest available mechanistic support for reading the human inflammatory manifestations as dysregulatory rather than purely infectious, and it is also the reason that reading remains a knowledge gap: the measurement has never been made in a CARD11-deficient patient.\"}, {\"id\": \"Colitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe colitis, reported alongside the respiratory disease. It is worth distinguishing from infection: an inflammatory manifestation in a disease of NF-kappaB signalling is not simply another opportunistic complication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002583\"}}, {\"id\": \"Failure of CBM Signalosome Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CARD11 is the scaffold that nucleates the CARD11-BCL10-MALT1 complex on antigen receptor engagement. Without it the complex does not form, so three outputs fail together: canonical NF-kappaB activation, JNK signalling, and MALT1 paracaspase activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"T cell receptor signaling pathway\", \"B cell receptor signaling pathway\", \"canonical NF-kappaB signal transduction\"], \"animal_models\": [{\"name\": \"CARMA1-knockout mouse (thymic regulatory T cell development)\", \"species\": \"Mouse\", \"genotype\": \"Card11 (CARMA1) knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of the same complex, in the same lineage, with a defined developmental consequence.\"}]}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunoglobulin replacement for the agammaglobulinemia, given to P7 of the two reported CARD11-null patients in the CBM review series. It is supportive rather than corrective: it supplies the antibody the blocked B cell compartment cannot make, and does nothing for the T cell activation defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Interstitial pneumonitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Interstitial lung disease reported in both patients of the second series, alongside viral and fungal respiratory infection.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006515\"}}, {\"id\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T cells are present in normal numbers and cannot respond. The defect is in activation rather than development, which is the whole clinical problem: every quantitative measure of the T-cell compartment reads normal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"animal_models\": [{\"name\": \"CARMA1-knockout mouse (Th17 differentiation and EAE)\", \"species\": \"Mouse\", \"genotype\": \"Card11 (CARMA1) knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Shows that the activation defect is lineage-selective rather than global: Th17 differentiation fails while Th1 and Th2 do not.\"}]}}, {\"id\": \"Pneumocystis jirovecii pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting illness in both index reports, at 13 months in one and early in life in the other. An opportunistic infection of this kind in an infant with normal lymphocyte counts is the clinical signal that should prompt functional testing rather than reassurance. The band is FREQUENT rather than VERY_FREQUENT on purpose: PJP is named in the two single-proband reports, while the two-patient series describes respiratory infection without naming it and the Omenn reversion case does not report it, so it is attested in roughly two of five published probands. The two quotes below establish that PJP occurred, not how often.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0020102\"}}, {\"id\": \"Recurrent fungal infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fungal respiratory infection in the two-patient series. As with the viral entry above, the source names the infection type without asserting recurrence, and the recurrence in the HPO label is this entry\u0027s reading rather than the source\u0027s claim.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002841\"}}, {\"id\": \"Recurrent viral infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Viral respiratory infection in the two-patient series. The quoted sentence names the infection type but does not itself assert recurrence; the HPO term is the closest available concept, and the recurrence in its label is this entry\u0027s reading of a combined immunodeficiency phenotype rather than a claim the source makes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004429\"}}], \"edges\": [{\"source\": \"Biallelic CARD11 Loss of Function\", \"target\": \"Failure of CBM Signalosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"B Cell Developmental Block at the Transitional Stage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"Interstitial pneumonitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attached here rather than to the infection-susceptibility node because the entry\u0027s own reading is that this is not simply another opportunistic complication: NF-kappaB signalling downstream of the CBM complex governs immune regulation as well as antigen responsiveness. The intermediates are unknown and the infectious route is not excluded by any cited source, which is why the link is INDIRECT_UNKNOWN_INTERMEDIATES and carries an attached knowledge gap rather than a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"Colitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Same reasoning as the interstitial lung disease above. Both are reported in one sentence alongside the infections, and neither has an established mechanism in CARD11 deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Abnormal T cell physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phenotype-side statement of this node. Both are drawn from the same source sentence: the node is the mechanism, the phenotype is the measured finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Pneumocystis jirovecii pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Recurrent viral infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Recurrent fungal infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Same route as the viral susceptibility above; the two are reported in one sentence and there is no reason to treat them differently.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"B Cell Developmental Block at the Transitional Stage\", \"target\": \"Agammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Agammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Biallelic CARD11 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CARMA1-knockout mouse (thymic regulatory T cell development)\", \"target\": \"Failure of CBM Signalosome Assembly\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Loss of the same complex, in the same lineage, with a defined developmental consequence.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model\u0027s readout is a regulatory T cell developmental checkpoint. The human disease is defined by preserved lymphocyte numbers with lost function and by agammaglobulinemia, and no cited human study measures regulatory T cells in a CARD11-null patient. So the mouse establishes what the complex does, not that this is what goes wrong in the patients.\"}, {\"source\": \"CARMA1-knockout mouse (Th17 differentiation and EAE)\", \"target\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Shows that the activation defect is lineage-selective rather than global: Th17 differentiation fails while Th1 and Th2 do not.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The in vivo readout is resistance to an induced autoimmune model, which has no counterpart in the human phenotype. The human patients present with infection and agammaglobulinemia, not with protection from autoimmunity, so this model speaks to the mechanism of the node and not to the disease as experienced.\"}, {\"source\": \"CARD11\", \"target\": \"Biallelic CARD11 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal T cell physiology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profoundly deficient T-cell function on stimulation testing, with normal T-cell numbers. HPO has no term for preserved-count-with-lost-function, so the binding is to the general physiology abnormality and the specific dissociation is carried in preferred_term and in the description.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0011840\"}}, {\"id\": \"Agammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent or profoundly reduced immunoglobulin despite numerically normal B cells, the laboratory counterpart of the transitional-stage developmental block. The whole-exome-sequencing case report describes agammaglobulinemia in its patient and the exon-21-deletion case report describes hypogammaglobulinemia in its patient, so the antibody defect is attested across a spectrum rather than uniformly at its severe end.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004432\"}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only reported curative intervention. Both patients in the two-patient series were transplanted and their immune function normalised. The reason it is curative is the reason the disease is purely immunological: CARD11 expression is lymphocyte-restricted, so replacing the haematopoietic compartment replaces every cell in which the gene matters.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"B Cell Developmental Block at the Transitional Stage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B cells are numerically normal but arrested at the naive and type 1 transitional stage, with impaired circulating T follicular helper cell development, absent germinal centre output and failed antibody responses. This is the route to the agammaglobulinemia, and it is a developmental block rather than a production failure in mature cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"]}}, {\"id\": \"Biallelic CARD11 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Null variants abolish CARD11 protein. CARD11 is expressed only in lymphocytes, which is why a defect in a general signalling scaffold produces a purely immunological disease, and why haematopoietic stem cell transplantation is curative.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CARD11\"], \"gene_terms\": [{\"label\": \"CARD11\", \"id\": \"hgnc:16393\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"CARD11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CARD11\"], \"gene_terms\": [{\"label\": \"CARD11\", \"id\": \"hgnc:16393\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CARMA1-knockout mouse (Th17 differentiation and EAE)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The same null background used to show that CBM signalling is required to complete Th17 differentiation, with resistance to experimental autoimmune encephalomyelitis as the in vivo consequence.\"}, {\"id\": \"CARMA1-knockout mouse (thymic regulatory T cell development)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Germline Card11-null mice, used to place the CBM requirement at an early checkpoint in thymic regulatory T cell development. This is the strongest available mechanistic support for reading the human inflammatory manifestations as dysregulatory rather than purely infectious, and it is also the reason that reading remains a knowledge gap: the measurement has never been made in a CARD11-deficient patient.\"}, {\"id\": \"Colitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe colitis, reported alongside the respiratory disease. It is worth distinguishing from infection: an inflammatory manifestation in a disease of NF-kappaB signalling is not simply another opportunistic complication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002583\"}}, {\"id\": \"Failure of CBM Signalosome Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CARD11 is the scaffold that nucleates the CARD11-BCL10-MALT1 complex on antigen receptor engagement. Without it the complex does not form, so three outputs fail together: canonical NF-kappaB activation, JNK signalling, and MALT1 paracaspase activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"B cell\"], \"biological_processes\": [\"T cell receptor signaling pathway\", \"B cell receptor signaling pathway\", \"canonical NF-kappaB signal transduction\"], \"animal_models\": [{\"name\": \"CARMA1-knockout mouse (thymic regulatory T cell development)\", \"species\": \"Mouse\", \"genotype\": \"Card11 (CARMA1) knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of the same complex, in the same lineage, with a defined developmental consequence.\"}]}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunoglobulin replacement for the agammaglobulinemia, given to P7 of the two reported CARD11-null patients in the CBM review series. It is supportive rather than corrective: it supplies the antibody the blocked B cell compartment cannot make, and does nothing for the T cell activation defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Interstitial pneumonitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Interstitial lung disease reported in both patients of the second series, alongside viral and fungal respiratory infection.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006515\"}}, {\"id\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T cells are present in normal numbers and cannot respond. The defect is in activation rather than development, which is the whole clinical problem: every quantitative measure of the T-cell compartment reads normal.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"animal_models\": [{\"name\": \"CARMA1-knockout mouse (Th17 differentiation and EAE)\", \"species\": \"Mouse\", \"genotype\": \"Card11 (CARMA1) knockout\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Shows that the activation defect is lineage-selective rather than global: Th17 differentiation fails while Th1 and Th2 do not.\"}]}}, {\"id\": \"Pneumocystis jirovecii pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting illness in both index reports, at 13 months in one and early in life in the other. An opportunistic infection of this kind in an infant with normal lymphocyte counts is the clinical signal that should prompt functional testing rather than reassurance. The band is FREQUENT rather than VERY_FREQUENT on purpose: PJP is named in the two single-proband reports, while the two-patient series describes respiratory infection without naming it and the Omenn reversion case does not report it, so it is attested in roughly two of five published probands. The two quotes below establish that PJP occurred, not how often.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0020102\"}}, {\"id\": \"Recurrent fungal infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fungal respiratory infection in the two-patient series. As with the viral entry above, the source names the infection type without asserting recurrence, and the recurrence in the HPO label is this entry\u0027s reading rather than the source\u0027s claim.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002841\"}}, {\"id\": \"Recurrent viral infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Viral respiratory infection in the two-patient series. The quoted sentence names the infection type but does not itself assert recurrence; the HPO term is the closest available concept, and the recurrence in its label is this entry\u0027s reading of a combined immunodeficiency phenotype rather than a claim the source makes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004429\"}}], \"edges\": [{\"source\": \"Biallelic CARD11 Loss of Function\", \"target\": \"Failure of CBM Signalosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"B Cell Developmental Block at the Transitional Stage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"Interstitial pneumonitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attached here rather than to the infection-susceptibility node because the entry\u0027s own reading is that this is not simply another opportunistic complication: NF-kappaB signalling downstream of the CBM complex governs immune regulation as well as antigen responsiveness. The intermediates are unknown and the infectious route is not excluded by any cited source, which is why the link is INDIRECT_UNKNOWN_INTERMEDIATES and carries an attached knowledge gap rather than a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of CBM Signalosome Assembly\", \"target\": \"Colitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Same reasoning as the interstitial lung disease above. Both are reported in one sentence alongside the infections, and neither has an established mechanism in CARD11 deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Abnormal T cell physiology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phenotype-side statement of this node. Both are drawn from the same source sentence: the node is the mechanism, the phenotype is the measured finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Pneumocystis jirovecii pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Recurrent viral infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"target\": \"Recurrent fungal infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Same route as the viral susceptibility above; the two are reported in one sentence and there is no reason to treat them differently.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"B Cell Developmental Block at the Transitional Stage\", \"target\": \"Agammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Agammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Biallelic CARD11 Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CARMA1-knockout mouse (thymic regulatory T cell development)\", \"target\": \"Failure of CBM Signalosome Assembly\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Loss of the same complex, in the same lineage, with a defined developmental consequence.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model\u0027s readout is a regulatory T cell developmental checkpoint. The human disease is defined by preserved lymphocyte numbers with lost function and by agammaglobulinemia, and no cited human study measures regulatory T cells in a CARD11-null patient. So the mouse establishes what the complex does, not that this is what goes wrong in the patients.\"}, {\"source\": \"CARMA1-knockout mouse (Th17 differentiation and EAE)\", \"target\": \"Loss of Antigen-Receptor-Driven T Cell Activation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Shows that the activation defect is lineage-selective rather than global: Th17 differentiation fails while Th1 and Th2 do not.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The in vivo readout is resistance to an induced autoimmune model, which has no counterpart in the human phenotype. The human patients present with infection and agammaglobulinemia, not with protection from autoimmunity, so this model speaks to the mechanism of the node and not to the disease as experienced.\"}, {\"source\": \"CARD11\", \"target\": \"Biallelic CARD11 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5314,14 +5397,17 @@ This clinical feature is Agammaglobulinemia (HP:0004432). HP:0004432 is a phenot
                     </div>
 
 
-                    <div class="item-desc">Lowered from OBLIGATE, which asserts every patient. The band had been taken from the founding paper&#39;s characterisation of the entity, which is a definition rather than a count. Across the published probands, agammaglobulinemia is reported in one, hypogammaglobulinemia in a second, and immunoglobulins are not reported for the two patients in the 2021 series or for the Omenn reversion case, whose syndrome is itself defined in part by elevated IgE. FREQUENT records what is attested; the developmental block that explains it is not in doubt.</div>
+
+
+
+                    <div class="item-desc">Lowered from OBLIGATE, which asserts every patient. The band had been taken from one paper&#39;s characterisation of the entity, which is a definition rather than a count. Across the published probands, agammaglobulinemia is reported in one, hypogammaglobulinemia in a second, and immunoglobulins are not reported for the two patients in the 2021 series or for the Omenn reversion case, whose syndrome is itself defined in part by elevated IgE. FREQUENT records what is attested; the developmental block that explains it is not in doubt.</div>
 
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5336,6 +5422,7 @@ This clinical feature is Agammaglobulinemia (HP:0004432). HP:0004432 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5343,7 +5430,34 @@ This clinical feature is Agammaglobulinemia (HP:0004432). HP:0004432 is a phenot
                 <div class="evidence-snippet">"The novel entity of SCID was characterized by agammaglobulinemia and profoundly deficient T-cell function despite quantitatively normal T and B lymphocytes."</div>
 
 
-                <div class="evidence-explanation">Reports agammaglobulinemia in the index case, and as the feature by which the entity was characterised. A characterisation is not a count, which is why the band is FREQUENT rather than OBLIGATE.</div>
+                <div class="evidence-explanation">Reports agammaglobulinemia in this patient, and as the feature by which the entity was characterised. A characterisation is not a count, which is why the band is FREQUENT rather than OBLIGATE.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26277595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26277595" target="_blank">PMID:26277595</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"P6 had agammaglobulinemia, but her T-cell and B-cell counts were, unexpectedly, normal."</div>
+
+
+                <div class="evidence-explanation">States the agammaglobulinemia finding directly, within a single review series that also reports the paired hypogammaglobulinemia patient below, which is more directly the claim this band makes than inferring the range across two separate primary case reports.</div>
 
 
 
@@ -5360,6 +5474,7 @@ This clinical feature is Agammaglobulinemia (HP:0004432). HP:0004432 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5367,12 +5482,14 @@ This clinical feature is Agammaglobulinemia (HP:0004432). HP:0004432 is a phenot
                 <div class="evidence-snippet">"Here we report a patient of consanguineous descent presenting at 13 months of age with hypogammaglobulinemia, Pneumocystis jirovecii pneumonia, and a suggestive family history."</div>
 
 
-                <div class="evidence-explanation">The second published patient, whose antibody defect is reported as hypogammaglobulinemia rather than agammaglobulinemia.</div>
+                <div class="evidence-explanation">A different reported patient, whose antibody defect is hypogammaglobulinemia rather than agammaglobulinemia.</div>
 
 
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -5413,9 +5530,14 @@ This clinical feature is Deficient T-cell function despite normal T-cell numbers
 
 
 
+                    <div class="item-desc">OBLIGATE rests on more than the whole-exome-sequencing case report&#39;s characterisation of the entity: the CBM complex review independently attests the functional defect by proliferation and signalling assays in both published probands, so the grade is attested rather than merely definitional.</div>
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5430,6 +5552,7 @@ This clinical feature is Deficient T-cell function despite normal T-cell numbers
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5438,6 +5561,60 @@ This clinical feature is Deficient T-cell function despite normal T-cell numbers
 
 
                 <div class="evidence-explanation">The functional deficit with counts explicitly preserved.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26277595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26277595" target="_blank">PMID:26277595</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lymphocyte proliferation was strongly impaired following the stimulation of PBMCs from P6 with T-cell mitogens, such as PHA, ConA, or anti-CD3."</div>
+
+
+                <div class="evidence-explanation">Attests the functional deficit directly by a proliferation assay in the agammaglobulinemia-reporting proband, independent of the characterisation sentence the OBLIGATE grade previously rested on alone.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26277595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26277595" target="_blank">PMID:26277595</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"T-cell proliferation in response to CD3/CD28 stimulation was completely abolished in vitro"</div>
+
+
+                <div class="evidence-explanation">A T-cell functional readout, matching the P6 proliferation item above, so OBLIGATE rests on an assay of T-cell physiology in both reported patients rather than on one paper&#39;s characterisation. The sentence sits in the P7 stretch of the paragraph and cites both primary reports, so it covers the hypogammaglobulinemia-reporting proband. The paper&#39;s IκB-α/p65 sentence for P7 is deliberately not used here: its stimuli are anti-IgM and CD40L, which makes it a B-cell receptor signalling result rather than evidence of deficient T-cell function.</div>
 
 
 
@@ -5510,6 +5687,9 @@ This clinical feature is Colitis (HP:0002583), qualified as severity severe. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5524,6 +5704,7 @@ This clinical feature is Colitis (HP:0002583), qualified as severity severe. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,6 +5770,9 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5606,6 +5790,7 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5613,7 +5798,7 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
                 <div class="evidence-snippet">"Here we report a patient of consanguineous descent presenting at 13 months of age with hypogammaglobulinemia, Pneumocystis jirovecii pneumonia, and a suggestive family history."</div>
 
 
-                <div class="evidence-explanation">The presenting triad in the index case.</div>
+                <div class="evidence-explanation">The presenting triad in this patient.</div>
 
 
 
@@ -5627,6 +5812,7 @@ This clinical feature is Pneumocystis jirovecii pneumonia (HP:0020102). HP:00201
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5683,6 +5869,9 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5697,6 +5886,7 @@ This clinical feature is Recurrent viral infections (HP:0004429). HP:0004429 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5753,6 +5943,9 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5767,6 +5960,7 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5832,6 +6026,9 @@ This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5846,6 +6043,7 @@ This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5946,6 +6144,9 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5960,6 +6161,7 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5984,6 +6186,7 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6070,6 +6273,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6080,6 +6286,9 @@ This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -6130,6 +6339,9 @@ This treatment targets Agammaglobulinemia (HP:0004432). HP:0004432 is a phenotyp
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6196,6 +6408,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6206,6 +6421,9 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
     </div>
+
+
+
 
 
 
@@ -6242,6 +6460,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6285,6 +6504,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6582,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6418,6 +6639,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6425,7 +6647,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
                 <div class="evidence-snippet">"The search for a disease-causing mutation was performed with diagnostic whole-exome sequencing and systematic variant categorization."</div>
 
 
-                <div class="evidence-explanation">Records the diagnostic route taken in the founding report.</div>
+                <div class="evidence-explanation">Records the diagnostic route taken in this case report.</div>
 
 
 
@@ -6489,6 +6711,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6574,6 +6797,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6626,6 +6850,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6694,6 +6919,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6821,6 +7047,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6862,6 +7089,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,6 +7195,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7008,6 +7237,7 @@ This treatment is allogeneic hematopoietic stem cell transplantation, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7129,7 +7359,7 @@ inheritance:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Genetic evaluation revealed a homozygous deletion of exon 21 in CARD11 as the underlying defect.&#34;
-    explanation: Documents homozygosity for the causal allele in the index patient.
+    explanation: Documents homozygosity for the causal exon 21 deletion in the reported patient.
 genetic:
 - name: CARD11
   gene_term:
@@ -7329,17 +7559,18 @@ phenotypes:
   description: &gt;-
     Absent or profoundly reduced immunoglobulin despite numerically normal B cells,
     the laboratory counterpart of the transitional-stage developmental block. The
-    founding report describes agammaglobulinemia in its index case and the second
-    report hypogammaglobulinemia in another, so the antibody defect is attested
-    across a spectrum rather than uniformly at its severe end.
+    whole-exome-sequencing case report describes agammaglobulinemia in its patient
+    and the exon-21-deletion case report describes hypogammaglobulinemia in its
+    patient, so the antibody defect is attested across a spectrum rather than
+    uniformly at its severe end.
   notes: &gt;-
     Lowered from OBLIGATE, which asserts every patient. The band had been taken from
-    the founding paper&#39;s characterisation of the entity, which is a definition
-    rather than a count. Across the published probands, agammaglobulinemia is
-    reported in one, hypogammaglobulinemia in a second, and immunoglobulins are not
-    reported for the two patients in the 2021 series or for the Omenn reversion
-    case, whose syndrome is itself defined in part by elevated IgE. FREQUENT records
-    what is attested; the developmental block that explains it is not in doubt.
+    one paper&#39;s characterisation of the entity, which is a definition rather than a
+    count. Across the published probands, agammaglobulinemia is reported in one,
+    hypogammaglobulinemia in a second, and immunoglobulins are not reported for the
+    two patients in the 2021 series or for the Omenn reversion case, whose syndrome
+    is itself defined in part by elevated IgE. FREQUENT records what is attested;
+    the developmental block that explains it is not in doubt.
   phenotype_term:
     preferred_term: Agammaglobulinemia
     term:
@@ -7352,17 +7583,44 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The novel entity of SCID was characterized by agammaglobulinemia and profoundly deficient T-cell function despite quantitatively normal T and B lymphocytes.&#34;
     explanation: &gt;-
-      Reports agammaglobulinemia in the index case, and as the feature by which the
+      Reports agammaglobulinemia in this patient, and as the feature by which the
       entity was characterised. A characterisation is not a count, which is why the
       band is FREQUENT rather than OBLIGATE.
+  - reference: PMID:26277595
+    reference_title: &#34;Genetic errors of the human caspase recruitment domain-B-cell lymphoma 10-mucosa-associated lymphoid tissue lymphoma-translocation gene 1 (CBM) complex: Molecular, immunologic, and clinical heterogeneity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;P6 had agammaglobulinemia, but her T-cell and B-cell counts were, unexpectedly, normal.&#34;
+    explanation: &gt;-
+      States the agammaglobulinemia finding directly, within a single review series
+      that also reports the paired hypogammaglobulinemia patient below, which is
+      more directly the claim this band makes than inferring the range across two
+      separate primary case reports.
   - reference: PMID:23374270
     reference_title: &#34;Deficiency of caspase recruitment domain family, member 11 (CARD11), causes profound combined immunodeficiency in human subjects.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here we report a patient of consanguineous descent presenting at 13 months of age with hypogammaglobulinemia, Pneumocystis jirovecii pneumonia, and a suggestive family history.&#34;
     explanation: &gt;-
-      The second published patient, whose antibody defect is reported as
-      hypogammaglobulinemia rather than agammaglobulinemia.
+      A different reported patient, whose antibody defect is hypogammaglobulinemia
+      rather than agammaglobulinemia.
+  - reference: PMID:26277595
+    reference_title: &#34;Genetic errors of the human caspase recruitment domain-B-cell lymphoma 10-mucosa-associated lymphoid tissue lymphoma-translocation gene 1 (CBM) complex: Molecular, immunologic, and clinical heterogeneity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Like P6, P7 had hypogammaglobulinemia.&#34;
+    explanation: &gt;-
+      States the hypogammaglobulinemia finding directly, within the same single
+      review series as the agammaglobulinemia quote above, rather than requiring
+      the two bands to be pieced together from separate primary reports. Read
+      literally, the sentence&#39;s &#34;Like P6&#34; preface implies P6 was also
+      hypogammaglobulinemic, two sentences after the same review states P6 had
+      agammaglobulinemia - the very distinction this frequency band rests on.
+      The preface is loose; the quote above carries P6&#39;s agammaglobulinemia from
+      the same source, so the spectrum reading is the review&#39;s own and not an
+      inference across papers.
 - category: Infectious
   name: Pneumocystis jirovecii pneumonia
   frequency: FREQUENT
@@ -7388,7 +7646,7 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here we report a patient of consanguineous descent presenting at 13 months of age with hypogammaglobulinemia, Pneumocystis jirovecii pneumonia, and a suggestive family history.&#34;
-    explanation: The presenting triad in the index case.
+    explanation: The presenting triad in this patient.
   - reference: PMID:23561803
     reference_title: &#34;Whole-exome sequencing links caspase recruitment domain 11 (CARD11) inactivation to severe combined immunodeficiency.&#34;
     supports: SUPPORT
@@ -7403,6 +7661,11 @@ phenotypes:
     numbers. HPO has no term for preserved-count-with-lost-function, so the binding
     is to the general physiology abnormality and the specific dissociation is
     carried in preferred_term and in the description.
+  notes: &gt;-
+    OBLIGATE rests on more than the whole-exome-sequencing case report&#39;s
+    characterisation of the entity: the CBM complex review independently attests
+    the functional defect by proliferation and signalling assays in both published
+    probands, so the grade is attested rather than merely definitional.
   phenotype_term:
     preferred_term: Deficient T-cell function despite normal T-cell numbers
     term:
@@ -7415,6 +7678,31 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;profoundly deficient T-cell function despite quantitatively normal T and B lymphocytes&#34;
     explanation: The functional deficit with counts explicitly preserved.
+  - reference: PMID:26277595
+    reference_title: &#34;Genetic errors of the human caspase recruitment domain-B-cell lymphoma 10-mucosa-associated lymphoid tissue lymphoma-translocation gene 1 (CBM) complex: Molecular, immunologic, and clinical heterogeneity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Lymphocyte proliferation was strongly impaired following the stimulation of PBMCs from P6 with T-cell mitogens, such as PHA, ConA, or anti-CD3.&#34;
+    explanation: &gt;-
+      Attests the functional deficit directly by a proliferation assay in the
+      agammaglobulinemia-reporting proband, independent of the characterisation
+      sentence the OBLIGATE grade previously rested on alone.
+  - reference: PMID:26277595
+    reference_title: &#34;Genetic errors of the human caspase recruitment domain-B-cell lymphoma 10-mucosa-associated lymphoid tissue lymphoma-translocation gene 1 (CBM) complex: Molecular, immunologic, and clinical heterogeneity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;T-cell proliferation in response to CD3/CD28 stimulation was completely abolished in vitro&#34;
+    explanation: &gt;-
+      A T-cell functional readout, matching the P6 proliferation item above, so
+      OBLIGATE rests on an assay of T-cell physiology in both reported patients
+      rather than on one paper&#39;s characterisation. The sentence sits in the P7
+      stretch of the paragraph and cites both primary reports, so it covers the
+      hypogammaglobulinemia-reporting proband. The paper&#39;s IκB-α/p65 sentence
+      for P7 is deliberately not used here: its stimuli are anti-IgM and CD40L,
+      which makes it a B-cell receptor signalling result rather than evidence of
+      deficient T-cell function.
 - category: Respiratory
   name: Interstitial pneumonitis
   frequency: FREQUENT
@@ -7521,6 +7809,7 @@ treatments:
     reference_title: &#34;Genetic errors of the human caspase recruitment domain-B-cell lymphoma 10-mucosa-associated lymphoid tissue lymphoma-translocation gene 1 (CBM) complex: Molecular, immunologic, and clinical heterogeneity.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
     snippet: &#34;P7 was treated with intravenous immunoglobulin.&#34;
     explanation: &gt;-
       Records the treatment in a named CARD11-deficient patient. The same paragraph
@@ -7675,7 +7964,7 @@ diagnosis:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The search for a disease-causing mutation was performed with diagnostic whole-exome sequencing and systematic variant categorization.&#34;
-    explanation: Records the diagnostic route taken in the founding report.
+    explanation: Records the diagnostic route taken in this case report.
 differential_diagnoses:
 - name: BCL10 and MALT1 deficiency
   description: &gt;-
@@ -7872,6 +8161,102 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation decisions worth recording.
+Review round 1, corrected in round 2. Pneumocystis prophylaxis is deliberately not curated as a treatment. The deep-research report names it with no citation, and no reference cached for this entry mentions prophylaxis, trimethoprim or cotrimoxazole. It belongs here once somebody brings in a general SCID-management reference and cites it honestly as indirect for this disease.
+Immunoglobulin replacement was declined on the same grounds in round 1 and that was wrong. PMID:26277595 records it in a named CARD11-deficient patient, and it is now curated above. The error is worth recording because of how it happened: the cache search that produced the claim ran before PMID:26277595 was fetched later in the same round for the animal models, and was never repeated. A statement about what the repository contains has to be re-derived immediately before it is written, not carried over from earlier in the same session.
+The report&#39;s transplantation recommendation is likewise cited to a MALT1 deficiency outcome (PMID:27109639), a different disease. The treatment entry does not use it: PMID:33872653 reports transplantation and its outcome in the two CARD11-null probands curated here, which is the disease-specific evidence.
+The inflammatory manifestations are curated as INDIRECT_UNKNOWN_INTERMEDIATES edges off the CBM node rather than off the infection-susceptibility node, with a knowledge gap attached. The entry had asserted in prose that they are not simply opportunistic; that claim is now either an edge with its uncertainty typed, or a question, rather than an unbacked sentence.
+Scope. The entry is the biallelic null (recessive SCID) form only, as the MONDO term specifies. CARD11 gain-of-function (BENTA) and dominant-interfering hypomorphic (CADINS) disease are curated as differentials rather than subtypes, because they are opposite directions on the same pathway and produce different diseases. The CADINS differential deliberately says so rather than describing it as a milder form.
+The TREC screening point is curated as a knowledge gap rather than as a fact. It follows directly from the biology and the reported presentations, and no study has measured it, which is the combination most likely to be repeated as established.
+One binding is coarser than the finding. The defining abnormality here is deficient T-cell function with preserved T-cell numbers, and HPO has no term for that dissociation; the binding is to HP:0011840 (Abnormal T cell physiology) with the specific finding in preferred_term.
+Deep research. An OpenScientist report is committed with the entry. Two of its suggested HPO terms name different concepts and are not bound: HP:0002754, offered as &#34;Recurrent respiratory infections&#34;, is Osteomyelitis, and HP:0032256, offered as &#34;Pneumocystis pneumonia&#34;, is Unusual Histoplasma capsulatum infection. The entry binds HP:0020102 (Pneumocystis jirovecii pneumonia) instead. Neither error was flagged by the report&#39;s own term validation. Its CARD11 gene identifier (HGNC:16393) is correct, which is worth noting given that gene CURIEs in reports are never checked at all (#9845).</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: treatments, pathograph connectivity, frequency band</strong> · 2026-09-06T03:44:03Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Severe_Combined_Immunodeficiency_Due_To_CARD11_Deficiency/2026-09-06T034403Z-claude-code-b902c2.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the ai4c-reviewer CHANGES_REQUESTED review on PR 11177 in a single push.
+
+Blocking items.
+(1) No treatments section existed, while a pathophysiology description asserted in prose that transplantation is curative. Added allogeneic HSCT (NCIT:C15431, CELL_THERAPY) with target_mechanisms joining the pathograph at Biallelic CARD11 Loss of Function, quoting the two disease-specific sentences already sitting unused in the cached PMID:33872653.
+(2) Four phenotypes had no incoming causal edge. Abnormal T cell physiology and Recurrent fungal infections now hang off Loss of Antigen-Receptor-Driven T Cell Activation, both DIRECT. Interstitial pneumonitis and Colitis hang off Failure of CBM Signalosome Assembly as INDIRECT_UNKNOWN_INTERMEDIATES, with a new KNOWLEDGE_GAP asking whether they are dysregulatory or infectious. Verified by recomputing in-edges from the file: all seven phenotypes now connected, no unresolved targets.
+(3) Pneumocystis pneumonia was VERY_FREQUENT (80-99%) on evidence attesting occurrence in roughly two of five published probands. Lowered to FREQUENT with the denominator stated in the description.
+
+Also from item 3: the five-word fragment &#39;viral and fungal respiratory infections&#39; backed two phenotypes and asserts neither recurrence nor frequency. Replaced with the fuller sentence already quoted elsewhere in the file, and both phenotypes now say the recurrence in the HPO label is this entry&#39;s reading rather than the source&#39;s claim.
+
+Suggestions taken.
+(4) BENTA added as a third differential with distinguishing_features, citing the newly fetched PMID:30170123 sentence naming all three allele classes.
+(5) Two animal models added: the CARMA1-knockout Treg checkpoint (PMID:19454668) and the Th17/EAE model (PMID:23091043), both PARTIALLY_RECAPITULATES with model_scale CELLULAR and explicit limitations, plus a model-level caveat quoting PMID:26277595 on partial human-mouse concordance.
+
+Suggestions declined, with reasons recorded in notes.
+Immunoglobulin replacement and Pneumocystis prophylaxis were requested on the strength of deep-research section 12. That section names them with no citation at all, and none of the entry&#39;s cached references mentions either, so adding them would mean an evidence-free treatment or a manufactured quote. The report&#39;s own HSCT recommendation is cited to a MALT1-deficiency outcome, a different disease, and was not used; the CARD11-specific PMID:33872653 evidence was used instead. The top-level references block was left absent.
+
+Validation: schema pass, term validation pass, 27/27 snippets verified against the local cache (was 21/21), entity refs, causal targets, duplicate keys, enum values, qualifier terms all clean, whole-KB gates report nothing for this entry. No cache change; every term was already cached.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: SCID due to CARD11 deficiency (IMD11A)</strong> · 2026-09-05T20:07:20Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Severe_Combined_Immunodeficiency_Due_To_CARD11_Deficiency/2026-09-05T200720Z-claude-code-7f291a.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of SCID due to CARD11 deficiency (MONDO:0014081, IMD11A),
+claimed at #11156. entry_type resolved to DISEASE and the stub deleted.
+
+Preflight. CARD11 appears in kb/ on main only as an incidental gene-list string
+inside snippets on lymphoma entries and on Immunodeficiency_60.yaml, whose causal
+gene is BACH2. There was no existing coverage to extend.
+
+Scope. The entry is the biallelic null (recessive SCID) form only. CARD11
+gain-of-function (BENTA) and dominant-interfering hypomorphic disease (CADINS)
+are curated as differentials rather than subtypes, because they act in opposite
+directions on the same pathway. The CADINS differential says so explicitly
+rather than describing it as a milder form, and cites the transfection result
+showing dominant interference.
+
+Deep research: one OpenScientist run, committed with the entry. It contributed
+the TREC-screening gap, the CBM-complex differential group and the allelic
+series framing. Its CARD11 gene identifier (HGNC:16393) is correct, which is
+worth recording given that report gene CURIEs are never checked at all (#9845).
+
+Two of its HPO terms name different concepts and are not bound. HP:0002754,
+offered as &#34;Recurrent respiratory infections&#34;, is Osteomyelitis. HP:0032256,
+offered as &#34;Pneumocystis pneumonia&#34;, is Unusual Histoplasma capsulatum
+infection; the entry binds HP:0020102 (Pneumocystis jirovecii pneumonia)
+instead. Neither was flagged by the report&#39;s own term validation. That pattern
+is reported on #10459.
+
+preflight-dr returns WARN on MALT1 at 29% of CARD11 mentions. That is expected
+rather than entity confusion: MALT1 and BCL10 are the other two components of
+the CBM signalosome and a correct mechanistic report has to discuss them. No
+MALT1-deficiency clinical content was taken; MALT1 appears in this entry only in
+the signalosome mechanism and in the differential.
+
+The TREC newborn-screening gap is curated as a KNOWLEDGE_GAP rather than as a
+fact. It follows directly from the biology, since TREC screening detects T-cell
+lymphopenia and this disease has normal T-cell counts, and the reported patients
+presented with established infection rather than through screening. But no study
+has measured the miss rate, and with a handful of published probands none
+realistically could yet. A retrospective TREC study is proposed.
+
+One binding is coarser than the finding. The defining abnormality is deficient
+T-cell function with preserved T-cell numbers, and HPO has no term for that
+dissociation; the binding is HP:0011840 (Abnormal T cell physiology) with the
+specific finding in preferred_term.
+
+Validation: just validate-disorders passes schema, terms and 21/21 snippets.
+check-entity-refs, check-causal-targets, check-duplicate-keys and
+check-enum-values are clean. No GeneReviews chapter exists (PubMed search for
+&#34;CARD11 GeneReviews&#34; returns zero). Seventeen references fetched during research
+but not cited were pruned from references_cache rather than staged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8494,7 +8879,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Severe Combined Immunodeficiency Due To CARD11 Deficiency", "mondoId": "MONDO:0014081", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Severe_Combined_Immunodeficiency_Due_To_CARD11_Deficiency", "yamlRevision": "d24bde040e78"};
+        const OS_CONFIG = {"diseaseName": "Severe Combined Immunodeficiency Due To CARD11 Deficiency", "mondoId": "MONDO:0014081", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Severe_Combined_Immunodeficiency_Due_To_CARD11_Deficiency", "yamlRevision": "30d342c2ba1d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

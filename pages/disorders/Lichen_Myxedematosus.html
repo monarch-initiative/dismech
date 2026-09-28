@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4106,6 +4174,7 @@ The monoclonal gammopathy is where the mechanism is most often over-stated. It i
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4170,6 +4239,7 @@ The monoclonal gammopathy is where the mechanism is most often over-stated. It i
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4194,6 +4264,7 @@ The monoclonal gammopathy is where the mechanism is most often over-stated. It i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4258,6 +4329,7 @@ The monoclonal gammopathy is where the mechanism is most often over-stated. It i
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4428,6 +4500,7 @@ The monoclonal gammopathy is where the mechanism is most often over-stated. It i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plasma-cell-clone-and-monoclonal-gammopathy" data-dismech-node="Plasma Cell Clone and Monoclonal Gammopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Plasma Cell Clone and Monoclonal Gammopathy</div>
 
+
                 <div class="item-desc">A clonal plasma cell population producing a single immunoglobulin species, predominantly IgG. It is present in the large majority of scleromyxedema patients and is one of the four diagnostic criteria — but see the knowledge gap: the classification itself recognises scleromyxedema without it, so this node is an upstream association whose causal contribution is unresolved.</div>
 
 
@@ -4516,6 +4589,7 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4542,6 +4616,7 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4564,6 +4639,7 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-fibroblast-activation" data-dismech-node="Dermal Fibroblast Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal Fibroblast Activation</div>
+
 
                 <div class="item-desc">Dermal fibroblasts proliferate and increase synthesis of glycosaminoglycans. This is the effector step and the one common to every form of the disease, generalised or localised, with or without a gammopathy.</div>
 
@@ -4746,6 +4822,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4768,6 +4845,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-mucin-deposition-and-fibrosis" data-dismech-node="Dermal Mucin Deposition and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal Mucin Deposition and Fibrosis</div>
+
 
                 <div class="item-desc">Accumulation of mucin in the dermis with variable fibrosis. Mucin here is a gelatinous glycosaminoglycan material, chiefly hyaluronic acid and dermatan sulfate, demonstrable histologically with alcian blue or colloidal iron — which is why the diagnosis is made on a stained biopsy rather than on routine sections.</div>
 
@@ -4844,6 +4922,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4870,6 +4949,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4892,6 +4972,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracutaneous-organ-involvement" data-dismech-node="Extracutaneous Organ Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracutaneous Organ Involvement</div>
+
 
                 <div class="item-desc">Systemic disease occurred in 19 of 30 patients in the multicentre series — neurologic in 30%, rheumatologic in 23.3%, cardiac in 20%. It is a feature of the generalised form and is what converts a skin disease into a lethal one. Whether the systemic lesions share the dermal mechanism is not established by the cited sources.</div>
 
@@ -4930,6 +5011,7 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5047,6 +5129,9 @@ This clinical feature is Monoclonal gammopathy, annotated with Paraproteinemia (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5064,6 +5149,7 @@ This clinical feature is Monoclonal gammopathy, annotated with Paraproteinemia (
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5090,6 +5176,7 @@ This clinical feature is Monoclonal gammopathy, annotated with Paraproteinemia (
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5144,6 +5231,9 @@ This clinical feature is Haematologic malignancy, annotated with Hematological n
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately not linked into the pathograph. Progression from the monoclonal gammopathy to a haematologic malignancy is the mechanistically obvious route, but the series reports co-occurrence in two patients and nothing about clonal relationship, so drawing the edge would assert what the source does not.</div>
 
 
@@ -5166,6 +5256,7 @@ This clinical feature is Haematologic malignancy, annotated with Hematological n
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5192,6 +5283,7 @@ This clinical feature is Haematologic malignancy, annotated with Hematological n
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5258,6 +5350,9 @@ This clinical feature is Extracutaneous cardiac manifestations, annotated with A
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5275,6 +5370,7 @@ This clinical feature is Extracutaneous cardiac manifestations, annotated with A
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5301,6 +5397,7 @@ This clinical feature is Extracutaneous cardiac manifestations, annotated with A
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5365,6 +5462,9 @@ This clinical feature is Papule (HP:0200034). HP:0200034 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5382,6 +5482,7 @@ This clinical feature is Papule (HP:0200034). HP:0200034 is a phenotype from the
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5437,6 +5538,9 @@ This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5454,6 +5558,7 @@ This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5507,6 +5612,9 @@ This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5524,6 +5632,7 @@ This clinical feature is Skin nodule (HP:0200036). HP:0200036 is a phenotype fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5587,6 +5696,9 @@ This clinical feature is Extracutaneous rheumatologic manifestations, annotated 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound broadly for the same reason as the neurologic entry: arthritis, myopathy and arthralgia are all plausible readings of &#34;rheumatologic&#34; and the source picks none of them.</div>
 
 
@@ -5609,6 +5721,7 @@ This clinical feature is Extracutaneous rheumatologic manifestations, annotated 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5691,6 +5804,9 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5708,6 +5824,7 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5762,6 +5879,9 @@ This clinical feature is Extracutaneous neurologic manifestations, annotated wit
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to the broad HP:0000707 deliberately. The source reports &#34;neurologic manifestations&#34; as a category with a percentage and does not enumerate them, so a narrower term would name a finding the source does not make. The specific syndrome that is named, dermato-neuro syndrome, is curated as its own phenotype.</div>
 
 
@@ -5784,6 +5904,7 @@ This clinical feature is Extracutaneous neurologic manifestations, annotated wit
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5810,6 +5931,7 @@ This clinical feature is Extracutaneous neurologic manifestations, annotated wit
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5926,6 +6048,9 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5936,6 +6061,9 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
 
 
     </div>
+
+
+
 
 
 
@@ -5975,6 +6103,7 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6020,6 +6149,7 @@ This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C12133
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6085,6 +6215,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6095,6 +6228,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6134,6 +6270,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6179,6 +6316,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6290,6 +6428,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6314,6 +6453,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6407,6 +6547,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6498,6 +6639,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6565,6 +6707,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6617,6 +6760,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6641,6 +6785,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6713,6 +6858,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6737,6 +6883,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7669,6 +7816,43 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated as one Disease with has_subtypes rather than split into separate entries, because the generalised and localised forms share the defining pathograph — fibroblast-driven dermal mucin deposition without thyroid disease — and are distinguished by extent, paraproteinaemia and systemic involvement rather than by a different mechanism. A reviewer who thinks the localised forms make no shared mechanistic claim at all should push back on that; the case for splitting would rest on the localised forms having a different trigger, which the cited sources do not establish either way.
+The dermato-neuro syndrome is recorded as a phenotype and as a knowledge gap rather than as a mechanism, because none of the sources cited here proposes one.
+Three review suggestions were declined, with reasons, rather than curated thinly.
+Environmental triggers. HIV, hepatitis C and L-tryptophan are named in the deep-research report as associations of cutaneous mucinosis, but none of the four references cached for this entry mentions any of them, and PMID:35124832 — the review fetched to check — describes drug-exposure and physical-agent mucinoses as separate emerging entities rather than as triggers of lichen myxedematosus. An environmental: block would have had nothing quotable behind it.
+Second-line therapies. Thalidomide, lenalidomide and autologous stem cell transplantation are reported for scleromyxedema, but the multicentre series cached here names only oral steroids and intravenous immunoglobulin, and the case reports that name thalidomide have no retrievable abstract text to quote. They are omitted rather than asserted without a snippet.
+Haematologic-malignancy comorbidity is curated as a phenotype with an explicit note, rather than as a comorbidity link, because the source reports co-occurrence in two patients and nothing about clonal relationship to the disease&#39;s own plasma cell clone.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Lichen Myxedematosus (MONDO:0018432) with scleromyxedema/localized subtypes</strong> · 2026-09-08T08:37:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Lichen_Myxedematosus/2026-09-08T083716Z-claude-code-29ccd4.yaml">View source</a></p>
+                        <p class="research-review-text">Curated de novo from a Perplexity sonar-deep-research report (research/Lichen_Myxedematosus-deep-research-perplexity.md). 22 evidence snippets, all verified by dismech.reference_snippet_audit against references_cache/.
+
+Lump/split decision: one Disease with three has_subtypes (Scleromyxedema, Localized LM, Atypical LM) following the Rongioletti-Rebora classification, rather than separate entries. Both main subsets share the defining pathograph -- fibroblast-driven dermal mucin deposition in a euthyroid patient -- and are separated by extent, paraproteinaemia and systemic involvement rather than by mechanism. A discussion flags that this call should be revisited if the localised forms turn out to have a distinct trigger, so the decision is auditable rather than silent.
+
+The central curation judgement concerns the monoclonal gammopathy. It is one of four diagnostic criteria for scleromyxedema and present in 27 of 30 patients in the largest series, and secondary sources routinely present it as the cause. Two verified findings block that: the classification itself defines an atypical category of scleromyxedema WITHOUT monoclonal gammopathy (PMID:11174386), and a paraprotein-negative patient is reported with entirely typical mucin deposition and fibroblast proliferation on biopsy (PMID:9816405). The second is carried as a REFUTE evidence item on the plasma-cell node, and the edge to fibroblast activation is typed INDIRECT_UNKNOWN_INTERMEDIATES.
+
+Two other deliberate evidence decisions. The IVIg target_mechanisms link is graded directness: INDIRECT because it is therapeutic response cited as validation of the mechanism it targets, in an uncontrolled retrospective series where IVIg was often combined with other drugs. And the same quoted sentence from PMID:23453242 is used twice with opposite supports values -- SUPPORT for IVIg efficacy, REFUTE for corticosteroid efficacy -- which is the claim-relative behaviour of that slot; evidence_source is identical in both, so check_snippet_grading passes.
+
+The dermato-neuro syndrome is recorded as a phenotype with an explicit mechanism gap rather than being attached to a speculative pathophysiology node: it is the characteristic cause of death (2 of 5 in the series) and no cited source proposes a mechanism for it.
+
+The report&#39;s term validation was the worst of the five in this run -- 27 of 53 labels mismatched -- so no ontology term was taken from it; all were resolved against the local caches.
+
+One snippet reproduces spelling errors present in the source (&#39;glycosaminoglycanes&#39;, &#39;chondoitin&#39; in PMID:8668693); the explanation says so, since a snippet must quote the source rather than correct it.
+
+Validation run in the worktree: linkml-validate (Disease) clean; linkml-term-validator validate-data --labels clean; reference_snippet_audit 22/22; check_duplicate_yaml_keys, check_entity_refs, check_causal_targets, check_enum_values, check_snippet_grading all clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

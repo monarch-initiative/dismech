@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4138,6 +4206,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4159,6 +4228,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4251,6 +4321,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4272,6 +4343,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4337,6 +4409,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4358,6 +4431,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4501,6 +4575,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4525,6 +4600,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4546,6 +4622,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4583,6 +4660,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-f2-pathogenic-variants" data-dismech-node="Biallelic F2 Pathogenic Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic F2 Pathogenic Variants</div>
+
 
                 <div class="item-desc">Homozygous or compound heterozygous pathogenic variants in F2, on chromosome 11, are the initiating lesion. Most are missense; nonsense, frameshift, splice-site and small in-frame deletions are also described. Variants distribute between the catalytic domain, the anion-binding exosite, the Na+-binding loop, the kringle domains, and the propeptide/Gla processing region, and the domain hit is what determines whether the result is a quantitative or a qualitative defect.</div>
 
@@ -4724,6 +4802,7 @@ This pathophysiological event involves decreased serine-type endopeptidase activ
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4745,6 +4824,7 @@ This pathophysiological event involves decreased serine-type endopeptidase activ
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4770,6 +4850,7 @@ This pathophysiological event involves decreased serine-type endopeptidase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hepatic-prothrombin-output" data-dismech-node="Reduced Hepatic Prothrombin Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Hepatic Prothrombin Output</div>
+
 
                 <div class="item-desc">In type I disease the hepatocyte makes, secretes, or maintains less prothrombin, so plasma antigen and coagulant activity fall together. The liver is otherwise structurally normal and no other coagulation factor is affected.</div>
 
@@ -4895,6 +4976,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4917,6 +4999,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circulating-dysfunctional-prothrombin" data-dismech-node="Circulating Dysfunctional Prothrombin" data-dismech-type="pathophysiology">
                 <div class="item-name">Circulating Dysfunctional Prothrombin</div>
+
 
                 <div class="item-desc">In type II disease a normal or near-normal quantity of prothrombin circulates but cannot do its job. Documented mechanisms include failure of the zymogen-to-proteinase transition, perturbation of the Na+-binding site that governs activation, and loss of substrate recognition once thrombin is formed. The consequence is a large activity-to-antigen gap.</div>
 
@@ -5008,6 +5091,7 @@ This pathophysiological event involves serine-type endopeptidase activity of thr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5029,6 +5113,7 @@ This pathophysiological event involves serine-type endopeptidase activity of thr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5054,6 +5139,7 @@ This pathophysiological event involves serine-type endopeptidase activity of thr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-vitamin-k-dependent-gla-domain-membrane-binding" data-dismech-node="Defective Vitamin K-Dependent Gla-Domain Membrane Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Vitamin K-Dependent Gla-Domain Membrane Binding</div>
+
 
                 <div class="item-desc">Prothrombin is a vitamin K-dependent protein. Gamma-carboxylation of the glutamate residues of its Gla domain creates the calcium-dependent conformation that docks the zymogen onto the anionic phospholipid surface where prothrombinase assembles. Variants that block propeptide cleavage - the step that presents the Gla domain correctly - remove that anchoring. The same step is what acquired vitamin K deficiency, vitamin K antagonists, and the hereditary combined vitamin K-dependent factor deficiencies interrupt, which is why those conditions phenocopy this disease.</div>
 
@@ -5179,6 +5265,7 @@ This pathophysiological event involves decreased calcium-dependent phospholipid 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5200,6 +5287,7 @@ This pathophysiological event involves decreased calcium-dependent phospholipid 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5225,6 +5313,7 @@ This pathophysiological event involves decreased calcium-dependent phospholipid 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-prothrombinase-mediated-thrombin-generation" data-dismech-node="Impaired Prothrombinase-Mediated Thrombin Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Prothrombinase-Mediated Thrombin Generation</div>
+
 
                 <div class="item-desc">The prothrombinase complex - factor Xa with factor Va as its cofactor, assembled on an anionic phospholipid membrane in the presence of calcium ions - is what converts prothrombin to thrombin at a physiologically useful rate. Whether the lesion is too little substrate (type I), a substrate that cannot be activated (type II), or a substrate that cannot reach the membrane, the rate-limiting step is the same one, and the measurable consequence is a reduced and slowed thrombin generation curve.</div>
 
@@ -5350,6 +5439,7 @@ This pathophysiological event involves decreased zymogen activation of prothromb
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5371,6 +5461,7 @@ This pathophysiological event involves decreased zymogen activation of prothromb
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5400,6 +5491,7 @@ This pathophysiological event involves decreased zymogen activation of prothromb
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5422,6 +5514,7 @@ This pathophysiological event involves decreased zymogen activation of prothromb
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-thrombin-activity-at-the-site-of-injury" data-dismech-node="Deficient Thrombin Activity at the Site of Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Thrombin Activity at the Site of Injury</div>
+
 
                 <div class="item-desc">Thrombin is the hub of the haemostatic response, and this node is where the single upstream lesion fans out. Thrombin converts fibrinogen to fibrin, activates platelets through protease-activated receptors, feeds back to activate factors V, VIII and XI so that its own generation becomes a burst, activates factor XIII to cross-link the fibrin mesh, and - complexed with thrombomodulin - switches on protein C. Losing one enzyme therefore removes five distinct outputs at once.</div>
 
@@ -5555,6 +5648,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5576,6 +5670,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5601,6 +5696,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fibrinogen-to-fibrin-conversion" data-dismech-node="Impaired Fibrinogen-to-Fibrin Conversion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Fibrinogen-to-Fibrin Conversion</div>
+
 
                 <div class="item-desc">Thrombin&#39;s canonical substrate reaction, cleavage of fibrinopeptides from fibrinogen to release fibrin monomers, proceeds too slowly and too little fibrin is deposited.</div>
 
@@ -5690,6 +5786,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5711,6 +5808,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5736,6 +5834,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thrombin-mediated-platelet-activation" data-dismech-node="Impaired Thrombin-Mediated Platelet Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Thrombin-Mediated Platelet Activation</div>
+
 
                 <div class="item-desc">Thrombin is among the most potent physiological platelet agonists, acting through the protease-activated receptors PAR1 and PAR4 on the human platelet surface. With less thrombin, platelet recruitment and the procoagulant platelet surface that prothrombinase itself needs are both blunted, so the defect is not confined to the plasma phase of coagulation.</div>
 
@@ -5895,6 +5994,7 @@ This pathophysiological event involves decreased platelet activation (GO:0030168
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5917,6 +6017,7 @@ This pathophysiological event involves decreased platelet activation (GO:0030168
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-thrombin-feedback-amplification-of-factors-v-viii-and-xi" data-dismech-node="Loss of Thrombin Feedback Amplification of Factors V, VIII and XI" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Thrombin Feedback Amplification of Factors V, VIII and XI</div>
+
 
                 <div class="item-desc">Thrombin activates factors V, VIII and XI, converting the initial trace of enzyme into a burst. When thrombin is scarce from the outset the loop never engages, so the deficit is amplified rather than merely proportional - which is part of why bleeding is out of proportion to a single-factor lesion.</div>
 
@@ -6006,6 +6107,7 @@ This pathophysiological event involves decreased regulation of blood coagulation
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6028,6 +6130,7 @@ This pathophysiological event involves decreased regulation of blood coagulation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-factor-xiii-activation-and-fibrin-cross-linking" data-dismech-node="Impaired Factor XIII Activation and Fibrin Cross-Linking" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Factor XIII Activation and Fibrin Cross-Linking</div>
+
 
                 <div class="item-desc">Thrombin activates factor XIII, the transglutaminase that covalently cross-links fibrin monomers and binds alpha-2-antiplasmin into the mesh. Less thrombin means less factor XIIIa, so the fibrin that does form is mechanically weak and abnormally susceptible to fibrinolysis.</div>
 
@@ -6117,6 +6220,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6139,6 +6243,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-thrombomodulin-dependent-protein-c-activation" data-dismech-node="Reduced Thrombomodulin-Dependent Protein C Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Thrombomodulin-Dependent Protein C Activation</div>
+
 
                 <div class="item-desc">Thrombin bound to endothelial thrombomodulin activates protein C, the principal physiological brake on further thrombin generation. This anticoagulant output is lost alongside the procoagulant ones, so the net haemostatic consequence of prothrombin deficiency is not a simple subtraction, and the offset is a plausible contributor to the weak correlation between residual factor II activity and bleeding severity. It is not the explanation for the rare dysprothrombin variants that present with thrombosis: those escape inhibition by antithrombin, which is a separate mechanism acting on the mutant thrombin itself rather than on this thrombomodulin-protein C arm.</div>
 
@@ -6249,6 +6354,7 @@ This pathophysiological event involves decreased regulation of blood coagulation
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6271,6 +6377,7 @@ This pathophysiological event involves decreased regulation of blood coagulation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-weak-poorly-cross-linked-hemostatic-clot" data-dismech-node="Weak, Poorly Cross-Linked Hemostatic Clot" data-dismech-type="pathophysiology">
                 <div class="item-name">Weak, Poorly Cross-Linked Hemostatic Clot</div>
+
 
                 <div class="item-desc">The clot that forms at a site of injury is small, slow to form, deficient in cross-linked fibrin, and under-populated with recruited platelets. It is the convergence point of every downstream thrombin branch and the immediate substrate of the clinical bleeding.</div>
 
@@ -6380,6 +6487,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6402,6 +6510,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-bleeding-diathesis" data-dismech-node="Systemic Bleeding Diathesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Bleeding Diathesis</div>
+
 
                 <div class="item-desc">A lifelong, episodic bleeding tendency whose severity tracks residual factor II activity: below about 5% patients bleed with little or no trauma, 5-10% is moderate, and above 10% is usually mild and may be silent until a haemostatic challenge. Because the mechanism is systemic rather than tissue-specific, any vascular bed can be the site.</div>
 
@@ -6483,6 +6592,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6504,6 +6614,7 @@ This pathophysiological event involves decreased blood coagulation, fibrin clot 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6636,6 +6747,9 @@ This clinical feature is Recurrent mucocutaneous bleeding, annotated with Abnorm
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6650,6 +6764,7 @@ This clinical feature is Recurrent mucocutaneous bleeding, annotated with Abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6706,6 +6821,9 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6720,6 +6838,7 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6744,6 +6863,7 @@ This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6800,6 +6920,9 @@ This clinical feature is Hemarthrosis, annotated with Joint hemorrhage (HP:00052
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6814,6 +6937,7 @@ This clinical feature is Hemarthrosis, annotated with Joint hemorrhage (HP:00052
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6838,6 +6962,7 @@ This clinical feature is Hemarthrosis, annotated with Joint hemorrhage (HP:00052
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6894,6 +7019,9 @@ This clinical feature is Intracranial hemorrhage (HP:0002170). HP:0002170 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6908,6 +7036,7 @@ This clinical feature is Intracranial hemorrhage (HP:0002170). HP:0002170 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6964,6 +7093,9 @@ This clinical feature is Prolonged bleeding after surgery or dental extraction, 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6978,6 +7110,7 @@ This clinical feature is Prolonged bleeding after surgery or dental extraction, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7002,6 +7135,7 @@ This clinical feature is Prolonged bleeding after surgery or dental extraction, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7058,6 +7192,9 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7072,6 +7209,7 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7128,6 +7266,9 @@ This clinical feature is Prolonged activated partial thromboplastin time, annota
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7142,6 +7283,7 @@ This clinical feature is Prolonged activated partial thromboplastin time, annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7166,6 +7308,7 @@ This clinical feature is Prolonged activated partial thromboplastin time, annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7220,6 +7363,9 @@ This clinical feature is Reduced prothrombin antigen (HP:0040250). HP:0040250 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7234,6 +7380,7 @@ This clinical feature is Reduced prothrombin antigen (HP:0040250). HP:0040250 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7299,6 +7446,9 @@ This clinical feature is Deep muscle hematoma, annotated with Intramuscular hema
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7313,6 +7463,7 @@ This clinical feature is Deep muscle hematoma, annotated with Intramuscular hema
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7337,6 +7488,7 @@ This clinical feature is Deep muscle hematoma, annotated with Intramuscular hema
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7437,6 +7589,9 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -7462,6 +7617,7 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7483,6 +7639,7 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7517,6 +7674,12 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A novel missense change affecting the B chain of alpha-thrombin, found in compound heterozygosity with a propeptide-cleavage-site variant in an Indian patient with 17.5% residual coagulant activity. Modelling places it adjacent to the catalytic-triad histidine.</div>
 
 
@@ -7541,6 +7704,7 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7575,6 +7739,12 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A homozygous missense variant causing severe dysprothrombinaemia. The mutant zymogen cannot complete the zymogen-to-proteinase transition; ecarin-driven activation accumulates the meizothrombin intermediate, which retains some fibrinogen-degrading activity and may explain the patient&#39;s mild clinical phenotype despite activity below 1%.</div>
 
 
@@ -7599,6 +7769,7 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7703,6 +7874,9 @@ This treatment uses prothrombin complex concentrate.</span>
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7713,6 +7887,9 @@ This treatment uses prothrombin complex concentrate.</span>
 
 
     </div>
+
+
+
 
 
 
@@ -7749,6 +7926,7 @@ This treatment uses prothrombin complex concentrate.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7795,6 +7973,7 @@ This treatment uses prothrombin complex concentrate.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7819,6 +7998,7 @@ This treatment uses prothrombin complex concentrate.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7840,6 +8020,7 @@ This treatment uses prothrombin complex concentrate.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7927,6 +8108,12 @@ This treatment uses fresh frozen plasma.</span>
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Used where prothrombin complex concentrate is unavailable, and in practice the treatment actually given in resource-limited settings. Plasma raises factor II activity less predictably than concentrate and carries a volume load, so it is a second choice rather than an equivalent.</div>
 
 
@@ -7969,6 +8156,7 @@ This treatment uses fresh frozen plasma.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7990,6 +8178,7 @@ This treatment uses fresh frozen plasma.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8078,6 +8267,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8088,6 +8280,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -8136,6 +8331,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8157,6 +8353,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8330,6 +8527,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8368,6 +8566,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8450,6 +8649,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8526,6 +8726,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8608,6 +8809,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8629,6 +8831,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8714,6 +8917,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8735,6 +8939,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8839,6 +9044,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8860,6 +9066,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8928,6 +9135,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9077,6 +9285,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9116,6 +9325,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9160,6 +9370,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9287,6 +9498,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9326,6 +9538,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11398,6 +11611,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Congenital_Prothrombin_Deficiency</strong> · 2026-09-05T20:28:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Prothrombin_Deficiency/2026-09-05T202814Z-claude-code-444f26.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Congenital_Prothrombin_Deficiency.yaml for congenital prothrombin (factor II) deficiency, MONDO:0013361, F2 (hgnc:3535). Deep research: just research-disorder falcon Congenital_Prothrombin_Deficiency -&gt; research/Congenital_Prothrombin_Deficiency-deep-research-falcon.md (Edison/falcon, 625s, 33 citations; reference_validation 7/7 verified, confabulation_rate 0.0; term_validation needs_review=true because the report echoed the template placeholder &#39;if available&#39; as the MONDO label and offered HP:0001020, which does not exist - that CURIE was not bound, and every HP/GO/CL/NCIT/CHEBI term used here was independently verified with OAK or the OLS API). just preflight-dr returned PASS (F2 mentioned 43 times; expected causal gene). GeneReviews: searched; the only F2 GeneReviews chapter is Prothrombin Thrombophilia (PMID:20301327), a distinct thrombotic disorder, so there is no GeneReviews phenotype baseline for this disease. Modelled as DISEASE with two has_subtypes, Type I (hypoprothrombinaemia) and Type II (dysprothrombinaemia); the antigen-versus-activity discrepancy is curated structurally in biochemical: with subtype attribution plus a readout link and severity interpretation_bands, not as prose. Pathophysiology is a 13-node causal chain from biallelic F2 variants through the prothrombinase step to a thrombin hub that fans out into five separate branches (fibrinogen to fibrin; PAR-mediated platelet activation; factor V/VIII/XI feedback amplification; factor XIII activation and fibrin cross-linking; thrombomodulin-protein C anticoagulant arm) converging on a weak, poorly cross-linked clot. Vitamin K-dependent Gla-domain carboxylation and membrane binding is curated as its own node because it explains why the acquired vitamin K-related deficiencies phenocopy the disease. Complete prothrombin absence is recorded as a constraint on the disease model, not as an observed human phenotype: two prothrombin-null mouse lines (PMID:9636195, PMID:9636196, graded MODEL_ORGANISM) and a zebrafish kringle-1 mutant (PMID:32132579) supply the lethality evidence, with a no_human_null_phenotype discussion recording that the human side of the claim is an absence of observations. Lupus anticoagulant-hypoprothrombinaemia syndrome is curated as a differential_diagnosis (PMID:40719111), never as a subtype. Umbilical stump bleeding was deliberately NOT curated: the reviewed sources assign it to factor XIII deficiency and afibrinogenaemia rather than to factor II deficiency; this is recorded in notes. No conforms_to: primary_hemostatic_plug_failure explicitly excludes coagulation-factor deficiencies from its scope and thrombogenesis models the inverse process. Validation: just validate passes (schema, terms, references); count-verified-snippets 76/76; check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms-online, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence, check-reference-titles all OK; just validate-disorders run as the final gate. Weighted compliance 83.2 percent; datasets: is empty and no dataset accession was curated.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

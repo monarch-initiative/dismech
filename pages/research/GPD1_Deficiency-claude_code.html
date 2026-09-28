@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPD1 Deficiency · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>GPD1 Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>GPD1 Deficiency</h1>
+                
+                <p class="report-subtitle">GPD1 Deficiency (Transient Infantile Hypertriglyceridemia, HTGTI) — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0013771" target="_blank" rel="noopener noreferrer">MONDO:0013771</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">14 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>GPD1 Deficiency (Transient Infantile Hypertriglyceridemia, HTGTI) — Comprehensive Research Report</h1>
+<h2>Identifier note (flagged discrepancy)</h2>
+<p>The template lists <strong><a href="https://bioregistry.io/OMIM:611090" target="_blank" rel="noopener noreferrer">OMIM:611090</a></strong> as a candidate identifier for GPD1 Deficiency. That MIM number does <strong>not</strong> correspond to this disease — OMIM #611090 is <em>Intellectual Developmental Disorder, Autosomal Recessive 12 (MRT12)</em>, an unrelated condition (<a href="https://omim.org/entry/611090">OMIM #611090</a>). The correct OMIM identifiers are:
+- <strong>Phenotype MIM: 614480</strong> — <em>Hypertriglyceridemia, Transient Infantile</em> (<a href="https://omim.org/entry/614480">OMIM #614480</a>)
+- <strong>Gene MIM: 138420</strong> — <em>Glycerol-3-Phosphate Dehydrogenase 1; GPD1</em> (<a href="https://omim.org/entry/138420">OMIM *138420</a>)
+- <strong>Gene:</strong> GPD1, <a href="https://bioregistry.io/HGNC:4455" target="_blank" rel="noopener noreferrer">HGNC:4455</a>, cytogenetic location <strong>12q13.12</strong> (GRCh38: chr12:50,104,008–50,111,313), 8 exons (<a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=GPD1">GeneCards</a>; <a href="https://www.ncbi.nlm.nih.gov/gtr/genes/2819/">GTR</a>). Note one AI-summarized source mis-stated the locus as "2q12-q13" — this is an error; 12q13.12 is the correct, multiply-confirmed location.
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:300293" target="_blank" rel="noopener noreferrer">ORPHA:300293</a>, listed as germline GPD1 mutation causing "transient infantile hypertriglyceridemia and hepatic steatosis in infants."
+- <strong><a href="http://purl.obolibrary.org/obo/MONDO_0013771" target="_blank" rel="noopener noreferrer">MONDO:0013771</a></strong> as given in the template is plausible as the disease-node identifier used by Monarch/MONDO for this entry but was not independently re-verified against a live MONDO browse in this session — treat as a lead pending confirmation via <code>just validate-terms</code>/OAK lookup before binding.
+- <strong>No dedicated GeneReviews chapter was found</strong> for GPD1 deficiency/HTGTI in this search.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> GPD1 deficiency, clinically designated <strong>Transient Infantile Hypertriglyceridemia (HTGTI)</strong>, is a rare autosomal recessive inborn error of triglyceride/glycerolipid metabolism caused by biallelic loss-of-function variants in <em>GPD1</em>, encoding cytosolic NAD⁺-dependent glycerol-3-phosphate dehydrogenase 1. It presents in infancy with hepatomegaly, marked hypertriglyceridemia, elevated transaminases, hepatic steatosis, and — in a substantial minority — hepatic fibrosis progressing occasionally to cirrhosis (Basel-Vanagaite et al., 2012, PMID not directly retrieved but paper is <em>Am J Hum Genet</em> 2012;90:49–60, <a href="https://www.sciencedirect.com/science/article/pii/S0002929711005295">ScienceDirect</a>). Despite the name "transient," a growing literature (see §11) shows the biochemical/hepatic phenotype is often only <em>partially</em> transient, and the disease has been characterized as "a rare, overlooked cause of liver disease" in a 2025 review (<a href="https://www.nature.com/articles/s10038-025-01339-9">Journal of Human Genetics 2025</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>) and, in an August 2026 commentary, questioned as "A Transient Disease or a Great Masquerader?" (Das et al. 2026, <em>Am J Med Genet A</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/42063230/" target="_blank" rel="noopener noreferrer">PMID:42063230</a>, <a href="https://onlinelibrary.wiley.com/doi/10.1002/ajmg.a.70188">Wiley</a>).</p>
+<p><strong>Synonyms:</strong> Transient infantile hypertriglyceridemia; HTGTI; GPD1 deficiency; glycerol-3-phosphate dehydrogenase 1 deficiency; glycerophosphate dehydrogenase 1 deficiency.</p>
+<p><strong>Source of information base:</strong> The evidence base is almost entirely <strong>aggregated case-report/case-series literature</strong> (individual pediatric/genetics case reports, plus several pooled literature reviews of 17–45 cumulative cases as of 2020–2025), not large disease-level registries or EHR cohorts. There is no dedicated patient registry or GeneReviews chapter identified.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor:</strong> Monogenic — biallelic (homozygous or compound heterozygous) pathogenic variants in <em>GPD1</em> (12q13.12) are necessary and sufficient. No environmental, infectious, or polygenic contribution has been proposed; this is a purely Mendelian enzymopathy.</p>
+<p><strong>Genetic risk factors:</strong>
+- Homozygosity for <em>GPD1</em> loss-of-function alleles (splice-site, nonsense, missense, frameshift).
+- <strong>Consanguinity</strong> is a strong contributing factor at the population level: reported in ~28–40% of published cases (10/36, 27.7%, per the 2024 North-India series reviewing global literature, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>; ~40% per another pooled review, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>). The founding description was in <strong>four highly consanguineous Israeli Arab families</strong> sharing the splice variant c.361-1G&gt;C (Basel-Vanagaite et al. 2012).
+- Founder effect: the c.361-1G&gt;C splice-acceptor variant in intron 3 recurs across the original Israeli Arab kindred as a shared haplotype-associated allele.
+- 86.1% of reported genotypes are homozygous, 13.9% compound heterozygous (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>).</p>
+<p><strong>Environmental risk factors:</strong> None specifically established; disease is congenital/metabolic rather than exposure-driven. Dietary fat intake modulates <em>severity</em> (see Treatment) but is not causal.</p>
+<p><strong>Protective factors:</strong> None reported in the literature; no protective alleles or modifier alleles have been characterized. The residual/partial enzymatic activity retained by some missense alleles (vs. null/truncating alleles) appears associated with milder or more clearly "transient" courses, though this genotype-severity correlation is not rigorously established across the small case series.</p>
+<p><strong>Gene-environment interaction:</strong> Dietary fat load (especially long-chain triglycerides and simple sugars, which increase hepatic glycerol-3-phosphate flux into triglyceride synthesis) appears to exacerbate hypertriglyceridemia and hepatic fat accumulation in affected children, which underlies the low-fat/MCT dietary management strategy (see §12). This is inferred from treatment-response literature rather than formally demonstrated G×E study designs.</p>
+<p><strong>Suggested ontology terms:</strong> MONDO (disease, pending verification above); <a href="http://purl.obolibrary.org/obo/GENO_0000148" target="_blank" rel="noopener noreferrer">GENO:0000148</a> (biallelic homozygous) / <a href="http://purl.obolibrary.org/obo/GENO_0000135" target="_blank" rel="noopener noreferrer">GENO:0000135</a> (compound heterozygous); <a href="https://bioregistry.io/HGNC:4455" target="_blank" rel="noopener noreferrer">HGNC:4455</a> (GPD1).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The phenotype set below draws on the two largest pooled reviews (36 cumulative global cases through Dec 2023, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>; 45 cases across 18 studies as of 2025, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>) plus individual case reports for rarer manifestations.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency (pooled literature)</th>
+<th>HPO term (suggested)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hypertriglyceridemia</td>
+<td>97.2% (35/36); also reported ~95–98% in other pooled series</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" rel="noopener noreferrer">HP:0002155</a> Hypertriglyceridemia</td>
+<td>Moderate–severe; often several-fold to markedly elevated; peaks typically within first 6 months of life</td>
+</tr>
+<tr>
+<td>Hepatomegaly</td>
+<td>94.4% (34/36); 100% in a smaller 18-patient series</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> Hepatomegaly</td>
+<td>Often the presenting clinical sign</td>
+</tr>
+<tr>
+<td>Hepatic steatosis / fatty liver (imaging or biopsy)</td>
+<td>100% (26/26 with imaging; 18/18 biopsied)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" rel="noopener noreferrer">HP:0001397</a> Hepatic steatosis</td>
+<td>Universal finding on imaging/biopsy in reported cases</td>
+</tr>
+<tr>
+<td>Elevated transaminases</td>
+<td>~95–100% depending on series</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a> Elevated hepatic transaminase</td>
+<td>Typically mild–moderate (1.5–3× ULN) elevation</td>
+</tr>
+<tr>
+<td>Hepatic fibrosis (biopsy)</td>
+<td>94.4% (17/18 biopsied)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" rel="noopener noreferrer">HP:0001395</a> Hepatic fibrosis</td>
+<td>High rate among biopsied cases — biopsy is not universal, so ascertainment bias toward more severe cases is likely</td>
+</tr>
+<tr>
+<td>Cirrhosis</td>
+<td>22.2% (4/18 biopsied)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" rel="noopener noreferrer">HP:0001394</a> Cirrhosis</td>
+<td>Occurs in a meaningful minority; includes adolescent-onset case (Matarazzo et al. 2020)</td>
+</tr>
+<tr>
+<td>Splenomegaly</td>
+<td>22.2% (8/36)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a> Splenomegaly</td>
+<td></td>
+</tr>
+<tr>
+<td>Growth failure / short stature</td>
+<td>22.2–23% (8/36)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> Short stature / <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive</td>
+<td></td>
+</tr>
+<tr>
+<td>Hypoglycemia (fasting)</td>
+<td>~11%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" rel="noopener noreferrer">HP:0001943</a> Hypoglycemia</td>
+<td>Rare but reported, including with insulin resistance (Karger 2022/PMC9801319)</td>
+</tr>
+<tr>
+<td>Insulin resistance / obesity</td>
+<td>Reported in a subset (case reports)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040270" target="_blank" rel="noopener noreferrer">HP:0040270</a> Obesity / <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" rel="noopener noreferrer">HP:0000855</a> Insulin resistance (proxy term)</td>
+<td>E.g., Chinese boy with obesity, insulin resistance, fatty liver, short stature (<a href="https://pubmed.ncbi.nlm.nih.gov/28944580/" target="_blank" rel="noopener noreferrer">PMID:28944580</a>)</td>
+</tr>
+<tr>
+<td>Elevated total bile acids / intrahepatic cholestasis</td>
+<td>Case-reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030957" target="_blank" rel="noopener noreferrer">HP:0030957</a> Elevated circulating bile acid concentration</td>
+<td></td>
+</tr>
+<tr>
+<td>Organic aciduria</td>
+<td>Case-reported</td>
+<td>(variable, non-specific organic aciduria)</td>
+<td></td>
+</tr>
+<tr>
+<td>Hepatic adenoma</td>
+<td>Single case report (first reported)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006725" target="_blank" rel="noopener noreferrer">HP:0006725</a> Hepatic adenoma (proxy)</td>
+<td>First reported case of hepatic adenoma arising in HTGTI (<a href="https://pubmed.ncbi.nlm.nih.gov/35365473/" target="_blank" rel="noopener noreferrer">PMID:35365473</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8977762/">PMC8977762</a>)</td>
+</tr>
+<tr>
+<td>Kidney disease (renal)</td>
+<td>Rare, case-reported</td>
+<td>(non-specific)</td>
+<td>Listed among "rare phenotypes" in pooled review</td>
+</tr>
+<tr>
+<td>Vomiting</td>
+<td>Case-reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> Vomiting</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> Median age at diagnosis 6 months (range 1–164 months) in the largest pooled series (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>); most present within the first year of life, though later childhood/adolescent presentations (including a first diagnosis at age 16 with established cirrhosis) are recorded.</p>
+<p><strong>Severity/progression:</strong> Variable — spans an apparently "benign," self-limited biochemical course in some infants to progressive fibrosis/cirrhosis in others; genotype-phenotype correlation is not well established.</p>
+<p><strong>Quality of life impact:</strong> Not formally studied with validated instruments (no EQ-5D/SF-36/PROMIS data identified). Reported outcomes emphasize preserved growth and neurodevelopment in most followed patients; QoL burden is inferred to derive chiefly from chronic hepatic monitoring, dietary restriction, and (in severe cases) cirrhosis-related morbidity.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <em>GPD1</em> (<a href="https://bioregistry.io/HGNC:4455" target="_blank" rel="noopener noreferrer">HGNC:4455</a>), OMIM *138420, chr12q13.12.</p>
+<p><strong>Variant spectrum:</strong> As of the most recent pooled reviews (2024–2025), <strong>~24 distinct disease-causing GPD1 variants</strong> have been reported worldwide (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>). Representative variants, all recessive/biallelic and largely private/founder alleles:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA/protein)</th>
+<th>Type</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.361-1G&gt;C (p.Ile119fsX94)</td>
+<td>Splice-acceptor, intron 3 → frameshift/truncation at residue 213, disrupting NAD-binding/substrate-recognition domain</td>
+<td>Basel-Vanagaite et al. 2012 (founder allele, 4 consanguineous Israeli Arab families)</td>
+</tr>
+<tr>
+<td>c.628G&gt;C (p.G210R)</td>
+<td>Missense</td>
+<td>Chinese case report</td>
+</tr>
+<tr>
+<td>c.454C&gt;T (p.Q152*)</td>
+<td>Nonsense</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td>c.895G&gt;A (p.G299R)</td>
+<td>Missense</td>
+<td>Matarazzo et al. 2020 (JIMD Reports), homozygous, associated with adolescent cirrhosis</td>
+</tr>
+<tr>
+<td>c.805C&gt;T (p.R269W)</td>
+<td>Missense</td>
+<td>Karger 2022 case, associated with hypoglycemia/insulin resistance</td>
+</tr>
+<tr>
+<td>c.917T&gt;C, c.905C&gt;G</td>
+<td>Missense (novel)</td>
+<td>Reported in 2024 North India series (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Classification per ACMG/AMP is not systematically reported across the literature but the recurring splice/nonsense/frameshift alleles are consistent with <strong>loss-of-function (biallelic null)</strong> as the principal molecular mechanism; missense alleles presumably retain partial activity, though functional enzymatic assays confirming residual activity for each specific variant were not identified in this search.</p>
+<p><strong>Allele frequency in population databases:</strong> No systematic gnomAD/ExAC carrier-frequency figure for <em>GPD1</em> pathogenic variants was retrievable in this session; this should be checked directly against gnomAD v4 per-variant pages before citing a specific number in the KB entry (each of the variants above should be individually queried).</p>
+<p><strong>Somatic vs. germline:</strong> Exclusively germline/constitutional in this disease (not a somatic/cancer-associated gene in this context — do not conflate with the distinct paralog <em>GPD1L</em>, associated with Brugada syndrome/cardiac Na⁺ channel dysfunction via a different mechanism, PMC3150966).</p>
+<p><strong>Functional consequence:</strong> Loss of GPD1 catalytic (cytosolic glycerol-3-phosphate dehydrogenase) activity — i.e., <strong>loss of function</strong>, not gain-of-function or dominant-negative in the reported alleles.</p>
+<p><strong>Modifier genes:</strong> None established. Genotype-severity correlation (e.g., null vs. missense allele → cirrhosis risk) is suggested informally by case pattern but not statistically demonstrated.</p>
+<p><strong>Epigenetic information:</strong> None specifically reported for human GPD1 deficiency.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not applicable — this is a single-gene sequence-variant disease, not a CNV/structural disorder.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None causally implicated; this is a purely monogenic disease.</li>
+<li><strong>Lifestyle factors:</strong> Dietary fat composition and quantity modulate the severity of the biochemical phenotype (hypertriglyceridemia, hepatic fat accumulation) — see Treatment. High dietary fat, particularly long-chain triglycerides, appears to worsen hypertriglyceridemia; medium-chain triglyceride (MCT)-enriched, low-long-chain-fat diets are used therapeutically.</li>
+<li><strong>Infectious agents:</strong> None implicated.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain (numbered):</strong></p>
+<ol>
+<li><strong>Biallelic loss-of-function variant in <em>GPD1</em></strong> (e.g., c.361-1G&gt;C splice defect, or missense/nonsense alleles) → <strong>leads to</strong> absent or markedly reduced cytosolic NAD⁺-dependent glycerol-3-phosphate dehydrogenase 1 enzymatic activity.</li>
+<li>Loss of GPD1 activity <strong>abolishes/reduces</strong> the reversible cytosolic interconversion of <strong>dihydroxyacetone phosphate (DHAP) ⇌ glycerol-3-phosphate (G3P)</strong>, which normally couples glycolysis/gluconeogenesis to glycerolipid synthesis and regenerates cytosolic NAD⁺ from NADH.</li>
+<li>The proposed primary mechanistic hypothesis (Basel-Vanagaite et al. 2012) is that GPD1 loss <strong>limits the conversion of G3P back to DHAP</strong>, which <strong>results in</strong> an increased pool of G3P available as substrate for glycerolipid/triglyceride backbone synthesis (via glycerol-3-phosphate acyltransferase and downstream acylation steps) — i.e., a substrate-accumulation mechanism driving excess hepatic triglyceride synthesis. (Note: this direction of flux — i.e., which arm of the readily reversible reaction is rate-limiting in vivo — is inferred rather than directly demonstrated biochemically in patient tissue, and should be flagged in curation as a hypothesis rather than a confirmed mechanism.)</li>
+<li>An alternative/complementary hypothesis in the 2025 review (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>) proposes that fatty liver in GPD1 deficiency <strong>"may result from excessive acylation of dihydroxyacetone phosphate (DHAP)"</strong> via the alternative (acyl-DHAP) pathway of glycerolipid synthesis, which becomes favored when the GPD1-dependent G3P-generating route is blocked — this branch point is explicitly noted as mechanistically unclear ("detailed mechanisms remain unclear").</li>
+<li>Excess hepatic triglyceride synthesis and/or impaired triglyceride clearance from hepatocytes <strong>leads to</strong> intrahepatocellular lipid droplet accumulation → <strong>hepatic steatosis</strong> (macro/microvesicular, confirmed histologically in nearly all biopsied cases).</li>
+<li>Excess hepatic triglyceride is also secreted into the circulation as VLDL, <strong>contributing to</strong> systemic <strong>hypertriglyceridemia</strong>, which peaks in the first months of life and in many patients gradually declines with age (the basis for the "transient" designation), though this decline is incomplete/variable across patients.</li>
+<li>Chronic hepatocellular lipid accumulation and associated lipotoxic/inflammatory stress <strong>leads to</strong> hepatocyte injury (reflected in elevated transaminases) and, over time, a <strong>fibrogenic response</strong> — progressive deposition of extracellular matrix — in a majority of biopsied patients (94.4%), and in a minority (22.2%) <strong>progresses to cirrhosis</strong> and, in single cases, to hepatic adenoma formation (a first-reported association, <a href="https://pubmed.ncbi.nlm.nih.gov/35365473/" target="_blank" rel="noopener noreferrer">PMID:35365473</a>) — mechanistically analogous to metabolic-dysfunction-associated steatotic liver disease (MASLD/NAFLD) progression, but of monogenic origin.</li>
+<li><strong>Branch — carbohydrate/energy metabolism:</strong> because DHAP↔G3P interconversion is also part of the cytosolic arm of the glycerol-3-phosphate shuttle that regenerates cytosolic NAD⁺ (paired with mitochondrial GPD2, which is FAD-linked and feeds electrons into the respiratory chain via coenzyme Q), GPD1 loss also <strong>impairs gluconeogenesis from glycerol</strong>. In mouse Gpd1-knockout models this <strong>leads to</strong> a compensatory shift toward <strong>increased gluconeogenesis from glycogenic amino acids (notably alanine)</strong>, evidenced by higher blood alanine and enhanced hepatic alanine-driven gluconeogenesis during fasting, and — counterintuitively — <em>higher</em> blood glucose after 1–4 hours of fasting than wild-type mice (Tanner et al., <a href="https://pubmed.ncbi.nlm.nih.gov/27733253/" target="_blank" rel="noopener noreferrer">PMID:27733253</a>). This branch is proposed as the mechanistic basis for the rare hypoglycemia/insulin-resistance phenotypes reported in some human patients, though the direct human-mechanistic link is inferred from the mouse fasting data rather than demonstrated in patient-derived tissue.</li>
+<li>In some patients, chronic disturbance of hepatic lipid/glucose handling <strong>is associated with</strong> downstream insulin resistance and obesity (case-reported subset), though causal directionality (GPD1 loss → primary insulin resistance, vs. secondary to hepatic steatosis) is not established.</li>
+</ol>
+<p><strong>Molecular pathways:</strong> Glycerolipid/triglyceride biosynthesis pathway (KEGG map00561); glycerophospholipid metabolism; the glycerol-3-phosphate shuttle (bridges glycolysis and oxidative phosphorylation); gluconeogenesis (glycerol input arm).</p>
+<p><strong>Cellular processes:</strong> Lipid droplet biogenesis/accumulation in hepatocytes (steatosis); hepatic stellate cell activation and extracellular matrix deposition (fibrogenesis, likely via the same final-common-pathway mechanisms modeled generically in dismech's <code>fibrotic_response</code> module); possible lipotoxic hepatocellular stress.</p>
+<p><strong>Protein dysfunction:</strong> Loss-of-function via (a) splice disruption/premature truncation removing catalytic/substrate-recognition residues (c.361-1G&gt;C), or (b) missense substitutions presumably destabilizing the NAD-binding or catalytic domain (e.g., p.G210R, p.G299R, p.R269W) — specific structural/functional characterization of these missense alleles (e.g., via AlphaFold modeling or recombinant enzyme assay) was not identified in this search and would need dedicated retrieval.</p>
+<p><strong>Metabolic changes:</strong> Elevated hepatic and circulating triglycerides; altered cytosolic NADH/NAD⁺ ratio; compensatory amino-acid-driven gluconeogenesis (mouse data); possible organic aciduria (case-reported, mechanism unclear).</p>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006650" target="_blank" rel="noopener noreferrer">GO:0006650</a> (glycerophospholipid metabolic process); <a href="http://purl.obolibrary.org/obo/GO_0019432" target="_blank" rel="noopener noreferrer">GO:0019432</a> (triglyceride biosynthetic process); <a href="http://purl.obolibrary.org/obo/GO_0006094" target="_blank" rel="noopener noreferrer">GO:0006094</a> (gluconeogenesis); <a href="http://purl.obolibrary.org/obo/GO_0004367" target="_blank" rel="noopener noreferrer">GO:0004367</a> (glycerol-3-phosphate dehydrogenase [NAD+] activity, molecular function for GPD1 itself); <a href="http://purl.obolibrary.org/obo/GO_0055088" target="_blank" rel="noopener noreferrer">GO:0055088</a> (lipid homeostasis).</p>
+<p><strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> (hepatocyte) — primary affected cell type; <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" rel="noopener noreferrer">CL:0000632</a> (hepatic stellate cell) — fibrogenic effector, inferred by analogy rather than directly demonstrated in GPD1-deficiency-specific studies.</p>
+<p><strong>Advanced/omics technologies:</strong> No transcriptomic, proteomic, metabolomic, single-cell, or spatial data specific to human GPD1-deficient liver tissue were identified in this search; the mouse Gpd1-knockout fasting/metabolomics study (<a href="https://pubmed.ncbi.nlm.nih.gov/27733253/" target="_blank" rel="noopener noreferrer">PMID:27733253</a>) is the principal molecular-profiling-adjacent dataset available.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> Liver (hepatomegaly, steatosis, fibrosis, cirrhosis, and rarely adenoma).</li>
+<li><strong>Secondary/systemic involvement:</strong> Adipose tissue/systemic lipid metabolism (hypertriglyceridemia); spleen (splenomegaly, presumably secondary to portal hypertension/hepatic disease in advanced cases, or reactive); growth (short stature/failure to thrive); endocrine/metabolic axis (insulin resistance, hypoglycemia in a subset); kidney (rare reported involvement).</li>
+<li><strong>Body systems:</strong> Digestive system (primary); metabolism/homeostasis; growth; cardiovascular (long-term theoretical risk from hypertriglyceridemia, see Prognosis); immune system (listed among HPO-mapped systems in one search result, though the specific immune phenotype was not itemized in retrieved sources).</li>
+<li><strong>Tissue/cell level:</strong> Hepatocytes (steatosis, primary site of GPD1 dysfunction consequences); hepatic stellate cells (fibrogenesis, inferred).</li>
+<li><strong>Subcellular level:</strong> Cytosol (site of GPD1 catalytic activity; contrast with mitochondrial GPD2, part of the same glycerol-3-phosphate shuttle but genetically and clinically distinct).</li>
+<li><strong>UBERON suggestions:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> (liver); <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> (spleen); <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a> (blood, for triglyceride measurement).</li>
+<li><strong>Laterality:</strong> Not applicable (diffuse hepatic process).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Typically infantile — most patients present within the first year of life; median age at diagnosis 6 months (range 1–164 months) in the largest pooled series. A minority present later in childhood or adolescence (e.g., first diagnosed at 16 years with established cirrhosis, Matarazzo et al. 2020).</li>
+<li><strong>Onset pattern:</strong> Generally insidious/subacute, detected via incidental hepatomegaly or lipid-panel abnormality rather than acute presentation, though pancreatitis risk (from severe hypertriglyceridemia) could theoretically present acutely (none reported in the pooled cohort — see Prognosis).</li>
+<li><strong>Progression:</strong> Variable. Triglycerides "typically peak within the first 6 months of life, tending to decrease with age" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>), consistent with partial biochemical remission. However, on longer follow-up (11–376 months) in the 2024 pooled series, only a minority of patients showed full resolution: hepatomegaly resolved in 35.2% (6/17), triglycerides normalized in 29.1% (7/24), and transaminases normalized in 31.5% (6/19) — meaning the <em>majority</em> of followed patients had persistent abnormalities, challenging the "transient" label (hence the 2026 "Great Masquerader" commentary).</li>
+<li><strong>Disease course pattern:</strong> Can be stable/improving (classic "transient" course) or slowly progressive toward fibrosis/cirrhosis in a subset (~22% progressing to cirrhosis among biopsied cases).</li>
+<li><strong>Critical periods:</strong> Infancy appears to be the period of peak triglyceride elevation and diagnostic ascertainment; the mechanistic basis for age-related improvement (e.g., changing dietary composition, maturation of alternative lipid-handling pathways) is not established.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance pattern:</strong> Autosomal recessive (biallelic).</li>
+<li><strong>Penetrance:</strong> Not formally quantified; presumed high/complete given ascertainment via symptomatic presentation, though this is subject to ascertainment bias (asymptomatic homozygotes would not enter the literature).</li>
+<li><strong>Expressivity:</strong> Markedly <strong>variable</strong> — ranges from apparently self-limited infantile hypertriglyceridemia to progressive cirrhosis, hepatic adenoma, hypoglycemia/insulin resistance, and short stature. This variability is a major theme of recent reviews.</li>
+<li><strong>Genetic anticipation:</strong> Not reported/applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> Not specifically reported.</li>
+<li><strong>Founder effects:</strong> Yes — the original 2012 description involved a shared splice variant (c.361-1G&gt;C) across four consanguineous Israeli Arab families, consistent with a regional founder allele. Subsequent case reports come predominantly from China, India, Turkey, Italy, and other diverse populations with largely private (non-recurring) variants, suggesting genetic heterogeneity outside the founder cluster.</li>
+<li><strong>Consanguinity role:</strong> Substantial — present in ~28–40% of reported cases across pooled series, well above general-population background rates, consistent with a rare autosomal recessive disease.</li>
+<li><strong>Carrier frequency:</strong> Not established from a population reference database in this search; should be queried directly in gnomAD v4 per-variant.</li>
+</ul>
+<p><strong>Epidemiology:</strong>
+- <strong>Prevalence/incidence:</strong> No formal population-based prevalence or incidence estimate exists; the disease is characterized purely by <strong>cumulative reported case counts</strong> — 10 (2012) → 17 (2016) → 31 (2022) → 36 (Dec 2023) → 45 (2025) cases worldwide across the literature, reflecting a very rare, likely underdiagnosed condition (multiple reviews explicitly describe it as "rare, overlooked" and "underdiagnosed").
+- <strong>Sex ratio:</strong> ~1.6 male : 1 female among 31 reviewed genetically-confirmed cases (Wang et al. 2022 review, cited in <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>) — a mild male excess, though the biological basis (vs. ascertainment) is unclear for an autosomal recessive disease.
+- <strong>Geographic/ethnic distribution:</strong> Case reports span Israeli Arab (founder cohort), Chinese, Indian (North India series, 5 new cases 2024), Turkish, Italian, and other populations — suggesting the disease is pan-ethnic but detected wherever genomic/exome sequencing is applied to unexplained pediatric fatty liver/hypertriglyceridemia, with likely substantial underascertainment in resource-limited settings (see the 2026 companion paper on "targeted molecular testing in limited-resource settings," Malik et al., <a href="https://onlinelibrary.wiley.com/doi/10.1002/ajmg.a.70192">Wiley</a>).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/laboratory tests:</strong>
+- Fasting lipid panel: marked hypertriglyceridemia (core finding).
+- Liver function tests: elevated ALT/AST (typically 1.5–3× ULN).
+- Total bile acids (elevated in a subset).
+- Fasting glucose (hypoglycemia in a minority).
+- Organic acid analysis (organic aciduria reported in some cases, though non-specific).</p>
+<p><strong>Imaging:</strong> Abdominal ultrasound (hepatomegaly, increased echogenicity consistent with steatosis — reported in 100% of imaged cases); transient elastography/FibroScan for non-invasive fibrosis assessment.</p>
+<p><strong>Biopsy/histopathology:</strong> Liver biopsy showing macro/microvesicular steatosis (100% of biopsied cases), fibrosis (94.4%), and cirrhosis (22.2% of biopsied cases) in the pooled series.</p>
+<p><strong>Genetic testing:</strong>
+- <strong>Whole-exome sequencing (WES)</strong> is the diagnostic approach used in essentially all recent case identifications, given the absence of a distinctive enough clinical phenotype to prompt single-gene testing a priori, and the rarity/novelty of variants (most are novel, private alleles rather than recurrent hotspots outside the founder cluster).
+- Single-gene <em>GPD1</em> Sanger sequencing is used for targeted confirmation/segregation analysis once a proband variant is identified, and for carrier testing in consanguineous families or known founder populations.
+- A 2026 companion paper specifically addresses genetic-diagnosis nuances and targeted molecular testing strategies for GPD1 deficiency in limited-resource settings (Malik et al., <a href="https://onlinelibrary.wiley.com/doi/10.1002/ajmg.a.70192">Wiley</a>), suggesting targeted panel/single-gene approaches may be preferable where WES access is limited.</p>
+<p><strong>Differential diagnosis</strong> (per <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>): infectious hepatitis, Wilson disease, autoimmune hepatitis, alpha-1 antitrypsin deficiency, celiac disease, hemochromatosis, and other causes of unexplained pediatric elevated liver enzymes/hypertriglyceridemia/hepatosteatosis (e.g., other monogenic hypertriglyceridemia syndromes such as familial chylomicronemia syndrome, lipoprotein lipase deficiency, glycogen storage disease).</p>
+<p><strong>Screening:</strong> No newborn screening or population carrier-screening program identified for GPD1 deficiency; diagnosis is currently reactive (triggered by unexplained infantile hepatomegaly/hypertriglyceridemia/fatty liver) rather than proactive.</p>
+<p><strong>Suggested LOINC/ontology terms:</strong> Standard triglyceride, ALT, AST panel LOINC codes (not individually itemized here); NCIT:C15709 (Liver Biopsy) or similar procedure term for the diagnostic biopsy.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Survival/mortality:</strong> No deaths attributable to GPD1 deficiency were identified in the literature reviewed; the disease is not associated with reported mortality in the pooled case series.</p>
+<p><strong>Complication risk (theoretical vs. observed):</strong> Reviews note that hypertriglyceridemia in general "contribute[s] independently to the risk of coronary artery disease and [is] additionally associated with heightened susceptibility to acute pancreatitis" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>) — but critically, in the largest pooled follow-up (11–376 months), <strong>"no pancreatitis, cardiac events, or liver decompensation was reported"</strong> across all 36 reviewed cases (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>). This is an important curation point: the theoretical cardiovascular/pancreatitis risk of hypertriglyceridemia has <strong>not</strong> been empirically observed in this specific disease's reported natural history to date, though follow-up duration and cohort size remain limited.</p>
+<p><strong>Disease course / "transient" vs. persistent:</strong> As detailed in §8, only a minority of followed patients show full normalization (hepatomegaly resolution 35.2%, TG normalization 29.1%, transaminase normalization 31.5%), meaning most retain some abnormality at last follow-up, even though severity/degree often improves. Liver fibrosis, once established, does not clearly reverse in the available follow-up data. A subset progresses to cirrhosis (22.2% of biopsied cases) and, in one case, hepatic adenoma. The 2026 commentary explicitly frames this tension as reconsidering the disease as potentially a "great masquerader" rather than uniformly self-limited.</p>
+<p><strong>Prognostic factors:</strong> Not rigorously established; biopsy-proven fibrosis at diagnosis and null/truncating (vs. missense) genotype are plausible but unconfirmed candidate risk factors for a more severe/persistent course.</p>
+<p><strong>Functional/developmental outcome:</strong> Growth and neurodevelopment are reported as normal in most followed patients (e.g., siblings followed to ages 12.5 and 4.5 years with normal growth/development despite persistent hepatomegaly/lab abnormalities, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>), with growth failure/short stature as an exception in a minority (~22%).</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Dietary/supportive (first-line):</strong>
+- <strong>Low-fat diet with medium-chain triglyceride (MCT) enrichment</strong> is the standard first-line management approach — one series recommends MCT comprising up to ~70% of fat intake (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>), based on the rationale that MCTs bypass the long-chain-fatty-acid/triglyceride-resynthesis pathway that is pathologically overactive in this disease.
+- <strong>Omega-3 fatty acid supplementation</strong> has also been used as part of standard dietary management (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>).
+- In many patients, <strong>"no specific treatment is required"</strong> and triglycerides/enzymes are managed with observation alone as they tend to improve with age (though see §11 on incomplete normalization).</p>
+<p><strong>Pharmacotherapy:</strong>
+- <strong>Fenofibrate</strong> (a PPAR-α agonist, fibrate class) has been used successfully for severe, persistent hypertriglyceridemia refractory to diet, notably in a boy with cirrhosis and GPD1 deficiency: homozygous <strong>c.895G&gt;A (p.G299R)</strong>, followed since age 1 for hepatomegaly/elevated LFTs/hypertriglyceridemia, biopsy-proven cirrhosis with micro/macrovesicular steatosis; fenofibrate started at age 15, with <strong>successful triglyceride reduction over 1-year follow-up</strong> (Matarazzo et al. 2020, <em>JIMD Reports</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/32685347/" target="_blank" rel="noopener noreferrer">PMID:32685347</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7358666/">PMC7358666</a>). NCIT term candidate: NCIT:C61961 (Fenofibrate) as <code>therapeutic_agent</code> under a <code>NCIT:C15986</code> Pharmacotherapy <code>treatment_term</code>.
+- <strong>Allopurinol</strong> has been used adjunctively for management of hyperuricemia in at least one reported case (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11743310/">PMC11743310</a>).
+- <strong>Lipoprotein apheresis</strong> is not routine but has been considered/mentioned for severe hyperlipidemia management in the broader monogenic-hypertriglyceridemia literature context (<a href="https://pubmed.ncbi.nlm.nih.gov/29940878/" target="_blank" rel="noopener noreferrer">PMID:29940878</a> cited by <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12137118/">PMC12137118</a>), though a GPD1-deficiency-specific apheresis case was not directly retrieved in this search and should be verified before citing.</p>
+<p><strong>Advanced therapeutics:</strong> No gene therapy, cell therapy, RNA-based therapy (ASO/siRNA), or targeted molecular therapy has been developed or trialed for GPD1 deficiency — it remains managed purely with diet ± fibrate therapy. No relevant NCT-registered clinical trials were identified in this search.</p>
+<p><strong>Surgical/interventional:</strong> None specific to GPD1 deficiency identified; presumably standard cirrhosis-complication management (e.g., surveillance for hepatic adenoma/malignant transformation) would apply in advanced cases, but this is inferential rather than literature-documented.</p>
+<p><strong>Monitoring:</strong> Serial liver enzymes, triglycerides, abdominal ultrasound/elastography, and periodic biopsy consideration in persistent/progressive cases are implied by the follow-up structure of reported case series, though no formal consensus monitoring protocol/guideline was identified.</p>
+<p><strong>Suggested NCIT terms:</strong> NCIT:C15447 (Dietary Intervention) for the low-fat/MCT diet; NCIT:C15986 (Pharmacotherapy) with <code>therapeutic_agent</code> = fenofibrate (fibrate class; CHEBI or NCIT term to be confirmed via OAK lookup before binding).</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the traditional sense (monogenic recessive disease) beyond <strong>genetic counseling</strong> for carrier parents/consanguineous families, particularly in populations with known founder alleles (e.g., Israeli Arab c.361-1G&gt;C).</li>
+<li><strong>Secondary prevention/early detection:</strong> No population screening program (newborn or carrier) exists; early detection currently depends on clinical suspicion when a child presents with unexplained hepatomegaly/hypertriglyceridemia/fatty liver, triggering WES.</li>
+<li><strong>Carrier/prenatal testing:</strong> Would be feasible via targeted variant testing once a familial pathogenic variant is known (standard for autosomal recessive Mendelian disease), but no specific prenatal diagnosis program was identified in the literature reviewed.</li>
+<li><strong>Behavioral/dietary prevention of complications:</strong> Ongoing low-fat/MCT dietary management functions as tertiary prevention — limiting hepatic lipid accumulation/fibrosis progression rather than preventing disease onset.</li>
+<li><strong>Public health:</strong> Not a public-health-scale condition given its rarity; management is individualized/genetic-counseling-based rather than population-level.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> No naturally occurring GPD1-deficiency disease model was identified in companion animals (dogs, cats) or wildlife in this search (no OMIA entry surfaced). This should be double-checked directly against OMIA before asserting absence in the KB.</li>
+<li><strong>Orthologous gene:</strong> Mouse <em>Gpd1</em> (<a href="https://bioregistry.io/MGI:95679" target="_blank" rel="noopener noreferrer">MGI:95679</a>), located syntenically; the mouse ortholog has been characterized functionally (see Model Organisms below).</li>
+<li><strong>Comparative biology:</strong> The dual cytosolic (GPD1)/mitochondrial (GPD2) glycerol-3-phosphate shuttle system is evolutionarily conserved from yeast to humans — the crystal structure of yeast (<em>Saccharomyces cerevisiae</em>) Gpd1 has been solved (PMC3515364), providing structural insight into the conserved catalytic fold, though yeast Gpd1 serves an osmotic-stress-response role distinct from the mammalian lipogenic/metabolic role.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable (non-infectious monogenic disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse (<em>Mus musculus</em>, <a href="https://bioregistry.io/MGI:95679" target="_blank" rel="noopener noreferrer">MGI:95679</a>, orthologous gene <em>Gpd1</em>):</strong>
+- A <strong>spontaneous loss-of-function mutant mouse line</strong> exists: homozygous mice are described as <strong>"viable and phenotypically normal"</strong> at baseline but show <strong>complete loss of GPD1 enzymatic activity in adult tissues</strong> (<a href="https://www.informatics.jax.org/marker/MGI:95679">MGI:95679</a>; IMPC data).
+- <strong>Fasting/metabolic phenotyping</strong> (Tanner et al., <a href="https://pubmed.ncbi.nlm.nih.gov/27733253/" target="_blank" rel="noopener noreferrer">PMID:27733253</a>, "Glycerol-3-phosphate dehydrogenase 1 deficiency induces compensatory amino acid metabolism during fasting in mice"): Gpd1-knockout mice show:
+  - Inhibited gluconeogenesis specifically from glycerol (expected, given the enzyme's role).
+  - <strong>Higher</strong> blood glucose after 1–4 hours of fasting compared to wild-type — a counterintuitive compensatory finding.
+  - Significantly <strong>higher blood alanine</strong> and increased hepatic utilization of alanine for gluconeogenesis.
+  - Interpretation: chronic GPD1 deficiency induces an adaptive shift toward glycogenic-amino-acid-driven gluconeogenesis, compensating for the lost glycerol-to-glucose route.
+- <strong>Fidelity/limitations as a model for the human liver disease:</strong> Notably, the mouse model as characterized in the retrieved literature is centered on <strong>fasting glucose/amino acid metabolism</strong>, not on the hallmark human phenotype (hepatomegaly, hepatic steatosis, fibrosis, hypertriglyceridemia). This is an important <strong>model-to-mechanism gap</strong>: no clear evidence was retrieved in this search that the Gpd1-knockout mouse recapitulates hepatic steatosis/fibrosis/hypertriglyceridemia the way human patients do (the baseline phenotype is described as "phenotypically normal"). This divergence should be flagged explicitly in any <code>animal_models[].modeled_mechanisms</code> entry — likely <code>PARTIAL_RECAPITULATES</code> or <code>FAILS_TO_RECAPITULATE</code> for the hepatic/lipid phenotype specifically, pending a literature check for a fat-loading/high-fat-diet-challenged version of this model, which was not identified in this search but may exist and should be checked before finalizing model-fidelity calls.
+- <strong>Alcohol-related fatty liver context:</strong> A separate mouse study examines "the role of glycerol-3-phosphate dehydrogenase 1 in the progression of fatty liver after acute ethanol administration in mice" (ScienceDirect, PMID not retrieved directly) — relevant to GPD1's general role in hepatic lipid handling but in an ethanol-injury context rather than a direct constitutive-deficiency human-disease model; should be checked for direct relevance/fidelity before citing as a disease model.</p>
+<p><strong>Yeast (<em>Saccharomyces cerevisiae</em>):</strong> Gpd1 structural biology (PDB structure solved at 2.45 Å, PMC3515364) provides conserved catalytic-domain insight but yeast Gpd1's physiological role (osmoadaptation via glycerol production) is not a disease model for the human hepatic phenotype — useful for structural/functional annotation only, not phenotype recapitulation.</p>
+<p><strong>Other species (zebrafish, Drosophila, C. elegans, iPSC/organoid models):</strong> None identified in this search; this is a gap worth a dedicated follow-up search before concluding no such model exists.</p>
+<hr />
+<h2>Summary of Key PMIDs / Identifiers for Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Reference</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basel-Vanagaite et al. 2012, <em>Am J Hum Genet</em> 90:49–60</td>
+<td>Original description, c.361-1G&gt;C, 10 patients/4 families, molecular mechanism hypothesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27368975/" target="_blank" rel="noopener noreferrer">PMID:27368975</a></td>
+<td>"Expanding the molecular diversity and phenotypic spectrum of GPD1 deficiency" — could not confirm full-text details in this session (CAPTCHA-blocked); re-fetch before citing specifics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32685347/" target="_blank" rel="noopener noreferrer">PMID:32685347</a> / PMC7358666</td>
+<td>Matarazzo et al. 2020, fenofibrate therapy, c.895G&gt;A/p.G299R, cirrhosis case</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35365473/" target="_blank" rel="noopener noreferrer">PMID:35365473</a> / PMC8977762</td>
+<td>First reported hepatic adenoma in HTGTI</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36588760/" target="_blank" rel="noopener noreferrer">PMID:36588760</a> / PMC9801319</td>
+<td>Hypoglycemia + insulin resistance, c.805C&gt;T/p.R269W</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28944580/" target="_blank" rel="noopener noreferrer">PMID:28944580</a></td>
+<td>Obesity, insulin resistance, fatty liver, short stature, Chinese cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33120465/" target="_blank" rel="noopener noreferrer">PMID:33120465</a></td>
+<td>Two cases + literature review (Chinese)</td>
+</tr>
+<tr>
+<td>PMC11743310 (2024)</td>
+<td>5 North India cases + review of 36 global cases — primary source for frequency statistics used above</td>
+</tr>
+<tr>
+<td>PMC12137118 / [Nature s10038-025-01339-9] (2025)</td>
+<td>"GPD1 deficiency—a rare, overlooked cause of liver disease" — 45 cases/18 studies review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42063230/" target="_blank" rel="noopener noreferrer">PMID:42063230</a> (2026)</td>
+<td>Das et al., "Transient Disease or a Great Masquerader?" commentary</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27733253/" target="_blank" rel="noopener noreferrer">PMID:27733253</a></td>
+<td>Mouse Gpd1-KO fasting/amino-acid compensation study</td>
+</tr>
+<tr>
+<td>OMIM *138420 / #614480</td>
+<td>Gene / phenotype entries</td>
+</tr>
+<tr>
+<td><a href="https://bioregistry.io/ORPHA:300293" target="_blank" rel="noopener noreferrer">ORPHA:300293</a></td>
+<td>Orphanet entry</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>Notable gaps to close before KB entry finalization</h2>
+<ol>
+<li><strong>PMID for the original 2012 paper</strong> and for <a href="https://pubmed.ncbi.nlm.nih.gov/27368975/" target="_blank" rel="noopener noreferrer">PMID:27368975</a> could not be directly confirmed via full-text fetch in this session (access blocked); re-verify via PubMed/<code>just fetch-reference</code>.</li>
+<li><strong><a href="http://purl.obolibrary.org/obo/MONDO_0013771" target="_blank" rel="noopener noreferrer">MONDO:0013771</a></strong> binding should be confirmed via OAK/<code>just validate-terms</code> rather than taken from the template at face value.</li>
+<li><strong>gnomAD allele/carrier frequencies</strong> for the specific pathogenic variants (c.361-1G&gt;C, p.G299R, p.R269W, etc.) need direct per-variant lookup.</li>
+<li><strong>Mouse model hepatic/lipid phenotype fidelity</strong> (vs. the baseline "phenotypically normal" finding) needs a dedicated search for any high-fat-diet-challenged or liver-specific-phenotyping Gpd1-KO study before writing an <code>animal_models</code> entry.</li>
+<li>Confirm whether a fenofibrate/fibrate CHEBI or NCIT identifier and a <code>GPD1</code> HGNC lowercase CURIE (<code>hgnc:4455</code>) resolve correctly in the local caches before binding.</li>
+</ol>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>4</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>11</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMID:42063230</code>: "A Transient Disease or a Great Masquerader?"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+<li><code>DOI:10.1002/ajmg.a.70188</code>: "A Transient Disease or a Great Masquerader?"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+<li><code>PMC:PMC12137118</code>: "typically peak within the first 6 months of life, tending to decrease with age"</li>
+<li>The PMC ID service was unreachable, so the quote was not checked</li>
+<li><code>PMC:PMC12137118</code>: "contribute[s] independently to the risk of coronary artery disease and [is] additionally associated with heightened susceptibility to acute pancreatitis"</li>
+<li>The PMC ID service was unreachable, so the quote was not checked</li>
+</ul>
+<p>11 of 18 references resolved; the rest could not be looked up either way.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>GENO:0000148</code> (1 mention) - the report calls it "biallelic homozygous"; GENO calls it <strong>autosomal recessive inheritance</strong></li>
+<li><code>UBERON:0000178</code> (1 mention) - the report calls it "blood, for triglyceride measurement"; UBERON calls it <strong>blood</strong></li>
+<li><code>NCIT:C15709</code> (1 mention) - the report calls it "Liver Biopsy"; NCIT calls it <strong>Genetic Testing</strong></li>
+<li><code>NCIT:C61961</code> (1 mention) - the report calls it "Fenofibrate"; NCIT calls it <strong>Tacrine</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0004367</code> (GO_0004367) (1 mention) - replaced by <code>GO:0047952</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GENO:0000135</code> (1 mention) - the report calls it "compound heterozygous"; GENO calls it <strong>heterozygous</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MGI:95679</code> - called "Gpd1", "Orthologous gene:*<em> Mouse </em>Gpd1"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>, <code>ORPHA</code>, <code>MGI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Gout-falcon.html">← Gout (Falcon)</a>
+                
+                
+                <a href="GPR101-related_pituitary_adenoma_2-falcon.html">GPR101-related pituitary adenoma 2 (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/GPD1_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/GPD1_Deficiency-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

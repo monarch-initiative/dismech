@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4068,6 +4136,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4089,6 +4158,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4138,6 +4208,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-decreased-g6pd-enzyme-activity" data-dismech-node="Decreased G6PD Enzyme Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Decreased G6PD Enzyme Activity</div>
+
 
                 <div class="item-desc">Pathogenic variants in G6PD reduce enzyme stability or activity in erythrocytes, limiting the oxidative pentose phosphate pathway.</div>
 
@@ -4300,6 +4371,44 @@ This pathophysiological event involves decreased erythrocyte homeostasis (GO:003
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        glucose-6-phosphate dehydrogenase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004345" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0004345</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased glucose-6-phosphate dehydrogenase activity (GO:0004345). GO:0004345 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
                 <div class="item-meta">
@@ -4312,11 +4421,11 @@ This pathophysiological event involves decreased erythrocyte homeostasis (GO:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4377,6 +4486,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4398,6 +4508,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4424,6 +4535,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-redox-homeostasis" data-dismech-node="Impaired Redox Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Redox Homeostasis</div>
 
+
                 <div class="item-desc">Reduced G6PD activity lowers NADPH availability and compromises glutathione-dependent antioxidant buffering.</div>
 
 
@@ -4438,11 +4550,11 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4479,11 +4591,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006740" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006740</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006740" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006740</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased NADPH regeneration (GO:0006740). GO:0006740 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4513,11 +4625,11 @@ This pathophysiological event involves decreased NADPH regeneration (GO:0006740)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006749</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006749</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated glutathione metabolic process (GO:0006749). GO:0006749 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4547,11 +4659,11 @@ This pathophysiological event involves dysregulated glutathione metabolic proces
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061691" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0061691</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061691" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0061691</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased detoxification of hydrogen peroxide (GO:0061691). GO:0061691 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4616,6 +4728,7 @@ This pathophysiological event involves decreased detoxification of hydrogen pero
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4637,6 +4750,7 @@ This pathophysiological event involves decreased detoxification of hydrogen pero
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4663,6 +4777,7 @@ This pathophysiological event involves decreased detoxification of hydrogen pero
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress" data-dismech-node="Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress</div>
 
+
                 <div class="item-desc">NADPH and glutathione insufficiency leave G6PD-deficient erythrocytes susceptible to oxidant injury from drugs, infections, foods, or chemicals.</div>
 
 
@@ -4677,11 +4792,11 @@ This pathophysiological event involves decreased detoxification of hydrogen pero
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4718,11 +4833,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006979</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4752,11 +4867,11 @@ This pathophysiological event involves dysregulated response to oxidative stress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0072593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0072593</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4786,11 +4901,11 @@ This pathophysiological event involves abnormal reactive oxygen species metaboli
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042744" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042744</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042744" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0042744</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased hydrogen peroxide catabolic process (GO:0042744). GO:0042744 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4827,11 +4942,11 @@ This pathophysiological event involves decreased hydrogen peroxide catabolic pro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4876,6 +4991,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4897,6 +5013,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4923,6 +5040,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-hemoglobin-damage" data-dismech-node="Oxidative Hemoglobin Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Hemoglobin Damage</div>
 
+
                 <div class="item-desc">Unopposed oxidants damage hemoglobin sulfhydryl groups, reduce hemoglobin solubility, and form Heinz body precipitates.</div>
 
 
@@ -4937,11 +5055,11 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4978,11 +5096,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0018158" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0018158</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0018158" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0018158</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased protein oxidation (GO:0018158). GO:0018158 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5019,11 +5137,11 @@ This pathophysiological event involves increased protein oxidation (GO:0018158).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5068,6 +5186,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5091,6 +5210,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-hemolytic-anemia" data-dismech-node="Acute Hemolytic Anemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Hemolytic Anemia</div>
 
+
                 <div class="item-desc">Oxidative stressors trigger episodic erythrocyte destruction and anemia in susceptible G6PD-deficient individuals.</div>
 
 
@@ -5105,11 +5225,11 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000232</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5146,11 +5266,11 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034102" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0034102</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034102" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0034102</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased erythrocyte clearance (GO:0034102). GO:0034102 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5180,11 +5300,11 @@ This pathophysiological event involves increased erythrocyte clearance (GO:00341
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0034108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0034108</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves positive regulation of erythrocyte clearance (GO:0034108). GO:0034108 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5217,11 +5337,11 @@ This pathophysiological event involves positive regulation of erythrocyte cleara
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000178</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5234,11 +5354,11 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002106</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002106</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5339,6 +5459,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5360,6 +5481,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5408,7 +5530,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Hemolytic Anemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative stressors trigger episodic erythrocyte destruction and anemia in susceptible G6PD-deficient individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte clearance\", \"positive regulation of erythrocyte clearance\"], \"locations\": [\"blood\", \"spleen\"]}}, {\"id\": \"Avoidance of Oxidative Stressors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identifying and avoiding medications, foods, infections, and other oxidant triggers that can precipitate hemolysis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:16990\", \"term_label\": \"bilirubin IXalpha\", \"readouts\": [{\"target\": \"Acute Hemolytic Anemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Bilirubin elevation reflects heme breakdown during hemolysis.\"}, {\"target\": \"Neonatal Jaundice\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased bilirubin is the biochemical basis of neonatal hyperbilirubinemia.\"}]}}, {\"id\": \"Blood Transfusion During Severe Acute Hemolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restrictive red-cell transfusion is used for severe acute hemolytic crisis with very low hemoglobin or clinical instability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic Nonspherocytic Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001878\"}}, {\"id\": \"Dark Urine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0040319\"}}, {\"id\": \"Decreased G6PD Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in G6PD reduce enzyme stability or activity in erythrocytes, limiting the oxidative pentose phosphate pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"pentose-phosphate shunt\", \"erythrocyte homeostasis\"], \"genes\": [\"G6PD\"], \"gene_terms\": [{\"label\": \"G6PD\", \"id\": \"hgnc:4057\"}], \"locations\": [\"blood\"]}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Favism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001878\"}}, {\"id\": \"G6PD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"G6PD\"], \"gene_terms\": [{\"label\": \"G6PD\", \"id\": \"hgnc:4057\"}], \"presence\": \"Pathogenic Variants\"}}, {\"id\": \"G6PD Enzyme Activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Decreased G6PD Enzyme Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low measured G6PD activity reports the causal enzymatic defect.\"}]}}, {\"id\": \"Glutathione Homeostasis\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Red blood cells\"], \"presence\": \"IMPAIRED\", \"readouts\": [{\"target\": \"Impaired Redox Homeostasis\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Impaired glutathione homeostasis reports deficient NADPH-dependent antioxidant buffering.\"}]}}, {\"id\": \"Heinz Bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Red blood cells\"], \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Oxidative Hemoglobin Damage\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Heinz bodies indicate oxidized hemoglobin precipitation in erythrocytes.\"}]}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001878\"}}, {\"id\": \"Impaired Redox Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity lowers NADPH availability and compromises glutathione-dependent antioxidant buffering.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"NADPH regeneration\", \"glutathione metabolic process\", \"detoxification of hydrogen peroxide\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000952\"}}, {\"id\": \"Neonatal Hyperbilirubinemia Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phototherapy or exchange transfusion may be required to prevent kernicterus in G6PD-associated neonatal hyperbilirubinemia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003265\"}}, {\"id\": \"Neonatal Screening and Monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early detection and close monitoring identify G6PD-deficient newborns at risk for severe neonatal jaundice.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oxidative Hemoglobin Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unopposed oxidants damage hemoglobin sulfhydryl groups, reduce hemoglobin solubility, and form Heinz body precipitates.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"protein oxidation\"], \"locations\": [\"blood\"]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NADPH and glutathione insufficiency leave G6PD-deficient erythrocytes susceptible to oxidant injury from drugs, infections, foods, or chemicals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"reactive oxygen species metabolic process\", \"hydrogen peroxide catabolic process\"], \"locations\": [\"blood\"]}}, {\"id\": \"Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000980\"}}, {\"id\": \"Shortness of Breath\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001744\"}}], \"edges\": [{\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Impaired Redox Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity limits pentose-phosphate shunt flux and NADPH generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Chronic Nonspherocytic Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe variants can cause chronic hemolysis rather than only trigger-induced acute crises.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe enzyme instability\", \"chronic erythrocyte destruction\"]}, {\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Neonatal Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity in newborns can produce neonatal hyperbilirubinemia, with bilirubin accumulation presenting as neonatal jaundice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"bilirubin accumulation during the neonatal period\"]}, {\"source\": \"Impaired Redox Homeostasis\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inadequate NADPH and glutathione buffering amplify oxidative injury in erythrocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Stress\", \"target\": \"Oxidative Hemoglobin Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidant stress modifies hemoglobin and erythrocyte proteins when antioxidant buffering is insufficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Hemoglobin Damage\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative hemoglobin precipitation and membrane injury promote erythrocyte destruction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythrocyte destruction produces acute hemolytic anemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Favism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When fava-bean oxidants are the precipitating trigger, acute hemolytic anemia presents clinically as favism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fava-bean oxidant exposure\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Dark Urine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intravascular hemolysis can produce hemoglobinuria or dark red urine.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hemoglobinuria\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Pallor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute anemia decreases circulating red-cell mass and produces pallor.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"decreased hemoglobin\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased heme breakdown raises bilirubin and produces jaundice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"bilirubin accumulation\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute anemia can cause systemic fatigue or malaise.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced oxygen carrying capacity\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Shortness of Breath\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe acute anemia can cause dyspnea or respiratory distress.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced oxygen carrying capacity\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extravascular erythrocyte clearance can enlarge or stress the spleen during favism episodes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"splenic erythrocyte clearance\"]}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Jaundice\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Shortness of Breath\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Avoidance of Oxidative Stressors\", \"target\": \"Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Oxidative Stressors\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Oxidative Stressors\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion During Severe Acute Hemolysis\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion During Severe Acute Hemolysis\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion During Severe Acute Hemolysis\", \"target\": \"Shortness of Breath\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal Screening and Monitoring\", \"target\": \"Neonatal Jaundice\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal Hyperbilirubinemia Treatment\", \"target\": \"Neonatal Jaundice\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"G6PD Enzyme Activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low measured G6PD activity reports the causal enzymatic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Bilirubin elevation reflects heme breakdown during hemolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Neonatal Jaundice\", \"target\": \"Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased bilirubin is the biochemical basis of neonatal hyperbilirubinemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Oxidative Hemoglobin Damage\", \"target\": \"Heinz Bodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Heinz bodies indicate oxidized hemoglobin precipitation in erythrocytes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Redox Homeostasis\", \"target\": \"Glutathione Homeostasis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Impaired glutathione homeostasis reports deficient NADPH-dependent antioxidant buffering.\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"G6PD\", \"target\": \"Decreased G6PD Enzyme Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Hemolytic Anemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative stressors trigger episodic erythrocyte destruction and anemia in susceptible G6PD-deficient individuals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"erythrocyte clearance\", \"positive regulation of erythrocyte clearance\"], \"locations\": [\"blood\", \"spleen\"]}}, {\"id\": \"Avoidance of Oxidative Stressors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Identifying and avoiding medications, foods, infections, and other oxidant triggers that can precipitate hemolysis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:16990\", \"term_label\": \"bilirubin IXalpha\", \"readouts\": [{\"target\": \"Acute Hemolytic Anemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Bilirubin elevation reflects heme breakdown during hemolysis.\"}, {\"target\": \"Neonatal Jaundice\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased bilirubin is the biochemical basis of neonatal hyperbilirubinemia.\"}]}}, {\"id\": \"Blood Transfusion During Severe Acute Hemolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restrictive red-cell transfusion is used for severe acute hemolytic crisis with very low hemoglobin or clinical instability.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Chronic Nonspherocytic Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001878\"}}, {\"id\": \"Dark Urine\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0040319\"}}, {\"id\": \"Decreased G6PD Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in G6PD reduce enzyme stability or activity in erythrocytes, limiting the oxidative pentose phosphate pathway.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"pentose-phosphate shunt\", \"erythrocyte homeostasis\"], \"molecular_functions\": [\"glucose-6-phosphate dehydrogenase activity\"], \"genes\": [\"G6PD\"], \"gene_terms\": [{\"label\": \"G6PD\", \"id\": \"hgnc:4057\"}], \"locations\": [\"blood\"]}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Favism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001878\"}}, {\"id\": \"G6PD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"G6PD\"], \"gene_terms\": [{\"label\": \"G6PD\", \"id\": \"hgnc:4057\"}], \"presence\": \"Pathogenic Variants\"}}, {\"id\": \"G6PD Enzyme Activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Decreased G6PD Enzyme Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low measured G6PD activity reports the causal enzymatic defect.\"}]}}, {\"id\": \"Glutathione Homeostasis\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Red blood cells\"], \"presence\": \"IMPAIRED\", \"readouts\": [{\"target\": \"Impaired Redox Homeostasis\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Impaired glutathione homeostasis reports deficient NADPH-dependent antioxidant buffering.\"}]}}, {\"id\": \"Heinz Bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Red blood cells\"], \"presence\": \"PRESENT\", \"readouts\": [{\"target\": \"Oxidative Hemoglobin Damage\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Heinz bodies indicate oxidized hemoglobin precipitation in erythrocytes.\"}]}}, {\"id\": \"Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001878\"}}, {\"id\": \"Impaired Redox Homeostasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity lowers NADPH availability and compromises glutathione-dependent antioxidant buffering.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"NADPH regeneration\", \"glutathione metabolic process\", \"detoxification of hydrogen peroxide\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000952\"}}, {\"id\": \"Neonatal Hyperbilirubinemia Treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phototherapy or exchange transfusion may be required to prevent kernicterus in G6PD-associated neonatal hyperbilirubinemia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003265\"}}, {\"id\": \"Neonatal Screening and Monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early detection and close monitoring identify G6PD-deficient newborns at risk for severe neonatal jaundice.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oxidative Hemoglobin Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unopposed oxidants damage hemoglobin sulfhydryl groups, reduce hemoglobin solubility, and form Heinz body precipitates.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"protein oxidation\"], \"locations\": [\"blood\"]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NADPH and glutathione insufficiency leave G6PD-deficient erythrocytes susceptible to oxidant injury from drugs, infections, foods, or chemicals.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"reactive oxygen species metabolic process\", \"hydrogen peroxide catabolic process\"], \"locations\": [\"blood\"]}}, {\"id\": \"Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000980\"}}, {\"id\": \"Shortness of Breath\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002094\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001744\"}}], \"edges\": [{\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Impaired Redox Homeostasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity limits pentose-phosphate shunt flux and NADPH generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Chronic Nonspherocytic Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe variants can cause chronic hemolysis rather than only trigger-induced acute crises.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe enzyme instability\", \"chronic erythrocyte destruction\"]}, {\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"Neonatal Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced G6PD activity in newborns can produce neonatal hyperbilirubinemia, with bilirubin accumulation presenting as neonatal jaundice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"bilirubin accumulation during the neonatal period\"]}, {\"source\": \"Impaired Redox Homeostasis\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inadequate NADPH and glutathione buffering amplify oxidative injury in erythrocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Stress\", \"target\": \"Oxidative Hemoglobin Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidant stress modifies hemoglobin and erythrocyte proteins when antioxidant buffering is insufficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxidative Hemoglobin Damage\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative hemoglobin precipitation and membrane injury promote erythrocyte destruction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythrocyte destruction produces acute hemolytic anemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Favism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When fava-bean oxidants are the precipitating trigger, acute hemolytic anemia presents clinically as favism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fava-bean oxidant exposure\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Dark Urine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intravascular hemolysis can produce hemoglobinuria or dark red urine.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hemoglobinuria\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Pallor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute anemia decreases circulating red-cell mass and produces pallor.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"decreased hemoglobin\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased heme breakdown raises bilirubin and produces jaundice.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"bilirubin accumulation\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute anemia can cause systemic fatigue or malaise.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced oxygen carrying capacity\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Shortness of Breath\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe acute anemia can cause dyspnea or respiratory distress.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced oxygen carrying capacity\"]}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extravascular erythrocyte clearance can enlarge or stress the spleen during favism episodes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"splenic erythrocyte clearance\"]}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Jaundice\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hemolytic Anemia\", \"target\": \"Shortness of Breath\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Avoidance of Oxidative Stressors\", \"target\": \"Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Oxidative Stressors\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Oxidative Stressors\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion During Severe Acute Hemolysis\", \"target\": \"Acute Hemolytic Anemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion During Severe Acute Hemolysis\", \"target\": \"Hemolytic Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion During Severe Acute Hemolysis\", \"target\": \"Shortness of Breath\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal Screening and Monitoring\", \"target\": \"Neonatal Jaundice\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neonatal Hyperbilirubinemia Treatment\", \"target\": \"Neonatal Jaundice\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Decreased G6PD Enzyme Activity\", \"target\": \"G6PD Enzyme Activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low measured G6PD activity reports the causal enzymatic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Acute Hemolytic Anemia\", \"target\": \"Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Bilirubin elevation reflects heme breakdown during hemolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Neonatal Jaundice\", \"target\": \"Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased bilirubin is the biochemical basis of neonatal hyperbilirubinemia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Oxidative Hemoglobin Damage\", \"target\": \"Heinz Bodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Heinz bodies indicate oxidized hemoglobin precipitation in erythrocytes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired Redox Homeostasis\", \"target\": \"Glutathione Homeostasis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Impaired glutathione homeostasis reports deficient NADPH-dependent antioxidant buffering.\", \"relationship\": \"READOUT_OF\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"G6PD\", \"target\": \"Decreased G6PD Enzyme Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5468,10 +5590,10 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemolytic anemia (HP:0001878), qualified as temporality acute. HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5495,6 +5617,9 @@ This clinical feature is Hemolytic anemia (HP:0001878), qualified as temporality
 
 
                     </div>
+
+
+
 
 
 
@@ -5528,6 +5653,7 @@ This clinical feature is Hemolytic anemia (HP:0001878), qualified as temporality
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5549,6 +5675,7 @@ This clinical feature is Hemolytic anemia (HP:0001878), qualified as temporality
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5591,10 +5718,10 @@ This clinical feature is Hemolytic anemia (HP:0001878), qualified as temporality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemolytic anemia triggered by fava beans, annotated with Hemolytic anemia (HP:0001878), qualified as temporality acute. HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5620,6 +5747,9 @@ This clinical feature is Hemolytic anemia triggered by fava beans, annotated wit
                     </div>
 
 
+
+
+
                     <div class="item-desc">Acute hemolytic anemia triggered by ingestion of fava beans.</div>
 
 
@@ -5639,6 +5769,7 @@ This clinical feature is Hemolytic anemia triggered by fava beans, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5663,6 +5794,7 @@ This clinical feature is Hemolytic anemia triggered by fava beans, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5703,10 +5835,10 @@ This clinical feature is Hemolytic anemia triggered by fava beans, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic hemolytic anemia, annotated with Hemolytic anemia (HP:0001878), qualified as temporality chronic. HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5732,6 +5864,9 @@ This clinical feature is Chronic hemolytic anemia, annotated with Hemolytic anem
                     </div>
 
 
+
+
+
                     <div class="item-desc">Rare severe variant presentation with baseline chronic hemolysis rather than only trigger-induced crises.</div>
 
 
@@ -5751,6 +5886,7 @@ This clinical feature is Chronic hemolytic anemia, annotated with Hemolytic anem
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5775,6 +5911,7 @@ This clinical feature is Chronic hemolytic anemia, annotated with Hemolytic anem
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5824,15 +5961,18 @@ This clinical feature is Chronic hemolytic anemia, annotated with Hemolytic anem
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported during favism and consistent with splenic erythrocyte clearance.</div>
@@ -5854,6 +5994,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5903,15 +6044,18 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000952</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000952</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5931,6 +6075,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5955,6 +6100,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6004,15 +6150,18 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0040319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0040319</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reflects hemoglobinuria or discolored urine during acute hemolytic episodes.</div>
@@ -6037,6 +6186,7 @@ This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6058,6 +6208,7 @@ This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6107,15 +6258,18 @@ This clinical feature is Dark urine (HP:0040319). HP:0040319 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000980</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000980</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to anemia, most noticeable during acute hemolytic episodes.</div>
@@ -6137,6 +6291,7 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6188,15 +6343,18 @@ This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003265</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003265</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">May be severe in G6PD-deficient newborns and can require urgent bilirubin-directed management.</div>
@@ -6221,6 +6379,7 @@ This clinical feature is Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6242,6 +6401,7 @@ This clinical feature is Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6293,15 +6453,18 @@ This clinical feature is Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Shortness of breath, annotated with Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Severe acute hemolytic anemia can present with respiratory distress.</div>
@@ -6323,6 +6486,7 @@ This clinical feature is Shortness of breath, annotated with Dyspnea (HP:0002094
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6372,15 +6536,18 @@ This clinical feature is Shortness of breath, annotated with Dyspnea (HP:0002094
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Reported as malaise during favism and modeled as a systemic effect of acute anemia.</div>
@@ -6402,6 +6569,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6483,10 +6651,10 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         Gene: G6PD
 
 
-    <a href="https://bioregistry.io/hgnc:4057" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:4057</a>
+    <a href="https://bioregistry.io/hgnc:4057" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:4057</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6494,6 +6662,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6521,6 +6692,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6545,6 +6717,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6566,6 +6739,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,7 +6790,7 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">medical action avoidance<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">medical action avoidance<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is medical action avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6644,6 +6818,12 @@ This treatment is medical action avoidance, annotated with Lifestyle Therapy (NC
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6703,11 +6883,11 @@ This treatment is medical action avoidance, annotated with Lifestyle Therapy (NC
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001878</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6734,6 +6914,7 @@ This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6755,6 +6936,7 @@ This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6786,7 +6968,7 @@ This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">blood transfusion<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">blood transfusion<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6814,6 +6996,12 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -6860,11 +7048,11 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001878</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6877,11 +7065,11 @@ This treatment targets Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002094</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Shortness of breath, annotated with Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6908,6 +7096,7 @@ This treatment targets Shortness of breath, annotated with Dyspnea (HP:0002094).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6929,6 +7118,7 @@ This treatment targets Shortness of breath, annotated with Dyspnea (HP:0002094).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6960,7 +7150,7 @@ This treatment targets Shortness of breath, annotated with Dyspnea (HP:0002094).
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">neonatal screening<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">neonatal screening<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is neonatal screening, annotated with Diagnostic Procedure (NCIT:C18020). NCIT:C18020 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7001,6 +7191,12 @@ This treatment is neonatal screening, annotated with Diagnostic Procedure (NCIT:
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Early detection and close monitoring identify G6PD-deficient newborns at risk for severe neonatal jaundice.</div>
 
 
@@ -7016,11 +7212,11 @@ This treatment is neonatal screening, annotated with Diagnostic Procedure (NCIT:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003265</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003265</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7047,6 +7243,7 @@ This treatment targets Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7068,6 +7265,7 @@ This treatment targets Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7099,7 +7297,7 @@ This treatment targets Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">phototherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">phototherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7140,6 +7338,12 @@ This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Phototherapy or exchange transfusion may be required to prevent kernicterus in G6PD-associated neonatal hyperbilirubinemia.</div>
 
 
@@ -7155,11 +7359,11 @@ This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003265</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0003265</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7183,6 +7387,7 @@ This treatment targets Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7231,11 +7436,11 @@ This treatment targets Neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-43">ECTO:0000231</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-44">ECTO:0000231</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is Oxidative stress exposure, annotated with exposure to chemical (ECTO:0000231). ECTO:0000231 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -7271,6 +7476,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7295,6 +7501,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7316,6 +7523,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7413,6 +7621,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7434,6 +7643,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7543,6 +7753,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7564,6 +7775,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7648,6 +7860,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7726,6 +7939,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7809,6 +8023,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7862,6 +8077,7 @@ This environmental factor is Oxidative stress exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7998,6 +8214,12 @@ pathophysiology:
     term:
       id: UBERON:0000178
       label: blood
+  molecular_functions:
+  - preferred_term: glucose-6-phosphate dehydrogenase activity
+    term:
+      id: GO:0004345
+      label: glucose-6-phosphate dehydrogenase activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: pentose-phosphate shunt
     term:
@@ -8752,6 +8974,8 @@ disease_term:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9014,7 +9238,7 @@ G6PD deficiency is an X-linked enzymopathy that reduces activity of the rate-lim
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glucose-6-Phosphate Dehydrogenase (G6PD) Deficiency", "mondoId": "MONDO:0005775", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency", "yamlRevision": "329b160f316e"};
+        const OS_CONFIG = {"diseaseName": "Glucose-6-Phosphate Dehydrogenase (G6PD) Deficiency", "mondoId": "MONDO:0005775", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency", "yamlRevision": "3eb249123477"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

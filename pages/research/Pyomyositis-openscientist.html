@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyomyositis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Pyomyositis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Pyomyositis</h1>
+                
+                <p class="report-subtitle">Pyomyositis (MONDO:0019168): A Comprehensive Disease Characterization</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019168" target="_blank" rel="noopener noreferrer">MONDO:0019168</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">36 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Pyomyositis (<a href="http://purl.obolibrary.org/obo/MONDO_0019168" target="_blank" rel="noopener noreferrer">MONDO:0019168</a>): A Comprehensive Disease Characterization</h1>
+<p><strong>Category:</strong> Infectious Disease | <strong>MONDO:</strong> 0019168 | <strong>ICD-10:</strong> M60.0 | <strong>ICD-11:</strong> FB32.0 | <strong>MeSH:</strong> D011649</p>
+<p><em>Evidence base: 15 confirmed findings across 5 investigation iterations, drawn from 58 primary papers and reviews. All clinical/epidemiologic data are human (hospital-based case series, cohorts, systematic reviews, administrative datasets); mechanistic support includes murine in vivo models. Pyomyositis is </em><em>not a genetic disease</em><em>, so genetic/inheritance sections are largely</em> Not Applicable.</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Pyomyositis is a primary pyogenic bacterial infection of striated skeletal muscle, most often caused by <em>Staphylococcus aureus</em>, that produces an intramuscular abscess in a large muscle group—classically the thigh, iliopsoas, obturator, or gluteal muscles.</strong> It is fundamentally an <em>acquired infectious disease</em>, not a genetic or heritable disorder; there are no causal human genes, and host susceptibility is instead governed by acquired immunocompromising states. The disease was historically termed "tropical pyomyositis" because of its high incidence in tropical climates, but it is increasingly recognized in temperate, high-income countries where its incidence has more than tripled in recent decades, largely because of its association with immunodeficiency states such as HIV/AIDS, diabetes mellitus, malignancy, and organ transplantation.</p>
+<p>The pathophysiology is best understood as a two-hit process: transient or occult <em>S. aureus</em> bacteremia seeds skeletal muscle that has been rendered locally vulnerable by antecedent trauma or vigorous exercise. Normal skeletal muscle is intrinsically resistant to hematogenous infection, so muscle injury—reported in roughly one-third of patients—is thought to be a necessary permissive lesion, a mechanism directly supported by a murine "Trojan Horse" model in which intravenous MRSA alone produced no muscle infection unless muscle injury and ischemia were also present. Once seeded, the infection evolves through the classic three-stage Chiedozi progression: an invasive stage (diffuse inflammation, antibiotic-responsive), a suppurative stage (abscess formation, requiring drainage—the stage at which most patients present), and a late septic stage (bacteremia, metastatic abscesses, septic shock).</p>
+<p>Diagnosis rests on MRI, which is essentially 100% sensitive and is the modality of choice for defining site, extent, and multifocality; ultrasound and blood cultures are less reliable (culture-negative disease is common). Treatment is stage-dependent: anti-staphylococcal antibiotics alone cure early disease, while drainage plus antibiotics is required once an abscess forms. Prognosis is excellent with timely intervention—most patients recover full function—but reported mortality ranges from 1% to 23%, driven by diagnostic delay, sepsis, hypoalbuminemia, inappropriate initial antibiotics, and advanced disease at presentation. Because the disease is non-heritable and no <em>S. aureus</em> vaccine exists, prevention relies on control of predisposing conditions, <em>S. aureus</em> decolonization, and early detection.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p>Pyomyositis (PM) is formally defined as <em>"a primary pyogenic infection of the striated skeletal muscle"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29274860/">PMID: 29274860</a>). It is characterized by intramuscular abscess formation arising from hematogenous spread of bacteria to muscle. It is described as <em>"a common masquerading disease that is frequently misdiagnosed"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27090546/">PMID: 27090546</a>) because its early clinical features are non-specific and overlap with many soft-tissue conditions.</p>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0019168" target="_blank" rel="noopener noreferrer">MONDO:0019168</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>M60.0 (Infective myositis)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>FB32.0</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D011649 (Pyomyositis)</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>359693002</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>None (non-genetic disease)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> tropical pyomyositis, tropical myositis, myositis tropicans, pyogenic myositis, primary bacterial pyomyositis, purulent infectious myositis, and Lambo abscess.</p>
+<p><strong>Information source type:</strong> The evidence base is a mixture of <em>aggregated disease-level resources</em> (systematic reviews, meta-analyses, population databases such as the US National Inpatient Sample) and <em>individual-patient sources</em> (hospital-based case series, cohort studies, and case reports). There is no single genetic or EHR-derived registry; the knowledge base is predominantly clinical-observational.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause:</strong> Pyomyositis is an <strong>infectious disease</strong>. The dominant causal factor is bacterial infection of skeletal muscle, overwhelmingly by <em>Staphylococcus aureus</em> (see Section 5). It is <em>not</em> genetic, and there are no Mendelian causal factors.</p>
+<p><strong>Risk factors (environmental / host):</strong> The disease is strongly associated with acquired immunocompromise. A systematic review and meta-analysis found pyomyositis significantly associated with <strong>HIV infection (OR = 4.82; 95% CI 1.67–13.92)</strong> and with fulfilling an <strong>AIDS surveillance definition (OR = 6.08; 95% CI 2.79–13.23)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34407271/">PMID: 34407271</a>). A US population-based study reported <em>"significant association of pyomyositis with HIV, types 1 and 2 diabetes mellitus, hematologic malignancy, organ transplant, malnutrition, chronic kidney disease, obesity, and rheumatoid arthritis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32147332/">PMID: 32147332</a>). In tropical series, <em>"a concurrent state of immunodeficiency is observed in up to 75% of tropical PM cases"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27090546/">PMID: 27090546</a>). Additional environmental/behavioral risk factors include <strong>minor trauma, vigorous physical activity, and injection drug use</strong>; male sex and young age are strong demographic risk factors (Section 3).</p>
+<p><strong>Genetic risk factors (host):</strong> None identified. There are no known susceptibility loci, causal variants, or modifier genes in humans. This section is <em>Not Applicable</em> at the host level.</p>
+<p><strong>Protective factors:</strong> No genetic protective factors are known. Environmental/host protective factors are the inverse of the risk factors—<strong>immune competence, glycemic control, antiretroviral therapy with immune reconstitution, good nutrition, skin hygiene, and avoidance of muscle trauma</strong>.</p>
+<p><strong>Gene–environment interactions (pathogen side):</strong> The relevant "genetic" element is <em>bacterial</em> virulence. <em>S. aureus</em> strains carrying <strong>Panton-Valentine leukocidin (PVL; genes <em>lukS-PV</em>/<em>lukF-PV</em>)</strong> interact with the host to produce more severe disease: <em>"Staphylococcus aureus strains carrying the genes encoding Panton-Valentine leukocidin (pvl-positive) are associated with more febrile days and higher complication rates"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16452363/">PMID: 16452363</a>). Thus the disease outcome is shaped by an interaction between pathogen genotype and host immune/tissue status rather than host germline variation.</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>The clinical phenotype is a triad of <strong>fever, localized muscle pain/swelling, and functional impairment</strong>. A pediatric systematic review found <em>"Fever, painful limp, and localized pain were the most common presenting symptoms"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">PMID: 34411048</a>). In adults, myalgia and fever dominate: <em>"Common presenting symptoms were myalgias [50 (74.62%)] and fever [49 (73.13%)]"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19763666/">PMID: 19763666</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>HPO term (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>~65–73%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td>Muscle pain / myalgia</td>
+<td>Symptom</td>
+<td>~75–100%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia)</td>
+</tr>
+<tr>
+<td>Muscle swelling / mass</td>
+<td>Clinical sign</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100279" target="_blank" rel="noopener noreferrer">HP:0100279</a> (Muscle swelling)</td>
+</tr>
+<tr>
+<td>Painful limp / impaired mobility</td>
+<td>Sign</td>
+<td>Common (pediatric)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002355" target="_blank" rel="noopener noreferrer">HP:0002355</a> (Difficulty walking)</td>
+</tr>
+<tr>
+<td>Functional impairment</td>
+<td>Sign</td>
+<td>~83%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002355" target="_blank" rel="noopener noreferrer">HP:0002355</a></td>
+</tr>
+<tr>
+<td>Woody induration</td>
+<td>Sign</td>
+<td>Invasive stage</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Leukocytosis / neutrophilia</td>
+<td>Lab abnormality</td>
+<td>Characteristic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a> (Leukocytosis)</td>
+</tr>
+<tr>
+<td>Elevated CRP / ESR</td>
+<td>Lab abnormality</td>
+<td>Characteristic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" rel="noopener noreferrer">HP:0011227</a> (Elevated CRP)</td>
+</tr>
+<tr>
+<td>Elevated creatine kinase</td>
+<td>Lab abnormality</td>
+<td>Often normal/mild in bacterial PM; markedly elevated in aseptic forms</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a> (Elevated serum creatine kinase)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype characteristics:</strong>
+- <strong>Age of onset:</strong> Bimodal in reports—young adults (mean 29.9 ± 14.8 yr in a North India cohort) and children (mean age ~8 yr in pediatric series). Predominantly a disease of children and young adults.
+- <strong>Severity:</strong> Variable—from indolent localized muscle pain to fulminant septic shock.
+- <strong>Progression:</strong> Subacute and progressive through three stages if untreated (Section 8); self-limited once appropriately treated.
+- <strong>Time to diagnosis:</strong> Mean ~6.6 ± 3.05 days (<a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">PMID: 34411048</a>).</p>
+<p><strong>Quality of life:</strong> Acute functional impairment (inability to walk/use the affected limb) is common (~83% in one pediatric series), but with timely treatment full functional recovery is the norm—<em>"All patients improved without functional impairment at 6-month follow-up"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40440680/">PMID: 40440680</a>). In aseptic/autoinflammatory pyomyositis (e.g., Behçet disease), presentations can include a palpable muscle mass, severe myalgia, and ~13-fold elevated creatine kinase (<a href="https://pubmed.ncbi.nlm.nih.gov/41371187/">PMID: 41371187</a>).</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>This section is largely Not Applicable at the host level.</strong> Pyomyositis is an acquired bacterial infection, not a Mendelian/heritable disorder. There are <strong>no causal human genes, no pathogenic germline variants, no chromosomal abnormalities, no inheritance pattern, no penetrance/expressivity, no founder effects, and no carrier frequencies</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34407271/">PMID: 34407271</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32147332/">PMID: 32147332</a>). Genetic testing is not indicated for diagnosis; microbiological culture and MRI are used instead.</p>
+<p><strong>The relevant molecular determinants are bacterial virulence genes:</strong>
+- <strong><em>lukS-PV / lukF-PV</em></strong> encode Panton-Valentine leukocidin, a bicomponent pore-forming leukotoxin. PVL-positive strains cause more severe, complicated musculoskeletal disease: <em>"Staphylococcus aureus strains carrying the genes encoding Panton-Valentine leukocidin (pvl-positive) are associated with more febrile days and higher complication rates"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16452363/">PMID: 16452363</a>). Severe/life-threatening PVL-SA infections including pyomyositis are documented in children (<a href="https://pubmed.ncbi.nlm.nih.gov/31567961/">PMID: 31567961</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33629932/">PMID: 33629932</a>).
+- <strong>MRSA (methicillin resistance, <em>mecA</em>)</strong> strains are increasingly reported, particularly in India, and complicate empiric therapy.</p>
+<p><strong>Epigenetics:</strong> Not applicable to host pathogenesis.</p>
+<hr />
+<h2>Section 5 — Environmental / Microbiological Information</h2>
+<p><strong>Infectious agents (the core etiology):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Pathogen</th>
+<th>Context</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><em>Staphylococcus aureus</em></strong> (MSSA &amp; MRSA)</td>
+<td>Predominant cause in all settings</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34407271/">PMID: 34407271</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39971676/">PMID: 39971676</a></td>
+</tr>
+<tr>
+<td><em>Streptococcus pyogenes</em> (Group A) &amp; other streptococci</td>
+<td>Second most common bacterial cause</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42768398/">PMID: 42768398</a></td>
+</tr>
+<tr>
+<td><em>Streptococcus pneumoniae</em></td>
+<td>Rare bacterial cause</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23031303/">PMID: 23031303</a></td>
+</tr>
+<tr>
+<td>Gram-negatives (<em>Pseudomonas</em>, <em>Klebsiella</em>, <em>E. coli</em>)</td>
+<td>Immunocompromised hosts</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39971676/">PMID: 39971676</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27090546/">PMID: 27090546</a></td>
+</tr>
+<tr>
+<td><em>Mycobacterium tuberculosis</em></td>
+<td>Tuberculous pyomyositis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41626125/">PMID: 41626125</a></td>
+</tr>
+<tr>
+<td><em>Burkholderia pseudomallei</em></td>
+<td>Melioidosis, endemic SE Asia/N Australia</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22081283/">PMID: 22081283</a></td>
+</tr>
+<tr>
+<td>Fungi, non-tuberculous mycobacteria, <em>Nocardia</em></td>
+<td>Opportunistic, immunocompromised</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39971676/">PMID: 39971676</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>S. aureus</em> dominance is repeatedly confirmed: <em>"Tropical pyomyositis is a serious infectious disease characterised by the formation of abscesses in the skeletal muscles and is primarily caused by Staphylococcus aureus"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39971676/">PMID: 39971676</a>) and <em>"Staphylococcus aureus was the main organism isolated"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34407271/">PMID: 34407271</a>). In a Portuguese pediatric series, MSSA accounted for 36.0% of isolates. In the immunocompromised, the microbiology shifts: <em>"Immunocompromised hosts are more likely to be affected by Gram-negative organisms, Mycobacterium tuberculosis, opportunistic infections such as fungal pathogens, non-tuberculous mycobacteria, and Nocardia species"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39971676/">PMID: 39971676</a>).</p>
+<p><strong>Environmental / lifestyle factors:</strong> Tropical climate, minor trauma, vigorous exercise, injection drug use (e.g., oesophageal pyomyositis in an IVDU, <a href="https://pubmed.ncbi.nlm.nih.gov/25125141/">PMID: 25125141</a>), and immunosuppressive states. <strong>Non-infectious (aseptic) pyomyositis</strong> is rare and occurs in autoinflammatory conditions such as Behçet disease (<a href="https://pubmed.ncbi.nlm.nih.gov/41371187/">PMID: 41371187</a>).</p>
+<p><strong>CHEBI-relevant entities:</strong> the causative organism's PVL toxin (protein), and therapeutic antibiotics (see Section 12).</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Transient / occult bacteremia</strong> — <em>S. aureus</em> enters the bloodstream (from skin, mucosa, or minor breach). <em>Leads to</em> circulating bacteria that transit through muscle capillaries.</li>
+<li><strong>Antecedent muscle injury</strong> — trauma or vigorous exercise (reported in ~31–38% of cases; <a href="https://pubmed.ncbi.nlm.nih.gov/40440680/">PMID: 40440680</a>) produces a <em>locus minoris resistentiae</em> with local ischemia and hematoma. <em>Results in</em> a microenvironment that impairs bacterial clearance. <strong>(This step is causally required — see the "Trojan Horse" experiment below.)</strong></li>
+<li><strong>Muscle seeding and proliferation (invasive stage)</strong> — bacteria colonize the damaged muscle and multiply over ~1–2 weeks. <em>Leads to</em> diffuse muscle inflammation without discrete abscess.</li>
+<li><strong>Neutrophil-mediated suppuration + toxin production (suppurative stage)</strong> — neutrophil influx, tissue necrosis, and PVL-mediated leukocyte lysis. <em>Results in</em> an intramuscular abscess (weeks 2–3).</li>
+<li><strong>Branch — local extension:</strong> abscess extends to adjacent bone (osteomyelitis), joint (septic arthritis), or fascia.</li>
+<li><strong>Branch — hematogenous dissemination (late/septic stage):</strong> <em>leads to</em> bacteremia, metastatic abscesses, septic emboli, endocarditis/pancarditis, septic shock, and multi-organ dysfunction (AKI, DVT, compartment syndrome).</li>
+</ol>
+<h3>Detailed mechanism</h3>
+<p><strong>Why muscle is normally spared, and why injury matters.</strong> Skeletal muscle is intrinsically resistant to hematogenous bacterial seeding. The pivotal experimental demonstration is a murine "Trojan Horse" model in which <em>"No SSIs were observed in mice injected intravenously with MRSA"</em> unless muscle injury and ischemia were also induced (<em>"mice were subjected to a surgical injury (30% hepatectomy) and rectus muscle injury and ischemia before skin closure"</em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/28187042/">PMID: 28187042</a>). This shows bacteremia alone is insufficient; a second hit of muscle injury is required for seeding—mechanistically, circulating neutrophils carry bacteria into the injured, ischemic muscle. This directly explains the clinical epidemiology: <em>"The disease primarily affects men and young adults, often following minor trauma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39971676/">PMID: 39971676</a>).</p>
+<p><strong>Immune / cellular processes.</strong> Pyomyositis is a <strong>neutrophil-driven (pyogenic) infection</strong> (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response; <a href="http://purl.obolibrary.org/obo/GO_0006935" target="_blank" rel="noopener noreferrer">GO:0006935</a> chemotaxis). Impaired cell-mediated and neutrophil immunity—from HIV/AIDS, chemotherapy-induced neutropenia, hematologic malignancy, or diabetes—predisposes to disease. A striking clinical illustration is pyomyositis emerging during the chemotherapy "nadir" of transient neutropenia (<a href="https://pubmed.ncbi.nlm.nih.gov/38090454/">PMID: 38090454</a>).</p>
+<p><strong>Toxin-mediated tissue damage.</strong> PVL is a pore-forming leukotoxin that lyses neutrophils, causing tissue necrosis and severe/metastatic disease. PVL genes are <em>"associated with enhanced inflammatory response and local disease in acute hematogenous Staphylococcus aureus osteomyelitis in children"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16452363/">PMID: 16452363</a>), and PVL-positive strains drive more complications requiring surgery and longer hospitalization (<a href="https://pubmed.ncbi.nlm.nih.gov/31567961/">PMID: 31567961</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33629932/">PMID: 33629932</a>).</p>
+<p><strong>Upstream vs downstream.</strong> <em>Upstream:</em> bacteremia + muscle injury/ischemia + host immunocompromise. <em>Midstream:</em> bacterial proliferation, neutrophil recruitment, toxin release. <em>Downstream:</em> abscess formation, local extension, hematogenous dissemination, sepsis.</p>
+<p><strong>Cell types / tissues (suggested ontology terms):</strong> skeletal muscle cell / myofiber (<a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a>), neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>); skeletal muscle tissue (<a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>).</p>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<p><strong>Primary tissue:</strong> skeletal (striated) muscle — <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a></strong>. Usually a single large muscle group is involved, but disease is <strong>multifocal in ~12–40%</strong> of cases.</p>
+<p><strong>Distribution (muscle groups):</strong> The pelvis and lower limb predominate. A pediatric systematic review reported: <em>"Pelvis, lower extremity, trunk and spine, in descending order, were the most commonly affected locations. Iliopsoas, obturator musculature, and gluteus musculature were the most commonly affected muscle groups"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">PMID: 34411048</a>). In adults, the thigh predominates: <em>"Most common site of involvement was thigh muscles (n = 29, 46.8%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">PMID: 29338140</a>); in the Sharma cohort the iliopsoas was most common (46.26%).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Site</th>
+<th>Frequency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thigh / quadriceps</td>
+<td>~40–47% (adults)</td>
+<td>Most common overall in adults</td>
+</tr>
+<tr>
+<td>Iliopsoas</td>
+<td>Up to ~46%</td>
+<td>Common in both children &amp; adults</td>
+</tr>
+<tr>
+<td>Obturator (externus/internus)</td>
+<td>Common (pediatric)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28248876/">PMID: 28248876</a></td>
+</tr>
+<tr>
+<td>Gluteal</td>
+<td>Common</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Piriformis, psoas, paravertebral</td>
+<td>Reported</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34540162/">PMID: 34540162</a></td>
+</tr>
+<tr>
+<td>Scapular / core / deep-core muscles</td>
+<td>Rare</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37767417/">PMID: 37767417</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41981521/">PMID: 41981521</a></td>
+</tr>
+<tr>
+<td>Oesophageal muscle</td>
+<td>Very rare</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25125141/">PMID: 25125141</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Lateralization:</strong> typically <strong>unilateral</strong>.</p>
+<p><strong>Secondary / complication sites (body systems):</strong> bone (osteomyelitis), joints (septic arthritis, facet joint — <a href="https://pubmed.ncbi.nlm.nih.gov/38449920/">PMID: 38449920</a>), heart (endocarditis/pancarditis — <a href="https://pubmed.ncbi.nlm.nih.gov/22538039/">PMID: 22538039</a>), lungs (septic emboli/necrotizing pneumonia — <a href="https://pubmed.ncbi.nlm.nih.gov/32623976/">PMID: 32623976</a>), kidney (AKI), and veins (DVT). Body systems: musculoskeletal (primary), cardiovascular, respiratory, renal.</p>
+<p><strong>Subcellular:</strong> not a primary feature; relevant GO cellular components pertain to the pathogen (bacterial cell wall/membrane) rather than a host organelle defect.</p>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<p><strong>Onset:</strong> subacute; typically over days to ~2 weeks. Mean time to diagnosis ~6.6 days (<a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">PMID: 34411048</a>). Age of onset predominantly children and young adults.</p>
+<p><strong>The classic three-stage (Chiedozi) progression:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Timing</th>
+<th>Features</th>
+<th>Management</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1 — Invasive</strong></td>
+<td>~first 1–2 weeks</td>
+<td>Diffuse muscle inflammation, no abscess; crampy pain, low-grade fever, woody induration</td>
+<td><strong>Antibiotics alone</strong></td>
+</tr>
+<tr>
+<td><strong>2 — Suppurative / purulent</strong></td>
+<td>Weeks 2–3</td>
+<td>Abscess, high fever, exquisite tenderness, fluctuance</td>
+<td><strong>Drainage + antibiotics</strong></td>
+</tr>
+<tr>
+<td><strong>3 — Late / septic</strong></td>
+<td>&gt;3 weeks if untreated</td>
+<td>Systemic toxicity, bacteremia, metastatic abscesses, septic shock, organ dysfunction</td>
+<td><strong>Aggressive drainage, IV antibiotics, ICU support</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Most patients present in stage 2: <em>"Forty-nine patients (79%) presented in the suppurative stage of illness"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">PMID: 29338140</a>), reflecting diagnostic delay. Stage determines treatment: <em>"The appropriate antibiotic therapy provides a rapid regression of symptoms during the early stage of pyomyositis. In cases of MRI-confirmed abscess, surgical treatment is indicated"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28248876/">PMID: 28248876</a>). Early-stage pediatric cases can show <em>"marked improvement within 3 days"</em> on antibiotics alone (<a href="https://pubmed.ncbi.nlm.nih.gov/29274860/">PMID: 29274860</a>).</p>
+<p><strong>Course &amp; duration:</strong> acute/subacute and <strong>self-limited once appropriately treated</strong>; it is <strong>not</strong> chronic or relapsing-remitting. Remission is treatment-induced. The critical intervention window is the invasive stage, when antibiotics alone can achieve cure before abscess formation.</p>
+<hr />
+<h2>Section 9 — Inheritance and Population (Epidemiology)</h2>
+<p><strong>Inheritance:</strong> <em>Not Applicable</em> — non-genetic, non-heritable infectious disease. No inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effects, consanguinity role, or carrier frequency.</p>
+<p><strong>Epidemiology / demographics:</strong>
+- <strong>Sex &amp; age:</strong> strong male, young predominance — <em>"Males under the age of 20 predominated, and mortality of up to 20% was reported"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34407271/">PMID: 34407271</a>). North India cohort: mean age 29.9 ± 14.8 yr, 54/62 male (<a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">PMID: 29338140</a>). Portuguese pediatric series: 75.9% male, median age 8 yr.
+- <strong>Geographic distribution:</strong> historically tropical ("tropical pyomyositis"), now increasingly temperate. A US population study found <em>"a concerning more than three-fold increase in the incident pyomyositis admissions over our study period"</em> (2002–2014), with affected patients younger, more likely male and Black, and more cases in the West and South (<a href="https://pubmed.ncbi.nlm.nih.gov/32147332/">PMID: 32147332</a>).
+- <strong>Prevalence/incidence:</strong> precise population rates are not well established; it remains uncommon but rising in temperate high-income settings, and is far more common in the tropics.</p>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Imaging (cornerstone):</strong> MRI is the modality of choice — <em>"Magnetic resonance imaging had 100% sensitivity, whereas 40.7% of ultrasounds were inconclusive"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40440680/">PMID: 40440680</a>) and <em>"Magnetic resonance imaging (MRI) is the modality of choice for defining the site and extent of disease, detecting multiple foci, and guiding surgical planning"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41127115/">PMID: 41127115</a>). Point-of-care ultrasound can differentiate pyomyositis from cellulitis and <em>"led to an earlier diagnosis of PM and directly affected the immediate patient care"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25245285/">PMID: 25245285</a>). CT is useful for deep-core muscle disease.</p>
+<p><strong>Laboratory / microbiology:</strong> Elevated inflammatory markers (WBC, ESR, CRP) are characteristic; <strong>creatine kinase is often normal or only mildly elevated</strong> in bacterial pyomyositis (a useful discriminator from primary myopathies/aseptic myositis, where CK can be markedly elevated). <strong>Cultures:</strong> blood cultures positive in ~40%, pus cultures in ~33%; <strong>culture-negative disease is common</strong>. Definitive microbiology comes from aspirated/drained pus.</p>
+<p><strong>Histopathology / biopsy:</strong> confirms suppurative myositis; in aseptic forms reveals <em>"granulocytic-necrotizing infiltrates and fibrinoid vascular necrosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41371187/">PMID: 41371187</a>).</p>
+<p><strong>Genetic / omics testing:</strong> <em>Not indicated</em> (non-genetic disease). Molecular microbiology (e.g., CBNAAT/line-probe assay for tuberculous pyomyositis, <a href="https://pubmed.ncbi.nlm.nih.gov/41626125/">PMID: 41626125</a>) may be used to identify atypical pathogens.</p>
+<p><strong>Differential diagnosis:</strong> cellulitis, deep vein thrombosis (notably mimicked in SLE — <em>"Pyomyositis may mimic deep vein thrombosis and be misdiagnosed"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/35260400/">PMID: 35260400</a>), necrotizing fasciitis, septic arthritis, osteomyelitis, muscle contusion/hematoma/strain, soft-tissue sarcoma, thrombophlebitis, and other infective myositides (streptococcal necrotizing myositis, tuberculous/melioidosis myositis). Imaging is central to distinguishing these entities.</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<p><strong>Overall:</strong> Prognosis is <strong>good with timely diagnosis and treatment</strong>; most patients achieve full functional recovery (<em>"All patients improved without functional impairment at 6-month follow-up"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40440680/">PMID: 40440680</a>). However, <strong>reported mortality ranges 1–23%</strong>, driven largely by delay and sepsis.</p>
+<p><strong>Predictors of mortality:</strong> In a North India cohort of 67 patients, <em>"Twenty-eight patients developed sepsis and seven died"</em> (~10% mortality), with <em>"a statistically significant association between higher SOFA score, lower Glasgow coma scale, higher pulse rate, lower blood pressure, raised blood urea, raised serum creatinine"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19763666/">PMID: 19763666</a>). An independent cohort found <em>"Lower first-day serum albumin, initial inappropriate antibiotic therapy and advanced form of the disease at presentation were associated with increased in-hospital mortality"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">PMID: 29338140</a>).</p>
+<p><strong>Complications:</strong> sepsis/septic shock, metastatic abscesses, septic emboli/necrotizing pneumonia, osteomyelitis, septic arthritis, endocarditis/pancarditis, acute kidney injury, DVT, and compartment syndrome.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Prognostic factor</th>
+<th>Direction</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High SOFA score</td>
+<td>Worse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19763666/">PMID: 19763666</a></td>
+</tr>
+<tr>
+<td>Low GCS, hypotension, tachycardia</td>
+<td>Worse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19763666/">PMID: 19763666</a></td>
+</tr>
+<tr>
+<td>Raised urea/creatinine (AKI)</td>
+<td>Worse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19763666/">PMID: 19763666</a></td>
+</tr>
+<tr>
+<td>Low first-day serum albumin</td>
+<td>Worse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">PMID: 29338140</a></td>
+</tr>
+<tr>
+<td>Inappropriate initial antibiotics</td>
+<td>Worse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">PMID: 29338140</a></td>
+</tr>
+<tr>
+<td>Advanced stage at presentation</td>
+<td>Worse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">PMID: 29338140</a></td>
+</tr>
+<tr>
+<td>Early diagnosis/treatment</td>
+<td>Better</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40440680/">PMID: 40440680</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>Principle:</strong> stage-dependent combination of <strong>anti-staphylococcal antibiotics + source control (drainage)</strong>.</p>
+<p><strong>Pharmacotherapy (NCIT: Antibiotic Therapy):</strong>
+- Empiric anti-staphylococcal agents: flucloxacillin (MSSA), vancomycin (MRSA), with <strong>clindamycin or linezolid added as anti-toxin agents</strong> for PVL-producing strains (these suppress bacterial protein/toxin synthesis).
+- Portuguese series: IV flucloxacillin + clindamycin in 55.2%, median 14 days IV and 29 days total (<a href="https://pubmed.ncbi.nlm.nih.gov/40440680/">PMID: 40440680</a>).
+- Pediatric systematic review: mean 9.5 ± 4.0 days IV and 22.7 ± 7.2 days oral antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">PMID: 34411048</a>).</p>
+<p><strong>Surgical / interventional (NCIT: Incision and Drainage):</strong> Drainage is required once an abscess forms. In the pediatric review, <em>"Medical management alone was successful in 40% of cases (143/361)"</em>, with the remainder requiring drainage (open 91.3%, percutaneous 8.7%) (<a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">PMID: 34411048</a>). Predictors of surgical need: <em>"Painful limp, fever, and larger values of white cell count and erythrocyte sedimentation rate were associated with an increased need for surgery"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">PMID: 34411048</a>).</p>
+<p><strong>Supportive care:</strong> analgesia, fluid/hemodynamic support, ICU care for septic stage, treatment of underlying immunocompromise.</p>
+<p><strong>Treatment strategy / algorithm:</strong></p>
+<pre><code>Suspected pyomyositis → MRI
+   ├─ Invasive stage (no abscess) → IV anti-staph antibiotics → step down to oral
+   └─ Suppurative/abscess → Drainage (image-guided or open) + antibiotics
+              └─ PVL/severe → add anti-toxin agent (clindamycin/linezolid)
+   Septic stage → aggressive drainage + broad IV antibiotics + ICU support
+</code></pre>
+<p><strong>Pharmacogenomics / advanced therapeutics (gene/cell/RNA therapy, immunotherapy):</strong> <em>Not applicable</em> — this is a treatable bacterial infection.</p>
+<p><strong>Outcomes:</strong> With combined therapy, functional recovery is excellent (see Section 11).</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<p><strong>No vaccine exists</strong> for pyomyositis or for <em>S. aureus</em> (multiple <em>S. aureus</em> vaccine candidates have failed in trials). Prevention is largely secondary/tertiary.</p>
+<ul>
+<li><strong>Primary prevention:</strong> control predisposing conditions (glycemic control, antiretroviral therapy/immune reconstitution in HIV, nutrition), skin hygiene, prompt wound care, avoidance of muscle trauma and injection drug use. <strong><em>S. aureus</em> decolonization</strong> is the principal targeted strategy: <em>"S aureus colonization is a significant risk factor for subsequent infection; thus, surveillance and decolonization with topical antimicrobials and antiseptics remain the mainstay of prevention"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42624765/">PMID: 42624765</a>). Decolonization uses intranasal mupirocin and chlorhexidine bathing, though effectiveness wanes and drives resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/41276461/">PMID: 41276461</a>).</li>
+<li><strong>Secondary prevention:</strong> early recognition and imaging (MRI/point-of-care ultrasound) to catch the invasive stage before abscess forms, enabling cure with antibiotics alone (<a href="https://pubmed.ncbi.nlm.nih.gov/25245285/">PMID: 25245285</a>).</li>
+<li><strong>Tertiary prevention:</strong> adequate drainage and appropriate antibiotics to prevent sepsis, metastatic abscesses, osteomyelitis, and contractures.</li>
+<li><strong>Genetic/newborn screening:</strong> <em>Not applicable</em> (non-heritable).</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Model host species:</strong> <em>Mus musculus</em> (<strong>NCBITaxon:10090</strong>) is the principal experimental host (Section 15).</li>
+<li><strong>Causative pathogen taxonomy:</strong> <em>Staphylococcus aureus</em> (<strong>NCBITaxon:1280</strong>).</li>
+<li><strong>Natural disease in other species:</strong> Pyomyositis as a distinct clinical entity is chiefly described in humans; <em>S. aureus</em> muscle/soft-tissue abscesses occur across mammals but a dedicated veterinary "pyomyositis" literature is limited. <strong>No heritable animal ortholog exists</strong> because the disease is infectious, not genetic.</li>
+<li><strong>Zoonotic potential:</strong> <em>S. aureus</em> (including MRSA) can transmit between humans and animals, but pyomyositis itself is not classically a zoonosis.</li>
+<li><strong>Comparative biology:</strong> The murine muscle-injury model recapitulates the trauma-dependent seeding mechanism, indicating conservation of the host-tissue vulnerability principle (<a href="https://pubmed.ncbi.nlm.nih.gov/28187042/">PMID: 28187042</a>).</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<p>There is <strong>no dedicated genetic "pyomyositis" model</strong>, because the disease is infectious and non-heritable. The relevant systems are <strong>induced infection models</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Description</th>
+<th>Use</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Murine thigh-muscle <em>S. aureus</em> infection</strong> (often neutropenic)</td>
+<td>MRSA/MSSA inoculated into mouse thigh, frequently in cyclophosphamide-induced neutropenic mice</td>
+<td>Antibiotic PK/PD and efficacy studies</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26514291/">PMID: 26514291</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41672145/">PMID: 41672145</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41778916/">PMID: 41778916</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38936579/">PMID: 38936579</a></td>
+</tr>
+<tr>
+<td><strong>"Trojan Horse" muscle-injury model</strong></td>
+<td>30% hepatectomy + rectus muscle injury/ischemia + IV MRSA</td>
+<td>Mechanistic proof that muscle injury is required for seeding</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28187042/">PMID: 28187042</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Phenotype recapitulation:</strong> The Trojan Horse model reproduces trauma-dependent muscle abscess formation (<em>"mice were subjected to a surgical injury (30% hepatectomy) and rectus muscle injury and ischemia before skin closure"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/28187042/">PMID: 28187042</a>); the neutropenic thigh model (<em>"mice with a Staphylococcus aureus infection in the thigh muscle"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/26514291/">PMID: 26514291</a>) mirrors the human predisposition of immunocompromise.</li>
+<li><strong>Limitations:</strong> These models emphasize bacterial burden and drug response rather than the full three-stage natural history and chronic abscess of human disease, and they do not model host comorbidities such as HIV.</li>
+<li><strong>Resources:</strong> MGI (mouse); standard laboratory <em>S. aureus</em> strains (e.g., Newman, MRSA clinical isolates).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The disease is best captured by a <strong>two-hit "seed-and-soil" model</strong>:</p>
+<pre><code>   HIT 1: Transient S. aureus bacteremia        HIT 2: Muscle injury / ischemia
+   (from skin, mucosa, minor breach)            (trauma, vigorous exercise)
+ |                                          |
+ +---------------+--------------------------+
+                 v
+ Neutrophils carry bacteria into injured, ischemic muscle
+ (impaired local clearance = permissive &quot;soil&quot;)
+                 |
+                 v   [modulated by host immunocompromise: HIV, DM, neutropenia]
+      STAGE 1 (Invasive): diffuse myositis, no abscess  --&gt; antibiotics cure
+                 |
+                 v   [amplified by PVL toxin -&gt; neutrophil lysis, necrosis]
+      STAGE 2 (Suppurative): intramuscular ABSCESS      --&gt; drainage + antibiotics
+                 |
+     +-------------------+------------------------+
+     v                                            v
+   Local extension:                            STAGE 3 (Septic):
+   osteomyelitis, septic arthritis             bacteremia, metastatic abscesses,
+                               septic emboli, endocarditis, shock
+</code></pre>
+<p>The single most important mechanistic insight—experimentally validated—is that <strong>muscle injury is a necessary permissive lesion</strong>: intravenous MRSA alone caused no muscle infection in mice, but muscle injury plus bacteremia did (<a href="https://pubmed.ncbi.nlm.nih.gov/28187042/">PMID: 28187042</a>). This unifies the epidemiology (young men, antecedent trauma/exercise), the microbiology (<em>S. aureus</em> predilection), and the host risk profile (immunocompromise removes the clearance safeguard). PVL toxin is the principal <em>severity</em> amplifier, converting a localized abscess into complicated, metastatic, and life-threatening disease.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34407271/">34407271</a></td>
+<td><em>Factors associated with pyomyositis: systematic review &amp; meta-analysis</em></td>
+<td>S. aureus predominance; HIV/AIDS ORs; male-young predominance; mortality up to 20%</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32147332/">32147332</a></td>
+<td><em>Pyomyositis in the United States 2002-2014</em></td>
+<td>Comorbid risk factors; &gt;3-fold rising temperate incidence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39971676/">39971676</a></td>
+<td><em>Tropical pyomyositis</em></td>
+<td>S. aureus primary cause; immunocompromised microbiology shift; trauma link</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29338140/">29338140</a></td>
+<td><em>Primary pyomyositis in North India</em></td>
+<td>Site distribution; 79% suppurative at presentation; mortality predictors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19763666/">19763666</a></td>
+<td><em>67 patients, North India</em></td>
+<td>Symptom frequencies; sepsis/death; SOFA/GCS predictors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34411048/">34411048</a></td>
+<td><em>Primary bacterial pyomyositis in children (systematic review)</em></td>
+<td>Symptom triad; 40% cured medically; surgery predictors; anatomic distribution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40440680/">40440680</a></td>
+<td><em>Pyomyositis in Children, Portugal 15-yr</em></td>
+<td>MRI 100% sensitivity; treatment durations; full recovery</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28187042/">28187042</a></td>
+<td><em>"Trojan Horse" MRSA model</em></td>
+<td>Proof that muscle injury is required for seeding</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16452363/">16452363</a></td>
+<td><em>PVL genes &amp; inflammatory response</em></td>
+<td>PVL as severity determinant</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28248876/">28248876</a></td>
+<td><em>Obturator externus abscess</em></td>
+<td>Stage-based treatment logic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42624765/">42624765</a></td>
+<td><em>Decolonization in S. aureus prevention</em></td>
+<td>Decolonization as mainstay of prevention</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29274860/">29274860</a></td>
+<td><em>Primary pyomyositis in children</em></td>
+<td>Formal disease definition</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27090546/">27090546</a></td>
+<td><em>Pyomyositis in SLE / review</em></td>
+<td>Masquerading disease; ~75% immunodeficiency</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26514291/">26514291</a></td>
+<td><em>Murine thigh infection model</em></td>
+<td>Standard experimental system</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23031303/">23031303</a></td>
+<td><em>Pneumococcal pyomyositis</em></td>
+<td>Non-staphylococcal bacterial cause</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35260400/">35260400</a></td>
+<td><em>Thoracic pyomyositis in SLE</em></td>
+<td>DVT differential diagnosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25245285/">25245285</a></td>
+<td><em>POCUS differentiates PM from cellulitis</em></td>
+<td>Early detection / secondary prevention</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No precise population incidence/prevalence</strong> — most data are hospital-based case series or administrative datasets; true community rates are unknown.</li>
+<li><strong>Culture-negative disease is common</strong> (~60% of blood cultures negative), limiting microbiological precision and confounding pathogen-attribution.</li>
+<li><strong>Selection/referral bias</strong> — the literature is dominated by severe, hospitalized cases, likely underrepresenting mild, self-limited disease.</li>
+<li><strong>Mortality range is wide (1–23%)</strong>, reflecting heterogeneity in setting, host comorbidity, and diagnostic delay rather than a single true figure.</li>
+<li><strong>Model limitations</strong> — murine models capture bacterial burden and drug response but not the full three-stage natural history or human comorbidities (HIV, chronic abscess).</li>
+<li><strong>PVL causal weight</strong> — much PVL severity evidence is extrapolated from osteomyelitis and other musculoskeletal infections rather than pyomyositis-specific cohorts.</li>
+<li><strong>No host genetic susceptibility studies</strong> — whether host immunogenetic variation modulates risk (beyond overt immunodeficiency) is unexplored.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective multicenter registry</strong> with standardized staging, imaging, microbiology (including PVL genotyping), and outcomes to establish true incidence, mortality, and stage-specific treatment response.</li>
+<li><strong>PVL-specific pyomyositis cohort</strong> to quantify the independent contribution of PVL to abscess size, multifocality, metastatic spread, and surgical need.</li>
+<li><strong>Molecular diagnostics</strong> (16S/metagenomic sequencing on drained pus) to reduce the culture-negative gap and clarify polymicrobial/atypical etiologies.</li>
+<li><strong>Refined animal model</strong> combining muscle injury + controlled immunosuppression (HIV-surrogate or diabetes models) to recapitulate the full three-stage natural history for therapeutic testing.</li>
+<li><strong>Host susceptibility study</strong> — exome/immunogenetic screening of otherwise-healthy young men with pyomyositis to test for occult immune defects (e.g., neutrophil-function variants).</li>
+<li><strong>Prevention trials</strong> targeting decolonization plus risk-factor optimization in high-risk groups (HIV clinics, dialysis units, PWID programs), given waning decolonization effectiveness and rising resistance.</li>
+<li><strong>Early-detection pathway</strong> validating point-of-care ultrasound + inflammatory markers to catch invasive-stage disease and increase the fraction cured without drainage.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 15 confirmed findings and 58 reviewed papers across 5 investigation iterations. Pyomyositis is characterized here as an acquired, non-genetic infectious disease; sections addressing causal genes, inheritance, and genetic screening are marked Not Applicable and reflect true biology rather than missing data.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Pyomyositis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Pyomyositis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>36</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0019168</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>pyomyositis</strong></li>
+<li><code>HP:0100279</code> (1 mention) - the report calls it "Muscle swelling"; HP calls it <strong>Ulcerative colitis</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0002355</code> (obsolete Difficulty walking) (2 mentions) - replaced by <code>HP:0001288</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002355</code> (2 mentions) - the report calls it "Difficulty walking"; HP calls it <strong>obsolete Difficulty walking</strong></li>
+<li><code>HP:0001974</code> (1 mention) - the report calls it "Leukocytosis"; HP calls it <strong>Increased total leukocyte count</strong>, and lists "Leukocytosis" among its other names</li>
+<li><code>HP:0011227</code> (1 mention) - the report calls it "Elevated CRP"; HP calls it <strong>Elevated circulating C-reactive protein concentration</strong>, and lists "Elevated CRP" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Pyoderma_Gangrenosum-claude_code.html">← Pyoderma Gangrenosum (Claude Code)</a>
+                
+                
+                <a href="Pyridoxine-Dependent_Epilepsy-claude_code.html">Pyridoxine-Dependent Epilepsy (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Pyomyositis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Pyomyositis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

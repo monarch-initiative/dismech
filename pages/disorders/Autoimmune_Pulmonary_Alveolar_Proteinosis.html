@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4186,6 +4254,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification of inborn errors of immunity (Tangye et al., PMID:35748970), Table 10 &#34;Phenocopies of inborn errors of immunity&#34;, second section, &#34;Associated with autoantibodies&#34;. The row is entered under the bare name &#34;Pulmonary alveolar proteinosis&#34; with the presumed pathogenesis given as autoantibody to GM-CSF, and its similar-PID column names CSF2RA deficiency. The bare row name is the trap here. IUIS is describing the anti-GM-CSF autoantibody disease, which is this entry, and not the hereditary receptor disease, which dismech curates separately as Hereditary_Pulmonary_Alveolar_Proteinosis and which sits in IUIS Table 5 (congenital defects of phagocyte number or function) as CSF2RA and CSF2RB deficiency. The two are the phenocopy and its germline counterpart, so only this entry takes the phenocopy value. The row&#39;s opportunistic-infection column (cryptococcal meningitis, disseminated nocardiosis) is the clinical reason IUIS treats the acquired form as an immunodeficiency at all, rather than as a purely respiratory disease.">phenocopy of IEI</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4249,6 +4334,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4316,6 +4402,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4509,6 +4596,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4671,6 +4759,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4693,6 +4782,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4731,6 +4821,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-immune-tolerance-to-gm-csf" data-dismech-node="Loss of Immune Tolerance to GM-CSF" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Immune Tolerance to GM-CSF</div>
+
 
                 <div class="item-desc">Loss of B-cell tolerance to GM-CSF, influenced by MHC class II background (HLA-DRB1*08:03), drives production of high-titre polyclonal neutralizing IgG autoantibodies against GM-CSF. Low-level GM-CSF autoantibodies are present in all healthy people, so disease requires crossing a critical concentration threshold rather than simply acquiring the antibody.
 </div>
@@ -4938,6 +5029,7 @@ This pathophysiological event involves dysregulated humoral immune response (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4960,6 +5052,7 @@ This pathophysiological event involves dysregulated humoral immune response (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4988,6 +5081,7 @@ This pathophysiological event involves dysregulated humoral immune response (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5011,6 +5105,7 @@ This pathophysiological event involves dysregulated humoral immune response (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gm-csf-neutralization-and-functional-gm-csf-deficiency" data-dismech-node="GM-CSF Neutralization and Functional GM-CSF Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GM-CSF Neutralization and Functional GM-CSF Deficiency</div>
+
 
                 <div class="item-desc">Circulating and alveolar autoantibodies bind GM-CSF and neutralize its bioactivity, producing a functional ligand deficiency despite normal CSF2 expression and an intact GM-CSF receptor. This is the ligand-side mirror of the receptor-side lesion (biallelic CSF2RA/CSF2RB defects) that causes hereditary PAP.
 </div>
@@ -5196,6 +5291,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5218,6 +5314,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5246,6 +5343,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5269,6 +5367,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrested-alveolar-macrophage-terminal-differentiation" data-dismech-node="Arrested Alveolar Macrophage Terminal Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrested Alveolar Macrophage Terminal Differentiation</div>
+
 
                 <div class="item-desc">Without GM-CSF signaling, alveolar macrophages fail to complete terminal differentiation, in particular failing to sustain the PU.1/PPAR-gamma transcriptional program that licenses surfactant lipid catabolism and cholesterol efflux.
 </div>
@@ -5414,6 +5513,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5436,6 +5536,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5462,6 +5563,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-surfactant-catabolism-and-macrophage-cholesterol-overload" data-dismech-node="Impaired Surfactant Catabolism and Macrophage Cholesterol Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Surfactant Catabolism and Macrophage Cholesterol Overload</div>
+
 
                 <div class="item-desc">Undifferentiated alveolar macrophages ingest surfactant but cannot catabolize its lipid or efflux the liberated cholesterol. Lipidomic analysis shows the accumulating species is predominantly cholesterol rather than phospholipid, reframing PAP as a disorder of macrophage cholesterol handling and identifying the foamy macrophage as a cholesterol-engorged cell.
 </div>
@@ -5641,6 +5743,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5663,6 +5766,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5689,6 +5793,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-surfactant-accumulation" data-dismech-node="Alveolar Surfactant Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Surfactant Accumulation</div>
+
 
                 <div class="item-desc">PAS-positive lipoproteinaceous surfactant accumulates within foamy alveolar macrophages and free in the alveolar spaces, filling the airspaces while the alveolar walls remain well preserved. This produces the crazy-paving HRCT pattern and blocks gas exchange.
 </div>
@@ -5894,6 +5999,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5916,6 +6022,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5942,6 +6049,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-gas-exchange-and-hypoxaemic-respiratory-insufficiency" data-dismech-node="Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency</div>
+
 
                 <div class="item-desc">Airspace filling widens the alveolar-arterial oxygen gradient and lowers the diffusing capacity, producing exertional dyspnoea, hypoxaemia and, when progressive, respiratory failure.
 </div>
@@ -6045,6 +6153,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6067,6 +6176,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-myeloid-host-defence-impairment" data-dismech-node="Systemic Myeloid Host Defence Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Myeloid Host Defence Impairment</div>
+
 
                 <div class="item-desc">GM-CSF also primes neutrophil and macrophage antimicrobial function, so autoantibody-mediated GM-CSF neutralization produces an acquired innate immunodeficiency in parallel with the surfactant lesion. This is an independent arm of the disease, and it explains the predisposition to opportunistic infection.
 </div>
@@ -6227,6 +6337,7 @@ This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6249,6 +6360,7 @@ This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6275,6 +6387,7 @@ This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-pulmonary-fibrosis" data-dismech-node="Secondary Pulmonary Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Pulmonary Fibrosis</div>
+
 
                 <div class="item-desc">A minority of patients develop pulmonary fibrosis over years of follow-up, a rare but potentially life-threatening complication of long-standing alveolar surfactant retention.
 </div>
@@ -6335,6 +6448,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6356,6 +6470,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6419,6 +6534,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6441,6 +6557,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6577,6 +6694,9 @@ This clinical feature is Polycythemia (HP:0001901), qualified as severity severe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6591,6 +6711,7 @@ This clinical feature is Polycythemia (HP:0001901), qualified as severity severe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,6 +6737,7 @@ This clinical feature is Polycythemia (HP:0001901), qualified as severity severe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6680,6 +6802,9 @@ This clinical feature is Foam cells (HP:0003651). HP:0003651 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6694,6 +6819,7 @@ This clinical feature is Foam cells (HP:0003651). HP:0003651 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6721,6 +6847,7 @@ This clinical feature is Foam cells (HP:0003651). HP:0003651 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6743,6 +6870,7 @@ This clinical feature is Foam cells (HP:0003651). HP:0003651 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6807,6 +6935,9 @@ This clinical feature is Opportunistic infection (HP:0031690). HP:0031690 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6821,6 +6952,7 @@ This clinical feature is Opportunistic infection (HP:0031690). HP:0031690 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6849,6 +6981,7 @@ This clinical feature is Opportunistic infection (HP:0031690). HP:0031690 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6870,6 +7003,7 @@ This clinical feature is Opportunistic infection (HP:0031690). HP:0031690 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6922,6 +7056,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                     </div>
 
 
+
+
+
                     <div class="item-desc">In the Japanese registry, intercurrent illnesses including infections were infrequent, so the infection risk should not be over-weighted for typical aPAP; it is most relevant to opportunistic pathogens.
 </div>
 
@@ -6942,6 +7079,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6998,6 +7136,9 @@ This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7012,6 +7153,7 @@ This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7094,6 +7236,9 @@ This clinical feature is Cyanosis (HP:0000961), qualified as severity severe. HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7108,6 +7253,7 @@ This clinical feature is Cyanosis (HP:0000961), qualified as severity severe. HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7173,6 +7319,9 @@ This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7187,6 +7336,7 @@ This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a pheno
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7212,6 +7362,7 @@ This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a pheno
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7298,6 +7449,9 @@ This clinical feature is Exertional dyspnea (HP:0002875), qualified as course pr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7312,6 +7466,7 @@ This clinical feature is Exertional dyspnea (HP:0002875), qualified as course pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7367,6 +7522,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7381,6 +7539,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7453,6 +7612,9 @@ This clinical feature is Hypoxemia (HP:0012418), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7467,6 +7629,7 @@ This clinical feature is Hypoxemia (HP:0012418), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7518,6 +7681,9 @@ This clinical feature is Crazy paving pattern (HP:0025391). HP:0025391 is a phen
                     </div>
 
 
+
+
+
                     <div class="item-desc">Characteristic but not diagnostic. The same pattern occurs in other PAP-causing diseases, cardiogenic pulmonary oedema, hypersensitivity pneumonitis, Pneumocystis pneumonia, lymphangitic carcinomatosis and acute lung injury, so it cannot separate aPAP from hereditary or secondary PAP.
 </div>
 
@@ -7538,6 +7704,7 @@ This clinical feature is Crazy paving pattern (HP:0025391). HP:0025391 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7563,6 +7730,7 @@ This clinical feature is Crazy paving pattern (HP:0025391). HP:0025391 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7618,6 +7786,9 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7632,6 +7803,7 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7660,6 +7832,7 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7682,6 +7855,7 @@ This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7737,6 +7911,9 @@ This clinical feature is Crackles (HP:0030830). HP:0030830 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7751,6 +7928,7 @@ This clinical feature is Crackles (HP:0030830). HP:0030830 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7806,6 +7984,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7820,6 +8001,7 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7883,6 +8065,9 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7897,6 +8082,7 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7997,6 +8183,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8011,6 +8200,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8039,6 +8229,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8061,6 +8252,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8148,6 +8340,9 @@ This treatment is whole lung lavage, annotated with Lavage (NCIT:C38068). NCIT:C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8158,6 +8353,9 @@ This treatment is whole lung lavage, annotated with Lavage (NCIT:C38068). NCIT:C
 
 
     </div>
+
+
+
 
 
 
@@ -8196,6 +8394,7 @@ This treatment is whole lung lavage, annotated with Lavage (NCIT:C38068). NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8239,6 +8438,7 @@ This treatment is whole lung lavage, annotated with Lavage (NCIT:C38068). NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8327,6 +8527,9 @@ This treatment uses molgramostim (NCIT:C77591). NCIT:C77591 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8337,6 +8540,9 @@ This treatment uses molgramostim (NCIT:C77591). NCIT:C77591 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8375,6 +8581,7 @@ This treatment uses molgramostim (NCIT:C77591). NCIT:C77591 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8422,6 +8629,7 @@ This treatment uses molgramostim (NCIT:C77591). NCIT:C77591 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8447,6 +8655,7 @@ This treatment uses molgramostim (NCIT:C77591). NCIT:C77591 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8469,6 +8678,7 @@ This treatment uses molgramostim (NCIT:C77591). NCIT:C77591 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8558,6 +8768,9 @@ This treatment uses sargramostim (NCIT:C1492). NCIT:C1492 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8568,6 +8781,9 @@ This treatment uses sargramostim (NCIT:C1492). NCIT:C1492 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8606,6 +8822,7 @@ This treatment uses sargramostim (NCIT:C1492). NCIT:C1492 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8653,6 +8870,7 @@ This treatment uses sargramostim (NCIT:C1492). NCIT:C1492 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8674,6 +8892,7 @@ This treatment uses sargramostim (NCIT:C1492). NCIT:C1492 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8762,6 +8981,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8772,6 +8994,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -8810,6 +9035,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8857,6 +9083,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8878,6 +9105,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8946,6 +9174,9 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8956,6 +9187,9 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -8994,6 +9228,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9038,6 +9273,7 @@ This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9106,6 +9342,9 @@ This treatment is lung transplantation (NCIT:C15274). NCIT:C15274 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9116,6 +9355,9 @@ This treatment is lung transplantation (NCIT:C15274). NCIT:C15274 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9154,6 +9396,7 @@ This treatment is lung transplantation (NCIT:C15274). NCIT:C15274 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9198,6 +9441,7 @@ This treatment is lung transplantation (NCIT:C15274). NCIT:C15274 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9287,6 +9531,9 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9297,6 +9544,9 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
     </div>
+
+
+
 
 
 
@@ -9335,6 +9585,7 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9382,6 +9633,7 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9404,6 +9656,7 @@ This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9494,6 +9747,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9516,6 +9770,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9571,6 +9826,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9592,6 +9848,7 @@ This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9673,6 +9930,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9721,6 +9979,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9789,6 +10048,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9810,6 +10070,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9863,6 +10124,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9913,6 +10175,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9935,6 +10198,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9988,6 +10252,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10009,6 +10274,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10058,6 +10324,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10162,6 +10429,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10183,6 +10451,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10208,6 +10477,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10300,6 +10570,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10321,6 +10592,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10412,6 +10684,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10433,6 +10706,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10523,6 +10797,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10544,6 +10819,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10725,6 +11001,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10747,6 +11024,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10884,15 +11162,15 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"(C) Image showing ground-glass opacification involving some but not all secondary lobules"</div>
+                <div class="evidence-snippet">"(C–F) Representative images from computed tomography of the chest showing the diversity of radiographic findings in autoimmune PAP in a 45-year-old man (C), a 58-year-old woman (D), a 15-year-old girl (E), and an 18-year-old man (F). ... (C) Image showing ground-glass opacification involving..."</div>
 
 
-                <div class="evidence-explanation">Records the lobule-selective distribution that produces the geographic appearance. The quote stops at a clause boundary rather than running into the source&#39;s curly-quoted &#34;geographic&#34;, which would introduce non-ASCII characters into the snippet.
-</div>
+                <div class="evidence-explanation">Restores the caption&#39;s CT and autoimmune-PAP context and completes the panel C geographic-pattern description. The other panels and additional mechanistic/differential interpretations are not substituted for panel C.</div>
 
 
 
@@ -11018,6 +11296,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11084,6 +11363,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11105,6 +11385,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11160,6 +11441,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11208,6 +11490,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11261,6 +11544,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11283,6 +11567,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11337,6 +11622,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11359,6 +11645,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11438,6 +11725,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11498,6 +11786,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11554,6 +11843,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11640,6 +11930,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11696,6 +11987,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11749,6 +12041,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11870,6 +12163,7 @@ This environmental factor is exposure to inhaled dust, annotated with exposure t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11975,6 +12269,7 @@ This clinical trial targets Exertional dyspnea (HP:0002875). HP:0002875 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11996,6 +12291,7 @@ This clinical trial targets Exertional dyspnea (HP:0002875). HP:0002875 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12090,6 +12386,7 @@ This clinical trial targets Hypoxemia (HP:0012418). HP:0012418 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12194,6 +12491,7 @@ This clinical trial targets Hypoxemia (HP:0012418). HP:0012418 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12215,6 +12513,7 @@ This clinical trial targets Hypoxemia (HP:0012418). HP:0012418 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12434,6 +12733,7 @@ This experimental model concerns CSF2RB (hgnc:2436). hgnc:2436 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12456,6 +12756,7 @@ This experimental model concerns CSF2RB (hgnc:2436). hgnc:2436 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12562,6 +12863,46 @@ classifications:
       explanation: &gt;
         The founding study establishes the disease as autoimmune, supporting the
         second Part assignment alongside the respiratory one.
+  iuis_category:
+    classification_value: phenocopy of IEI
+    notes: &gt;-
+      IUIS 2022 phenotypic classification of inborn errors of immunity (Tangye et
+      al., PMID:35748970), Table 10 &#34;Phenocopies of inborn errors of immunity&#34;,
+      second section, &#34;Associated with autoantibodies&#34;. The row is entered under
+      the bare name &#34;Pulmonary alveolar proteinosis&#34; with the presumed pathogenesis
+      given as autoantibody to GM-CSF, and its similar-PID column names CSF2RA
+      deficiency. The bare row name is the trap here. IUIS is describing the
+      anti-GM-CSF autoantibody disease, which is this entry, and not the hereditary
+      receptor disease, which dismech curates separately as
+      Hereditary_Pulmonary_Alveolar_Proteinosis and which sits in IUIS Table 5
+      (congenital defects of phagocyte number or function) as CSF2RA and CSF2RB
+      deficiency. The two are the phenocopy and its germline counterpart, so only
+      this entry takes the phenocopy value. The row&#39;s opportunistic-infection
+      column (cryptococcal meningitis, disseminated nocardiosis) is the clinical
+      reason IUIS treats the acquired form as an immunodeficiency at all, rather
+      than as a purely respiratory disease.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Pulmonary alveolar proteinosis AutoAb to GM-CSF Normal Normal Normal&#34;
+      explanation: &gt;-
+        The Table 10 row for this disease, giving its presumed pathogenesis as an
+        autoantibody to GM-CSF with normal circulating T cells, B cells and serum
+        immunoglobulin. Graded OTHER because the cited source is an
+        expert-committee nosology, not a primary study.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Pulmonary alveolar proteinosis, cryptococcal meningitis, disseminated nocardiosis/CSF2RA deficiency&#34;
+      explanation: &gt;-
+        The associated-features and similar-PID column of the same row, naming
+        CSF2RA deficiency as the inborn error this acquired disease phenocopies.
+        Quoted separately because it is what distinguishes this entry from
+        Hereditary_Pulmonary_Alveolar_Proteinosis. Graded OTHER for the same reason
+        as the row above.
 references:
 - reference: PMID:35227171
   title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
@@ -13399,12 +13740,16 @@ imaging_findings:
     reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;(C) Image showing ground-glass opacification involving some but not all secondary lobules&#34;
-    explanation: &gt;
-      Records the lobule-selective distribution that produces the geographic
-      appearance. The quote stops at a clause boundary rather than running into
-      the source&#39;s curly-quoted &#34;geographic&#34;, which would introduce
-      non-ASCII characters into the snippet.
+    snippet: &gt;-
+      (C–F) Representative images from computed tomography of the chest showing the diversity of
+      radiographic findings in autoimmune PAP in a 45-year-old man (C), a 58-year-old woman (D), a
+      15-year-old girl (E), and an 18-year-old man (F). ... (C) Image showing ground-glass
+      opacification involving some but not all secondary lobules resulting in a distinctive
+      “geographic” pattern.
+    explanation: &gt;-
+      Restores the caption&#39;s CT and autoimmune-PAP context and completes the panel C
+      geographic-pattern description. The other panels and additional mechanistic/differential
+      interpretations are not substituted for panel C.
 - name: Pulmonary fibrosis with traction bronchiectasis (late)
   modality: CT
   imaging_finding_term:
@@ -14796,6 +15141,39 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curated de novo from a claude_code deep-research report (research/Autoimmune_Pulmonary_Alveolar_Proteinosis-deep-research-claude_code.md) used as leads only; every PMID, snippet and ontology term was independently verified against PubMed/PMC and OAK. The deep-research report mislabelled two trial citations (it attached NEJMoa1816216 to IMPALA and NEJMoa1913590 to a sargramostim trial), so trial identities were re-derived from PubMed: PMID:32897035 is IMPALA (molgramostim, NEJM 2020), PMID:40834301 is IMPALA-2 (phase 3, NEJM 2025), and PMID:20167854 is the Japanese inhaled sargramostim phase II trial. No GeneReviews chapter covers autoimmune PAP, which is expected for a non-Mendelian acquired disease.
+
+Publication-readiness review (2026-08-05). Gaps closed against the repo&#39;s own QC metrics rather than by free-form expansion: the `classifications` block was absent; pathograph phenotype connectivity was 50% (7/14) and causal-gene wiring 0% (HLA-DRB1 sat in `genetic` without reaching a mechanism node); the `imaging_findings`, `animal_models` and `datasets` blocks were absent; two treatments (plasmapheresis, lung transplantation) carried no evidence; and the IMPALA trial the entry already cited was not curated as a `clinical_trials` record. Most of the new evidence came from the full text of PMID:35227171, which is cached in full rather than abstract-only, so the natural-history data (survival curve, spontaneous resolution, cause of death) and the negative recommendation on plasmapheresis are now quotable. Connectivity is now 87% (13/15); the two remaining unconnected phenotypes are deliberate - chest pain has no asserted mechanistic route in the sources, and digital clubbing is curated as a REFUTE negative that must not be given a causal in-edge. GSE153957 was verified against GEO and its publication (PMID:33820876) independently fetched; NCT02702180 was read out of the cached IMPALA report rather than assumed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Autoimmune Pulmonary Alveolar Proteinosis</strong> · 2026-08-02T00:31:39Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autoimmune_Pulmonary_Alveolar_Proteinosis/2026-08-02T003139Z-claude-code-7dfce2.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of autoimmune pulmonary alveolar proteinosis (MONDO:0012579), the anti-GM-CSF-autoantibody form that accounts for ~90% of the PAP syndrome. It complements the existing Hereditary_Pulmonary_Alveolar_Proteinosis entry (MONDO:0012580), which disables the same GM-CSF axis at the receptor (CSF2RA/CSF2RB) rather than at the ligand.
+
+Deep research used the claude_code provider via `just research-disorder claude_code`, producing research/Autoimmune_Pulmonary_Alveolar_Proteinosis-deep-research-claude_code.md. Before the report was used it was checked for artificial truncation: run_metadata.stop_reason was end_turn rather than max_tokens, all 15 template sections were present, the body terminated on a complete citation list, and the size (68 KB, 814 lines, 64 citations, 18 web searches, 20 turns) was consistent with other complete claude_code runs already in research/. The provider source was also inspected and contains no length-slicing logic; its only failure modes are raise-on-error and raise-on-timeout.
+
+The report was treated as leads only. Every PMID was re-verified against PubMed/PMC, every snippet validated as an exact substring of the cached abstract, and every HP/GO/CL/UBERON/NCIT/HGNC term verified with OAK. Two citation errors in the report were caught and corrected: it attached NEJMoa1816216 to IMPALA and NEJMoa1913590 to a sargramostim trial. Trial identities were re-derived from PubMed as PMID:32897035 for IMPALA (NEJM 2020), PMID:40834301 for IMPALA-2 phase 3 (NEJM 2025), and PMID:20167854 for the Japanese inhaled sargramostim phase II trial.
+
+The pathograph has eight nodes: loss of tolerance to GM-CSF, autoantibody neutralization and functional GM-CSF deficiency, arrested alveolar macrophage terminal differentiation, impaired surfactant catabolism with macrophage cholesterol overload, alveolar surfactant accumulation, and impaired gas exchange, plus a parallel systemic myeloid host-defence arm capturing the acquired innate immunodeficiency and a secondary pulmonary fibrosis branch. All nodes carry biological_scale tags. Treatments use target_mechanisms to link to the node each acts on, which separates the mechanism-directed therapies (inhaled molgramostim and sargramostim at the GM-CSF node, rituximab at the tolerance node, statin at the cholesterol node) from the purely symptomatic whole lung lavage.
+
+Two curated negatives are worth noting. Digital clubbing is recorded as a REFUTE evidence item because the AJRCCM review states it is not typical and that its presence should prompt an alternative diagnosis. Smoking carries both a PARTIAL and a REFUTE item from the same Japanese registry paper, which reports a 56% smoking history yet explicitly concludes the disease was not strongly linked to smoking.
+
+Two discussions were recorded: a HUMAN_MODEL_MISMATCH noting that Csf2 and Csf2rb knockouts model the downstream signaling loss but not the autoimmune trigger, since the macaque passive-transfer experiment is an antibody challenge rather than endogenous tolerance breakdown; and a KNOWLEDGE_GAP on whether the HLA-DRB1*08:03 association replicates outside the single-ancestry Japanese GWAS.
+
+Validation: `just validate` passes schema, term and reference validation with 70 of 70 snippets verified against cached references. tests/test_data.py passes for this file. One unrelated pre-existing failure exists on main in Myofibrillar_Myopathy.yaml, where a MONITORING action carries target_mechanisms; it was left untouched. No GeneReviews chapter exists for aPAP, as expected for a non-Mendelian acquired disease.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -15233,7 +15611,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autoimmune Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012579", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "20744f044b56"};
+        const OS_CONFIG = {"diseaseName": "Autoimmune Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012579", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "642793926228"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3972,7 +4040,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4122,6 +4190,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4183,6 +4252,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4250,6 +4320,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4271,6 +4342,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4336,6 +4408,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4395,6 +4468,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4462,6 +4536,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4524,6 +4599,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4568,6 +4644,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synovial-leukocyte-infiltration" data-dismech-node="Synovial Leukocyte Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Synovial Leukocyte Infiltration</div>
+
 
                 <div class="item-desc">T-cell and macrophage recruitment to the synovial membrane is the initiating cellular event of synovitis in JIA, with the relative contribution of adaptive autoimmunity versus innate autoinflammation varying by ILAR subtype. Recent synovial atlas and spatial transcriptomic studies have identified that these infiltrating immune cells form organized inflammatory niches within the synovium, with distinct subsets of T cells (particularly lymphocyte activation markers), synovial macrophages, and B cells positioning themselves in tissue-specific configurations that sustain chronic arthritis. The genetic susceptibility loci identified by GWAS (lymphocyte activation, cytokine signaling, and immune regulation genes) directly correlate with these immune-cell states, linking inherited risk to the cellular environment perpetuating synovitis.</div>
 
@@ -4812,6 +4889,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4834,6 +4912,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synovial-hyperplasia" data-dismech-node="Synovial Hyperplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Synovial Hyperplasia</div>
+
 
                 <div class="item-desc">Activated synovial fibroblasts and resident synoviocytes proliferate under cytokine drive, producing the thickened, vascularised synovium (pannus-like membrane in long-standing disease) that supports ongoing inflammation and joint damage.</div>
 
@@ -4940,6 +5019,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4962,6 +5042,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-mediated-articular-damage" data-dismech-node="Cytokine-Mediated Articular Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Mediated Articular Damage</div>
+
 
                 <div class="item-desc">Pro-inflammatory cytokine production (notably TNF, IL-1, IL-6) by infiltrating leukocytes and hyperplastic synovium drives cartilage and bone destruction at the joint, the proximate mechanism of the long-term joint-damage phenotype across non-systemic JIA categories.</div>
 
@@ -5072,6 +5153,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5093,6 +5175,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5118,6 +5201,7 @@ This pathophysiological event occurs in synovial membrane, annotated with synovi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-autoinflammation-sjia" data-dismech-node="Systemic Autoinflammation (sJIA)" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Autoinflammation (sJIA)</div>
+
 
                 <div class="item-desc">Systemic JIA is dominated by innate-immune activation with prominent IL-1 and IL-6 signalling, distinguishing it pathophysiologically from the more T-cell-driven oligo-/polyarticular categories. Under current consensus it is considered the same entity as adult-onset Still&#39;s disease.</div>
 
@@ -5241,6 +5325,7 @@ This pathophysiological event involves increased interleukin-6 mediated signalin
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5262,6 +5347,7 @@ This pathophysiological event involves increased interleukin-6 mediated signalin
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5388,6 +5474,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5402,6 +5491,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5458,6 +5548,9 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5472,6 +5565,7 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5528,6 +5622,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5542,6 +5639,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5629,6 +5727,9 @@ This clinical feature is Anterior uveitis (HP:0012122), qualified as temporality
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-uveitis" data-dismech-node="Uveitis" data-dismech-type="phenotype">
@@ -5661,6 +5762,9 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5675,6 +5779,7 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5731,6 +5836,9 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5745,6 +5853,7 @@ This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5810,6 +5919,9 @@ This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5824,6 +5936,7 @@ This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5889,6 +6002,9 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5903,6 +6019,7 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5959,6 +6076,9 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5973,6 +6093,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6029,6 +6150,9 @@ This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:000349
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6043,6 +6167,7 @@ This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:000349
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6101,6 +6226,9 @@ This clinical feature is Increased serum interferon-gamma level, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6115,6 +6243,7 @@ This clinical feature is Increased serum interferon-gamma level, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6171,6 +6300,9 @@ This clinical feature is Rheumatoid factor positive (HP:0002923). HP:0002923 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6185,6 +6317,7 @@ This clinical feature is Rheumatoid factor positive (HP:0002923). HP:0002923 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6250,6 +6383,9 @@ This clinical feature is Knee osteoarthritis (HP:0005086). HP:0005086 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6264,6 +6400,7 @@ This clinical feature is Knee osteoarthritis (HP:0005086). HP:0005086 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6320,6 +6457,9 @@ This clinical feature is Interphalangeal joint erosions (HP:0006252). HP:0006252
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6334,6 +6474,7 @@ This clinical feature is Interphalangeal joint erosions (HP:0006252). HP:0006252
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6403,6 +6544,9 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
@@ -6430,6 +6574,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6471,6 +6618,9 @@ This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6485,6 +6635,7 @@ This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6541,6 +6692,9 @@ This clinical feature is Elevated circulating C-reactive protein concentration (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6555,6 +6709,7 @@ This clinical feature is Elevated circulating C-reactive protein concentration (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6620,6 +6775,9 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6634,6 +6792,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6694,6 +6853,9 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-joint-deformity" data-dismech-node="Joint Deformity" data-dismech-type="phenotype">
@@ -6728,6 +6890,9 @@ This clinical feature is Joint deformity, annotated with Limitation of joint mob
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6742,6 +6907,7 @@ This clinical feature is Joint deformity, annotated with Limitation of joint mob
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6798,6 +6964,9 @@ This clinical feature is Juvenile rheumatoid arthritis (HP:0005681). HP:0005681 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6812,6 +6981,7 @@ This clinical feature is Juvenile rheumatoid arthritis (HP:0005681). HP:0005681 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6868,6 +7038,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6882,6 +7055,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6938,6 +7112,9 @@ This clinical feature is Oligoarthritis (HP:0040313). HP:0040313 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6952,6 +7129,7 @@ This clinical feature is Oligoarthritis (HP:0040313). HP:0040313 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7008,6 +7186,9 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7022,6 +7203,7 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7078,6 +7260,9 @@ This clinical feature is Polyarticular arthritis (HP:0005764). HP:0005764 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7092,6 +7277,7 @@ This clinical feature is Polyarticular arthritis (HP:0005764). HP:0005764 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7148,6 +7334,9 @@ This clinical feature is Progressive joint destruction (HP:0005187). HP:0005187 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7162,6 +7351,7 @@ This clinical feature is Progressive joint destruction (HP:0005187). HP:0005187 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7220,6 +7410,9 @@ This clinical feature is Symetrical distal arthritis, annotated with Symmetric p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7234,6 +7427,7 @@ This clinical feature is Symetrical distal arthritis, annotated with Symmetric p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7290,6 +7484,9 @@ This clinical feature is Synovitis (HP:0100769). HP:0100769 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7304,6 +7501,7 @@ This clinical feature is Synovitis (HP:0100769). HP:0100769 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7360,6 +7558,9 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7374,6 +7575,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7430,6 +7632,9 @@ This clinical feature is Premature epimetaphyseal fusion (HP:0010588). HP:001058
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7444,6 +7649,7 @@ This clinical feature is Premature epimetaphyseal fusion (HP:0010588). HP:001058
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7513,6 +7719,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
@@ -7545,6 +7754,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7559,6 +7771,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7624,6 +7837,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7638,6 +7854,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7694,6 +7911,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7708,6 +7928,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7770,7 +7991,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1" data-dismech-node="HLA-DRB1" data-dismech-type="genetic">
@@ -7806,6 +8027,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7820,6 +8044,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7847,6 +8072,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7868,6 +8094,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7905,6 +8132,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7919,6 +8149,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7946,6 +8177,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7970,6 +8202,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7978,6 +8211,393 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
                 <div class="evidence-explanation">Synovial atlas studies link genetic susceptibility loci to specific immune-cell states and inflammatory tissue niches in polyarticular JIA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-nod2" data-dismech-node="NOD2" data-dismech-type="genetic">
+                <div class="item-name">
+                    NOD2
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NOD2
+
+
+    <a href="https://bioregistry.io/hgnc:5331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:5331</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOD2 (hgnc:5331). hgnc:5331 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: RISK_FACTOR</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathogenic variants in NOD2 associated with Blau syndrome, an ultra-rare Mendelian inflammatory disorder, are the most recurrent variants in the cohort, consistent with previous reports that milder presentations of Blau syndrome are oftentimes misdiagnosed as juvenile idiopathic arthritis."</div>
+
+
+                <div class="evidence-explanation">WGS of 23 multiplex JIA families identified NOD2 pathogenic variants in four families, establishing NOD2 as a candidate gene in familial JIA. The known-pathogenic variants score 3.08-4.77 on GEM; the one VUS family scores 0.962-1.04, so the two are reported separately rather than as a single span.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study reports an additional four families with Blau syndrome, previously ascertained as JIA."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own framing of the NOD2 families, and the reason this entry records NOD2 as a risk factor for JIA rather than as causative of it. On the study&#39;s reading these pedigrees may be Blau syndrome that was ascertained as JIA, which is a claim about diagnostic boundaries as much as about shared mechanism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We propose that substantial phenotypic overlap between less severe manifestations of Blau syndrome and JIA, resulting in occasional misdiagnosis, should be investigated as an avenue for understanding the pathophysiology of autoimmune arthritis broadly."</div>
+
+
+                <div class="evidence-explanation">The study proposes shared pathophysiology between NOD2-associated Blau syndrome and JIA based on phenotypic overlap, suggesting NOD2 variants may confer JIA susceptibility through autoinflammatory mechanisms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-acvr1" data-dismech-node="ACVR1" data-dismech-type="genetic">
+                <div class="item-name">
+                    ACVR1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ACVR1
+
+
+    <a href="https://bioregistry.io/hgnc:171" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:171</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACVR1 (hgnc:171). hgnc:171 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: RISK_FACTOR</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For the first time, however, rare variants in ACVR1 and SMAD6, integral components of the Bone Morphogenic Protein pathway, are found to be associated with juvenile idiopathic arthritis."</div>
+
+
+                <div class="evidence-explanation">The human cohort finding alone - rare ACVR1 and SMAD6 variants observed in JIA multiplex pedigrees. Split from the AlphaFold3 prediction that originally shared this quote, since one evidence item cannot carry two evidence types.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These computational data support pathogenicity for the ACVR1R160G and ACVR1H121Y missense alleles in JIA"</div>
+
+
+                <div class="evidence-explanation">The AlphaFold3 structural prediction arm, graded COMPUTATIONAL rather than folded into the cohort finding. The authors model the ACVR1-OGT interaction and find it disrupted by both alleles, as it is by the FOP-associated R206H. INDIRECT because pathogenicity follows from the predicted structural disruption by an inference step rather than being measured.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Drosophila melanogaster expressing either a wild-type or patient-mutated version of ACVR1 exhibit embryonic lethality, with the mutant exhibiting 1.4-fold greater lethality than wild-type."</div>
+
+
+                <div class="evidence-explanation">Drosophila model validation demonstrates that patient-derived ACVR1R160G variant produces a gain-of-function phenotype with elevated BMP pathway signaling.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-smad6" data-dismech-node="SMAD6" data-dismech-type="genetic">
+                <div class="item-name">
+                    SMAD6
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SMAD6
+
+
+    <a href="https://bioregistry.io/hgnc:6772" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:6772</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD6 (hgnc:6772). hgnc:6772 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: RISK_FACTOR</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Within our cohort, we observed a frameshift (R231Sfs*72) in SMAD6 shared by three affected children and an affected parent with a positive family history of autoimmune disease."</div>
+
+
+                <div class="evidence-explanation">WGS identified a SMAD6 frameshift variant segregating across three affected children and an affected parent in one JIA multiplex family. Trimmed to what the quote supports - the segregation itself; the loss-of-function reading is an in-silico prediction and is carried by the separate COMPUTATIONAL item below.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In silico predictions of this late frameshift by MutationTaster (Steinhaus et al. 2021) suggest that the truncated protein (−37 amino acids) would result in a loss of SMAD-1 binding and subsequent loss of inhibition of BMP-SMAD1 signaling"</div>
+
+
+                <div class="evidence-explanation">The in-silico basis for reading the frameshift as loss of function. Graded COMPUTATIONAL because MutationTaster predicts the consequence rather than measuring it, and the authors state separately that experimental follow-up is needed to confirm it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42466628" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42466628" target="_blank">PMID:42466628</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Given that known pathogenic variants in ACVR1 aberrantly activate BMP signaling, we propose that these candidate variants in ACVR1 and SMAD6 share the biological mechanism of sensitizing BMP activation."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; proposed convergence of the SMAD6 and ACVR1 candidate variants on BMP activation. Graded OTHER rather than HUMAN_CLINICAL because the sentence is a mechanistic proposal, not a clinical observation - the paper reports no human evidence for the convergence itself.</div>
 
 
 
@@ -8017,7 +8637,7 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">NSAID therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">NSAID therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8059,16 +8679,19 @@ This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). N
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C257</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C257</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -8085,6 +8708,9 @@ This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NC
 
 
     </div>
+
+
+
 
 
 
@@ -8112,6 +8738,7 @@ This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8143,7 +8770,7 @@ This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">glucocorticoid therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">glucocorticoid therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is glucocorticoid therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8185,16 +8812,19 @@ This treatment is glucocorticoid therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9667" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:9667</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9667" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:9667</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses triamcinolone (CHEBI:9667). CHEBI:9667 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -8211,6 +8841,9 @@ This treatment uses triamcinolone (CHEBI:9667). CHEBI:9667 is a therapeutic agen
 
 
     </div>
+
+
+
 
 
 
@@ -8241,6 +8874,7 @@ This treatment uses triamcinolone (CHEBI:9667). CHEBI:9667 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8262,6 +8896,7 @@ This treatment uses triamcinolone (CHEBI:9667). CHEBI:9667 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8293,7 +8928,7 @@ This treatment uses triamcinolone (CHEBI:9667). CHEBI:9667 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">methotrexate therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">methotrexate therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8335,16 +8970,22 @@ This treatment is methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:44185</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8380,6 +9021,7 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8408,7 +9050,7 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">biologic DMARD therapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">biologic DMARD therapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is biologic DMARD therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8450,11 +9092,11 @@ This treatment is biologic DMARD therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2381" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C2381</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2381" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C2381</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses etanercept (NCIT:C2381). NCIT:C2381 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8467,11 +9109,11 @@ This treatment uses etanercept (NCIT:C2381). NCIT:C2381 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C65216</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C65216</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8484,11 +9126,11 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38717" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C38717</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38717" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-61">NCIT:C38717</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8501,11 +9143,11 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80971" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C80971</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80971" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C80971</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -8518,16 +9160,22 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C84217</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C84217</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -8563,6 +9211,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8584,6 +9233,7 @@ This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9325,8 +9975,8 @@ phenotypes:
     extra-articular complication of oligoarticular JIA, particularly in
     ANA-positive young girls, and a leading cause of visual morbidity
     if not detected by routine slit-lamp screening. Acute symptomatic
-    anterior uveitis also occurs in enthesitis-related JIA. Subtype-
-    qualified here to oligoarticular JIA, the highest-risk category.
+    anterior uveitis also occurs in enthesitis-related JIA. Subtype-qualified
+    here to oligoarticular JIA, the highest-risk category.
   phenotype_term:
     preferred_term: Anterior uveitis
     term:
@@ -9904,6 +10554,171 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Synovial atlas and spatial transcriptomic studies have further connected genetic susceptibility to immune-cell states and organized inflammatory niches, linking inherited risk to the chronic arthritis-sustaining tissue environment.&#34;
     explanation: Synovial atlas studies link genetic susceptibility loci to specific immune-cell states and inflammatory tissue niches in polyarticular JIA.
+- name: NOD2
+  gene_term:
+    preferred_term: NOD2
+    term:
+      id: hgnc:5331
+      label: NOD2
+  association: Risk Factor
+  relationship_type: RISK_FACTOR
+  notes: &gt;-
+    Pathogenic variants in NOD2 were identified in four familial JIA multiplex pedigrees (R334Q,
+    R334W, R587C). Their GEM scores run 3.08 to 4.77, above the study&#39;s stated diagnostic
+    threshold of 2; a fourth pedigree carries a NOD2 variant reported in ClinVar as a VUS,
+    scoring 0.962 to 1.04. The frameshift N637Sfs*120 is a separate finding from the 115-singleton
+    replication cohort rather than the multiplex pedigrees, and the authors discount it: the
+    transcript is predicted to undergo nonsense-mediated decay, but gnomAD constraint metrics
+    suggest NOD2 is haplosufficient, so they judge it less likely to contribute to that
+    individual&#39;s risk while still worth experimental follow-up. NOD2 variants are associated with
+    Blau syndrome, an ultra-rare autosomal-dominant autoinflammatory disorder, and recent studies
+    show substantial phenotypic overlap with milder presentations of Blau syndrome being misdiagnosed
+    as JIA. The authors&#39; own primary reading is stronger than shared pathogenesis - they describe
+    these as an additional four families with Blau syndrome previously ascertained as JIA - which
+    bears on whether these families are JIA at all, and is why this gene is recorded as a risk
+    factor for the JIA concept rather than as causative of it.
+  evidence:
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Pathogenic variants in NOD2 associated with Blau syndrome, an ultra-rare Mendelian inflammatory disorder, are the most recurrent variants in the cohort, consistent with previous reports that milder presentations of Blau syndrome are oftentimes misdiagnosed as juvenile idiopathic arthritis.&#34;
+    explanation: &gt;-
+      WGS of 23 multiplex JIA families identified NOD2 pathogenic variants in
+      four families, establishing NOD2 as a candidate gene in familial JIA. The
+      known-pathogenic variants score 3.08-4.77 on GEM; the one VUS family
+      scores 0.962-1.04, so the two are reported separately rather than as a
+      single span.
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our study reports an additional four families with Blau syndrome, previously ascertained as JIA.&#34;
+    explanation: &gt;-
+      The authors&#39; own framing of the NOD2 families, and the reason this entry
+      records NOD2 as a risk factor for JIA rather than as causative of it. On
+      the study&#39;s reading these pedigrees may be Blau syndrome that was
+      ascertained as JIA, which is a claim about diagnostic boundaries as much
+      as about shared mechanism.
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We propose that substantial phenotypic overlap between less severe manifestations of Blau syndrome and JIA, resulting in occasional misdiagnosis, should be investigated as an avenue for understanding the pathophysiology of autoimmune arthritis broadly.&#34;
+    explanation: The study proposes shared pathophysiology between NOD2-associated Blau syndrome and JIA based on phenotypic overlap, suggesting NOD2 variants may confer JIA susceptibility through autoinflammatory mechanisms.
+- name: ACVR1
+  gene_term:
+    preferred_term: ACVR1
+    term:
+      id: hgnc:171
+      label: ACVR1
+  association: Risk Factor
+  relationship_type: RISK_FACTOR
+  notes: &gt;-
+    Rare variants in ACVR1 (R160G and H121Y) were identified in two JIA multiplex families. Both
+    are reported as VUS in ClinVar and score 0.75-1.63 on GEM, below the study&#39;s stated diagnostic
+    threshold of 2, and the authors call them candidate variants, contributing familial and
+    experimental data to support reclassification while stating that additional follow-up is still
+    needed. That is why this entry records ACVR1 as a risk factor rather than as causative in the
+    Mendelian sense. Inheritance is weaker than clean autosomal-dominant segregation in both
+    families. R160G is transmitted from an affected mother to three children with oligoarticular
+    JIA, but Sanger sequencing showed five of eight children carry it and two carriers are
+    unaffected, so penetrance is incomplete - the authors note those two were under 16 at
+    ascertainment and may yet develop JIA. H121Y was not transmitted from the mother, who has
+    scleroderma rather than autoimmune arthritis, and the father was not genotyped. The paper&#39;s
+    own wording is that the JIA-associated variants are likely autosomal dominant. AlphaFold3
+    modeling predicts that both variants disrupt the interaction between ACVR1 and its inhibitor
+    O-GlcNAc transferase (OGT), suggesting a gain-of-function phenotype that results in aberrant
+    BMP signaling activation. Drosophila modeling demonstrates that ACVR1R160G exhibits 1.4-fold
+    greater embryonic lethality than wild-type, consistent with elevated Dpp/BMP pathway
+    activation. The JIA-associated variants map upstream of the FOP-associated R206H mutation,
+    raising the possibility of shared BMP pathway dysregulation between JIA and fibrodysplasia
+    ossificans progressiva.
+  evidence:
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;For the first time, however, rare variants in ACVR1 and SMAD6, integral components of the Bone Morphogenic Protein pathway, are found to be associated with juvenile idiopathic arthritis.&#34;
+    explanation: &gt;-
+      The human cohort finding alone - rare ACVR1 and SMAD6 variants observed in
+      JIA multiplex pedigrees. Split from the AlphaFold3 prediction that
+      originally shared this quote, since one evidence item cannot carry two
+      evidence types.
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;These computational data support pathogenicity for the ACVR1R160G and ACVR1H121Y missense alleles in JIA&#34;
+    explanation: &gt;-
+      The AlphaFold3 structural prediction arm, graded COMPUTATIONAL rather than
+      folded into the cohort finding. The authors model the ACVR1-OGT
+      interaction and find it disrupted by both alleles, as it is by the
+      FOP-associated R206H. INDIRECT because pathogenicity follows from the
+      predicted structural disruption by an inference step rather than being
+      measured.
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Drosophila melanogaster expressing either a wild-type or patient-mutated version of ACVR1 exhibit embryonic lethality, with the mutant exhibiting 1.4-fold greater lethality than wild-type.&#34;
+    explanation: Drosophila model validation demonstrates that patient-derived ACVR1R160G variant produces a gain-of-function phenotype with elevated BMP pathway signaling.
+- name: SMAD6
+  gene_term:
+    preferred_term: SMAD6
+    term:
+      id: hgnc:6772
+      label: SMAD6
+  association: Risk Factor
+  relationship_type: RISK_FACTOR
+  notes: &gt;-
+    A frameshift variant in SMAD6 (R231Sfs*72) was identified segregating in one JIA multiplex
+    family across three affected children and an affected parent. The authors call it a candidate
+    variant and state that experimental follow-up is needed to confirm the consequence of the
+    frameshift on the transcript and/or protein, which is why this entry records SMAD6 as a risk
+    factor rather than as causative in the Mendelian sense. In silico prediction by MutationTaster
+    suggests the truncated protein would lose SMAD1-binding capacity and fail to inhibit BMP-SMAD1
+    signaling; that is a prediction, not a measured loss of function. SMAD6 is a canonical negative
+    regulator of BMP signal transduction, and SMAD6-deficient mice show elevated BMP signaling in
+    growth-plate chondrocytes with aberrant differentiation. The SMAD6 frameshift thus complements
+    the ACVR1 gain-of-function variants in suggesting BMP pathway dysregulation as a mechanistic
+    contributor to JIA pathogenesis.
+  evidence:
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Within our cohort, we observed a frameshift (R231Sfs*72) in SMAD6 shared by three affected children and an affected parent with a positive family history of autoimmune disease.&#34;
+    explanation: &gt;-
+      WGS identified a SMAD6 frameshift variant segregating across three
+      affected children and an affected parent in one JIA multiplex family.
+      Trimmed to what the quote supports - the segregation itself; the
+      loss-of-function reading is an in-silico prediction and is carried by the
+      separate COMPUTATIONAL item below.
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;In silico predictions of this late frameshift by MutationTaster (Steinhaus et al. 2021) suggest that the truncated protein (−37 amino acids) would result in a loss of SMAD-1 binding and subsequent loss of inhibition of BMP-SMAD1 signaling&#34;
+    explanation: &gt;-
+      The in-silico basis for reading the frameshift as loss of function. Graded
+      COMPUTATIONAL because MutationTaster predicts the consequence rather than
+      measuring it, and the authors state separately that experimental follow-up
+      is needed to confirm it.
+  - reference: PMID:42466628
+    reference_title: &#34;Rare variant analysis of whole genome sequenced juvenile idiopathic arthritis multiplex pedigrees identifies rare variants in NOD2 and ACVR1.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: OTHER
+    snippet: &#34;Given that known pathogenic variants in ACVR1 aberrantly activate BMP signaling, we propose that these candidate variants in ACVR1 and SMAD6 share the biological mechanism of sensitizing BMP activation.&#34;
+    explanation: &gt;-
+      The authors&#39; proposed convergence of the SMAD6 and ACVR1 candidate
+      variants on BMP activation. Graded OTHER rather than HUMAN_CLINICAL
+      because the sentence is a mechanistic proposal, not a clinical
+      observation - the paper reports no human evidence for the convergence
+      itself.
 treatments:
 - name: NSAIDs
   description: &gt;-
@@ -10104,6 +10919,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10245,7 +11062,7 @@ for systemic JIA per the EULAR/PReS recommendations.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Juvenile Idiopathic Arthritis", "mondoId": "MONDO:0011429", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Idiopathic_Arthritis", "yamlRevision": "ae6549e51810"};
+        const OS_CONFIG = {"diseaseName": "Juvenile Idiopathic Arthritis", "mondoId": "MONDO:0011429", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Idiopathic_Arthritis", "yamlRevision": "b97aaddae71c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

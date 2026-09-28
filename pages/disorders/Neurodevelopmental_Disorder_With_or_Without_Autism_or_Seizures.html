@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4320,6 +4388,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4344,6 +4413,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4365,6 +4435,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4451,6 +4522,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4472,6 +4544,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4540,6 +4613,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4561,6 +4635,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4702,6 +4777,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4723,6 +4799,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4800,6 +4877,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4821,6 +4899,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4957,6 +5036,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4978,6 +5058,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5015,6 +5096,7 @@ CUL3 is a two-disease gene, and the two diseases are separated by variant class 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-cul3-loss-of-function-variant" data-dismech-node="Heterozygous CUL3 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous CUL3 Loss-of-Function Variant</div>
+
 
                 <div class="item-desc">A single heterozygous CUL3 allele is inactivated by a nonsense, frameshift, canonical splice-site or whole-gene deletion event, or by a missense substitution that destabilises the cullin scaffold. Across the two published cohorts the truncating and splice classes dominate; missense alleles are a minority and at least one (p.Val285Ala, in the cullin N-terminal domain) has been shown biochemically to weaken binding to BTB-domain adaptors rather than to abolish the protein. Almost all reported variants are de novo.</div>
 
@@ -5110,6 +5192,8 @@ This genetic context concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -5125,6 +5209,9 @@ This genetic context concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous, predominantly de novo loss-of-function alleles. Reported classes include nonsense, frameshift, canonical splice-site, whole-gene deletion and destabilising missense substitutions. The single reported deletion removed CUL3 together with neighbouring genes, so it is a contiguous multigene CNV rather than a CUL3-only deletion.</div>
 
@@ -5174,6 +5261,7 @@ This genetic context concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5195,6 +5283,7 @@ This genetic context concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5222,6 +5311,7 @@ This genetic context concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5244,6 +5334,7 @@ This genetic context concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cullin-3-haploinsufficiency-and-reduced-crl3-ligase-capacity" data-dismech-node="Cullin-3 Haploinsufficiency and Reduced CRL3 Ligase Capacity" data-dismech-type="pathophysiology">
                 <div class="item-name">Cullin-3 Haploinsufficiency and Reduced CRL3 Ligase Capacity</div>
+
 
                 <div class="item-desc">Cullin-3 is the scaffold that bridges the RBX1-E2 module to a BTB-domain substrate adaptor, so its dose sets the assembly capacity of the entire CRL3 ligase family rather than of one enzyme. Halving that dose lowers global ubiquitin-conjugating output: patient-derived T cells show reduced ubiquitin-protein conjugates. This node is the disorder-agnostic rate-limiting step from which every downstream branch of the entry descends.</div>
 
@@ -5457,6 +5548,7 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5478,6 +5570,7 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5505,6 +5598,7 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5527,6 +5621,7 @@ This pathophysiological event involves decreased ubiquitin-protein transferase a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-crl3-substrate-degradation" data-dismech-node="Failure of CRL3 Substrate Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CRL3 Substrate Degradation</div>
+
 
                 <div class="item-desc">Because CRL3 acts through interchangeable BTB adaptors, scaffold shortage is felt across a substrate set rather than at a single protein, and the substrates that have been shown to accumulate map onto the two downstream branches this entry curates. Translational control substrates - 4E-BP1 (EIF4EBP1), shown to escape proteasomal degradation in patient-derived cells, and eIF4G1, identified proteomically as a CUL3 target in mouse brain - feed the cap-dependent translation branch. Cytoskeletal substrates - the small GTPase RhoA, and plastin-3 - feed the neuronal migration and dendrite branch; RhoA is presented to CUL3 by the BTB adaptors BACURD1/KCTD13 and BACURD2/TNFAIP1, which is the point at which this disorder touches the 16p11.2 copy-number syndrome, since KCTD13 lies in that interval. The substrate list is almost certainly incomplete.</div>
 
@@ -5651,6 +5746,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5672,6 +5768,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5699,6 +5796,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5723,6 +5821,7 @@ This pathophysiological event involves decreased proteasome-mediated ubiquitin-d
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-cap-dependent-translation" data-dismech-node="Dysregulated Cap-Dependent Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Cap-Dependent Translation</div>
+
 
                 <div class="item-desc">CUL3 normally restrains cap-dependent translation initiation by turning over initiation-complex proteins. When that restraint is lost, translational output in neurons is dysregulated; in CUL3-deficient mice this manifests as enhanced glutamatergic transmission and neuronal excitability, and both the cellular and behavioural phenotypes are reversed by pharmacological inhibition of eIF4G1. Dysregulated cap-dependent translation is a mechanism shared with several other monogenic autism syndromes, which is what makes it the most tractable candidate node for intervention in this disorder.</div>
 
@@ -5848,6 +5947,7 @@ This pathophysiological event involves increased cap-dependent translational ini
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5869,6 +5969,7 @@ This pathophysiological event involves increased cap-dependent translational ini
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5894,6 +5995,7 @@ This pathophysiological event involves increased cap-dependent translational ini
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-migration-and-cortical-lamination" data-dismech-node="Impaired Neuronal Migration and Cortical Lamination" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Migration and Cortical Lamination</div>
+
 
                 <div class="item-desc">Cul3 is required to hold plastin-3 at the level that permits normal radial migration, and constitutive heterozygous mice show cortical lamination abnormalities as a result. The requirement is developmentally gated: inducing the same haploinsufficiency in adult mice does not produce autism-relevant behaviour, which places the pathogenic window in embryonic and early postnatal corticogenesis and is the strongest argument in this disorder against expecting a purely postnatal pharmacological rescue.</div>
 
@@ -6094,6 +6196,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6115,6 +6218,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6142,6 +6246,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6164,6 +6269,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dendritic-growth-and-inhibitory-synapse-loss" data-dismech-node="Reduced Dendritic Growth and Inhibitory Synapse Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Dendritic Growth and Inhibitory Synapse Loss</div>
+
 
                 <div class="item-desc">In Cul3-deficient hippocampal neurons dendritic complexity and length fall and axon formation is impaired, while gephyrin/vGAT puncta - a marker of inhibitory synapses - are selectively reduced with excitatory vGluT1/PSD95 puncta unchanged. The asymmetry matters: loss of inhibitory synapses is itself a route to excitation-inhibition imbalance, independent of the increase in glutamatergic drive produced by the translational branch. Elevated caspase-3 is the proximate mediator, and caspase-3 inhibition reverses both the morphological and inhibitory-synapse phenotypes.</div>
 
@@ -6390,6 +6496,7 @@ This pathophysiological event involves increased regulation of neuron apoptotic 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6411,6 +6518,7 @@ This pathophysiological event involves increased regulation of neuron apoptotic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6438,6 +6546,7 @@ This pathophysiological event involves increased regulation of neuron apoptotic 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6460,6 +6569,7 @@ This pathophysiological event involves increased regulation of neuron apoptotic 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitation-inhibition-imbalance-in-cortico-striatal-circuits" data-dismech-node="Excitation-Inhibition Imbalance in Cortico-Striatal Circuits" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-Inhibition Imbalance in Cortico-Striatal Circuits</div>
+
 
                 <div class="item-desc">The two cellular branches converge on altered circuit excitability, and conditional-deletion experiments show the resulting behaviour depends on where the loss occurs rather than on a single global defect: social deficits track loss in prefrontal cortex, stereotypic behaviour tracks loss in striatum, NMDA receptor hypofunction follows forebrain or prefrontal loss, and cholinergic basal-forebrain deletion reproduces social and sensory-gating phenotypes with cognitive impairment. Distinct circuits, one gene dose.</div>
 
@@ -6716,6 +6826,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6737,6 +6848,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6764,6 +6876,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6786,6 +6899,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syndromic-neurodevelopmental-phenotype" data-dismech-node="Syndromic Neurodevelopmental Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Syndromic Neurodevelopmental Phenotype</div>
+
 
                 <div class="item-desc">The organismal endpoint: a congenital-onset, largely static syndromic neurodevelopmental disorder in which global developmental delay, speech and language delay and intellectual disability are near-universal, mild dysmorphic facial features and hand and foot anomalies are common, and autism, behavioural abnormality, tremor or dystonia, growth restriction and seizures appear in subsets. The variability is not explained by variant class in any published analysis, which is why the disorder is named for its optional rather than its obligatory features.</div>
 
@@ -6824,6 +6938,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6845,6 +6960,7 @@ This pathophysiological event occurs in prefrontal cortex (UBERON:0000451). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6967,6 +7083,9 @@ This clinical feature is Abnormal cardiac septum morphology (HP:0001671). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6981,6 +7100,7 @@ This clinical feature is Abnormal cardiac septum morphology (HP:0001671). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7005,6 +7125,7 @@ This clinical feature is Abnormal cardiac septum morphology (HP:0001671). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7068,6 +7189,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7082,6 +7206,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7156,6 +7281,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020), qualified as temp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7170,6 +7298,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020), qualified as temp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7255,6 +7384,9 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7269,6 +7401,7 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7293,6 +7426,7 @@ This clinical feature is Abnormal facial shape (HP:0001999), qualified as severi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7349,6 +7483,9 @@ This clinical feature is High forehead (HP:0000348). HP:0000348 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7363,6 +7500,7 @@ This clinical feature is High forehead (HP:0000348). HP:0000348 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7419,6 +7557,9 @@ This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7433,6 +7574,7 @@ This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7487,6 +7629,9 @@ This clinical feature is Increased nuchal translucency (HP:0010880). HP:0010880 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7501,6 +7646,7 @@ This clinical feature is Increased nuchal translucency (HP:0010880). HP:0010880 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7568,6 +7714,9 @@ This clinical feature is Hand and foot anomalies, annotated with Abnormality of 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7582,6 +7731,7 @@ This clinical feature is Hand and foot anomalies, annotated with Abnormality of 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7609,6 +7759,7 @@ This clinical feature is Hand and foot anomalies, annotated with Abnormality of 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7630,6 +7781,7 @@ This clinical feature is Hand and foot anomalies, annotated with Abnormality of 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7684,6 +7836,9 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7698,6 +7853,7 @@ This clinical feature is Clinodactyly of the 5th finger (HP:0004209). HP:0004209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7781,6 +7937,9 @@ This clinical feature is Hypotonia (HP:0001252), qualified as temporality transi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7795,6 +7954,7 @@ This clinical feature is Hypotonia (HP:0001252), qualified as temporality transi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7860,6 +8020,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7874,6 +8037,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7930,6 +8094,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7944,6 +8111,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8000,6 +8168,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8014,6 +8185,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8038,6 +8210,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8096,6 +8269,9 @@ This clinical feature is Learning disorder, annotated with Cognitive impairment 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8110,6 +8286,7 @@ This clinical feature is Learning disorder, annotated with Cognitive impairment 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8166,6 +8343,9 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8180,6 +8360,7 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8236,6 +8417,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8250,6 +8434,7 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8308,6 +8493,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8322,6 +8510,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8346,6 +8535,7 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8400,6 +8590,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8414,6 +8607,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8441,6 +8635,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8462,6 +8657,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8516,6 +8712,9 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8530,6 +8729,7 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8584,6 +8784,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8598,6 +8801,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8622,6 +8826,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8678,6 +8883,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8692,6 +8900,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8748,6 +8957,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8762,6 +8974,7 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8816,6 +9029,9 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8830,6 +9046,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8854,6 +9071,7 @@ This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8908,6 +9126,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8922,6 +9143,7 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8994,6 +9216,9 @@ This clinical feature is Ventriculomegaly (HP:0002119), qualified as severity mi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9008,6 +9233,7 @@ This clinical feature is Ventriculomegaly (HP:0002119), qualified as severity mi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9073,6 +9299,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9087,6 +9316,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9111,6 +9341,7 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9165,6 +9396,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9179,6 +9413,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9203,6 +9438,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9303,6 +9539,9 @@ This disease-associated gene is CUL3 (hgnc:2553). hgnc:2553 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9317,6 +9556,7 @@ This disease-associated gene is CUL3 (hgnc:2553). hgnc:2553 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9344,6 +9584,7 @@ This disease-associated gene is CUL3 (hgnc:2553). hgnc:2553 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9365,6 +9606,7 @@ This disease-associated gene is CUL3 (hgnc:2553). hgnc:2553 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9398,6 +9640,7 @@ This disease-associated gene is CUL3 (hgnc:2553). hgnc:2553 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9417,11 +9660,17 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo missense substitution in the cullin N-terminal domain, from the founding case series. Unlike the truncating alleles it leaves a full-length protein, but the mutant binds BTB-domain adaptors significantly more weakly than wild type, reaching the same loss-of-capacity endpoint by a different route.</div>
@@ -9448,6 +9697,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9481,6 +9731,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9500,11 +9751,17 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo two-base insertion producing a premature stop codon, identified by trio exome sequencing in a girl with autism spectrum disorder and Rett-like developmental regression after febrile status epilepticus.</div>
@@ -9531,6 +9788,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9564,6 +9822,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9583,11 +9842,17 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice acceptor variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo canonical acceptor splice-site variant in a child with congenital developmental dysplasia of the hip and global developmental delay. This was the first splice-site allele reported in the neurodevelopmental disorder - notable because splice variants had until then been associated with pseudohypoaldosteronism type IIE rather than with NEDAUS.</div>
@@ -9617,6 +9882,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9638,6 +9904,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9671,6 +9938,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9690,11 +9958,17 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Inherited nonsense variant segregating in a family with short stature and neurodevelopmental disorder: present in two sisters and in their father, who had neurodevelopmental disorder and epilepsy but normal height. A worked example of intrafamilial variable expressivity.</div>
@@ -9724,6 +9998,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9745,6 +10020,7 @@ This variant is in CUL3 (hgnc:2553). hgnc:2553 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9837,6 +10113,9 @@ This treatment is Early Intervention (NCIT:C159524). NCIT:C159524 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9847,6 +10126,9 @@ This treatment is Early Intervention (NCIT:C159524). NCIT:C159524 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -9916,6 +10198,7 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9981,6 +10264,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9991,6 +10277,9 @@ This treatment is Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clin
 
 
     </div>
+
+
+
 
 
 
@@ -10074,6 +10363,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10084,6 +10376,9 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -10150,6 +10445,7 @@ This treatment targets Delayed gross motor development (HP:0002194). HP:0002194 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10240,6 +10536,9 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10250,6 +10549,9 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
     </div>
+
+
+
 
 
 
@@ -10302,6 +10604,7 @@ This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10323,6 +10626,7 @@ This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10413,6 +10717,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10423,6 +10730,9 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
 
 
     </div>
+
+
+
 
 
 
@@ -10472,6 +10782,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10545,6 +10856,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Recurrence risk is low for the de novo majority but is not zero, because parental germline mosaicism is possible and because transmission from a mildly affected parent is documented. Testing parents matters: a carrier parent may have normal height and only mild neurodevelopmental features.</div>
 
 
@@ -10566,6 +10883,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10674,6 +10992,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10698,6 +11017,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10719,6 +11039,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10809,6 +11130,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10896,6 +11218,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10917,6 +11240,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11034,6 +11358,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11134,6 +11459,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11202,6 +11528,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11311,6 +11638,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11335,6 +11663,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11356,6 +11685,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11565,6 +11895,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11624,6 +11955,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11663,6 +11995,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11710,6 +12043,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11868,6 +12202,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11927,6 +12262,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11966,6 +12302,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12013,6 +12350,7 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12210,6 +12548,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12249,6 +12588,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12328,6 +12668,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12367,6 +12708,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12411,6 +12753,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12590,6 +12933,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12629,6 +12973,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12673,6 +13018,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12852,6 +13198,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12891,6 +13238,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12935,6 +13283,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13114,6 +13463,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13153,6 +13503,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13197,6 +13548,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13376,6 +13728,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -13415,6 +13768,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13459,6 +13813,7 @@ This experimental model concerns CUL3 (hgnc:2553). hgnc:2553 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -16361,6 +16716,138 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation notes. (1) Seizure frequency is deliberately unstated. The disease name and OMIM entry both foreground seizures, but the largest cohort reports they were not a recurrent feature; assigning any FrequencyEnum band would pick a side in an unsettled question. See the KNOWLEDGE_GAP discussion cul3_seizure_frequency_discordance. (2) Several phenotype frequencies published by the 26-individual episignature cohort are stratified by episignature status rather than reported for the whole cohort (intrauterine growth restriction, feeding problems, ADHD, cardiac and MRI abnormalities). Those phenotypes carry PARTIAL evidence and no frequency band, because a subgroup figure is not a cohort figure. (3) No GeneReviews chapter exists for CUL3-related neurodevelopmental disorder. A PubMed search for GeneReviews plus CUL3 returns only the Pseudohypoaldosteronism Type II chapter (PMID:22073419), which covers the other CUL3 disease and contains no neurodevelopmental content; it is therefore deliberately not cited here. (4) Deep research was run with two providers, claude_code and openscientist. Falcon (Edison) was attempted first and returned HTTP 402 Payment Required, so no falcon report exists for this entry. Both reports passed `just preflight-dr` against MONDO:0030994 (CUL3 dominant in gene mentions, 61 and 53 respectively) and both resolved 16/16 of their citations. The openscientist report carries needs_review: true for two references its validator judged off topic (PMID:42609138, PMID:42446772); neither is cited here. All PMIDs cited were independently fetched from PubMed and every snippet was verified against the local reference cache. (5) No `datasets:` records were added beyond geo:GSE144046. A CUL3 gene-symbol search over GEO returns lung adenocarcinoma, pulmonary fibrosis, yeast deletion and 16p11.2/KCTD13 rat series that share the gene but not the disease; those were triaged out rather than curated.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodevelopmental Disorder With or Without Autism or Seizures</strong> · 2026-08-18T15:56:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_With_or_Without_Autism_or_Seizures/2026-08-18T155615Z-claude-code-2e716f.yaml">View source</a></p>
+                        <p class="research-review-text">New de novo entry for NEDAUS / CUL3-related neurodevelopmental disorder
+(MONDO:0030994, OMIM 619239, causal gene CUL3 / hgnc:2553).
+
+Duplicate preflight: no MONDO:0030994, NEDAUS or CUL3-NDD entry exists on
+origin/main under kb/; GitHub PR and issue searches for the MONDO ID, the
+disease name, NEDAUS and CUL3 returned no prior or in-flight curation. CUL3
+appears elsewhere in the KB only as a component of other mechanisms
+(KLHL24-related cardiomyopathy, epidermolysis bullosa simplex, esophageal
+carcinoma), never as the subject of an entry.
+
+Deep research: falcon (Edison) was attempted first, per the default, and failed
+with HTTP 402 Payment Required - the key has no credit - so no falcon report
+exists for this entry. Two providers were run instead, claude_code and
+openscientist. Both passed `just preflight-dr` against MONDO:0030994 with
+verdict PASS (CUL3 dominant at 61 and 53 gene mentions respectively; the only
+rival OMIM appearing in either report is 614496, the allelic
+pseudohypoaldosteronism type IIE disorder, which is expected and is curated here
+as a differential diagnosis rather than being mistaken for the target entity).
+Each report resolved 16/16 of its own citations with confabulation_rate 0.0. The
+openscientist report carries needs_review: true because its validator judged two
+references off topic (PMID:42609138, PMID:42446772); neither is cited in this
+entry. Both reports were used as leads only - every PMID was independently
+fetched from PubMed with `just fetch-reference` and every snippet was taken from
+the resulting cache file rather than from a report.
+
+GeneReviews baseline: PubMed was searched for a GeneReviews chapter covering
+this disease. The only CUL3 hit is PMID:22073419, the Pseudohypoaldosteronism
+Type II chapter, which covers the other CUL3 disease and contains no
+neurodevelopmental content. It is deliberately not cited, and the absence of a
+GeneReviews chapter is recorded in the entry notes so a later curator does not
+repeat the search.
+
+Content curated: eight pathophysiology nodes running from the heterozygous
+loss-of-function trigger through cullin-3 haploinsufficiency and failed CRL3
+substrate degradation, then branching into a cap-dependent translation arm
+(4E-BP1/EIF4EBP1 shown to escape degradation in patient-derived T cells, eIF4G1
+identified proteomically) and a cytoskeletal arm (RhoA, presented by the BTB
+adaptors BACURD1/KCTD13 and BACURD2/TNFAIP1, plus plastin-3), converging on
+excitation-inhibition imbalance in cortico-striatal circuits and the syndromic
+organismal outcome. Also curated: 27 phenotypes, 4 named variants, 5 animal
+models and 2 experimental models with modeled_mechanisms links and readouts, 2
+competing mechanistic_hypotheses (translational vs cytoskeletal), 6 treatments,
+2 diagnostic modalities including the DNA methylation episignature, 1 dataset,
+and 3 discussions. (Correction: an earlier draft of this record and the first
+commit message on this branch said nine pathophysiology nodes and 25
+phenotypes; the file actually holds eight and 27. The counts were miscounted
+when writing the summary, not changed in the entry.)
+
+Self-review before opening the PR found and fixed four issues, recorded here
+because the intended adversarial subagent review could not run (it died on an
+account spend limit, so no independent review informed this entry): the
+intellectual-disability descriptor carried severity MILD while its own source
+reports a mild-to-severe range, and the qualifier was removed; the
+hand-and-foot bundle was bound to HP:0001167 Abnormal finger morphology
+although half its constituent findings are in the foot, and was rebound to
+HP:0040064 Abnormality of limbs; the dystonia phenotype claimed SUPPORT from a
+count that pools tremor and dystonia, and was downgraded to PARTIAL with the
+bound made explicit; and the trio-sequencing diagnosis entry rested on a
+Methods sentence about multicentre collaboration that did not actually
+establish the diagnostic route, replaced by two case reports that demonstrate
+it. A separate earlier fix rebound the learning-disorder phenotype from
+HP:0001328 Specific learning disability - which asserts impairment despite
+normal intelligence, a claim the source does not make - to HP:0100543
+Cognitive impairment.
+
+Curation judgements a reviewer should look at directly. First, seizure frequency
+is deliberately left unbanded. The founding series reported infantile spasms in
+two of three patients, while the 37-patient cohort states that epilepsy was not
+observed as a recurrent feature of that cohort. Rather than average these, the
+discordance is curated as KNOWLEDGE_GAP cul3_seizure_frequency_discordance with
+a REFUTE evidence item retained on the seizure phenotype and a proposed
+experiment that breaks the ascertainment circularity. Second, phenotypes whose
+only published figures are stratified by episignature status - intrauterine
+growth restriction, feeding problems, ADHD, cardiac and MRI abnormalities -
+carry PARTIAL evidence and no frequency band, because a subgroup figure is not a
+cohort figure. Third, dataset curation required manual relevance triage: a CUL3
+gene-symbol search over GEO returns lung adenocarcinoma, pulmonary fibrosis,
+yeast deletion and 16p11.2/KCTD13 rat series that share the gene but not the
+disease, and all were rejected, leaving only geo:GSE144046, the
+Cul3-haploinsufficient mouse brain series behind PMID:33727673.
+
+Validation performed and read: `just validate` passes all three stages (schema,
+terms, references). The reference validator reports 137/137 snippets verified
+against cached references. `just validate-disorders` - the batched, no-full-text
+sweep that CI runs on changed disorder files - passed. `just
+check-title-snippets` passes with no new title-quoting snippets; two initial
+snippets that quoted the PMID:32341456 title were replaced with a body sentence
+from PMID:37575562 that states the infantile-spasms count directly, rather than
+attempting to grandfather them. `just check-duplicate-keys`, `just
+check-term-cache-integrity` and `just check-reference-cache-frontmatter` all
+pass. `just verify-datasets` reports 1/1 OK. Compliance is 96.9 percent global
+and 96.9 percent weighted. No reference cache file or term cache row was written
+by hand.
+
+A later pass ran the three ungated CI ratchets that had not been run before
+the first push, and two of them failed on this entry. check_snippet_length
+flagged three evidence snippets under the five-word floor - all fragments of
+one list sentence in PMID:39501558 - which now quote that sentence in full,
+so each figure carries its &#34;among the total cohort&#34; denominator rather than
+standing as a bare parenthetical. check_folded_hyphens flagged a
+folded-scalar line ending on &#34;mild-to-&#34;, which would fold with an unwanted
+space mid-compound; it was reflowed. Both were fixed rather than
+grandfathered. check_environmental_evidence passed. Separately, `uvx ruff
+check .` reports 15 pre-existing E402 errors that reproduce identically on
+origin/main; this branch changes no Python files. Final compliance 97.0
+percent global, 96.9 percent weighted, with 138/138 snippets verified.
+
+Note on the full pytest suite: it was NOT run to completion, and this entry
+should not be read as claiming otherwise. CI gates tests/test_data.py on
+changes to src/ or tests/, which this branch does not touch, so that guard
+does not run for this PR. Two local full runs were attempted; both were
+killed before finishing, stalling around 86 percent in the network-bound
+test_synthesis_provider_references_resolve region, which is unrelated to
+this entry. What did pass: the targeted subset covering this file (6308
+tests), and an -x run over the whole file that stopped only at a
+pre-existing failure in Travelers_Diarrhea.yaml, a file untouched here.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
