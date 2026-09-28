@@ -38,7 +38,7 @@ def _verify_step_source() -> str:
 def _marker_tuple(name: str) -> tuple[str, ...]:
     """Evaluate a literal marker tuple defined in the verify step."""
     source = _verify_step_source()
-    match = re.search(rf"^\s*{name} = (\(.*?\))", source, re.S | re.M)
+    match = re.search(rf"^\s*{name} = (\(.*?\))", source, re.DOTALL | re.MULTILINE)
     assert match, f"{name} not found in the verify step"
     return ast.literal_eval(match.group(1))
 
