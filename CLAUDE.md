@@ -30,6 +30,9 @@ Claude Code skills are available in `.claude/skills/`:
   scope and alignment investigations, Boomer results, proxy merges, and source
   correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[evidence-claim-mismatch](.claude/skills/evidence-claim-mismatch/SKILL.md)**:
+  Use when reviewing an existing disease for mismatches between its claims and
+  supporting snippets, including issues from the evaluation queue.
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
@@ -1234,7 +1237,26 @@ sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just grouping-nesting-audit          # declared tree + undeclared containments
+just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+**Check a MONDO mapping by walking members up, not the class down.** A grouping
+mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
+sit inside that class. Verifying that by expanding the class's descendant
+closure is the expensive direction — it scales with the ontology, and the
+configured `ols:mondo` adapter cannot do it at all. Inverted, it is cheap:
+resolve each member's own MONDO term to its ancestors and look the mapped class
+up in that set, one bounded walk per member, no 588 MB build. `broadMatch`,
+`closeMatch` and `relatedMatch` assert no subsumption, so members outside the
+class are expected there and are not reported.
+
+**A member outside the mapped class is a lead, not a defect.** It is either a
+genuine scope difference — the dismech concept is broader than the MONDO class,
+so the *predicate* is wrong — or MONDO classifying that disease by clinical
+presentation rather than mechanism, which is a candidate MONDO term request and
+not a membership error. Both occur in the current corpus, which is why the
+recipe is report-only and `--strict` gates on the predicate rather than on any
+individual member.
 
 **Nesting is declared, never inferred.** A grouping sits below another only
 when the parent lists it as a `member_type: GROUPING` member, and that is the
@@ -1613,7 +1635,7 @@ epistasis sentence), separate from the general disease evidence.
 models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
 top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
 double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
-entries: `Alport_Syndrome`, `Usher_Syndrome`,
+entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
 `MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
@@ -3175,6 +3197,24 @@ cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
 *descriptions* in the schema render as "Phase III - Efficacy confirmation…", which is what
 makes the free-text form look plausible; the permissible value is the upper-snake-case key.
 
+**Status/phase go stale — audit, don't assume.** `status:` and `phase:` are a
+snapshot taken at curation time. ClinicalTrials.gov is the one live-API source in
+the repo with no `*-refresh` recipe, and the cached trial records carry no
+retrieval timestamp, so drift is invisible offline. Before trusting or reusing a
+curated status, re-check it:
+
+```bash
+just clinicaltrials-status-audit                            # whole KB
+just clinicaltrials-status-audit kb/disorders/Asthma.yaml   # one file
+just clinicaltrials-status-audit --only-drift               # just the worklist
+```
+
+The audit reports; it never rewrites the KB, because a trial moving to
+`COMPLETED`/`TERMINATED` usually wants its `description`/`evidence` revisited too,
+and some drift is a curation-time error rather than staleness. Network-dependent
+and therefore advisory — not part of `just qc`. See
+[`docs/clinical-trial-status.md`](docs/clinical-trial-status.md).
+
 ### MorPhiC Cellular Phenotypes
 
 The MorPhiC Consortium (Molecular Phenotypes of Null Alleles in Cells) creates null alleles of human genes in iPSC-derived multicellular systems and measures their molecular and cellular phenotypes. MorPhiC data can enrich dismech entries with `category: Cellular` phenotypes.
@@ -3524,6 +3564,19 @@ is the answer to "can this be served without a download". They have in common
 that the ontology is incidental to what they are doing, and each already had a
 degradation path to take.
 
+**Inverting a closure question can remove the build dependency entirely, but
+only for the questions that are actually per-member.** `ols:mondo` raises
+`NotImplementedError` for `descendants` *and* `ancestors`, so the OAK wrapper
+looks like a dead end — but the OLS REST `hierarchicalAncestors` endpoint
+underneath serves ancestors fine, and "is this member under that class" only
+ever needed ancestors. That is what `just grouping-mondo-consistency` does.
+What it cannot do is replace `render`'s grouping coverage table or
+`scripts/grouping_mondo_gaps.py`: both enumerate MONDO descendants that have
+**no** dismech entry, and you cannot discover terms you do not hold by walking
+up from ones you do. That half is irreducibly a descendant query and still
+needs the local build. Before reaching for the build, ask which direction the
+question actually runs in.
+
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
 download it on purpose — that is a CLI whose job is to export MONDO, and its own
@@ -3531,6 +3584,13 @@ docstring says so. And `groupings.py` only *looks* like another bypass: it
 resolves its adapter through `conf/oak_config.yaml`, so HP there is `ols:hp` and
 no build is involved. The test is whether the caller can do its job without the
 ontology.
+
+**When it cannot, the guard fails instead of degrading.**
+`preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
+`RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
+degradation path: an empty record would read as "MONDO records no causal gene"
+and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
+`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
@@ -3618,10 +3678,13 @@ just check-case-collisions      # whole repo, <1s, offline
 
 It runs in `just qc` and as an ungated CI step. The usual source was a DOI
 fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
-filename copies the DOI as written. The patched fetcher now reuses an existing
-`DOI_*.md` file whose name differs only in case, on both read and write
-(`src/dismech/doi_cache_case.py`, #9112), so a second spelling no longer writes a
-second file; a DOI with no cache file yet is still saved as written. To fix a
+filename copies the DOI as written. `linkml-reference-validator` now reuses an
+existing `DOI_*.md` file whose name differs only in case, on both read and write
+(upstream LRV #87, for dismech#9112), so a second spelling no longer writes a
+second file; a DOI with no cache file yet is still saved as written. That
+behaviour used to live here as a runtime patch over the validator's internals
+and no longer does — see the `dismech-references` skill on why a patch like that
+is always temporary. To fix a
 collision that gets past it, keep the path matching the publisher's
 capitalization and remove the other from the index with `git rm --cached <path>`,
 which works on a case-insensitive disk because it never touches the file itself.
@@ -3964,6 +4027,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 
 | Path | Commit? | Reason |
 |------|---------|--------|
+| `analysis/classification/**` | NO | Corpus evaluation history belongs in `monarch-initiative/dismech-evals`; local `just jev-audit` checkpoints default to ignored `build/jev-assessments/` |
 | `pages/disorders/*.html` | NO | Derived — regenerated by downstream CI after merge |
 | `dashboard/*.html` | NO | Derived — generated by `just gen-dashboard` |
 | `docs/` HTML output | NO | Derived — regenerated by CI |
@@ -4245,6 +4309,17 @@ Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
 review, or assignee: its only trace is a `SKIP` line in the run summary naming
 the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
 and this paragraph are the only places it is recorded.
+
+**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
+added by a PR enqueued earlier in the *same* sweep is skipped, because the two
+would conflict in the queue and the second would be ejected. Only multi-field
+rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
+bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
+only, clears itself on the next sweep, and is disabled by
+`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
+line in the run summary, which names the PR holding the contended row;
+`just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins
 the merge request to that verified head SHA. When a required merge queue is
