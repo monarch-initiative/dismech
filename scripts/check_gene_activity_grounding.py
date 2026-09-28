@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Ratchet: a gene wired into the pathograph must land on a molecular function.
 
 GO names three levels between a gene and what a cell can no longer do --
@@ -71,8 +70,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.qc_plugins import gene_activity_grounding_coverage  # noqa: E402
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.qc_plugins import gene_activity_grounding_coverage
+from dismech.yaml_io import safe_load
 
 # Scan all of kb/, matching check_environmental_evidence.py: `genetic:` appears
 # under kb/disorders/ today, but kb/modules/ and kb/comorbidities/ validate
