@@ -344,6 +344,66 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
+    "model_key": "Hepatitis_C--computational-model-aston2018-hcv-within-host-viral-dynamics-model--0",
+    "name": "Aston2018 HCV Within-Host Viral-Dynamics Model",
+    "description": "Deterministic three-state ordinary differential-equation model of healthy hepatocytes, infected hepatocytes, and circulating HCV viral load in a well-mixed liver compartment. It represents hepatocyte regeneration and death, infection, virion production and clearance, and treatment-adjusted infection and virion-production rates.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "SBML Level 2 Version 4 (main PVR parameterization); COPASI CPS scenario variants; SED-ML Level 1 Version 4 / COMBINE OMEX",
+    "model_software": "MATLAB for publication fitting; COPASI for the BioModels model and fitted variants",
+    "base_model": "",
+    "model_id": "BIOMD0000000713",
+    "repository_url": "https://www.ebi.ac.uk/biomodels/BIOMD0000000713",
+    "repository_host": "BioModels",
+    "publication": "PMID:29652855",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Hepatitis C",
+    "disease_id": "MONDO:0005231",
+    "category": "Infectious Disease",
+    "parents": [
+      "Viral Hepatitis",
+      "Liver Disease"
+    ],
+    "variables": [
+      "Healthy hepatocyte concentration",
+      "Infected hepatocyte concentration",
+      "HCV viral load",
+      "Stem-cell hepatocyte generation rate",
+      "Treatment-adjusted infection rate",
+      "Treatment-adjusted virion-production rate"
+    ],
+    "variable_ids": [
+      "T",
+      "I",
+      "V",
+      "s",
+      "beta",
+      "pstar"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "HCV genome replication and early viremia"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The same three-state ODE structure was fitted to partial virologic response, breakthrough, null-response, and triphasic treatment-period viral-load profiles.",
+      "With stem-cell hepatocyte generation set to zero, the model has uninfected, infected, and pure-infection steady-state branches; adding stem-cell generation unfolds the pure-infection bifurcation into one valid infected branch with a limit point."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:29652855"
+    ],
+    "num_evidence": 1,
+    "notes": "BioModels entry BIOMD0000000713 (internal submission MODEL1808280002) is manually curated; this record pins public revision 9 at https://www.biomodels.org/services/download/get-files/MODEL1808280002/9/MODEL1808280002.9.omex. The revision-9 COMBINE archive retrieved for curator testing was 83,278 bytes with SHA-256 5ca8ec25248d053f4dc52374658df7fc403ea1c4fa4a9141ca93bd0b600712c8, and its main PVR.xml file has SHA-256 b8d62ff28623b18ba31fd59a39a3f5bbd799a0fef9601a5a0f435d5c722cf3b3. BioModels distributes the model under CC0; the archive itself contains no separate license file. PVR.cps, Breakthrough.cps, NullResponse.cps, and Triphasic.cps are distinct parameter and initial-condition variants of the same three-species, nine-reaction structure. Under Python 3.13.9 with COPASI 4.46.300 and basiCO 0.86, all four CPS files loaded and simulated; the PVR SBML and CPS trajectories agreed to a maximum relative difference below 1.03e-7 under matched LSODA settings and reproduced the archived Figure 12(a) result. The standardized workflow is incomplete: every SED-ML file references PVR.xml without model changes, so the named Breakthrough, NullResponse, and Triphasic SED-ML files do not encode their corresponding CPS parameterizations; Breakthrough.sedml and NullResponse.sedml are byte-identical. The stored Triphasic CPS time-course settings are internally inconsistent (19 steps of 3.333333333 days with a declared duration of 60 days), and current COPASI runs to 63.333 days unless the step size is forced to 60/19. BioSimulators archive validation completes with unit/modeling warnings, but the standardized COPASI archive runner hung after task start in the curator environment while direct COPASI execution succeeded. libSBML reports no parse errors, with 17 unit/modeling-practice warnings including eight parameters without declared units. The archive hash is a retrieval snapshot because BioModels can regenerate container packaging; the revision and main-file hash are the stronger content pins. The original MATLAB fit estimated ten parameters and initial values by least squares on log viral load. Raw fitting data and fitting code are not deposited, COPASI parameter-estimation and validation sets are empty, and the paper warns that substantially different parameters give similar fits. The clinical profiles predate modern direct-acting antiviral regimens; direct-acting antiviral effects are discussed as parameter hypotheses rather than validated against DAA-treated cohorts. The model does not justify links to Chronic Inflammation and Fibrosis, Immune Evasion, or Hepatocellular Carcinoma Development.",
+    "creation_date": "2026-01-09T05:44:55Z",
+    "page_url": "../../pages/disorders/Hepatitis_C.html#computational-model-aston2018-hcv-within-host-viral-dynamics-model",
+    "source_file": "kb/disorders/Hepatitis_C.yaml"
+  },
+  {
     "model_key": "Ataxia-telangiectasia--computational-model-atm-p-ala2386glu-variant-structure-predictions--1",
     "name": "ATM p.Ala2386Glu variant-structure predictions",
     "description": "Allele-specific structural analyses of homozygous ATM c.7157C>A (p.Ala2386Glu) found in two brothers with variant A-T. Missense3D/PHYRE2 and DynaMut modeled the substitution in the FAT-domain alpha-21 helix against wild-type cryo-EM template PDB 6K9L and produced competing hypotheses: buried-charge structural destabilization or stabilization of the closed, less-active ATM dimer. Patient lymphoblastoid-cell experiments favored the instability branch while showing residual kinase function.",
@@ -2424,6 +2484,62 @@ window.searchData = [
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
+    "model_key": "Microtubule-Dependent_Neuronal_Migration_Failure_Module--computational-model-microtubule-dependent-radial-neuronal-migration-agent-based-model--0",
+    "name": "Microtubule-Dependent Radial Neuronal Migration Agent-Based Model",
+    "description": "A one-dimensional, stochastic agent-based model of radial migration along a cortical column, in which six birth cohorts of neurons move from the ventricular zone through the intermediate zone to a cortical plate that grows inside-out as they settle. Authored in this repository rather than curated from a publication: each of its five rules transcribes a node or causal edge of this module (an apparatus perturbation that is cell-autonomous, slows nucleokinesis and can arrest a neuron in the intermediate zone, scored as dyslamination and ectopia when the developmental window closes), and the spec records per rule which curated edge it encodes and which choices the edge did not itself make. The one rule with no curated source, inside-out settling, is the null model of normal lamination the module's failure claims presuppose, and is labelled as a background assumption. The curated intervention is encoded as a swept fraction of the perturbation removed. The model asserts no biology of its own and nothing in it is fitted to data: every rate is a placeholder chosen so that the wild-type scenario completes migration inside the window, so the results are orderings of regimes, never quantities.",
+    "model_type": "Agent Based",
+    "model_type_raw": "AGENT_BASED",
+    "model_format": "Agent-based rule specification (YAML)",
+    "model_software": "Python (standard library and PyYAML)",
+    "base_model": "",
+    "model_id": "neuronal_migration_abm",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "",
+    "runnable": "Reference only",
+    "source_type": "Module",
+    "source_name": "Microtubule-Dependent Neuronal Migration Failure Module",
+    "disease_id": null,
+    "category": "",
+    "parents": [],
+    "variables": [
+      "perturbation",
+      "affected_fraction",
+      "cortical_plate_fraction",
+      "arrested_fraction",
+      "lamination_fidelity",
+      "band_score"
+    ],
+    "variable_ids": [],
+    "variable_terms": [
+      "Abnormality of neuronal migration",
+      "Gray matter heterotopia",
+      "Subcortical band heterotopia"
+    ],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Microtubule Apparatus Perturbation",
+      "Microtubule-Based Neuronal Motility Failure",
+      "Cortical Dyslamination and Neuronal Ectopia"
+    ],
+    "num_mechanisms": 3,
+    "findings": [
+      "Uniform slowing of every neuron, the reading of the module's central edge with no arrest, preserves inside-out lamination until the perturbation is strong enough to strand the latest-born cohorts outside the window.",
+      "Arrest, not slowing, is what puts neurons in the intermediate zone, and with every neuron affected the arrested cells scatter rather than band.",
+      "A heterotopic band beneath a normally laminated cortex emerges only when the perturbation is present in a fraction of neurons, and then at every fraction from 0.1 to 0.9.",
+      "The curated intervention rescues migration monotonically in the model, but that is an implication of the RESTORES edge, not a reported result."
+    ],
+    "num_findings": 4,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Spec models/neuronal_migration_abm/spec.yaml, runner models/neuronal_migration_abm/run.py, committed results models/neuronal_migration_abm/results.json. Regenerate with `uv run python models/neuronal_migration_abm/run.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic (every draw comes from a string-seeded random.Random), uses only the standard library and PyYAML, and finishes in about two seconds. NOT wired to dismech-perturb and deliberately given no models/neuronal_migration_abm/config.yaml: that runner executes SBML through tellurium and cannot run an agent-based simulation, so the model is correctly reported as not runnable in-repo by the models browser. The variables' mappings_list binds three readouts to HPO terms the conforming disorder entries already use, with threshold values that are placeholders from the runner's pattern classifier rather than fitted values; the runner evaluates the same mappings (spec phenotype_mappings) and records the phenotypes each scenario activates in results.json, and a test keeps the two in step. The spec's rules are written in the shape of a PhysiCell cell-behaviour rule (cell type, signal, direction, behaviour) so they could be ported to that engine; no PhysiCell rules file is committed because the half-max and Hill parameters such a file requires would have to be invented. The axon guidance branch of this module is outside the model on purpose. The four biological_scale tags on this module's pathophysiology nodes were added with the model so that the model-scale audit can compare the model's CELLULAR observations with each target.",
+    "creation_date": "2026-06-10T03:26:29Z",
+    "page_url": "../../pages/modules/microtubule_dependent_neuronal_migration_failure.html#computational-model-microtubule-dependent-radial-neuronal-migration-agent-based-model",
+    "source_file": "kb/modules/microtubule_dependent_neuronal_migration_failure.yaml"
+  },
+  {
     "model_key": "Congenital_Hypothyroidism--computational-model-minimal-hypothalamic-pituitary-thyroid-feedback-model--0",
     "name": "Minimal Hypothalamic-Pituitary-Thyroid Feedback Model",
     "description": "A minimal two-state (TSH, free T4) ODE model of the hypothalamic-pituitary-thyroid negative-feedback loop, authored for dismech-perturb (analogous to the hand-authored CKD-MBD Antimony component; not a BioModels deposit). Pituitary TSH output is suppressed by free T4; the thyroid secretes T4 in proportion to TSH scaled by secretory capacity S_thy. Calibrated to a euthyroid steady state (TSH ~1.5 mU/L, free T4 ~15 pmol/L). Reducing S_thy reproduces primary congenital hypothyroidism (dysgenesis / dyshormonogenesis) with the compensatory TSH rise; reducing pituitary capacity reproduces central hypothyroidism (low free T4 with inappropriately normal TSH); and the exogenous levothyroxine term (LT4) restores euthyroidism, with over-replacement driving iatrogenic thyrotoxicosis.",
@@ -2493,7 +2609,7 @@ window.searchData = [
       "PMID:18844475"
     ],
     "num_evidence": 1,
-    "notes": "Wired for dismech-perturb (models/hpt_feedback_axis.config.yaml; Antimony source models/hpt_feedback_axis.ant). The disease-severity dial is thyroid secretory capacity S_thy (baseline_gfr 1.0 = normal). Levothyroxine is an exogenous, TSH-independent T4 source (LT4); treatment scenarios titrate it from under-replacement (residual high TSH) through full replacement (euthyroid) to over-replacement (suppressed TSH, elevated free T4 = iatrogenic thyrotoxicosis). Thresholds are calibrated to model steady-state values, not clinical assay reference ranges.",
+    "notes": "Wired for dismech-perturb (models/hpt_feedback_axis/config.yaml; Antimony source models/hpt_feedback_axis/model.ant). The disease-severity dial is thyroid secretory capacity S_thy (baseline_gfr 1.0 = normal). Levothyroxine is an exogenous, TSH-independent T4 source (LT4); treatment scenarios titrate it from under-replacement (residual high TSH) through full replacement (euthyroid) to over-replacement (suppressed TSH, elevated free T4 = iatrogenic thyrotoxicosis). Thresholds are calibrated to model steady-state values, not clinical assay reference ranges.",
     "creation_date": "2026-05-14T20:54:37Z",
     "page_url": "../../pages/disorders/Congenital_Hypothyroidism.html#computational-model-minimal-hypothalamic-pituitary-thyroid-feedback-model",
     "source_file": "kb/disorders/Congenital_Hypothyroidism.yaml"
@@ -2557,7 +2673,7 @@ window.searchData = [
       "PMID:29904633"
     ],
     "num_evidence": 1,
-    "notes": "Wired for dismech-perturb (models/urate_homeostasis.config.yaml; Antimony source models/urate_homeostasis.ant). The disease-severity dial is fractional excretion f_exc (baseline 1.0 = normal). Treatment scenarios model allopurinol and febuxostat (xanthine-oxidase inhibition, XO down), probenecid (uricosuric, f_exc up), and pegloticase (recombinant uricase, k_uricase up), plus a combination. URAT1/GLUT9 loss-of-function raise excretion (renal hypouricemia, protective), while ABCG2 loss lowers it. Thresholds use the ~6.8 mg/dL urate solubility limit; other bands are model-calibrated.",
+    "notes": "Wired for dismech-perturb (models/urate_homeostasis/config.yaml; Antimony source models/urate_homeostasis/model.ant). The disease-severity dial is fractional excretion f_exc (baseline 1.0 = normal). Treatment scenarios model allopurinol and febuxostat (xanthine-oxidase inhibition, XO down), probenecid (uricosuric, f_exc up), and pegloticase (recombinant uricase, k_uricase up), plus a combination. URAT1/GLUT9 loss-of-function raise excretion (renal hypouricemia, protective), while ABCG2 loss lowers it. Thresholds use the ~6.8 mg/dL urate solubility limit; other bands are model-calibrated.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Gout.html#computational-model-minimal-urate-homeostasis-model",
     "source_file": "kb/disorders/Gout.yaml"
@@ -4276,7 +4392,7 @@ window.searchData = [
     "num_findings": 3,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Spec models/rosacea_innate_boolean.yaml, runner models/rosacea_innate_boolean.py, committed results models/rosacea_innate_boolean.results.json. Regenerate with `uv run python models/rosacea_innate_boolean.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic, uses only the standard library and PyYAML, and parses the rule language rather than calling eval. NOT wired to dismech-perturb and deliberately given no models/rosacea_innate_boolean.config.yaml: that runner executes SBML through tellurium and cannot run a logical network, so the model is correctly reported as not runnable in-repo by the models browser. The spec records, per rule, which curated edges it encodes and which Boolean choices (the AND at LL-37 generation, the ORs elsewhere) the edge list did not itself determine.",
+    "notes": "Spec models/rosacea_innate_boolean/spec.yaml, runner models/rosacea_innate_boolean/run.py, committed results models/rosacea_innate_boolean/results.json. Regenerate with `uv run python models/rosacea_innate_boolean/run.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic, uses only the standard library and PyYAML, and parses the rule language rather than calling eval. NOT wired to dismech-perturb and deliberately given no models/rosacea_innate_boolean/config.yaml: that runner executes SBML through tellurium and cannot run a logical network, so the model is correctly reported as not runnable in-repo by the models browser. The spec records, per rule, which curated edges it encodes and which Boolean choices (the AND at LL-37 generation, the ORs elsewhere) the edge list did not itself determine.",
     "creation_date": "2026-04-05T12:00:00Z",
     "page_url": "../../pages/disorders/Rosacea.html#computational-model-rosacea-innate-immune-axis-boolean-model",
     "source_file": "kb/disorders/Rosacea.yaml"
@@ -4822,7 +4938,7 @@ window.searchData = [
       "PMID:11013117"
     ],
     "num_evidence": 1,
-    "notes": "Wired for dismech-perturb (models/BIOMD0000000341.config.yaml). The disease-severity dial is insulin sensitivity si (baseline_gfr 0.72 = healthy); the deposited initial state (G=250 mg/dL) sits on the model's unstable saddle, i.e. the metabolically at-risk / impaired-fasting tipping point. Glucose-lowering treatments are simulated as parameter changes: metformin (R0 down), thiazolidinedione (si up), SGLT2 inhibitor (Eg0 up, insulin-independent), sulfonylurea/GLP-1 (sigma up), insulin therapy (net insulin action up). Insulin-independent therapies (SGLT2 inhibition, metformin) and sensitizers (TZD) recompensate the model to euglycemia, whereas a pure secretagogue fails once beta-cell mass has collapsed - reproducing secondary secretagogue failure in advanced disease. Thresholds are calibrated to model steady-state values, not clinical reference ranges.",
+    "notes": "Wired for dismech-perturb (models/BIOMD0000000341/config.yaml). The disease-severity dial is insulin sensitivity si (baseline_gfr 0.72 = healthy); the deposited initial state (G=250 mg/dL) sits on the model's unstable saddle, i.e. the metabolically at-risk / impaired-fasting tipping point. Glucose-lowering treatments are simulated as parameter changes: metformin (R0 down), thiazolidinedione (si up), SGLT2 inhibitor (Eg0 up, insulin-independent), sulfonylurea/GLP-1 (sigma up), insulin therapy (net insulin action up). Insulin-independent therapies (SGLT2 inhibition, metformin) and sensitizers (TZD) recompensate the model to euglycemia, whereas a pure secretagogue fails once beta-cell mass has collapsed - reproducing secondary secretagogue failure in advanced disease. Thresholds are calibrated to model steady-state values, not clinical reference ranges.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-topp-beta-cell-mass-insulin-glucose-model",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
@@ -5829,10 +5945,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 121,
-  "total_source_entries": 49,
+  "total_models": 123,
+  "total_source_entries": 51,
   "total_model_types": 10,
   "total_runnable": 4,
-  "total_with_repository": 53
+  "total_with_repository": 54
 };
 window.dispatchEvent(new Event('searchDataReady'));
