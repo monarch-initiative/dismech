@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Evaluation probe for NLM's Linked Discoveries pilot (2026-09-26).
 
 Linked Discoveries (https://linkeddiscoveries.ncbi.nlm.nih.gov/) builds a
