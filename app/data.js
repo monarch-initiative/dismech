@@ -20680,7 +20680,8 @@ window.searchData = [
       "Oligodendrocyte and Myelin Dysfunction",
       "Microglial Lipid Droplet Accumulation",
       "Interneuron Dysfunction and Network Hypersynchrony",
-      "Tau-Induced Nucleocytoplasmic Transport Failure"
+      "Tau-Induced Nucleocytoplasmic Transport Failure",
+      "Brain N-Glycan Hyperglycosylation"
     ],
     "cell_types": [
       "Neurons",
@@ -20698,7 +20699,8 @@ window.searchData = [
       "Excitatory neuron",
       "Oligodendrocyte",
       "Parvalbumin-expressing inhibitory interneuron",
-      "GABAergic neuron"
+      "GABAergic neuron",
+      "Neuron"
     ],
     "cell_type_ids": [
       "CL:0000540",
@@ -20762,7 +20764,11 @@ window.searchData = [
       "Lipid droplet organization",
       "Microglial phagocytosis",
       "Inhibitory synaptic transmission",
-      "Nucleocytoplasmic transport"
+      "Nucleocytoplasmic transport",
+      "Protein N-linked glycosylation",
+      "UDP-N-acetylglucosamine biosynthesis (hexosamine pathway flux)",
+      "Protein O-GlcNAcylation",
+      "Hyaluronan biosynthesis"
     ],
     "phenotypes": [
       "Memory Loss",
@@ -20816,7 +20822,8 @@ window.searchData = [
       "Lifestyle Modifications"
     ],
     "environmental": [
-      "Cumulative exposure to strong central anticholinergic medication"
+      "Cumulative exposure to strong central anticholinergic medication",
+      "Oral glucosamine supplementation"
     ],
     "biochemical": [
       "Amyloid Beta (A\u03b242)",
@@ -20827,10 +20834,10 @@ window.searchData = [
     "source_file": "Alzheimer_Disease.yaml",
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 24,
+    "num_pathophysiology": 25,
     "num_genes": 9,
     "num_treatments": 7,
-    "causal_graph_edges": "61",
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "10"
   },
   {
@@ -85032,6 +85039,176 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Combined Immunodeficiency Due To DOCK8 Deficiency",
+    "disease_id": "MONDO:0009478",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Primary Immunodeficiency"
+    ],
+    "creation_date": "2026-09-11T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined immunodeficiency due to DOCK8 deficiency is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in DOCK8, and is the principal genetic cause of the autosomal recessive form of hyper-IgE syndrome (AR-HIES). DOCK8 is an atypical guanine nucleotide exchange factor that activates the Rho-family GTPase CDC42 at the leading-edge membrane of migrating and synapsing leukocytes. Without it, lymphocytes cannot coordinate the cortical actin cytoskeleton: CD8 T cells and NK cells moving through collagen-dense tissue such as dermis undergo catastrophic shape rupture and die (cytothripsis), dendritic cells fail to crawl through three-dimensional interstitium to prime T cells in lymph nodes, NK cells fail to build a lytic immunological synapse, and B cells fail to organize the integrin-containing immune synapse needed for marginal-zone and germinal centre persistence. DOCK8 additionally binds STAT3 and is required for its full activation, which is why the disease phenocopies part of STAT3-HIES. The clinical result is a triad of recurrent sinopulmonary bacterial infection, severe and recalcitrant cutaneous viral infection (molluscum contagiosum, HPV warts, HSV, VZV), and severe atopy with markedly elevated serum IgE, eosinophilia and food allergy, on a background of virus-driven malignancy and cerebral vasculopathy. Unlike STAT3-HIES it spares the connective-tissue, skeletal, dental and pneumatocele features. Natural history is poor \u2014 survival falls to roughly a third by age 30 without intervention \u2014 and allogeneic haematopoietic stem cell transplantation is the only curative therapy.",
+    "pathophysiology": [
+      "Biallelic DOCK8 Loss of Function",
+      "Loss of CDC42 Activation at the Leading-Edge Membrane",
+      "Cortical Actin Cytoskeleton Dysregulation in Leukocytes",
+      "Lymphocyte Cytothripsis During Interstitial Migration",
+      "Loss of Skin-Resident Memory CD8 T Cells",
+      "Impaired Dendritic Cell Interstitial Migration",
+      "Defective NK Cell Lytic Immunological Synapse",
+      "Impaired CD8 T Cell Survival and Memory",
+      "Failure of Cutaneous Antiviral Immunosurveillance",
+      "Persistent Cutaneotropic and Oncogenic DNA Virus Infection",
+      "Defective B Cell Immunological Synapse and Germinal Centre Persistence",
+      "Impaired Humoral Memory and Specific Antibody Responses",
+      "Impaired DOCK8-Dependent STAT3 Activation",
+      "Th17 Differentiation Block",
+      "Th2 Skewing and IgE Dysregulation",
+      "Cerebral Vasculopathy"
+    ],
+    "cell_types": [
+      "lymphocyte",
+      "CD8-positive, alpha-beta T cell",
+      "natural killer cell",
+      "skin-resident memory CD8 T cell",
+      "conventional dendritic cell",
+      "B cell",
+      "T-helper 17 cell",
+      "T-helper 2 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000542",
+      "CL:0000625",
+      "CL:0000623",
+      "CL:0000990",
+      "CL:0000236",
+      "CL:0000899",
+      "CL:0000546"
+    ],
+    "biological_processes": [
+      "CDC42 activation at the leading-edge membrane",
+      "cortical actin cytoskeleton organization",
+      "leukocyte migration through dense interstitium",
+      "catastrophic lymphocyte death during confined migration",
+      "defense response to virus in skin",
+      "interstitial dendritic cell migration",
+      "lytic immunological synapse formation",
+      "natural killer cell mediated cytotoxicity",
+      "T cell homeostasis",
+      "immunological synapse formation with dendritic cells",
+      "defense response to virus",
+      "persistence of cutaneotropic and oncogenic DNA viruses",
+      "B cell immunological synapse formation",
+      "germinal center B cell differentiation",
+      "immunoglobulin production",
+      "STAT3 signaling downstream of cytokine receptors",
+      "T-helper 17 cell differentiation",
+      "T-helper 2 cell differentiation",
+      "immunoglobulin E production"
+    ],
+    "phenotypes": [
+      "Recurrent viral skin infections",
+      "Disseminated molluscum contagiosum",
+      "Verrucae",
+      "Recurrent herpes",
+      "Recurrent respiratory infections",
+      "Otitis media",
+      "Bronchiectasis",
+      "Chronic mucocutaneous candidiasis",
+      "Recurrent cutaneous abscess formation",
+      "Atopic dermatitis",
+      "Increased circulating IgE concentration",
+      "Eosinophilia",
+      "Food allergy",
+      "Asthma",
+      "Anaphylactic shock",
+      "Squamous cell carcinoma of the skin",
+      "Lymphoma",
+      "Stroke",
+      "Decreased circulating total IgM",
+      "Impaired specific antibody response",
+      "Decreased total T cell count",
+      "Decreased natural killer cell-induced killing of target cells",
+      "Failure to thrive"
+    ],
+    "phenotype_categories": [
+      "Infection",
+      "Structural",
+      "Dermatologic",
+      "Laboratory",
+      "Allergic",
+      "Neoplastic",
+      "Neurologic",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Ear",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011371",
+      "HP:0032185",
+      "HP:0200043",
+      "HP:0005353",
+      "HP:0002205",
+      "HP:0000388",
+      "HP:0002110",
+      "HP:0002728",
+      "HP:0100838",
+      "HP:0001047",
+      "HP:0003212",
+      "HP:0001880",
+      "HP:0500093",
+      "HP:0002099",
+      "HP:0100845",
+      "HP:0006739",
+      "HP:0002665",
+      "HP:0001297",
+      "HP:0002850",
+      "HP:0012475",
+      "HP:0005403",
+      "HP:0025808",
+      "HP:0001508"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DOCK8",
+      "DOCK8 somatic reversion"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Reduced-Toxicity Conditioning",
+      "Immunoglobulin Replacement Therapy",
+      "Antibacterial Prophylaxis",
+      "Antiviral Therapy and Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Immunodeficiency_Due_To_DOCK8_Deficiency.yaml",
+    "page_url": "../pages/disorders/Combined_Immunodeficiency_Due_To_DOCK8_Deficiency.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 16,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Combined Immunodeficiency Due To GINS1 Deficiency",
@@ -340064,17 +340241,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3207,
+  "total_disorder_pages": 3208,
   "total_subtypes": 4393,
-  "total_disorders_and_subtypes": 7600,
-  "total_unique_evidence_sources": 46975,
-  "total_unique_publications": 44038,
+  "total_disorders_and_subtypes": 7601,
+  "total_unique_evidence_sources": 46996,
+  "total_unique_publications": 44059,
   "total_unique_disease_categories": 62,
-  "total_unique_phenotype_categories": 287,
-  "total_pathographs": 3202,
-  "total_unique_pathological_events": 20447,
+  "total_unique_phenotype_categories": 288,
+  "total_pathographs": 3203,
+  "total_unique_pathological_events": 20464,
   "total_modules": 179,
-  "total_research_reports": 3323,
+  "total_research_reports": 3324,
   "total_classifications": 20,
   "total_comorbidities": 51,
   "total_groupings": 109
