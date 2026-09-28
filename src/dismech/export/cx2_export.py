@@ -999,6 +999,7 @@ def _build_edge_detail_lookup(
     )
 
     pathophysiology_by_gene_key: dict[str, set[str]] = defaultdict(set)
+    pathophysiology_by_gene_key_with_context: dict[str, set[str]] = defaultdict(set)
     for item in disorder.get("pathophysiology", []) or []:
         if not isinstance(item, dict):
             continue
@@ -1007,6 +1008,10 @@ def _build_edge_detail_lookup(
             continue
         for gene_key in _gene_lookup_keys(item):
             pathophysiology_by_gene_key[gene_key].add(name)
+        # Mirrors dismech.graph: `genetic` records also match a node's
+        # `genetic_context` gene; variants do not (issue #11999).
+        for gene_key in _gene_lookup_keys(item, include_genetic_context=True):
+            pathophysiology_by_gene_key_with_context[gene_key].add(name)
 
     genetic_nodes_by_gene_key: dict[str, set[str]] = defaultdict(set)
     for item in disorder.get("genetic", []) or []:
@@ -1217,7 +1222,9 @@ def _build_edge_detail_lookup(
             continue
         mechanism_targets: set[str] = set()
         for gene_key in _gene_lookup_keys(item, allow_name_fallback=True):
-            mechanism_targets.update(pathophysiology_by_gene_key.get(gene_key, set()))
+            mechanism_targets.update(
+                pathophysiology_by_gene_key_with_context.get(gene_key, set())
+            )
         for target_name in sorted(mechanism_targets):
             add_detail(
                 source_name,

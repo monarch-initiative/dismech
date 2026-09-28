@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4086,6 +4125,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hadha-molecular-function-deficiency-within-mitochondrial-trifunctional-protein" data-dismech-node="HADHA molecular function deficiency within mitochondrial trifunctional protein" data-dismech-type="pathophysiology">
                 <div class="item-name">HADHA molecular function deficiency within mitochondrial trifunctional protein</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in HADHA reduce long-chain 3-hydroxyacyl-CoA dehydrogenase catalytic activity within mitochondrial trifunctional protein.
 </div>
 
@@ -4266,6 +4306,7 @@ into energy during times of fasting and physiologic stress."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-long-chain-fatty-acid-beta-oxidation" data-dismech-node="Impaired mitochondrial long-chain fatty acid beta-oxidation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired mitochondrial long-chain fatty acid beta-oxidation</div>
+
 
                 <div class="item-desc">Deficiency of LCHAD catalytic activity blocks the third step of long-chain fatty acid beta-oxidation, reducing acetyl-CoA and reducing equivalent supply for ketogenesis and oxidative phosphorylation. This causes energy failure during fasting, illness, or prolonged exercise when tissues depend on fatty acid oxidation for fuel.
 </div>
@@ -4569,6 +4610,7 @@ into energy during times of fasting and physiologic stress."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catabolic-stress-triggered-energy-failure" data-dismech-node="Catabolic stress-triggered energy failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Catabolic stress-triggered energy failure</div>
 
+
                 <div class="item-desc">Fasting, febrile illness, exercise, and other physiologic stressors increase dependence on long-chain fatty acid oxidation. Because LCHADD cannot efficiently use long-chain fatty acids for energy, catabolic stress produces acute energy crises with hypoketotic hypoglycemia, hepatic dysfunction, cardiomyopathy, exercise intolerance, and rhabdomyolysis.
 </div>
 
@@ -4870,6 +4912,7 @@ including severe hypoglycemia and hyperammonemia; and cardiomyopathy."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxic-intermediate-accumulation-and-oxidative-stress" data-dismech-node="Toxic intermediate accumulation and oxidative stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxic intermediate accumulation and oxidative stress</div>
 
+
                 <div class="item-desc">Impaired LCHAD activity leads to accumulation of long-chain 3-hydroxyacyl-CoA intermediates and their corresponding acylcarnitines (C16OH, C18OH, C18:1OH). These toxic intermediates induce oxidative stress, lipid peroxidation, and altered cell homeostasis, contributing to tissue damage in heart, skeletal muscle, liver, and retina.
 </div>
 
@@ -5091,6 +5134,7 @@ mechanism of RPE loss in LCHADD."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiolipin-remodeling-defect" data-dismech-node="Cardiolipin remodeling defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiolipin remodeling defect</div>
 
+
                 <div class="item-desc">The TFP alpha-subunit (HADHA) possesses monolysocardiolipin acyltransferase activity linking fatty acid oxidation to cardiolipin remodeling. HADHA/TFP mutations disrupt cardiolipin content and composition, creating a mitochondrial inner-membrane lipid abnormality distinct from the primary beta-oxidation block.
 </div>
 
@@ -5299,6 +5343,7 @@ critical to mitochondrial membrane stability and function."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-bioenergetic-abnormalities" data-dismech-node="Mitochondrial bioenergetic abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial bioenergetic abnormalities</div>
 
+
                 <div class="item-desc">TFP-deficient patient fibroblasts show altered mitochondrial bioenergetic parameters downstream of cardiolipin and phospholipid remodeling abnormalities. This separates the respiratory/bioenergetic consequence from the upstream cardiolipin remodeling defect.
 </div>
 
@@ -5421,6 +5466,7 @@ basal oxygen consumption rates similar to controls."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rpe-specific-lipid-peroxidation" data-dismech-node="RPE-specific lipid peroxidation" data-dismech-type="pathophysiology">
                 <div class="item-name">RPE-specific lipid peroxidation</div>
+
 
                 <div class="item-desc">The retinal pigment epithelium (RPE) relies on fatty acid oxidation for energy. In LCHADD, RPE cells accumulate 3-hydroxyacylcarnitines and are susceptible to DHA-triggered lipid peroxidation, leading to RPE degeneration and vision loss. Exogenous HADHA gene addition rescues the biochemical and oxidative stress phenotypes.
 </div>
@@ -6900,6 +6946,9 @@ This disease-associated gene is HADHA (hgnc:4801). hgnc:4801 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7008,6 +7057,12 @@ with MTP deficiency (median 3.9 vs. 11.4 years; p = 0.0447)."</div>
         HADHA c.1528G&gt;C (p.Glu510Gln)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The most common pathogenic variant in LCHADD, a founder mutation affecting the LCHAD catalytic site. This variant selectively impairs LCHAD activity while relatively preserving the other two TFP enzymatic functions (enoyl-CoA hydratase and 3-ketoacyl-CoA thiolase). Carrier frequency in Finland is 1:240.

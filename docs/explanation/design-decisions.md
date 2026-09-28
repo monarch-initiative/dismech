@@ -597,15 +597,16 @@ The KGX exporter emits typed, directed edges with the knowledge source identifie
 | Predicate | Edge (subject → object) |
 |---|---|
 | `biolink:has_phenotype` | Disease → PhenotypicFeature |
-| `biolink:associated_with` | Disease → Disease |
+| `biolink:associated_with` | Disease → Disease; ExposureEvent → Disease (`disease_effect: MODULATES`, or `causal_role: ASSOCIATED_ONLY`) |
 | `biolink:has_participant` | Disease → Cell / CellularComponent / ChemicalEntity / MacromolecularComplex |
 | `biolink:disease_has_location` | Disease → AnatomicalEntity |
 | `biolink:affects` | Disease → BiologicalProcess / MolecularActivity / Pathway (with INCREASED/DECREASED direction qualifiers) |
 | `biolink:treats_or_applied_or_studied_to_treat` | Treatment → Disease |
-| `biolink:contributes_to` | Gene → Disease; ExposureEvent → Disease |
+| `biolink:contributes_to` | Gene → Disease; ExposureEvent → Disease (no declared `disease_effect`) |
 | `biolink:associated_with_decreased_likelihood_of` | ExposureEvent → Disease (protective) |
+| `biolink:exacerbates_condition` / `biolink:predisposes_to_condition` | ExposureEvent → Disease (`disease_effect: EXACERBATES` / `PREDISPOSES`) |
 | `biolink:has_mode_of_inheritance` | Disease → GeneticInheritance |
-| `biolink:causes` | OrganismTaxon → Disease |
+| `biolink:causes` | OrganismTaxon → Disease; ExposureEvent → Disease (`disease_effect: TRIGGERS`) |
 | `biolink:has_biomarker` | Disease → MolecularEntity |
 
 **Known gap:** `differential_diagnoses` and `diagnosis` sections are not yet exported. See *Gaps* below.
@@ -635,6 +636,32 @@ exactly.
 
 **Rationale.** The exact-quote-plus-validation pipeline is DisMech's primary defense
 against AI hallucination and is core to the project's scientific credibility.
+
+### Jev judgments prioritize recuration; they do not replace curation
+
+**Decision.** The scheduled Jev audit sends public disease assertions and their
+selected snippets to TypeSafe to assess claim/evidence agreement. MATCH,
+MISMATCH and PARTIAL are advisory report labels, assessed per aspect and for the
+whole claim. They never automatically change KB assertions, `supports` or
+`directness`, or become benchmark curator labels.
+
+**Rationale.** A model can identify likely snippet-selection problems at corpus
+scale, while the decision to change a claim or its evidence remains a curation
+task. This audit evaluates snippet support rather than source quality or the
+claim's truth elsewhere. Missing evidence, API errors and incomplete runs remain
+separate from model judgments.
+
+**Storage and execution.** Corpus assessment history and the weekly workflow live
+in the public `monarch-initiative/dismech-evals` repository. Dismech owns the
+classifier and extraction code; `dismech-bench` owns curated benchmark cases and
+benchmark results. Local corpus outputs in dismech are ignored build artifacts.
+The evaluation repository stores each canonical input snapshot once, shared by
+assessment records across configurations. It retains historical inputs, scores
+and observed activity. A first corpus pass is large enough that committing it to
+dismech would burden ordinary checkouts; compression does not resolve that boundary.
+The evaluation workflow pins classifier and source revisions, then automatically
+commits generated data to its own repository using its own token. It has no write
+access to dismech or benchmark curation. See [the audit guide](../jev-evidence-audit.md).
 
 ### 6a. Superseded hypotheses are retained and marked, not deleted (2026-08-02)
 
@@ -756,10 +783,11 @@ verification cache. `geo:` is migrated; the remaining prefixes follow one at a t
   one a reordered paraphrase of a sentence that was in the cache all along
   (`GEO:GSE289185`) and one quoting GEO's uncached "overall design" field
   (`GEO:GSE316127`). KB-wide, 133,610 of 138,867 snippets verify with zero GEO failures.
-- **`cache/dataset_accessions.json` is frozen.** No script, module, test, workflow, or
+- **`cache/dataset_accessions.json` is retired and deleted.** No script, module, test, workflow, or
   recipe reads or writes it, enforced by
-  `test_no_automation_touches_the_frozen_dataset_cache`. It remains in git only until the
-  open PRs carrying edits to it have drained.
+  `test_no_automation_touches_the_frozen_dataset_cache`, which also checks Git's index
+  for reintroduction on every CI run. The temporary freeze has ended. Old PRs must
+  retain its deletion when resolving conflicts, without reading or merging its contents.
 
 **Rationale — the storage shape, not the checking, was the defect.** The old cache was one
 sorted JSON object rewritten *in full* on every run, including a run over a single
@@ -1316,6 +1344,7 @@ This section details decisions we have **not yet made or formalized**.
 
 | Area | Status | Tracking |
 |---|---|---|
+| Exposure → disease relations (`disease_effect` / `causal_role`) | **PROPOSED, not ratified.** An `environmental[]` entry can say an exposure acts on a *mechanism node* (`influences_mechanisms`), but nothing states how it acts on the *disease*. The only slot for that is free-text `effect:`, used on 285 entries across 118 files — of which ~64 carry enum-shaped values (`HARMFUL` 28, `TRIGGERS` 20, `RISK_FACTOR` 7, `CAUSATIVE` 5, `EXACERBATES` 4) written into a string because no vocabulary exists at this scope. The KGX exporter already emits the exposure→disease edge and infers its predicate by requiring unanimity across mechanism links, then regex-matching four phrasings of the prose (`kgx_export.py:_exposure_predicate`); its docstring records the unanimity rule as a workaround for one exposure protecting against a mechanism while driving another. Proposal: two scalar slots on `Environmental` — `disease_effect` (direction, reusing `EnvironmentalEffectEnum` with scope-neutral value descriptions) and `causal_role` (strength, a new `EnvironmentalCausalRoleEnum`) — supported by the entry's existing `evidence:` block, which already holds the disease-level claim. Would home the ~22 exposures #10359 could not place, and let KGX read one declared field. **Open:** whether `causal_role` is its own axis or folds into `disease_effect`; whether the `NECESSARY`/`SUFFICIENT`/`COMPONENT_CAUSE` framing is heavier than the KB needs; and how to migrate `HARMFUL` (a valence, not a direction) and `CAUSATIVE` (which collapses both axes). Settle the vocabulary before populating at scale — narrowing an enum later is the merge-shaped failure of #10061. | [#11112](https://github.com/monarch-initiative/dismech/issues/11112) · draft schema in PR |
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
 | Chromosomal-disorder curation guidelines | **Partly addressed (§15, PR #11943).** Optional named regions, cytoband syntax, and qualitative gene landmarks represent affected intervals without patient-specific coordinates. The noncoding-variant-impact skill covers their use; a dedicated chromosomal-disorder skill and the wider formation-mechanism guidance remain open. | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Noncoding region–disease representation | **Qualitative representation added (§15, PR #11943).** Regional `Genetic` records can name affected enhancers and intervals without substituting a host gene. Stable region identifiers and dedicated region nodes in external knowledge graphs remain separate follow-ups. | [#4394](https://github.com/monarch-initiative/dismech/issues/4394) |

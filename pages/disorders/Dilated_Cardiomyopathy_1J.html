@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5070,6 +5109,7 @@ The entry is deliberately narrow. Most pathogenic EYA4 alleles cause isolated DF
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eya4-heterozygous-truncating-variant" data-dismech-node="EYA4 Heterozygous Truncating Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">EYA4 Heterozygous Truncating Variant</div>
 
+
                 <div class="item-desc">The initiating lesion is a germline heterozygous truncating change in EYA4 at 6q23-q24. The founding CMD1J allele deletes 4,846 bp and produces a peptide terminating after residue 193; a second allele, E215, truncates slightly later and produces a stable mutant protein detectable in myocardium. EYA4 encodes a transcriptional co-activator with an N-terminal variable transactivation region and a conserved C-terminal Eya domain that carries phosphatase activity and mediates binding to the SIX family. Because Eya proteins have no DNA-binding domain of their own, that Six interaction is not incidental - it is how EYA4 reaches chromatin at all.</div>
 
 
@@ -5285,6 +5325,7 @@ This pathophysiological event involves decreased Eya-domain tyrosine phosphatase
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-eya4-six1-complex-assembly" data-dismech-node="Failure of Eya4-Six1 Complex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Eya4-Six1 Complex Assembly</div>
 
+
                 <div class="item-desc">The truncated peptide neither self-associates with wild-type Eya4 nor binds Six proteins. Because Six binding is what carries Eya proteins into the nucleus and onto target promoters, the consequence is a transcriptional complex that is absent or non-functional at its cardiac targets, rather than a co-activator that is simply present at half dose.</div>
 
 
@@ -5433,6 +5474,7 @@ This pathophysiological event involves Eya4-Six1 mediated transcriptional regula
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepression-of-cdkn1b-p27kip1" data-dismech-node="Derepression of CDKN1B/p27Kip1" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepression of CDKN1B/p27Kip1</div>
 
+
                 <div class="item-desc">With the Eya4-Six1 complex non-functional, transcriptional repression of CDKN1B is relieved and p27Kip1 protein rises in cardiomyocytes expressing the mutant. p27 is the hinge of the mechanism: it is the point at which a transcriptional defect becomes a growth-signalling defect.</div>
 
 
@@ -5580,6 +5622,7 @@ This pathophysiological event involves decreased repression of CDKN1B transcript
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ck2-alpha-activity-and-hdac2-phosphorylation" data-dismech-node="Reduced CK2-alpha Activity and HDAC2 Phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced CK2-alpha Activity and HDAC2 Phosphorylation</div>
+
 
                 <div class="item-desc">Casein kinase-2 alpha activity and HDAC2 phosphorylation both fall in E193-expressing myocardium. HDAC2 is a core effector of the cardiomyocyte hypertrophic gene program, so this is the step at which the p27 signal reaches chromatin remodelling and the stress-response transcriptional program.</div>
 
@@ -5749,6 +5792,7 @@ This pathophysiological event involves decreased HDAC2-dependent chromatin remod
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cardiomyocyte-hypertrophic-stress-response" data-dismech-node="Disrupted Cardiomyocyte Hypertrophic Stress Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cardiomyocyte Hypertrophic Stress Response</div>
 
+
                 <div class="item-desc">The cardiomyocyte can no longer mount a normally organised growth response. Direction matters here and is easy to state backwards: overexpressing wild-type Eya4 drives hypertrophy, whereas the E193 allele drives dilation. The lesion is therefore not &#34;too little growth signalling&#34; in isolation but a misdirected stress-response program, and it is unmasked by haemodynamic load - pressure overload aggravates both phenotypes.</div>
 
 
@@ -5896,6 +5940,7 @@ This pathophysiological event involves abnormal cardiac muscle hypertrophy (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adverse-ventricular-remodeling" data-dismech-node="Adverse Ventricular Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Adverse Ventricular Remodeling</div>
+
 
                 <div class="item-desc">The ventricle enlarges and its wall composition changes - the conventional adverse remodelling picture, reached here from a transcriptional rather than a sarcomeric lesion. The best-characterised evidence for this node is imaging and haemodynamic rather than histological: cardiac MRI in the allele-specific transgenic model tracks the progression to a dilated chamber. Descriptions of explanted and autopsy myocardium from the founding kindreds exist in the primary report but sit in sections not covered by the cached abstract, so the histological detail is deliberately not asserted here.</div>
 
@@ -6150,6 +6195,7 @@ This pathophysiological event occurs in left ventricular myocardium, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-systolic-dysfunction" data-dismech-node="Progressive Systolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Systolic Dysfunction</div>
 
+
                 <div class="item-desc">Contractile performance falls and the clinical syndrome of heart failure emerges, characteristically after the fourth decade. This is the node the disease is named for and the one on which the auditory and cardiac branches diverge in timing: hearing loss has by this point been present for two decades or more.</div>
 
 
@@ -6348,6 +6394,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-eya4-insufficiency" data-dismech-node="Cochlear EYA4 Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear EYA4 Insufficiency</div>
+
 
                 <div class="item-desc">The auditory branch. EYA4 is required in the inner ear, and reduced functional EYA4 there produces postlingual, progressive sensorineural hearing loss. The cochlear cell-level mechanism in humans is not resolved: hair cells are the plausible target and are used as the working annotation, but the evidence does not localise the lesion definitively, and this branch is where CMD1J is indistinguishable from isolated DFNA10.</div>
 
@@ -7261,6 +7308,9 @@ This disease-associated gene is EYA4 (hgnc:3522). hgnc:3522 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -7344,6 +7394,7 @@ This disease-associated gene is EYA4 (hgnc:3522). hgnc:3522 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7365,7 +7416,13 @@ This variant is in EYA4 (hgnc:3522). hgnc:3522 is a gene from the HUGO Gene Nome
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founding CMD1J allele. A heterozygous deletion of 4,846 bp produces a peptide truncated after residue 193. Its distinguishing biochemical property is not that it is short but that it has lost the ability to bind wild-type Eya4 and Six proteins - a property the truncated peptides from hearing-loss-only families retain. That contrast is the entire experimental basis for treating the cardiac phenotype as a dominant-negative effect rather than a dosage effect, and it is the allele carried into the transgenic mouse work.</div>
@@ -7428,6 +7485,7 @@ This variant is in EYA4 (hgnc:3522). hgnc:3522 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7449,7 +7507,13 @@ This variant is in EYA4 (hgnc:3522). hgnc:3522 is a gene from the HUGO Gene Nome
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A second heterozygous truncating allele producing similar cardio-auditory features. The observation that matters mechanistically is that the mutant protein is stably expressed in myocardium: a stable truncated product is what a dominant-negative model needs and what a pure nonsense-mediated-decay haploinsufficiency model does not predict. Very few affected individuals have been reported, so this allele&#39;s phenotype range is not defined.</div>
@@ -7512,6 +7576,7 @@ This variant is in EYA4 (hgnc:3522). hgnc:3522 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7533,7 +7598,13 @@ This variant is in EYA4 (hgnc:3522). hgnc:3522 is a gene from the HUGO Gene Nome
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Included as a negative control on the entity boundary rather than as a CMD1J allele. A Japanese carrier of this pathogenic nonsense variant had progressive sensorineural hearing loss with only minor electrocardiographic and echocardiographic findings - no left ventricular dilatation and no impaired contractility. Annotating this variant as CMD1J-causal would be an error, and it is recorded here so that the mistake is visible rather than available.</div>

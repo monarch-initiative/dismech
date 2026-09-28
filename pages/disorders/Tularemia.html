@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Tularemia"
@@ -3980,7 +4019,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3990,7 +4029,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -4001,7 +4040,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4012,11 +4051,19 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
 
+
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
 
 
 
@@ -4066,6 +4113,121 @@
 
         <!-- Subtypes -->
 
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-glandular-form">
+
+                    <div class="item-name">
+                        Glandular tularemia
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0000320" target="_blank">MONDO:0000320</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+                        <span class="subtype-freq-badge">15.8%</span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Localized tularemia form with acute flu-like symptoms and marked regional lymphadenopathy after arthropod or animal inoculation but without the visible cutaneous inoculation ulcer that defines the ulceroglandular form.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In glandular form, there are no skin ulcers but lymphadenopathy is marked"</div>
+
+
+                <div class="evidence-explanation">The review distinguishes glandular tularemia from ulceroglandular tularemia by the absence of a skin ulcer and the presence of marked lymphadenopathy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23104256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23104256" target="_blank">PMID:23104256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients had clinical presentations compatible with oropharyngeal (74 %), glandular (15.8 %), and oculoglandular (5.0 %) tularemia."</div>
+
+
+                <div class="evidence-explanation">This Central Anatolia cohort observed the glandular clinical form in 15.8% of confirmed tularemia patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+        </div>
+
 
         <!-- Comorbidities -->
 
@@ -4082,11 +4244,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arthropod-borne-and-zoonotic-acquisition" data-dismech-node="Arthropod-Borne and Zoonotic Acquisition" data-dismech-type="pathophysiology">
                 <div class="item-name">Arthropod-Borne and Zoonotic Acquisition</div>
+
 
                 <div class="item-desc">Humans acquire F. tularensis through arthropod bites (ticks and mosquitoes), handling of infected animals, ingestion of contaminated food or water, or inhalation of contaminated aerosols. The route of entry determines the resulting clinical form.
 </div>
@@ -4225,6 +4388,7 @@ This pathophysiological event involves Phagocytosis (GO:0006909). GO:0006909 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-phagosomal-escape-and-cytosolic-replication" data-dismech-node="Macrophage Phagosomal Escape and Cytosolic Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Phagosomal Escape and Cytosolic Replication</div>
 
+
                 <div class="item-desc">F. tularensis enters macrophages by looping phagocytosis. The Francisella-containing phagosome matures transiently before the bacterium escapes into the cytosol within 30-60 minutes via the Francisella Pathogenicity Island-encoded type VI secretion system (T6SS), then proliferates in the cytosol. The T6SS and its effectors are the main virulence attribute promoting phagosomal escape.
 </div>
 
@@ -4355,6 +4519,15 @@ This pathophysiological event involves Symbiont entry into host (GO:0044409). GO
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lymphatic Francisella Spread to Regional Nodes</span>
+
+	                            <span class="crosslink-desc">Organisms introduced through skin or mucosa can drain from the inoculation territory into the regional lymph node basin.
+</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4448,8 +4621,283 @@ This pathophysiological event involves Symbiont entry into host (GO:0044409). GO
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-francisella-spread-to-regional-nodes" data-dismech-node="Lymphatic Francisella Spread to Regional Nodes" data-dismech-type="pathophysiology">
+                <div class="item-name">Lymphatic Francisella Spread to Regional Nodes</div>
+
+
+                <div class="item-desc">After peripheral inoculation, F. tularensis drains through lymphatics into the regional node basin, anatomically localizing glandular and ulceroglandular tularemia as painful regional lymphadenitis.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        inflammatory response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006954</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        lymph node
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000029 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Necrotizing and Suppurative Granulomatous Lymphadenitis</span>
+
+	                            <span class="crosslink-desc">Node infection drives granulomatous and suppurative tissue inflammation.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37941380" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37941380" target="_blank">PMID:37941380</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Later, one or more chronically evolving lymphadenopathies can develop in the lymphatic system draining the site of entry."</div>
+
+
+                <div class="evidence-explanation">The Francisella review connects the portal of entry to later lymphadenopathy in the draining lymphatic basin.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-necrotizing-and-suppurative-granulomatous-lymphadenitis" data-dismech-node="Necrotizing and Suppurative Granulomatous Lymphadenitis" data-dismech-type="pathophysiology">
+                <div class="item-name">Necrotizing and Suppurative Granulomatous Lymphadenitis</div>
+
+
+                <div class="item-desc">Node-localized tularemia produces granulomas, necrosis, abscess-forming suppuration, and extracapsular inflammation; fluctuant infected nodes can require fine-needle aspiration, drainage, or excision.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        inflammatory response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006954</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        lymph node
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000029 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lymphadenopathy</span>
+
+	                            <span class="crosslink-desc">Granulomatous and suppurative node inflammation produces painful regional lymph node enlargement.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23763361" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23763361" target="_blank">PMID:23763361</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On histopathology; granulomas, necrosis, and suppurative inflammation extending extracapsular areas were seen."</div>
+
+
+                <div class="evidence-explanation">Human node cytology and resection specimens establish granulomatous, necrotizing, suppurative lymphadenitis as a tularemia tissue pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-activation-and-granulomatous-inflammation" data-dismech-node="Inflammasome Activation and Granulomatous Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammasome Activation and Granulomatous Inflammation</div>
+
 
                 <div class="item-desc">Cytosolic sensing of F. tularensis triggers IRF-3-dependent IFN-beta secretion and activation of the caspase-1 inflammasome with a pro-inflammatory response. The resulting inflammation produces granulomatous lesions and the systemic and localized clinical manifestations of tularemia, including fever, regional lymphadenopathy, skin ulceration, and pneumonia.
 </div>
@@ -4466,11 +4914,11 @@ This pathophysiological event involves Symbiont entry into host (GO:0044409). GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4507,11 +4955,11 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141084" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0141084</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141084" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0141084</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Inflammasome-mediated signaling, annotated with inflammasome-mediated signaling pathway (GO:0141084). GO:0141084 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4537,11 +4985,11 @@ This pathophysiological event involves Inflammasome-mediated signaling, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4576,6 +5024,22 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 	                            <span class="crosslink-meta">Fever</span>
 
 	                            <span class="crosslink-desc">Systemic inflammation produces fever, the most consistent finding across tularemia forms.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Headache</span>
+
+	                            <span class="crosslink-desc">Systemic inflammation contributes to headache in the flu-like prodrome.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myalgia</span>
+
+	                            <span class="crosslink-desc">Systemic inflammation contributes to myalgia in the flu-like prodrome.</span>
 
 
 	                        </div>
@@ -4655,6 +5119,198 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-francisella-ribosomal-translation" data-dismech-node="Francisella Ribosomal Translation" data-dismech-type="pathophysiology">
+                <div class="item-name">Francisella Ribosomal Translation</div>
+
+
+                <div class="item-desc">Francisella depends on bacterial 70S ribosomal translation for protein synthesis; aminoglycosides and tetracyclines used for tularemia act on this conserved bacterial ribosomal target.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        translation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006412</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24336183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24336183" target="_blank">PMID:24336183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ribosome is one of the main antibiotic targets in the bacterial cell."</div>
+
+
+                <div class="evidence-explanation">Review support for the shared bacterial-ribosome target of aminoglycosides and tetracyclines.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-francisella-dna-gyrase-and-topoisomerase-iv" data-dismech-node="Francisella DNA Gyrase and Topoisomerase IV" data-dismech-type="pathophysiology">
+                <div class="item-name">Francisella DNA Gyrase and Topoisomerase IV</div>
+
+
+                <div class="item-desc">F. tularensis requires bacterial type II topoisomerases to control DNA supercoiling and chromosome segregation; fluoroquinolones used for tularemia trap gyrase/topoisomerase-DNA cleavage complexes at this druggable target.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        DNA topological change
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA topological change (GO:0006265). GO:0006265 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27449972" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27449972" target="_blank">PMID:27449972</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Quinolones dually target DNA gyrase and topoisomerase IV binding to specific domains and conformations so as to block DNA strand passage catalysis and stabilize DNA-enzyme complexes that block the DNA replication apparatus and generate double breaks in DNA that underlie their bactericidal activity."</div>
+
+
+                <div class="evidence-explanation">Review support for the bacterial DNA gyrase/topoisomerase IV target of fluoroquinolones.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
         </div>
 
 
@@ -4680,7 +5336,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthropod-Borne and Zoonotic Acquisition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Humans acquire F. tularensis through arthropod bites (ticks and mosquitoes), handling of infected animals, ingestion of contaminated food or water, or inhalation of contaminated aerosols. The route of entry determines the resulting clinical form.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Phagocytosis\"]}}, {\"id\": \"Chills\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chills accompany the early febrile, flu-like phase of tularemia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025143\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is the most consistent clinical feature of tularemia and is present in most cases regardless of clinical form, typically as part of an early flu-like illness.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Inflammasome Activation and Granulomatous Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytosolic sensing of F. tularensis triggers IRF-3-dependent IFN-beta secretion and activation of the caspase-1 inflammasome with a pro-inflammatory response. The resulting inflammation produces granulomatous lesions and the systemic and localized clinical manifestations of tularemia, including fever, regional lymphadenopathy, skin ulceration, and pneumonia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Inflammasome-mediated signaling\", \"Inflammatory response\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional lymphadenopathy is the hallmark of the glandular and ulceroglandular forms, draining the site of inoculation.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Macrophage Phagosomal Escape and Cytosolic Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"F. tularensis enters macrophages by looping phagocytosis. The Francisella-containing phagosome matures transiently before the bacterium escapes into the cytosol within 30-60 minutes via the Francisella Pathogenicity Island-encoded type VI secretion system (T6SS), then proliferates in the cytosol. The T6SS and its effectors are the main virulence attribute promoting phagosomal escape.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Suppression of host phagosome maturation\", \"Symbiont entry into host\"]}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pneumonic tularemia follows inhalation of infectious aerosols and is among the most severe and most common clinical forms; it can also arise secondarily by hematogenous spread.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002090\"}}, {\"id\": \"Skin Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A skin ulcer at the cutaneous site of inoculation is the defining lesion of ulceroglandular tularemia, the most common clinical form.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200042\"}}], \"edges\": [{\"source\": \"Arthropod-Borne and Zoonotic Acquisition\", \"target\": \"Macrophage Phagosomal Escape and Cytosolic Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Following inoculation, F. tularensis is taken up by macrophages, where it establishes its intracellular replicative niche.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Macrophage Phagosomal Escape and Cytosolic Replication\", \"target\": \"Inflammasome Activation and Granulomatous Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic replication of F. tularensis is sensed by the host innate immune system, triggering caspase-1 inflammasome activation and a pro-inflammatory, granulomatous response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammation produces fever, the most consistent finding across tularemia forms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional inflammation produces lymph node enlargement, the hallmark of glandular and ulceroglandular forms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Skin Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation at a cutaneous inoculation site produces the ulcer of ulceroglandular tularemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation following inhalational exposure produces pneumonic tularemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Chills\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammatory cytokines drive the chills of the early flu-like phase.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthropod and infected-animal contact\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Tick, mosquito, and other arthropod bites or direct handling of infected animals are exposure routes that can inoculate F. tularensis into skin and soft tissue, triggering ulceroglandular or glandular tularemia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arthropod-Borne and Zoonotic Acquisition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Humans acquire F. tularensis through arthropod bites (ticks and mosquitoes), handling of infected animals, ingestion of contaminated food or water, or inhalation of contaminated aerosols. The route of entry determines the resulting clinical form.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Phagocytosis\"]}}, {\"id\": \"Chills\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chills accompany the early febrile, flu-like phase of tularemia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025143\"}}, {\"id\": \"Ciprofloxacin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fluoroquinolone used for tularemia. In the CDC systematic review, patients with pneumonic disease who received ciprofloxacin had no fatalities and the lowest rates of complications.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ciprofloxacin\"]}}, {\"id\": \"Doxycycline\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tetracycline-class agent used for tularemia. Tetracyclines were associated with effective treatment across clinical forms but with higher relapse rates than bactericidal agents.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"doxycycline\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is the most consistent clinical feature of tularemia and is present in most cases regardless of clinical form, typically as part of an early flu-like illness.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Fine-Needle Aspiration or Surgical Drainage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fluctuant or necrotic tularemia lymph nodes may require fine-needle aspiration, surgical drainage, or excision as adjunctive source control.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Francisella DNA Gyrase and Topoisomerase IV\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"F. tularensis requires bacterial type II topoisomerases to control DNA supercoiling and chromosome segregation; fluoroquinolones used for tularemia trap gyrase/topoisomerase-DNA cleavage complexes at this druggable target.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA topological change\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Francisella Ribosomal Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Francisella depends on bacterial 70S ribosomal translation for protein synthesis; aminoglycosides and tetracyclines used for tularemia act on this conserved bacterial ribosomal target.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"translation\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is part of the early influenza-like tularemia prodrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Inflammasome Activation and Granulomatous Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytosolic sensing of F. tularensis triggers IRF-3-dependent IFN-beta secretion and activation of the caspase-1 inflammasome with a pro-inflammatory response. The resulting inflammation produces granulomatous lesions and the systemic and localized clinical manifestations of tularemia, including fever, regional lymphadenopathy, skin ulceration, and pneumonia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Inflammasome-mediated signaling\", \"Inflammatory response\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional lymphadenopathy is the hallmark of the glandular and ulceroglandular forms, draining the site of inoculation.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Glandular form\"], \"term_id\": \"HP:0002716\"}}, {\"id\": \"Lymphatic Francisella Spread to Regional Nodes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After peripheral inoculation, F. tularensis drains through lymphatics into the regional node basin, anatomically localizing glandular and ulceroglandular tularemia as painful regional lymphadenitis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lymph node\"]}}, {\"id\": \"Macrophage Phagosomal Escape and Cytosolic Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"F. tularensis enters macrophages by looping phagocytosis. The Francisella-containing phagosome matures transiently before the bacterium escapes into the cytosol within 30-60 minutes via the Francisella Pathogenicity Island-encoded type VI secretion system (T6SS), then proliferates in the cytosol. The T6SS and its effectors are the main virulence attribute promoting phagosomal escape.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Suppression of host phagosome maturation\", \"Symbiont entry into host\"]}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myalgia is part of the early influenza-like tularemia prodrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Necrotizing and Suppurative Granulomatous Lymphadenitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Node-localized tularemia produces granulomas, necrosis, abscess-forming suppuration, and extracapsular inflammation; fluctuant infected nodes can require fine-needle aspiration, drainage, or excision.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lymph node\"]}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pneumonic tularemia follows inhalation of infectious aerosols and is among the most severe and most common clinical forms; it can also arise secondarily by hematogenous spread.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002090\"}}, {\"id\": \"Skin Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A skin ulcer at the cutaneous site of inoculation is the defining lesion of ulceroglandular tularemia, the most common clinical form.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200042\"}}, {\"id\": \"Streptomycin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aminoglycoside, historically the first-line agent for tularemia. In a CDC systematic review of human cases, aminoglycosides were associated with a low fatality rate (0.7%).\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"streptomycin\"]}}], \"edges\": [{\"source\": \"Arthropod-Borne and Zoonotic Acquisition\", \"target\": \"Macrophage Phagosomal Escape and Cytosolic Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Following inoculation, F. tularensis is taken up by macrophages, where it establishes its intracellular replicative niche.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Macrophage Phagosomal Escape and Cytosolic Replication\", \"target\": \"Inflammasome Activation and Granulomatous Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic replication of F. tularensis is sensed by the host innate immune system, triggering caspase-1 inflammasome activation and a pro-inflammatory, granulomatous response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Macrophage Phagosomal Escape and Cytosolic Replication\", \"target\": \"Lymphatic Francisella Spread to Regional Nodes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Organisms introduced through skin or mucosa can drain from the inoculation territory into the regional lymph node basin.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Lymphatic Francisella Spread to Regional Nodes\", \"target\": \"Necrotizing and Suppurative Granulomatous Lymphadenitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Node infection drives granulomatous and suppurative tissue inflammation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necrotizing and Suppurative Granulomatous Lymphadenitis\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granulomatous and suppurative node inflammation produces painful regional lymph node enlargement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammation produces fever, the most consistent finding across tularemia forms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammation contributes to headache in the flu-like prodrome.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammation contributes to myalgia in the flu-like prodrome.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional inflammation produces lymph node enlargement, the hallmark of glandular and ulceroglandular forms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Skin Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation at a cutaneous inoculation site produces the ulcer of ulceroglandular tularemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation following inhalational exposure produces pneumonic tularemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Inflammasome Activation and Granulomatous Inflammation\", \"target\": \"Chills\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammatory cytokines drive the chills of the early flu-like phase.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Arthropod and infected-animal contact\", \"target\": \"Arthropod-Borne and Zoonotic Acquisition\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Arthropod or animal contact introduces F. tularensis at the portal of entry, initiating the macrophage infection chain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Streptomycin\", \"target\": \"Francisella Ribosomal Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ciprofloxacin\", \"target\": \"Francisella DNA Gyrase and Topoisomerase IV\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxycycline\", \"target\": \"Francisella Ribosomal Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fine-Needle Aspiration or Surgical Drainage\", \"target\": \"Necrotizing and Suppurative Granulomatous Lymphadenitis\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4693,7 +5349,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
 
 
@@ -4707,7 +5363,9 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4734,10 +5392,10 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -4840,10 +5498,10 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -4946,10 +5604,10 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0200042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0200042</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -4959,6 +5617,8 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
+
+                    <div class="item-desc">This finding defines the ulceroglandular form and is absent by definition in the MONDO:0000320 glandular form.</div>
 
 
 
@@ -5027,10 +5687,10 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5090,8 +5750,91 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
+                    Nervous System
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Headache
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37941380" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37941380" target="_blank">PMID:37941380</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At onset, tularaemia symptoms are non-specific and include a flu-like syndrome with fever, headache, muscle and joint aches (myalgia, and/or arthralgia)."</div>
+
+
+                <div class="evidence-explanation">Review evidence that headache is part of the early nonspecific influenza-like tularemia syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chills" data-dismech-node="Chills" data-dismech-type="phenotype">
@@ -5108,10 +5851,10 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0025143</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0025143</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5151,6 +5894,80 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
 
 
                 <div class="evidence-explanation">The early flu-like illness of tularemia includes constitutional symptoms such as chills.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myalgia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37941380" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37941380" target="_blank">PMID:37941380</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At onset, tularaemia symptoms are non-specific and include a flu-like syndrome with fever, headache, muscle and joint aches (myalgia, and/or arthralgia)."</div>
+
+
+                <div class="evidence-explanation">Review evidence that myalgia is part of the early nonspecific influenza-like tularemia syndrome.</div>
 
 
 
@@ -5211,7 +6028,7 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-streptomycin" data-dismech-node="Streptomycin" data-dismech-type="treatment">
@@ -5222,7 +6039,7 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5263,11 +6080,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17076" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-14">CHEBI:17076</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17076" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:17076</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -5304,6 +6121,24 @@ This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic age
                 <div class="item-desc">Aminoglycoside, historically the first-line agent for tularemia. In a CDC systematic review of human cases, aminoglycosides were associated with a low fatality rate (0.7%).
 </div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Francisella Ribosomal Translation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Streptomycin is an aminoglycoside that treats tularemia by acting at the bacterial ribosome.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -5355,7 +6190,7 @@ This treatment uses streptomycin (CHEBI:17076). CHEBI:17076 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5396,11 +6231,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_100241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:100241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_100241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:100241</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -5437,6 +6272,24 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
                 <div class="item-desc">Fluoroquinolone used for tularemia. In the CDC systematic review, patients with pneumonic disease who received ciprofloxacin had no fatalities and the lowest rates of complications.
 </div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Francisella DNA Gyrase and Topoisomerase IV</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Ciprofloxacin is a fluoroquinolone that treats tularemia through the conserved bacterial type-II-topoisomerase target.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -5488,7 +6341,7 @@ This treatment uses ciprofloxacin (CHEBI:100241). CHEBI:100241 is a therapeutic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5529,11 +6382,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:50845</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -5570,6 +6423,24 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                 <div class="item-desc">Tetracycline-class agent used for tularemia. Tetracyclines were associated with effective treatment across clinical forms but with higher relapse rates than bactericidal agents.
 </div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Francisella Ribosomal Translation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Doxycycline is a tetracycline that treats tularemia by acting at the bacterial ribosome.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -5613,16 +6484,556 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-fine-needle-aspiration-or-surgical-drainage" data-dismech-node="Fine-Needle Aspiration or Surgical Drainage" data-dismech-type="treatment">
+                <div class="item-name">
+                    Fine-Needle Aspiration or Surgical Drainage
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Fluctuant or necrotic tularemia lymph nodes may require fine-needle aspiration, surgical drainage, or excision as adjunctive source control.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+
+                        </span>
+                        <strong style="color: #5b21b6;">Necrotizing and Suppurative Granulomatous Lymphadenitis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Needle aspiration, drainage, and excision remove the suppurative lymph-node compartment responsible for persistent regional disease.</span>
+
+
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23104256" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23104256" target="_blank">PMID:23104256</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fine-needle aspiration (FNA) or surgical drainage of fluctuant lymph nodes were performed in 51 (39 %) patients."</div>
+
+
+                <div class="evidence-explanation">The prospective Central Anatolia series documents node aspiration or drainage in 39% of confirmed tularemia cases with fluctuant nodes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
         <!-- Environmental Factors -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
+                <h2 class="card-title">Environmental Factors</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-arthropod-and-infected-animal-contact" data-dismech-node="Arthropod and infected-animal contact" data-dismech-type="environmental">
+                <div class="item-name">Arthropod and infected-animal contact</div>
+
+
+
+
+
+
+
+                <div class="item-desc">Tick, mosquito, and other arthropod bites or direct handling of infected animals are exposure routes that can inoculate F. tularensis into skin and soft tissue, triggering ulceroglandular or glandular tularemia.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ulcero-glandular and glandular forms are acquired by arthropod bite or handling of infected animals"</div>
+
+
+                <div class="evidence-explanation">The review identifies the external exposures that lead to the localized glandular and ulceroglandular forms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Arthropod-Borne and Zoonotic Acquisition</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Arthropod or animal contact introduces F. tularensis at the portal of entry, initiating the macrophage infection chain.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ulcero-glandular and glandular forms are acquired by arthropod bite or handling of infected animals"</div>
+
+
+                <div class="evidence-explanation">The review identifies arthropod bite and infected-animal handling as acquisition routes for the glandular and ulceroglandular forms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
 
 
         <!-- Biochemical Markers -->
 
 
         <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serology-or-microagglutination-testing">
+                <div class="item-name">
+                    Serology or Microagglutination Testing
+
+                </div>
+
+                <div class="item-desc">Tularemia is commonly confirmed serologically by a positive microagglutination test or by seroconversion on paired sera when the first sample is negative early in the course. Serology should be considered when a cervical lymphadenitis syndrome fails beta-lactam treatment, because delayed appropriate therapy is associated with poorer outcomes.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Diagnostic serology and microagglutination testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C217458" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C217458</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22090310" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22090310" target="_blank">PMID:22090310</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with fever, sore throat, cervical mass and failure to respond to beta-lactam antibiotics, were followed up with the preliminary diagnosis of tularemia."</div>
+
+
+                <div class="evidence-explanation">Central Anatolia clinicians escalated cervical lymphadenitis cases with beta-lactam nonresponse to suspected tularemia, supporting the diagnostic implication of intrinsic beta-lactam resistance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22090310" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22090310" target="_blank">PMID:22090310</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patients who applied to the hospital within 10 days of the initiation of the symptoms were treated successfully, while the others that applied later were not."</div>
+
+
+                <div class="evidence-explanation">The same case series links early presentation with successful treatment, supporting diagnostic delay as a modifiable driver of morbidity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22090310" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22090310" target="_blank">PMID:22090310</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All of the 8 patients who had negative results in their first samples (&lt; 1/160), revealed seroconversion in their second samples."</div>
+
+
+                <div class="evidence-explanation">The outbreak case series illustrates paired-serum microagglutination diagnosis, including later seroconversion after initially negative tests.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-francisella-pcr-on-lesional-or-node-specimens">
+                <div class="item-name">
+                    Francisella PCR on Lesional or Node Specimens
+
+                </div>
+
+                <div class="item-desc">PCR detection of F. tularensis DNA in wound or lymph-node material can confirm tularemia before seroconversion and can outperform culture, which is insensitive and hazardous for laboratories.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Francisella PCR on lesional or node specimens
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17003" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C17003</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10618057" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10618057" target="_blank">PMID:10618057</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of 40 patients with culture- and/or serology-verified ulceroglandular tularemia, PCR detected F. tularensis DNA in 30 (75%) patients, whereas culture detected bacterial growth in 25 (62%) patients."</div>
+
+
+                <div class="evidence-explanation">Direct comparison in human ulceroglandular tularemia supports PCR as a more sensitive direct detection method than culture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-lymph-node-fine-needle-aspiration-and-histopathology">
+                <div class="item-name">
+                    Lymph-Node Fine-Needle Aspiration and Histopathology
+
+                </div>
+
+                <div class="item-desc">Fine-needle aspiration of cervical nodes can show suppurative, granulomatous lymphadenitis and provide material for PCR or culture.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Lymph-node fine-needle aspiration and histopathology
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15361" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C15361</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23763361" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23763361" target="_blank">PMID:23763361</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However FNA cytology is helpful in differential diagnosis of tularemia and other diseases presented with suppurative, granulomatous cervical lymphadenitis."</div>
+
+
+                <div class="evidence-explanation">Multicenter experience with 53 aspirates supports FNA cytology as a differential-diagnostic test for suppurative granulomatous tularemia lymphadenitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Imaging Findings -->
@@ -5729,11 +7140,11 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
         Francisella tularensis
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_263" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-19">NCBITaxon:263</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_263" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:263</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-19">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -5822,6 +7233,255 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
         <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-arthropod-bite">
+                <div class="item-name">Arthropod bite</div>
+
+                <div class="item-desc">Ticks and mosquitoes inoculate F. tularensis through the skin; this is the route behind the ulceroglandular and glandular forms, which are the commonest presentations.</div>
+
+
+
+                <div class="item-notes">Person-to-person transmission has not been reported for any of these routes (PMID:37916743, &#34;Human-to-human transmission has not been known.&#34;), so every route here is an acquisition from an animal, arthropod, or environmental source.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vector-borne tularemia primarily involves ticks and mosquitoes."</div>
+
+
+                <div class="evidence-explanation">Names the arthropod vectors that transmit the organism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ulcero-glandular and glandular forms are acquired by arthropod bite or handling of infected animals"</div>
+
+
+                <div class="evidence-explanation">Ties the bite route to the clinical forms it produces.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-direct-contact-with-infected-animals">
+                <div class="item-name">Direct contact with infected animals</div>
+
+                <div class="item-desc">Handling infected lagomorphs and rodents, including skinning and dressing game, transmits the organism through skin and conjunctiva. The very low infectious dose makes brief handling sufficient.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Small mammals like rabbits, hares, and muskrats are primary sources of human infections, but true reservoir of F. tularensis is unknown."</div>
+
+
+                <div class="evidence-explanation">Identifies the small mammals whose handling is the source of human infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-ingestion-of-contaminated-food-or-water">
+                <div class="item-name">Ingestion of contaminated food or water</div>
+
+                <div class="item-desc">Swallowing contaminated water or undercooked meat from an infected animal produces the oropharyngeal form; water-borne outbreaks are a recurrent pattern in parts of Eurasia.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"oro-pharyngeal form by intake of contaminated food or water"</div>
+
+
+                <div class="evidence-explanation">Links ingestion of contaminated food or water to the oropharyngeal form.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-inhalation-of-infectious-aerosols">
+                <div class="item-name">Inhalation of infectious aerosols</div>
+
+                <div class="item-desc">Inhaled aerosol, whether raised agriculturally from contaminated material or released deliberately, produces pneumonic tularemia. This route and the organism&#39;s low infectious dose are why it is a Category A bioterrorism agent.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pulmonary form appears after inhalation of bacteria."</div>
+
+
+                <div class="evidence-explanation">States the inhalational route and the pulmonary form it produces.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37916743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916743" target="_blank">PMID:37916743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"F. tularensis is a possible bioweapon due to its lethality, low infectious dosage, and aerosol transmission."</div>
+
+
+                <div class="evidence-explanation">Supports aerosol transmissibility at a low infectious dose as the basis of the bioweapon concern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Burden -->
@@ -5953,6 +7613,107 @@ infectious_agent:
     evidence_source: OTHER
     snippet: &#34;Type A (subspecies tularensis) is more virulent and causes disease mainly in North America; type B (subspecies holarctica) is widespread&#34;
     explanation: Documents the two principal human-pathogenic subspecies and their geographic distribution and relative virulence.
+has_subtypes:
+- name: Glandular form
+  display_name: Glandular tularemia
+  subtype_term:
+    preferred_term: glandular tularemia
+    term:
+      id: MONDO:0000320
+      label: glandular tularemia
+  classification: clinical_form
+  subtype_frequency: &#34;15.8%&#34;
+  description: &gt;-
+    Localized tularemia form with acute flu-like symptoms and marked regional
+    lymphadenopathy after arthropod or animal inoculation but without the visible
+    cutaneous inoculation ulcer that defines the ulceroglandular form.
+  evidence:
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      In glandular form, there are no skin ulcers but lymphadenopathy is marked
+    explanation: &gt;-
+      The review distinguishes glandular tularemia from ulceroglandular
+      tularemia by the absence of a skin ulcer and the presence of marked
+      lymphadenopathy.
+  - reference: PMID:23104256
+    reference_title: Tularemia in central Anatolia.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Patients had clinical presentations compatible with oropharyngeal (74 %),
+      glandular (15.8 %), and oculoglandular (5.0 %) tularemia.
+    explanation: &gt;-
+      This Central Anatolia cohort observed the glandular clinical form in 15.8%
+      of confirmed tularemia patients.
+transmission:
+- name: Arthropod bite
+  description: &gt;-
+    Ticks and mosquitoes inoculate F. tularensis through the skin; this is the
+    route behind the ulceroglandular and glandular forms, which are the commonest
+    presentations.
+  evidence:
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Vector-borne tularemia primarily involves ticks and mosquitoes.&#34;
+    explanation: Names the arthropod vectors that transmit the organism.
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Ulcero-glandular and glandular forms are acquired by arthropod bite or handling of infected animals&#34;
+    explanation: Ties the bite route to the clinical forms it produces.
+  notes: &gt;-
+    Person-to-person transmission has not been reported for any of these routes
+    (PMID:37916743, &#34;Human-to-human transmission has not been known.&#34;), so every
+    route here is an acquisition from an animal, arthropod, or environmental source.
+- name: Direct contact with infected animals
+  description: &gt;-
+    Handling infected lagomorphs and rodents, including skinning and dressing game,
+    transmits the organism through skin and conjunctiva. The very low infectious
+    dose makes brief handling sufficient.
+  evidence:
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Small mammals like rabbits, hares, and muskrats are primary sources of human infections, but true reservoir of F. tularensis is unknown.&#34;
+    explanation: Identifies the small mammals whose handling is the source of human infection.
+- name: Ingestion of contaminated food or water
+  description: &gt;-
+    Swallowing contaminated water or undercooked meat from an infected animal
+    produces the oropharyngeal form; water-borne outbreaks are a recurrent pattern
+    in parts of Eurasia.
+  evidence:
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;oro-pharyngeal form by intake of contaminated food or water&#34;
+    explanation: Links ingestion of contaminated food or water to the oropharyngeal form.
+- name: Inhalation of infectious aerosols
+  description: &gt;-
+    Inhaled aerosol, whether raised agriculturally from contaminated material or
+    released deliberately, produces pneumonic tularemia. This route and the
+    organism&#39;s low infectious dose are why it is a Category A bioterrorism agent.
+  evidence:
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Pulmonary form appears after inhalation of bacteria.&#34;
+    explanation: States the inhalational route and the pulmonary form it produces.
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;F. tularensis is a possible bioweapon due to its lethality, low infectious dosage, and aerosol transmission.&#34;
+    explanation: Supports aerosol transmissibility at a low infectious dose as the basis of the bioweapon concern.
 pathophysiology:
 - name: Arthropod-Borne and Zoonotic Acquisition
   description: &gt;
@@ -6032,6 +7793,77 @@ pathophysiology:
       system, triggering caspase-1 inflammasome activation and a pro-inflammatory,
       granulomatous response.
     causal_link_type: DIRECT
+  - target: Lymphatic Francisella Spread to Regional Nodes
+    description: &gt;
+      Organisms introduced through skin or mucosa can drain from the inoculation
+      territory into the regional lymph node basin.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+- name: Lymphatic Francisella Spread to Regional Nodes
+  description: &gt;-
+    After peripheral inoculation, F. tularensis drains through lymphatics into
+    the regional node basin, anatomically localizing glandular and
+    ulceroglandular tularemia as painful regional lymphadenitis.
+  locations:
+  - preferred_term: lymph node
+    term:
+      id: UBERON:0000029
+      label: lymph node
+  biological_processes:
+  - preferred_term: inflammatory response
+    modifier: INCREASED
+    term:
+      id: GO:0006954
+      label: inflammatory response
+  evidence:
+  - reference: PMID:37941380
+    reference_title: &#34;Pathogenicity and virulence of Francisella tularensis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      Later, one or more chronically evolving lymphadenopathies can develop in
+      the lymphatic system draining the site of entry.
+    explanation: &gt;-
+      The Francisella review connects the portal of entry to later
+      lymphadenopathy in the draining lymphatic basin.
+  downstream:
+  - target: Necrotizing and Suppurative Granulomatous Lymphadenitis
+    description: &gt;-
+      Node infection drives granulomatous and suppurative tissue inflammation.
+    causal_link_type: DIRECT
+- name: Necrotizing and Suppurative Granulomatous Lymphadenitis
+  description: &gt;-
+    Node-localized tularemia produces granulomas, necrosis, abscess-forming
+    suppuration, and extracapsular inflammation; fluctuant infected nodes can
+    require fine-needle aspiration, drainage, or excision.
+  locations:
+  - preferred_term: lymph node
+    term:
+      id: UBERON:0000029
+      label: lymph node
+  biological_processes:
+  - preferred_term: inflammatory response
+    modifier: INCREASED
+    term:
+      id: GO:0006954
+      label: inflammatory response
+  evidence:
+  - reference: PMID:23763361
+    reference_title: &#34;Tularemia: potential role of cytopathology in differential diagnosis of cervical lymphadenitis: multicenter experience in 53 cases and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      On histopathology; granulomas, necrosis, and suppurative inflammation
+      extending extracapsular areas were seen.
+    explanation: &gt;-
+      Human node cytology and resection specimens establish granulomatous,
+      necrotizing, suppurative lymphadenitis as a tularemia tissue pattern.
+  downstream:
+  - target: Lymphadenopathy
+    description: &gt;-
+      Granulomatous and suppurative node inflammation produces painful regional
+      lymph node enlargement.
+    causal_link_type: DIRECT
 - name: Inflammasome Activation and Granulomatous Inflammation
   description: &gt;
     Cytosolic sensing of F. tularensis triggers IRF-3-dependent IFN-beta secretion
@@ -6064,6 +7896,12 @@ pathophysiology:
   - target: Fever
     description: Systemic inflammation produces fever, the most consistent finding across tularemia forms.
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: Headache
+    description: Systemic inflammation contributes to headache in the flu-like prodrome.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: Myalgia
+    description: Systemic inflammation contributes to myalgia in the flu-like prodrome.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
   - target: Lymphadenopathy
     description: Regional inflammation produces lymph node enlargement, the hallmark of glandular and ulceroglandular forms.
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
@@ -6076,6 +7914,56 @@ pathophysiology:
   - target: Chills
     description: Systemic inflammatory cytokines drive the chills of the early flu-like phase.
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+- name: Francisella Ribosomal Translation
+  role: therapeutic_vulnerability
+  conforms_to: &#34;bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome&#34;
+  description: &gt;-
+    Francisella depends on bacterial 70S ribosomal translation for protein
+    synthesis; aminoglycosides and tetracyclines used for tularemia act on this
+    conserved bacterial ribosomal target.
+  biological_processes:
+  - preferred_term: translation
+    term:
+      id: GO:0006412
+      label: translation
+  evidence:
+  - reference: PMID:24336183
+    reference_title: &#34;Ribosome-targeting antibiotics and mechanisms of bacterial resistance.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The ribosome is one of the main antibiotic targets in the bacterial cell.
+    explanation: &gt;-
+      Review support for the shared bacterial-ribosome target of
+      aminoglycosides and tetracyclines.
+  downstream: []
+- name: Francisella DNA Gyrase and Topoisomerase IV
+  role: therapeutic_vulnerability
+  conforms_to: &#34;bacterial_dna_topoisomerase_inhibition#DNA Gyrase and Topoisomerase IV (Fluoroquinolone Target)&#34;
+  description: &gt;-
+    F. tularensis requires bacterial type II topoisomerases to control DNA
+    supercoiling and chromosome segregation; fluoroquinolones used for tularemia
+    trap gyrase/topoisomerase-DNA cleavage complexes at this druggable target.
+  biological_processes:
+  - preferred_term: DNA topological change
+    term:
+      id: GO:0006265
+      label: DNA topological change
+  evidence:
+  - reference: PMID:27449972
+    reference_title: &#34;Topoisomerase Inhibitors: Fluoroquinolone Mechanisms of Action and Resistance.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Quinolones dually target DNA gyrase and topoisomerase IV binding to
+      specific domains and conformations so as to block DNA strand passage
+      catalysis and stabilize DNA-enzyme complexes that block the DNA
+      replication apparatus and generate double breaks in DNA that underlie
+      their bactericidal activity.
+    explanation: &gt;-
+      Review support for the bacterial DNA gyrase/topoisomerase IV target of
+      fluoroquinolones.
+  downstream: []
 phenotypes:
 - name: Fever
   description: &gt;
@@ -6095,6 +7983,8 @@ phenotypes:
     snippet: &#34;Early signs are flu-like illnesses that may evolve into different clinical forms of tularemia that may or may not include lymphadenopathy.&#34;
     explanation: Review describes the early flu-like (febrile) presentation of tularemia preceding localized findings.
 - name: Lymphadenopathy
+  subtypes:
+  - Glandular form
   description: &gt;
     Regional lymphadenopathy is the hallmark of the glandular and ulceroglandular
     forms, draining the site of inoculation.
@@ -6117,6 +8007,9 @@ phenotypes:
     snippet: &#34;The most common clinical forms were ulceroglandular, oropharyngeal, glandular, and pneumonic disease.&#34;
     explanation: CDC systematic review of 870 human cases confirms glandular and ulceroglandular (lymphadenopathy-defined) forms are among the most common.
 - name: Skin Ulcer
+  notes: &gt;-
+    This finding defines the ulceroglandular form and is absent by definition in
+    the MONDO:0000320 glandular form.
   description: &gt;
     A skin ulcer at the cutaneous site of inoculation is the defining lesion of
     ulceroglandular tularemia, the most common clinical form.
@@ -6169,6 +8062,46 @@ phenotypes:
     evidence_source: OTHER
     snippet: &#34;Early signs are flu-like illnesses that may evolve into different clinical forms of tularemia&#34;
     explanation: The early flu-like illness of tularemia includes constitutional symptoms such as chills.
+- name: Headache
+  description: Headache is part of the early influenza-like tularemia prodrome.
+  phenotype_term:
+    preferred_term: Headache
+    term:
+      id: HP:0002315
+      label: Headache
+  evidence:
+  - reference: PMID:37941380
+    reference_title: &#34;Pathogenicity and virulence of Francisella tularensis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      At onset, tularaemia symptoms are non-specific and include a flu-like
+      syndrome with fever, headache, muscle and joint aches (myalgia, and/or
+      arthralgia).
+    explanation: &gt;-
+      Review evidence that headache is part of the early nonspecific
+      influenza-like tularemia syndrome.
+- name: Myalgia
+  description: Myalgia is part of the early influenza-like tularemia prodrome.
+  phenotype_term:
+    preferred_term: Myalgia
+    term:
+      id: HP:0003326
+      label: Myalgia
+  evidence:
+  - reference: PMID:37941380
+    reference_title: &#34;Pathogenicity and virulence of Francisella tularensis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      At onset, tularaemia symptoms are non-specific and include a flu-like
+      syndrome with fever, headache, muscle and joint aches (myalgia, and/or
+      arthralgia).
+    explanation: &gt;-
+      Review evidence that myalgia is part of the early nonspecific
+      influenza-like tularemia syndrome.
 treatments:
 - name: Streptomycin
   description: &gt;
@@ -6186,6 +8119,12 @@ treatments:
       term:
         id: CHEBI:17076
         label: streptomycin
+  target_mechanisms:
+  - target: Francisella Ribosomal Translation
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Streptomycin is an aminoglycoside that treats tularemia by acting at the
+      bacterial ribosome.
   evidence:
   - reference: PMID:38294108
     reference_title: &#34;Systematic Review: Clinical Features, Antimicrobial Treatment, and Outcomes of Human Tularemia, 1993-2023.&#34;
@@ -6209,6 +8148,12 @@ treatments:
       term:
         id: CHEBI:100241
         label: ciprofloxacin
+  target_mechanisms:
+  - target: Francisella DNA Gyrase and Topoisomerase IV
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Ciprofloxacin is a fluoroquinolone that treats tularemia through the
+      conserved bacterial type-II-topoisomerase target.
   evidence:
   - reference: PMID:38294108
     reference_title: &#34;Systematic Review: Clinical Features, Antimicrobial Treatment, and Outcomes of Human Tularemia, 1993-2023.&#34;
@@ -6232,6 +8177,12 @@ treatments:
       term:
         id: CHEBI:50845
         label: doxycycline
+  target_mechanisms:
+  - target: Francisella Ribosomal Translation
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Doxycycline is a tetracycline that treats tularemia by acting at the
+      bacterial ribosome.
   evidence:
   - reference: PMID:37916743
     reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
@@ -6239,6 +8190,156 @@ treatments:
     evidence_source: OTHER
     snippet: &#34;Treatment for tularemia typically entails use of quinolones, tetracyclines, or aminoglycosides.&#34;
     explanation: Review lists tetracyclines (e.g., doxycycline) among the standard antimicrobial classes for tularemia.
+- name: Fine-Needle Aspiration or Surgical Drainage
+  description: &gt;-
+    Fluctuant or necrotic tularemia lymph nodes may require fine-needle
+    aspiration, surgical drainage, or excision as adjunctive source control.
+  therapeutic_modality: SURGERY
+  target_mechanisms:
+  - target: Necrotizing and Suppurative Granulomatous Lymphadenitis
+    description: &gt;-
+      Needle aspiration, drainage, and excision remove the suppurative lymph-node
+      compartment responsible for persistent regional disease.
+  evidence:
+  - reference: PMID:23104256
+    reference_title: Tularemia in central Anatolia.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Fine-needle aspiration (FNA) or surgical drainage of fluctuant lymph nodes
+      were performed in 51 (39 %) patients.
+    explanation: &gt;-
+      The prospective Central Anatolia series documents node aspiration or
+      drainage in 39% of confirmed tularemia cases with fluctuant nodes.
+diagnosis:
+- name: Serology or Microagglutination Testing
+  diagnosis_term:
+    preferred_term: Diagnostic serology and microagglutination testing
+    term:
+      id: NCIT:C217458
+      label: Diagnostic Serology Testing
+  description: &gt;-
+    Tularemia is commonly confirmed serologically by a positive
+    microagglutination test or by seroconversion on paired sera when the first
+    sample is negative early in the course. Serology should be considered when a
+    cervical lymphadenitis syndrome fails beta-lactam treatment, because delayed
+    appropriate therapy is associated with poorer outcomes.
+  evidence:
+  - reference: PMID:22090310
+    reference_title: &#34;[Evaluation of tularemia cases originated from Central Anatolia, Turkey].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      with fever, sore throat, cervical mass and failure to respond to
+      beta-lactam antibiotics, were followed up with the preliminary diagnosis
+      of tularemia.
+    explanation: &gt;-
+      Central Anatolia clinicians escalated cervical lymphadenitis cases with
+      beta-lactam nonresponse to suspected tularemia, supporting the diagnostic
+      implication of intrinsic beta-lactam resistance.
+  - reference: PMID:22090310
+    reference_title: &#34;[Evaluation of tularemia cases originated from Central Anatolia, Turkey].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The patients who applied to the hospital within 10 days of the initiation
+      of the symptoms were treated successfully, while the others that applied
+      later were not.
+    explanation: &gt;-
+      The same case series links early presentation with successful treatment,
+      supporting diagnostic delay as a modifiable driver of morbidity.
+  - reference: PMID:22090310
+    reference_title: &#34;[Evaluation of tularemia cases originated from Central Anatolia, Turkey].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      All of the 8 patients who had negative results in their first samples (&lt;
+      1/160), revealed seroconversion in their second samples.
+    explanation: &gt;-
+      The outbreak case series illustrates paired-serum microagglutination
+      diagnosis, including later seroconversion after initially negative tests.
+- name: Francisella PCR on Lesional or Node Specimens
+  diagnosis_term:
+    preferred_term: Francisella PCR on lesional or node specimens
+    term:
+      id: NCIT:C17003
+      label: Polymerase Chain Reaction
+  description: &gt;-
+    PCR detection of F. tularensis DNA in wound or lymph-node material can
+    confirm tularemia before seroconversion and can outperform culture, which is
+    insensitive and hazardous for laboratories.
+  evidence:
+  - reference: PMID:10618057
+    reference_title: Comparative analysis of PCR versus culture for diagnosis of ulceroglandular tularemia.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Of 40 patients with culture- and/or serology-verified ulceroglandular
+      tularemia, PCR detected F. tularensis DNA in 30 (75%) patients, whereas
+      culture detected bacterial growth in 25 (62%) patients.
+    explanation: &gt;-
+      Direct comparison in human ulceroglandular tularemia supports PCR as a
+      more sensitive direct detection method than culture.
+- name: Lymph-Node Fine-Needle Aspiration and Histopathology
+  diagnosis_term:
+    preferred_term: Lymph-node fine-needle aspiration and histopathology
+    term:
+      id: NCIT:C15361
+      label: Fine-Needle Aspiration
+  description: &gt;-
+    Fine-needle aspiration of cervical nodes can show suppurative,
+    granulomatous lymphadenitis and provide material for PCR or culture.
+  evidence:
+  - reference: PMID:23763361
+    reference_title: &#34;Tularemia: potential role of cytopathology in differential diagnosis of cervical lymphadenitis: multicenter experience in 53 cases and literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      However FNA cytology is helpful in differential diagnosis of tularemia and
+      other diseases presented with suppurative, granulomatous cervical
+      lymphadenitis.
+    explanation: &gt;-
+      Multicenter experience with 53 aspirates supports FNA cytology as a
+      differential-diagnostic test for suppurative granulomatous tularemia
+      lymphadenitis.
+environmental:
+- name: Arthropod and infected-animal contact
+  description: &gt;-
+    Tick, mosquito, and other arthropod bites or direct handling of infected
+    animals are exposure routes that can inoculate F. tularensis into skin and
+    soft tissue, triggering ulceroglandular or glandular tularemia.
+  effect: Increases risk of localized arthropod-borne or animal-contact tularemia.
+  influences_mechanisms:
+  - target: Arthropod-Borne and Zoonotic Acquisition
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Arthropod or animal contact introduces F. tularensis at the portal of
+      entry, initiating the macrophage infection chain.
+    evidence:
+    - reference: PMID:37916743
+      reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      quote_role: REVIEW_SYNTHESIS
+      snippet: &gt;-
+        Ulcero-glandular and glandular forms are acquired by arthropod bite or
+        handling of infected animals
+      explanation: &gt;-
+        The review identifies arthropod bite and infected-animal handling as
+        acquisition routes for the glandular and ulceroglandular forms.
+  evidence:
+  - reference: PMID:37916743
+    reference_title: &#34;Tularemia - a re-emerging disease with growing concern.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      Ulcero-glandular and glandular forms are acquired by arthropod bite or
+      handling of infected animals
+    explanation: &gt;-
+      The review identifies the external exposures that lead to the localized
+      glandular and ulceroglandular forms.
 epidemiology:
 - name: Regional seroprevalence (WHO-EMRO)
   description: &gt;
@@ -6332,6 +8433,28 @@ datasets:
                     <span class="card-count">1</span>
                 </div>
                 <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Add: Glandular Tularemia subtype</strong> · 2026-09-27T01:31:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Tularemia/2026-09-27T013133Z-codex-57cb6d.yaml">View source</a></p>
+                        <p class="research-review-text">Responded to PR #12814 review by replacing the standalone
+Glandular_Tularemia entry with a MONDO:0000320 clinical subtype inside
+Tularemia. Preserved the OpenScientist deep-research report, moved
+form-specific regional-node curation into the parent entry, added lymphatic
+spread and necrotizing/suppurative granulomatous lymphadenitis nodes, added
+headache and myalgia prodromal phenotypes, added serology, PCR, and
+FNA/histopathology diagnostics, linked arthropod and infected-animal exposure
+into the pathograph, and connected tularemia antibiotics to ribosomal or
+topoisomerase target mechanisms plus drainage/excision to suppurative
+lymphadenitis. Validated Tularemia with schema, term, title, exact-snippet,
+causal-target, entity-reference, and duplicate-key checks before creating
+this record.
+</p>
+                    </div>
+
+                </details>
 
 
                 <div style="margin-bottom: 4px;">
@@ -6550,7 +8673,7 @@ Transmission is typically from the environment and animals—human-to-human tran
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tularemia", "mondoId": "MONDO:0018077", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tularemia", "yamlRevision": "e66af3b9857f"};
+        const OS_CONFIG = {"diseaseName": "Tularemia", "mondoId": "MONDO:0018077", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tularemia", "yamlRevision": "93dcb35d3d22"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

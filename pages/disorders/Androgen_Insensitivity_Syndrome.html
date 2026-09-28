@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5007,6 +5046,7 @@ This subtype is caused by variation in AR (hgnc:644). hgnc:644 is a gene from th
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-ar-variation" data-dismech-node="Pathogenic AR Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic AR Variation</div>
 
+
                 <div class="item-desc">Hemizygous pathogenic germline variants and postzygotic mosaic AR variants can impair androgen receptor signaling. Defects differ by allele and domain; not every variant affects ligand binding, DNA binding and receptor abundance together. Genotype-phenotype correlation is especially limited in PAIS.</div>
 
 
@@ -5146,6 +5186,7 @@ This pathophysiological event involves AR (hgnc:644). hgnc:644 is a gene from th
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-androgen-binding" data-dismech-node="Reduced Androgen Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Androgen Binding</div>
 
+
                 <div class="item-desc">Selected pathogenic AR variants impair ligand binding through altered affinity, dissociation kinetics or temperature sensitivity. Normal binding in a tested variant does not exclude defective downstream transactivation.</div>
 
 
@@ -5226,6 +5267,7 @@ This pathophysiological event involves AR (hgnc:644). hgnc:644 is a gene from th
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ar-dna-binding" data-dismech-node="Impaired AR DNA Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired AR DNA Binding</div>
 
+
                 <div class="item-desc">Selected variants in the receptor DNA-binding domain impair interaction with androgen response elements. This mechanism is distinct from reduced ligand binding.</div>
 
 
@@ -5305,6 +5347,7 @@ This pathophysiological event involves AR (hgnc:644). hgnc:644 is a gene from th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ar-dependent-transcription" data-dismech-node="Reduced AR-Dependent Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced AR-Dependent Transcription</div>
+
 
                 <div class="item-desc">Reduced androgen-dependent transcription alters tissue responses during fetal development, puberty and adult life. The relevant target genes and co-regulatory effects vary by tissue; receptor activity measured in a reporter system is not a deterministic clinical severity scale.</div>
 
@@ -5570,6 +5613,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-external-genital-virilization" data-dismech-node="Impaired External Genital Virilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired External Genital Virilization</div>
 
+
                 <div class="item-desc">Reduced androgen response during fetal life impairs external genital masculinization, ranging from female external genitalia in CAIS to hypospadias, micropenis and variable labioscrotal fusion in PAIS. This node concerns anatomy and does not determine gender identity.</div>
 
 
@@ -5734,6 +5778,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-wolffian-duct-development" data-dismech-node="Impaired Wolffian Duct Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Wolffian Duct Development</div>
 
+
                 <div class="item-desc">Androgen resistance can impair differentiation of epididymis, vas deferens and other Wolffian structures. Their absence is typical of CAIS but occasional development is reported; Müllerian regression is a separate AMH-dependent process.</div>
 
 
@@ -5861,6 +5906,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-androgen-negative-feedback" data-dismech-node="Reduced Androgen Negative Feedback" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Androgen Negative Feedback</div>
 
+
                 <div class="item-desc">Reduced central androgen action weakens testosterone feedback on the hypothalamic-pituitary axis. Estrogen feedback and Sertoli-derived signals remain relevant, so LH, FSH and testosterone need not all be elevated together or at every age.</div>
 
 
@@ -5940,6 +5986,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-luteinizing-hormone-secretion" data-dismech-node="Increased Luteinizing Hormone Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Luteinizing Hormone Secretion</div>
+
 
                 <div class="item-desc">LH is often increased during puberty and adulthood with retained testes, while values can be normal in younger children. FSH can remain within its reference range because its regulation also involves estrogen and inhibin.</div>
 
@@ -6029,6 +6076,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-testicular-testosterone-production" data-dismech-node="Increased Testicular Testosterone Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Testicular Testosterone Production</div>
 
+
                 <div class="item-desc">Retained testes can produce normal male-range or elevated testosterone despite tissue androgen resistance. An apparently high concentration against a female comparator does not by itself establish excess relative to the appropriate testicular reference range.</div>
 
 
@@ -6116,6 +6164,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-testosterone-aromatization" data-dismech-node="Peripheral Testosterone Aromatization" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Testosterone Aromatization</div>
+
 
                 <div class="item-desc">Conversion of testosterone to estrogen persists despite AR dysfunction. In CAIS with retained testes, estrogen concentrations generally exceed male values but remain below usual female values; this can support spontaneous breast development. In PAIS, estrogen action relative to impaired androgen action contributes to gynecomastia.</div>
 
@@ -6212,6 +6261,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-androgen-dependent-hair-development" data-dismech-node="Reduced Androgen-Dependent Hair Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Androgen-Dependent Hair Development</div>
+
 
                 <div class="item-desc">Reduced receptor action limits pubic, axillary and other androgen-dependent terminal hair. Sparse or absent hair is typical in CAIS and variable in PAIS or MAIS.</div>
 
@@ -6324,6 +6374,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-testicular-descent" data-dismech-node="Impaired Testicular Descent" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Testicular Descent</div>
+
 
                 <div class="item-desc">Reduced androgen action can impair descent, leaving testes abdominal, inguinal or labial. A Sertoli-specific mouse knockout retained normal descent, showing that this developmental consequence cannot be assigned to Sertoli AR loss alone.</div>
 
@@ -6462,6 +6513,7 @@ This pathophysiological event involves decreased androgen receptor signaling pat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-sertoli-androgen-signaling" data-dismech-node="Reduced Sertoli Androgen Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Sertoli Androgen Signaling</div>
 
+
                 <div class="item-desc">Sertoli-cell AR signaling supports germ-cell development. Conditional mouse loss establishes a somatic supporting-cell requirement; it does not imply that germ cells require their own AR or that all human infertility is caused by this one cell type.</div>
 
 
@@ -6595,6 +6647,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-spermatogenesis" data-dismech-node="Impaired Spermatogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Spermatogenesis</div>
+
 
                 <div class="item-desc">Impaired androgen action can limit sperm production, with additional effects of gonadal location and testicular development. CAIS is associated with infertility; PAIS and MAIS show variable impairment. Azoospermia is not obligatory across the entire spectrum.</div>
 
@@ -6771,6 +6824,7 @@ This pathophysiological event involves decreased spermatogenesis (GO:0007283). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pubertal-amh-suppression" data-dismech-node="Reduced Pubertal AMH Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Pubertal AMH Suppression</div>
 
+
                 <div class="item-desc">Pubertal androgen action normally suppresses Sertoli-cell AMH. With impaired AR action, AMH may remain at prepubertal levels despite increasing testosterone. This is distinct from preserved fetal AMH secretion and does not imply elevated AMH in every neonate.</div>
 
 
@@ -6851,6 +6905,7 @@ This pathophysiological event involves decreased spermatogenesis (GO:0007283). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-fetal-amh-secretion" data-dismech-node="Preserved Fetal AMH Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Fetal AMH Secretion</div>
 
+
                 <div class="item-desc">Fetal Sertoli cells generally retain AMH production in AIS. This is parallel developmental context, not a consequence of AR-induced negative-feedback failure. Testicular rather than ovarian differentiation also explains absent ovaries; ovaries are not Müllerian derivatives.</div>
 
 
@@ -6930,6 +6985,7 @@ This pathophysiological event involves decreased spermatogenesis (GO:0007283). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-m-llerian-duct-regression" data-dismech-node="Müllerian Duct Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Müllerian Duct Regression</div>
+
 
                 <div class="item-desc">Preserved AMH action usually leads to absent or rudimentary uterus, fallopian tubes and cervix, with a short blind-ending vagina. Rare retained structures warrant careful reassessment; they do not establish a MAP3K1 modifier pathway.</div>
 
@@ -7050,6 +7106,7 @@ This pathophysiological event involves decreased spermatogenesis (GO:0007283). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-bone-mineral-accrual" data-dismech-node="Reduced Bone Mineral Accrual" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Bone Mineral Accrual</div>
+
 
                 <div class="item-desc">CAIS can be associated with low bone mineral density through limited androgen action and relative estrogen deficiency. Gonadectomy without adequate replacement adds risk. This is multifactorial and does not make osteoporosis obligatory or demonstrate a particular fracture rate.</div>
 
@@ -11793,6 +11850,9 @@ This disease-associated gene is AR (hgnc:644). hgnc:644 is a gene from the HUGO 
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4591,6 +4630,7 @@ The coagulopathy is the clinically dominant feature and is not a simple bleeding
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-g6pt1-c-terminal-er-retrieval-motif" data-dismech-node="Loss of the G6PT1 C-terminal ER Retrieval Motif" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the G6PT1 C-terminal ER Retrieval Motif</div>
 
+
                 <div class="item-desc">The recurrent c.1267C&gt;T (p.Arg423*) allele truncates the last seven residues of G6PT1, deleting the C-terminal ER retrieval signal that normally returns the transporter to the endoplasmic reticulum. This is the initiating lesion, and it is a loss of an address label rather than a loss of transport activity.
 </div>
 
@@ -4643,6 +4683,8 @@ This genetic context concerns SLC37A4 (hgnc:4061). hgnc:4061 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4658,6 +4700,9 @@ This genetic context concerns SLC37A4 (hgnc:4061). hgnc:4061 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous de novo nonsense allele removing the ER retrieval motif. The functional impact is scored against the retrieval motif, which is abolished; transporter catalytic function is not the affected property.</div>
 
@@ -4792,6 +4837,7 @@ This pathophysiological event involves decreased protein retention in ER lumen (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mislocalization-of-g6pt1-out-of-the-endoplasmic-reticulum" data-dismech-node="Mislocalization of G6PT1 out of the Endoplasmic Reticulum" data-dismech-type="pathophysiology">
                 <div class="item-name">Mislocalization of G6PT1 out of the Endoplasmic Reticulum</div>
 
+
                 <div class="item-desc">Freed of its retrieval signal, the truncated transporter moves into the secretory pathway. Its destination is disputed - the Golgi on the original model, a distinct non-Golgi compartment such as ER exit sites on the later one - and the two readings are carried as separate hypothesis groups. The edges out of this node are annotated to both groups because each account produces the same downstream Golgi disturbance.
 </div>
 
@@ -4923,6 +4969,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-intraluminal-golgi-ph-and-altered-golgi-morphology" data-dismech-node="Reduced Intraluminal Golgi pH and Altered Golgi Morphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Intraluminal Golgi pH and Altered Golgi Morphology</div>
+
 
                 <div class="item-desc">The mislocalized transporter lowers Golgi intraluminal pH and alters Golgi morphology in a manner that tracks allele dosage. The pH change is the mechanistic hinge: Golgi glycosyltransferases and glycosidases have narrow pH optima, so an acidification shift is sufficient to derange processing without any defect in the glycosylation enzymes themselves. Independent support comes from serum bikunin proteoglycan isoforms, whose esterified heavy forms are known to report Golgi pH and are severely reduced here.
 </div>
@@ -5113,6 +5160,7 @@ This pathophysiological event involves decreased Golgi organization (GO:0007030)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-n-glycan-processing-of-secreted-hepatic-glycoproteins" data-dismech-node="Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins</div>
 
+
                 <div class="item-desc">Golgi processing of N-glycans fails, giving accumulation of high-mannose and hybrid structures on secreted glycoproteins together with hyposialylation and hypogalactosylation. The defect is tissue-restricted in a way that is diagnostically and mechanistically informative: serum glycoproteins are grossly abnormal while N-glycans in fibroblasts and undifferentiated iPSC are normal, which points at the liver as the site of disease and rules out a cell-autonomous defect of the glycosylation machinery.
 </div>
 
@@ -5290,6 +5338,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-coagulation-factor-deficiency" data-dismech-node="Hepatic Coagulation Factor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Coagulation Factor Deficiency</div>
+
 
                 <div class="item-desc">Liver-derived coagulation proteins are deficient, giving a prolonged prothrombin time and activated partial thromboplastin time, hypofibrinogenaemia and severely reduced antithrombin activity. The deficiency is multifactorial and, importantly, is not one-sided: procoagulant factors II and XI fall alongside the anticoagulant antithrombin, so the haemostatic balance is partly preserved and reported patients have tolerated major surgery. That observation rests on a small number of cases and is curated as a treatment consideration, not as an established safety claim.
 </div>
@@ -5486,6 +5535,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury-and-steatosis" data-dismech-node="Hepatocellular Injury and Steatosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury and Steatosis</div>
 
+
                 <div class="item-desc">Affected individuals have hepatopathy with raised transaminases and hepatic steatosis on biopsy. Biopsy in the index patient showed increased hepatocyte volume and steatosis without necrosis, apoptosis or inflammatory infiltrate, which distinguishes this from an inflammatory or infectious hepatitis and is consistent with a metabolic or secretory lesion of the hepatocyte.
 </div>
 
@@ -5612,6 +5662,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-glucose-6-phosphate-transport-from-the-intact-allele" data-dismech-node="Preserved Glucose-6-phosphate Transport from the Intact Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Glucose-6-phosphate Transport from the Intact Allele</div>
+
 
                 <div class="item-desc">The wild-type allele supplies sufficient transporter for normal glucose-6-phosphate handling, so none of the glycogen storage disease Ib phenotype appears: no fasting hypoglycaemia, no lactic acidosis, no neutropenia. This node records a mechanistic negative, and it is what makes CDG-IIw a different disease from GSD Ib rather than a variant of it. It has no downstream edges by design.
 </div>
@@ -5749,7 +5800,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CRISPR base-edited HepG2 line carrying SLC37A4 c.1267C\u003eT\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A hepatoma cell line base-edited to carry the patient allele, built because the disorder is liver-specific and patient fibroblasts do not show the glycan defect. It reproduces the secreted glycosylation abnormality seen in patient serum, and is the system in which the Golgi pH, Golgi morphology and mutant-protein localization claims were made.\\n\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Coagulopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multifactorial coagulation deficiency of hepatic origin, present in all reported patients and the clinically dominant feature of the disorder.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001928\"}}, {\"id\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Golgi processing of N-glycans fails, giving accumulation of high-mannose and hybrid structures on secreted glycoproteins together with hyposialylation and hypogalactosylation. The defect is tissue-restricted in a way that is diagnostically and mechanistically informative: serum glycoproteins are grossly abnormal while N-glycans in fibroblasts and undifferentiated iPSC are normal, which points at the liver as the site of disease and rules out a cell-autonomous defect of the glycosylation machinery.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Elevated circulating alanine aminotransferase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031964\"}}, {\"id\": \"Elevated circulating aspartate aminotransferase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aspartate aminotransferase is elevated in all reported patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031956\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fresh Frozen Plasma and Factor Replacement for Perioperative Cover\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Peri-procedural haemostatic support with fresh frozen plasma, antithrombin III, prothrombin complex concentrate and vitamin K has been used to cover surgery in reported patients, who have tolerated procedures up to cardiac surgery. Note that the reported experience is a small number of cases and that the authors describing it explicitly ask for confirmation in more patients, so this is current practice rather than an established safety margin.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatic Coagulation Factor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver-derived coagulation proteins are deficient, giving a prolonged prothrombin time and activated partial thromboplastin time, hypofibrinogenaemia and severely reduced antithrombin activity. The deficiency is multifactorial and, importantly, is not one-sided: procoagulant factors II and XI fall alongside the anticoagulant antithrombin, so the haemostatic balance is partly preserved and reported patients have tolerated major surgery. That observation rests on a small number of cases and is curated as a treatment consideration, not as an established safety claim.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Steatosis on liver biopsy, without necrosis, apoptosis or inflammatory change.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatocellular Injury and Steatosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals have hepatopathy with raised transaminases and hepatic steatosis on biopsy. Biopsy in the index patient showed increased hepatocyte volume and steatosis without necrosis, apoptosis or inflammatory infiltrate, which distinguishes this from an inflammatory or infectious hepatitis and is consistent with a metabolic or secretory lesion of the hepatocyte.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Hypofibrinogenemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011900\"}}, {\"id\": \"Loss of the G6PT1 C-terminal ER Retrieval Motif\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent c.1267C\u003eT (p.Arg423*) allele truncates the last seven residues of G6PT1, deleting the C-terminal ER retrieval signal that normally returns the transporter to the endoplasmic reticulum. This is the initiating lesion, and it is a loss of an address label rather than a loss of transport activity.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein retention in ER lumen\"], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous de novo nonsense allele removing the ER retrieval motif. The functional impact is scored against the retrieval motif, which is abolished; transporter catalytic function is not the affected property.\", \"gene_terms\": [{\"label\": \"SLC37A4\", \"id\": \"hgnc:4061\"}]}}}, {\"id\": \"Mislocalization of G6PT1 out of the Endoplasmic Reticulum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Freed of its retrieval signal, the truncated transporter moves into the secretory pathway. Its destination is disputed - the Golgi on the original model, a distinct non-Golgi compartment such as ER exit sites on the later one - and the two readings are carried as separate hypothesis groups. The edges out of this node are annotated to both groups because each account produces the same downstream Golgi disturbance.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prolonged partial thromboplastin time\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003645\"}}, {\"id\": \"Prolonged prothrombin time\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prothrombin time is prolonged, reported as a raised INR in the index patient.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008151\"}}, {\"id\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mislocalized transporter lowers Golgi intraluminal pH and alters Golgi morphology in a manner that tracks allele dosage. The pH change is the mechanistic hinge: Golgi glycosyltransferases and glycosidases have narrow pH optima, so an acidification shift is sufficient to derange processing without any defect in the glycosylation enzymes themselves. Independent support comes from serum bikunin proteoglycan isoforms, whose esterified heavy forms are known to report Golgi pH and are severely reduced here.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Golgi lumen acidification\", \"Golgi organization\"], \"experimental_models\": [{\"name\": \"CRISPR base-edited HepG2 line carrying SLC37A4 c.1267C\u003eT\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the secreted N-glycosylation abnormality and shows allele-dosage-dependent Golgi morphology change and reduced intraluminal pH.\"}]}}, {\"id\": \"Reduced antithrombin III activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Antithrombin activity is reduced in all reported patients, and was undetectable in the index patient.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001976\"}}, {\"id\": \"Reduced factor XI activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Factor XI activity is reduced in all reported patients. Its pairing with antithrombin deficiency is the characteristic CDG coagulation signature, and is what distinguishes this profile from a hepatic-failure coagulopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001929\"}}, {\"id\": \"SLC37A4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SLC37A4\"], \"gene_terms\": [{\"label\": \"SLC37A4\", \"id\": \"hgnc:4061\"}], \"association\": \"CAUSATIVE\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\", \"variant_count\": 1}}, {\"id\": \"c.1267C\u003eT (p.Arg423*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent de novo nonsense allele truncating the final seven residues of the widely expressed G6PT1 isoform, removing the C-terminal ER retrieval motif.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Loss of the G6PT1 C-terminal ER Retrieval Motif\", \"target\": \"Mislocalization of G6PT1 out of the Endoplasmic Reticulum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mislocalization of G6PT1 out of the Endoplasmic Reticulum\", \"target\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"golgi_retention_model\", \"er_exit_site_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"target\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"target\": \"Hepatic Coagulation Factor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"target\": \"Hepatocellular Injury and Steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Prolonged prothrombin time\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Prolonged partial thromboplastin time\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Hypofibrinogenemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Reduced antithrombin III activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Reduced factor XI activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Elevated circulating aspartate aminotransferase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Elevated circulating alanine aminotransferase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fresh Frozen Plasma and Factor Replacement for Perioperative Cover\", \"target\": \"Hepatic Coagulation Factor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR base-edited HepG2 line carrying SLC37A4 c.1267C\u003eT\", \"target\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the secreted N-glycosylation abnormality and shows allele-dosage-dependent Golgi morphology change and reduced intraluminal pH.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A hepatoma line is not a hepatocyte, and the localization finding in this system (a non-Golgi compartment) is the one that conflicts with the original patient-derived Golgi retention model, so the system\u0027s fidelity for the localization question specifically is unestablished.\"}, {\"source\": \"c.1267C\u003eT (p.Arg423*)\", \"target\": \"SLC37A4\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CRISPR base-edited HepG2 line carrying SLC37A4 c.1267C\u003eT\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A hepatoma cell line base-edited to carry the patient allele, built because the disorder is liver-specific and patient fibroblasts do not show the glycan defect. It reproduces the secreted glycosylation abnormality seen in patient serum, and is the system in which the Golgi pH, Golgi morphology and mutant-protein localization claims were made.\\n\", \"meta\": {\"model_type\": \"CELL_LINE\"}}, {\"id\": \"Coagulopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Multifactorial coagulation deficiency of hepatic origin, present in all reported patients and the clinically dominant feature of the disorder.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001928\"}}, {\"id\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Golgi processing of N-glycans fails, giving accumulation of high-mannose and hybrid structures on secreted glycoproteins together with hyposialylation and hypogalactosylation. The defect is tissue-restricted in a way that is diagnostically and mechanistically informative: serum glycoproteins are grossly abnormal while N-glycans in fibroblasts and undifferentiated iPSC are normal, which points at the liver as the site of disease and rules out a cell-autonomous defect of the glycosylation machinery.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Elevated circulating alanine aminotransferase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031964\"}}, {\"id\": \"Elevated circulating aspartate aminotransferase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aspartate aminotransferase is elevated in all reported patients.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031956\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fresh Frozen Plasma and Factor Replacement for Perioperative Cover\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Peri-procedural haemostatic support with fresh frozen plasma, antithrombin III, prothrombin complex concentrate and vitamin K has been used to cover surgery in reported patients, who have tolerated procedures up to cardiac surgery. Note that the reported experience is a small number of cases and that the authors describing it explicitly ask for confirmation in more patients, so this is current practice rather than an established safety margin.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatic Coagulation Factor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver-derived coagulation proteins are deficient, giving a prolonged prothrombin time and activated partial thromboplastin time, hypofibrinogenaemia and severely reduced antithrombin activity. The deficiency is multifactorial and, importantly, is not one-sided: procoagulant factors II and XI fall alongside the anticoagulant antithrombin, so the haemostatic balance is partly preserved and reported patients have tolerated major surgery. That observation rests on a small number of cases and is curated as a treatment consideration, not as an established safety claim.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Steatosis on liver biopsy, without necrosis, apoptosis or inflammatory change.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatocellular Injury and Steatosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected individuals have hepatopathy with raised transaminases and hepatic steatosis on biopsy. Biopsy in the index patient showed increased hepatocyte volume and steatosis without necrosis, apoptosis or inflammatory infiltrate, which distinguishes this from an inflammatory or infectious hepatitis and is consistent with a metabolic or secretory lesion of the hepatocyte.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"]}}, {\"id\": \"Hypofibrinogenemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011900\"}}, {\"id\": \"Loss of the G6PT1 C-terminal ER Retrieval Motif\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent c.1267C\u003eT (p.Arg423*) allele truncates the last seven residues of G6PT1, deleting the C-terminal ER retrieval signal that normally returns the transporter to the endoplasmic reticulum. This is the initiating lesion, and it is a loss of an address label rather than a loss of transport activity.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein retention in ER lumen\"], \"genetic_context\": {\"allele_type\": \"SNV\", \"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Heterozygous de novo nonsense allele removing the ER retrieval motif. The functional impact is scored against the retrieval motif, which is abolished; transporter catalytic function is not the affected property.\", \"gene_terms\": [{\"label\": \"SLC37A4\", \"id\": \"hgnc:4061\"}]}}}, {\"id\": \"Mislocalization of G6PT1 out of the Endoplasmic Reticulum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Freed of its retrieval signal, the truncated transporter moves into the secretory pathway. Its destination is disputed - the Golgi on the original model, a distinct non-Golgi compartment such as ER exit sites on the later one - and the two readings are carried as separate hypothesis groups. The edges out of this node are annotated to both groups because each account produces the same downstream Golgi disturbance.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prolonged partial thromboplastin time\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003645\"}}, {\"id\": \"Prolonged prothrombin time\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prothrombin time is prolonged, reported as a raised INR in the index patient.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008151\"}}, {\"id\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mislocalized transporter lowers Golgi intraluminal pH and alters Golgi morphology in a manner that tracks allele dosage. The pH change is the mechanistic hinge: Golgi glycosyltransferases and glycosidases have narrow pH optima, so an acidification shift is sufficient to derange processing without any defect in the glycosylation enzymes themselves. Independent support comes from serum bikunin proteoglycan isoforms, whose esterified heavy forms are known to report Golgi pH and are severely reduced here.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Golgi lumen acidification\", \"Golgi organization\"], \"experimental_models\": [{\"name\": \"CRISPR base-edited HepG2 line carrying SLC37A4 c.1267C\u003eT\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the secreted N-glycosylation abnormality and shows allele-dosage-dependent Golgi morphology change and reduced intraluminal pH.\"}]}}, {\"id\": \"Reduced antithrombin III activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Antithrombin activity is reduced in all reported patients, and was undetectable in the index patient.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001976\"}}, {\"id\": \"Reduced factor XI activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Factor XI activity is reduced in all reported patients. Its pairing with antithrombin deficiency is the characteristic CDG coagulation signature, and is what distinguishes this profile from a hepatic-failure coagulopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001929\"}}, {\"id\": \"SLC37A4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"SLC37A4\"], \"gene_terms\": [{\"label\": \"SLC37A4\", \"id\": \"hgnc:4061\"}], \"association\": \"CAUSATIVE\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\", \"variant_count\": 1}}, {\"id\": \"c.1267C\u003eT (p.Arg423*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent de novo nonsense allele truncating the final seven residues of the widely expressed G6PT1 isoform, removing the C-terminal ER retrieval motif.\", \"meta\": {\"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Loss of the G6PT1 C-terminal ER Retrieval Motif\", \"target\": \"Mislocalization of G6PT1 out of the Endoplasmic Reticulum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mislocalization of G6PT1 out of the Endoplasmic Reticulum\", \"target\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"golgi_retention_model\", \"er_exit_site_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"target\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"target\": \"Hepatic Coagulation Factor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins\", \"target\": \"Hepatocellular Injury and Steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Prolonged prothrombin time\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Prolonged partial thromboplastin time\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Hypofibrinogenemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Reduced antithrombin III activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Coagulation Factor Deficiency\", \"target\": \"Reduced factor XI activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Elevated circulating aspartate aminotransferase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Elevated circulating alanine aminotransferase concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocellular Injury and Steatosis\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fresh Frozen Plasma and Factor Replacement for Perioperative Cover\", \"target\": \"Hepatic Coagulation Factor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR base-edited HepG2 line carrying SLC37A4 c.1267C\u003eT\", \"target\": \"Reduced Intraluminal Golgi pH and Altered Golgi Morphology\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the secreted N-glycosylation abnormality and shows allele-dosage-dependent Golgi morphology change and reduced intraluminal pH.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A hepatoma line is not a hepatocyte, and the localization finding in this system (a non-Golgi compartment) is the one that conflicts with the original patient-derived Golgi retention model, so the system\u0027s fidelity for the localization question specifically is unestablished.\"}, {\"source\": \"SLC37A4\", \"target\": \"Loss of the G6PT1 C-terminal ER Retrieval Motif\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1267C\u003eT (p.Arg423*)\", \"target\": \"SLC37A4\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7380,6 +7431,9 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7479,6 +7533,12 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent de novo nonsense allele truncating the final seven residues of the widely expressed G6PT1 isoform, removing the C-terminal ER retrieval motif.</div>

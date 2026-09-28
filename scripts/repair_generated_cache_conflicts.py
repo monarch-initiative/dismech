@@ -142,8 +142,17 @@ def build_merge(repo: GitRepo, head: str, base: str) -> MergePlan:
     trees = [repo.tree(rev) for rev in (ancestors[0], head, base)]
     all_paths = set().union(*trees)
     for path in all_paths:
-        if PROTECTED_CACHE.fullmatch(path) and len({t.get(path) for t in trees}) != 1:
-            raise UnsafeMerge(f"protected cache changed: {path}")
+        if not PROTECTED_CACHE.fullmatch(path):
+            continue
+        ancestor_entry, head_entry, base_entry = (t.get(path) for t in trees)
+        if ancestor_entry == head_entry == base_entry:
+            continue
+        # A deletion already on trusted main must carry forward into older PRs
+        # that left the file alone (or also deleted it). Git resolves this from
+        # tree metadata; a PR modification or reintroduction still fails closed.
+        if base_entry is None and head_entry in (ancestor_entry, None):
+            continue
+        raise UnsafeMerge(f"protected cache changed: {path}")
     merged = repo.git("merge-tree", "--write-tree", "-z", head, base, check=False)
     if merged.returncode == 0:
         raise UnsafeMerge("no conflicts to repair")

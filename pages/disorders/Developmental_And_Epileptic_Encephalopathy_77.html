@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4652,6 +4691,7 @@ The functional lesion is demonstrable: flow cytometry of patient granulocytes, l
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pigq-variants" data-dismech-node="Biallelic PIGQ Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PIGQ Variants</div>
 
+
                 <div class="item-desc">Germline biallelic PIGQ variants — homozygous or, more often, compound heterozygous. Reported alleles span splice-disrupting changes causing exon skipping, frameshifts, an in-frame single-codon deletion and missense substitutions. The recurrent allele is the in-frame deletion c.1199_1201del, p.(Tyr400del), found in six of the thirteen published patients and always in trans with a second variant — a pattern consistent with residual rather than absent PIGQ function, which is also what the group-level constraint on inherited GPI deficiency requires.
 </div>
 
@@ -4717,6 +4757,8 @@ This pathophysiological event involves decreased PIGQ (hgnc:14135). hgnc:14135 i
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4737,6 +4779,9 @@ This pathophysiological event involves decreased PIGQ (hgnc:14135). hgnc:14135 i
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic PIGQ alleles. Both homozygous and compound heterozygous families are reported, so `zygosity` is deliberately left unset — the slot is single-valued and either value would misdescribe part of the cohort. `functional_impact_category` is PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION because complete GPI deficiency is embryonically lethal, so every viable patient genotype must retain some activity; the recurrent Tyr400del allele was shown to restore GPI-anchored protein expression only mildly less efficiently than wild type.</div>
 
@@ -4864,6 +4909,7 @@ This pathophysiological event involves decreased PIGQ (hgnc:14135). hgnc:14135 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-gpi-n-acetylglucosaminyltransferase-activity" data-dismech-node="Reduced GPI-N-Acetylglucosaminyltransferase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GPI-N-Acetylglucosaminyltransferase Activity</div>
+
 
                 <div class="item-desc">The GPI-N-acetylglucosaminyltransferase (GPI-GnT) complex transfers N-acetylglucosamine from UDP-GlcNAc onto phosphatidylinositol on the cytoplasmic face of the endoplasmic reticulum. PIGQ is one of its components, alongside PIGA, PIGC, PIGH, PIGP, PIGY and DPM2 — which is why the PIGQ phenotype resembles those of its complex partners rather than those of the later assembly or remodelling genes.
 </div>
@@ -5035,6 +5081,7 @@ This pathophysiological event involves decreased GPI-N-acetylglucosaminyltransfe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-initiation-of-gpi-anchor-biosynthesis" data-dismech-node="Impaired Initiation of GPI Anchor Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Initiation of GPI Anchor Biosynthesis</div>
 
+
                 <div class="item-desc">GPI anchor precursors are assembled stepwise in the endoplasmic reticulum and transferred en bloc to nascent proteins by the GPI transamidase, then remodelled before reaching the cell surface. Because PIGQ acts at the pathway&#39;s entry point, less precursor is available to every downstream step, and the deficit is felt by the whole GPI-anchored proteome rather than by a subset of clients.
 </div>
 
@@ -5176,6 +5223,7 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-gpi-anchored-protein-surface-expression" data-dismech-node="Reduced GPI-Anchored Protein Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GPI-Anchored Protein Surface Expression</div>
+
 
                 <div class="item-desc">The measurable cellular lesion. Granulocytes, leukocytes and fibroblasts from PIGQ patients show reduced surface levels of GPI-anchored proteins — CD16, CD14, FLAER, CD59, DAF, uPAR, CD90 and CD109 have all been used as readouts — and transduction of wild-type PIGQ restores them. Because at least 150 human proteins are GPI-anchored, the effect is a class-wide reduction in surface density rather than the loss of any single client. This entry names no culprit protein, because no experiment has identified one.
 </div>
@@ -5388,6 +5436,7 @@ This pathophysiological event involves leukocyte (CL:0000738). CL:0000738 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neurodevelopment-and-cortical-network-excitability" data-dismech-node="Disrupted Neurodevelopment and Cortical Network Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neurodevelopment and Cortical Network Excitability</div>
+
 
                 <div class="item-desc">Reducing the surface density of the GPI-anchored proteome during brain development yields a network that is both developmentally impaired and abnormally excitable. The epilepsy and the developmental impairment are two outputs of one lesion rather than a cause and its consequence, which is what a developmental and epileptic encephalopathy means. In the inherited GPI deficiencies as a group the process is progressive, with serial imaging showing cerebral and cerebellar volume loss over time.
 </div>
@@ -5652,6 +5701,7 @@ GPI-AP (P = 0.046)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-drug-resistant-early-onset-epilepsy" data-dismech-node="Drug-Resistant Early-Onset Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Drug-Resistant Early-Onset Epilepsy</div>
 
+
                 <div class="item-desc">Seizures beginning in the first months of life. The reported range runs from treatable seizures to recurrent status epilepticus, and in the more severely affected patients lifelong combination antiseizure therapy achieves only partial control. Seizure onset in the largest single series fell between 2.5 and 7 months.
 </div>
 
@@ -5792,6 +5842,7 @@ at seizure onset was 6 months."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-neurodevelopmental-impairment" data-dismech-node="Profound Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Neurodevelopmental Impairment</div>
+
 
                 <div class="item-desc">Global developmental delay with generalized hypotonia, present in every published patient, together with visual impairment and abnormal movements. A milder end of the spectrum exists: one patient presented with nonprogressive congenital ataxia and intellectual disability rather than an encephalopathy.
 </div>
@@ -5940,6 +5991,7 @@ disability (DD/ID, 90%), seizures (83%), hypotonia (72%) and motor symptoms
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-gpi-anchored-protein-dysfunction" data-dismech-node="Multisystem GPI-Anchored Protein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem GPI-Anchored Protein Dysfunction</div>
+
 
                 <div class="item-desc">The non-neurological arm of the disorder. Gastrointestinal problems are common and severe, up to midgut volvulus requiring surgery; cardiac anomalies including arrhythmias occur; skeletal changes include scoliosis and pectus carinatum, and one report documented long-bone radiolucent lesions and sphenoid wing dysplasia; craniofacial dysmorphism is present in every reported patient and is consistent enough to be recognisable to computational gestalt analysis. Recurrent rhabdomyolysis triggered by febrile infection has been documented in one patient.
 </div>
@@ -8156,6 +8208,9 @@ This disease-associated gene is PIGQ (hgnc:14135). hgnc:14135 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

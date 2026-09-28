@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5147,6 +5186,13 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgf14-intronic-gaa-repeat-expansion" data-dismech-node="FGF14 Intronic GAA Repeat Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">FGF14 Intronic GAA Repeat Expansion</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A heterozygous (GAA)n repeat expansion deep in intron 1 of FGF14 is the initiating molecular lesion. Because the repeat lies in non-coding sequence, it does not produce an altered FGF14 protein; instead, expansion beyond a length- and motif-dependent threshold destabilises expression of the allele. Repeat length correlates inversely with age at onset, and the tract&#39;s motif composition (pure GAA versus GAAGGA/AAGGAG interruptions) gates whether an expansion is pathogenic at all.</div>
 
 
@@ -5309,6 +5355,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fgf14-expression-in-cerebellar-neurons" data-dismech-node="Reduced FGF14 Expression in Cerebellar Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced FGF14 Expression in Cerebellar Neurons</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The expanded allele is expressed at reduced level, producing functional FGF14 haploinsufficiency in cerebellar neurons. FGF14 is an intracellular fibroblast growth factor (iFGF/FGF homologous factor) that is not secreted and does not signal through FGF receptors; it acts intracellularly as a binding partner and regulator of voltage-gated sodium channels. Reduced FGF14 RNA and protein have been demonstrated in postmortem patient cerebellum and in patient-derived iPSC neurons.</div>
 
@@ -5541,6 +5594,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-purkinje-neuron-intrinsic-excitability-and-firing" data-dismech-node="Impaired Purkinje Neuron Intrinsic Excitability and Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Purkinje Neuron Intrinsic Excitability and Firing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Intracellular FGF14 binds the C-terminus of voltage-gated sodium (Nav) channel alpha subunits and is concentrated at the Purkinje neuron axon initial segment, where Nav1.6-mediated resurgent sodium current sustains the high-frequency pacemaking that defines these cells. Loss of FGF14 produces a hyperpolarizing shift in the voltage dependence of steady-state Nav inactivation and reduced Nav1.6 availability, so Purkinje neurons fail to fire spontaneously and cannot sustain repetitive firing to depolarizing input. This is a functional excitability defect that precedes and is separable from cell death, and it is the node targeted by 4-aminopyridine.</div>
 
@@ -5841,6 +5901,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-neuron-degeneration-and-cerebellar-atrophy" data-dismech-node="Purkinje Neuron Degeneration and Cerebellar Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Neuron Degeneration and Cerebellar Atrophy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Over the disease course, loss of cerebellar Purkinje neurons develops, most severe in the anterior vermis, together with cerebellar (predominantly vermian) atrophy on imaging. Degeneration is comparatively mild and slow relative to the polyglutamine SCAs, consistent with the slow clinical progression, the absence of elevated serum neurofilament light, and the limited extra-cerebellar involvement.</div>
 
 
@@ -6035,6 +6102,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cerebellar-cortical-output" data-dismech-node="Loss of Cerebellar Cortical Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cerebellar Cortical Output</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Purkinje cells provide the sole output of the cerebellar cortex to the deep cerebellar nuclei. Their functional silencing and, later, loss corrupt the motor-coordination and oculomotor signals relayed downstream. In SCA27B the dysfunction is initially intermittent and reversible, which explains the prominent episodic phase and the responsiveness to a drug that restores Purkinje pacemaking precision.</div>
 
 
@@ -6227,6 +6301,13 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-late-onset-cerebellar-ataxia" data-dismech-node="Progressive Late-Onset Cerebellar Ataxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Late-Onset Cerebellar Ataxia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The convergent clinical consequence: a mid- to late-adult-onset, slowly progressive pancerebellar syndrome of gait and limb ataxia, cerebellar oculomotor signs including downbeat nystagmus, and dysarthria, often preceded by an episodic phase. Progression is mild (about 0.29 SARA points per year) and severity plateaus at a moderate level even in advanced disease, distinguishing SCA27B from SCA1/2/3.</div>
 
 
@@ -6392,7 +6473,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"4-Aminopyridine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"4-Aminopyridine (4-AP), a voltage-gated potassium channel blocker, is the principal symptomatic therapy for SCA27B and is the mechanistically rational choice: it does not increase inhibitory drive onto Purkinje cells but restores the precision of Purkinje pacemaking by prolonging the action potential and increasing the afterhyperpolarization, counteracting the firing failure caused by FGF14 loss. Across cohorts, 75-86% of treated patients report clinically meaningful benefit, and placebo-controlled video-oculography in a small number of expansion carriers showed a significant reduction in downbeat nystagmus slow-phase velocity on 4-AP but not placebo. Formal randomised trials in genetically defined SCA27B are still awaited.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"4-aminopyridine\"]}}, {\"id\": \"Downbeat nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downbeat nystagmus is a hallmark cerebellar oculomotor sign of SCA27B and can be the dominant or presenting manifestation. Conversely, FGF14 (GAA)\u003e=250 expansions account for roughly half of patients presenting with otherwise idiopathic downbeat nystagmus, making SCA27B the single most common identified cause of that syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010545\"}}, {\"id\": \"FGF14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"presence\": \"Positive\", \"association\": \"Deep intronic (GAA) repeat expansion in intron 1 of FGF14\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Expanded FGF14 repeat alleles whose tract is composed of, or heavily interrupted by, GAAGGA/AAGGAG hexameric motifs. These configurations occur at equal frequency in patients and controls and are treated as non-pathogenic; mosaic divergent repeat interruptions that shorten the remaining pure GAA tract are enriched in unaffected expansion carriers.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"interrupted short tandem repeat\", \"clinical_significance\": \"LIKELY_BENIGN\"}}, {\"id\": \"FGF14 Intronic GAA Repeat Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous (GAA)n repeat expansion deep in intron 1 of FGF14 is the initiating molecular lesion. Because the repeat lies in non-coding sequence, it does not produce an altered FGF14 protein; instead, expansion beyond a length- and motif-dependent threshold destabilises expression of the allele. Repeat length correlates inversely with age at onset, and the tract\u0027s motif composition (pure GAA versus GAAGGA/AAGGAG interruptions) gates whether an expansion is pathogenic at all.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"role\": \"trigger\", \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous expansion of a (GAA) short tandem repeat located deep in intron 1 of FGF14. Pathogenicity depends jointly on the length of the longest pure GAA tract and on the presence of interrupting motifs; the non-coding location means the mechanism is loss of expression rather than an altered protein product.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"short tandem repeat expansion\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOE\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive unsteadiness of gait is the cardinal and usually the presenting feature; balance and gait impairment were almost always present at disease onset in the largest reported cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular FGF14 binds the C-terminus of voltage-gated sodium (Nav) channel alpha subunits and is concentrated at the Purkinje neuron axon initial segment, where Nav1.6-mediated resurgent sodium current sustains the high-frequency pacemaking that defines these cells. Loss of FGF14 produces a hyperpolarizing shift in the voltage dependence of steady-state Nav inactivation and reduced Nav1.6 availability, so Purkinje neurons fail to fire spontaneously and cannot sustain repetitive firing to depolarizing input. This is a functional excitability defect that precedes and is separable from cell death, and it is the node targeted by 4-aminopyridine.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuronal action potential\", \"membrane depolarization during action potential\"], \"molecular_functions\": [\"voltage-gated sodium channel activity\"], \"role\": \"central_effector\", \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"Loss of Cerebellar Cortical Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purkinje cells provide the sole output of the cerebellar cortex to the deep cerebellar nuclei. Their functional silencing and, later, loss corrupt the motor-coordination and oculomotor signals relayed downstream. In SCA27B the dysfunction is initially intermittent and reversible, which explains the prominent episodic phase and the responsiveness to a drug that restores Purkinje pacemaking precision.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"nervous system process\"], \"role\": \"effector\", \"locations\": [\"cerebellum\"]}}, {\"id\": \"Progressive Late-Onset Cerebellar Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical consequence: a mid- to late-adult-onset, slowly progressive pancerebellar syndrome of gait and limb ataxia, cerebellar oculomotor signs including downbeat nystagmus, and dysarthria, often preceded by an episodic phase. Progression is mild (about 0.29 SARA points per year) and severity plateaus at a moderate level even in advanced disease, distinguishing SCA27B from SCA1/2/3.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Over the disease course, loss of cerebellar Purkinje neurons develops, most severe in the anterior vermis, together with cerebellar (predominantly vermian) atrophy on imaging. Degeneration is comparatively mild and slow relative to the polyglutamine SCAs, consistent with the slow clinical progression, the absence of elevated serum neurofilament light, and the limited extra-cerebellar involvement.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"effector\", \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expanded allele is expressed at reduced level, producing functional FGF14 haploinsufficiency in cerebellar neurons. FGF14 is an intracellular fibroblast growth factor (iFGF/FGF homologous factor) that is not secreted and does not signal through FGF receptors; it acts intracellularly as a binding partner and regulator of voltage-gated sodium channels. Reduced FGF14 RNA and protein have been demonstrated in postmortem patient cerebellum and in patient-derived iPSC neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"regulation of gene expression\"], \"molecular_functions\": [\"sodium channel regulator activity\"], \"role\": \"amplifier\", \"locations\": [\"cerebellar cortex\"]}}], \"edges\": [{\"source\": \"FGF14 Intronic GAA Repeat Expansion\", \"target\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expansion of the intronic GAA tract beyond the pathogenic threshold reduces FGF14 RNA and protein levels in patient cerebellum and in patient-derived neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of intracellular FGF14 removes a required regulator of voltage-gated sodium channels at the Purkinje neuron axon initial segment, attenuating spontaneous and repetitive firing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of Purkinje pacemaking is accompanied, over years, by Purkinje neuron loss, most severe in the anterior vermis in human autopsy series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because Purkinje cells are the sole output of the cerebellar cortex, silencing them directly removes cerebellar cortical output even before cell loss occurs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purkinje neuron loss permanently removes the sole inhibitory output of the cerebellar cortex to the deep cerebellar nuclei.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cerebellar Cortical Output\", \"target\": \"Progressive Late-Onset Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"4-Aminopyridine\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Downbeat nystagmus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FGF14\", \"target\": \"FGF14 Intronic GAA Repeat Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"4-Aminopyridine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"4-Aminopyridine (4-AP), a voltage-gated potassium channel blocker, is the principal symptomatic therapy for SCA27B and is the mechanistically rational choice: it does not increase inhibitory drive onto Purkinje cells but restores the precision of Purkinje pacemaking by prolonging the action potential and increasing the afterhyperpolarization, counteracting the firing failure caused by FGF14 loss. Across cohorts, 75-86% of treated patients report clinically meaningful benefit, and placebo-controlled video-oculography in a small number of expansion carriers showed a significant reduction in downbeat nystagmus slow-phase velocity on 4-AP but not placebo. Formal randomised trials in genetically defined SCA27B are still awaited.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"4-aminopyridine\"]}}, {\"id\": \"Downbeat nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downbeat nystagmus is a hallmark cerebellar oculomotor sign of SCA27B and can be the dominant or presenting manifestation. Conversely, FGF14 (GAA)\u003e=250 expansions account for roughly half of patients presenting with otherwise idiopathic downbeat nystagmus, making SCA27B the single most common identified cause of that syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010545\"}}, {\"id\": \"FGF14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"presence\": \"Positive\", \"association\": \"Deep intronic (GAA) repeat expansion in intron 1 of FGF14\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Expanded FGF14 repeat alleles whose tract is composed of, or heavily interrupted by, GAAGGA/AAGGAG hexameric motifs. These configurations occur at equal frequency in patients and controls and are treated as non-pathogenic; mosaic divergent repeat interruptions that shorten the remaining pure GAA tract are enriched in unaffected expansion carriers.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"interrupted short tandem repeat\", \"clinical_significance\": \"LIKELY_BENIGN\"}}, {\"id\": \"FGF14 Intronic GAA Repeat Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous (GAA)n repeat expansion deep in intron 1 of FGF14 is the initiating molecular lesion. Because the repeat lies in non-coding sequence, it does not produce an altered FGF14 protein; instead, expansion beyond a length- and motif-dependent threshold destabilises expression of the allele. Repeat length correlates inversely with age at onset, and the tract\u0027s motif composition (pure GAA versus GAAGGA/AAGGAG interruptions) gates whether an expansion is pathogenic at all.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"role\": \"trigger\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous expansion of a (GAA) short tandem repeat located deep in intron 1 of FGF14. Pathogenicity depends jointly on the length of the longest pure GAA tract and on the presence of interrupting motifs; the non-coding location means the mechanism is loss of expression rather than an altered protein product.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"short tandem repeat expansion\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOE\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive unsteadiness of gait is the cardinal and usually the presenting feature; balance and gait impairment were almost always present at disease onset in the largest reported cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular FGF14 binds the C-terminus of voltage-gated sodium (Nav) channel alpha subunits and is concentrated at the Purkinje neuron axon initial segment, where Nav1.6-mediated resurgent sodium current sustains the high-frequency pacemaking that defines these cells. Loss of FGF14 produces a hyperpolarizing shift in the voltage dependence of steady-state Nav inactivation and reduced Nav1.6 availability, so Purkinje neurons fail to fire spontaneously and cannot sustain repetitive firing to depolarizing input. This is a functional excitability defect that precedes and is separable from cell death, and it is the node targeted by 4-aminopyridine.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuronal action potential\", \"membrane depolarization during action potential\"], \"molecular_functions\": [\"voltage-gated sodium channel activity\"], \"role\": \"central_effector\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Cerebellar Cortical Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purkinje cells provide the sole output of the cerebellar cortex to the deep cerebellar nuclei. Their functional silencing and, later, loss corrupt the motor-coordination and oculomotor signals relayed downstream. In SCA27B the dysfunction is initially intermittent and reversible, which explains the prominent episodic phase and the responsiveness to a drug that restores Purkinje pacemaking precision.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"nervous system process\"], \"role\": \"effector\", \"locations\": [\"cerebellum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Progressive Late-Onset Cerebellar Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical consequence: a mid- to late-adult-onset, slowly progressive pancerebellar syndrome of gait and limb ataxia, cerebellar oculomotor signs including downbeat nystagmus, and dysarthria, often preceded by an episodic phase. Progression is mild (about 0.29 SARA points per year) and severity plateaus at a moderate level even in advanced disease, distinguishing SCA27B from SCA1/2/3.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Over the disease course, loss of cerebellar Purkinje neurons develops, most severe in the anterior vermis, together with cerebellar (predominantly vermian) atrophy on imaging. Degeneration is comparatively mild and slow relative to the polyglutamine SCAs, consistent with the slow clinical progression, the absence of elevated serum neurofilament light, and the limited extra-cerebellar involvement.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"effector\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expanded allele is expressed at reduced level, producing functional FGF14 haploinsufficiency in cerebellar neurons. FGF14 is an intracellular fibroblast growth factor (iFGF/FGF homologous factor) that is not secreted and does not signal through FGF receptors; it acts intracellularly as a binding partner and regulator of voltage-gated sodium channels. Reduced FGF14 RNA and protein have been demonstrated in postmortem patient cerebellum and in patient-derived iPSC neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"regulation of gene expression\"], \"molecular_functions\": [\"sodium channel regulator activity\"], \"role\": \"amplifier\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"FGF14 Intronic GAA Repeat Expansion\", \"target\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expansion of the intronic GAA tract beyond the pathogenic threshold reduces FGF14 RNA and protein levels in patient cerebellum and in patient-derived neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of intracellular FGF14 removes a required regulator of voltage-gated sodium channels at the Purkinje neuron axon initial segment, attenuating spontaneous and repetitive firing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of Purkinje pacemaking is accompanied, over years, by Purkinje neuron loss, most severe in the anterior vermis in human autopsy series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because Purkinje cells are the sole output of the cerebellar cortex, silencing them directly removes cerebellar cortical output even before cell loss occurs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purkinje neuron loss permanently removes the sole inhibitory output of the cerebellar cortex to the deep cerebellar nuclei.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cerebellar Cortical Output\", \"target\": \"Progressive Late-Onset Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"4-Aminopyridine\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Downbeat nystagmus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FGF14\", \"target\": \"FGF14 Intronic GAA Repeat Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7793,6 +7874,9 @@ This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7914,6 +7998,7 @@ This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7933,6 +8018,7 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">short tandem repeat expansion</span>
 
 
@@ -7940,6 +8026,11 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous expansion of a (GAA) short tandem repeat located deep in intron 1 of FGF14. Pathogenicity depends jointly on the length of the longest pure GAA tract and on the presence of interrupting motifs; the non-coding location means the mechanism is loss of expression rather than an altered protein product.</div>
@@ -8002,6 +8093,7 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8021,11 +8113,17 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">interrupted short tandem repeat</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Expanded FGF14 repeat alleles whose tract is composed of, or heavily interrupted by, GAAGGA/AAGGAG hexameric motifs. These configurations occur at equal frequency in patients and controls and are treated as non-pathogenic; mosaic divergent repeat interruptions that shorten the remaining pure GAA tract are enriched in unaffected expansion carriers.</div>
@@ -9182,10 +9280,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
                 </div>
 
-                <div class="evidence-snippet">"Functional impairment increased relatively slowly (unilateral mobility aids after 8 years in 50% of patients)."</div>
+                <div class="evidence-snippet">"Ataxia due to an autosomal dominant intronic GAA repeat expansion in FGF14 ... GAA-FGF14 ataxia, spinocerebellar ataxia 27B (SCA27B) ... has recently been identified as one of the most common genetic late-onset ataxias. ... GAA-FGF14 ataxia consistently presented as late-onset ... 60.0 years..."</div>
 
 
-                <div class="evidence-explanation">Quantifies functional progression.</div>
+                <div class="evidence-explanation">Identifies GAA-FGF14/SCA27B and slow progression with limited observed severity. The median onset and interquartile range are reported; these are not the full onset-age range or proof of a longitudinal plateau.</div>
 
 
 
@@ -10794,9 +10892,25 @@ progression:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Functional impairment increased relatively slowly (unilateral mobility
-      aids after 8 years in 50% of patients).
-    explanation: Quantifies functional progression.
+      Ataxia due to an autosomal dominant intronic GAA repeat expansion in FGF14 ... GAA-FGF14
+      ataxia, spinocerebellar ataxia 27B (SCA27B) ... has recently been identified as one of the
+      most common genetic late-onset ataxias. ... GAA-FGF14 ataxia consistently presented as
+      late-onset ... 60.0 years (53.5-68.5), median (interquartile range) ... pancerebellar
+      syndrome, partly combined with afferent sensory deficits (55%) and dysautonomia (28%).
+      Dysautonomia increased with duration while cognitive impairment remained infrequent, even in
+      advanced stages. Cross-sectional and longitudinal assessments consistently indicated mild
+      progression of ataxia ... 0.29 Scale for the Assessment and Rating of Ataxia (SARA)
+      points/year ... , not exceeding a moderate disease severity even in advanced stages (maximum
+      SARA score: 18 points). Functional impairment increased relatively slowly (unilateral mobility
+      aids after 8 years in 50% of patients). Corresponding to slow progression and low
+      extra-cerebellar involvement, sNfL was not increased relative to controls. Concurrent second
+      diseases (including progressive supranuclear palsy neuropathology) represented major
+      individual aggravators of disease severity, constituting important caveats for planning future
+      GAA-FGF14 trials.
+    explanation: &gt;-
+      Identifies GAA-FGF14/SCA27B and slow progression with limited observed severity. The median
+      onset and interquartile range are reported; these are not the full onset-age range or proof of
+      a longitudinal plateau.
   - reference: PMID:37165652
     reference_title: &#34;GAA-FGF14 ataxia (SCA27B): phenotypic profile, natural history progression and 4-aminopyridine treatment response.&#34;
     supports: SUPPORT
@@ -11529,7 +11643,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spinocerebellar ataxia 27B", "mondoId": "MONDO:0859340", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinocerebellar_ataxia_27B", "yamlRevision": "e70e850c62db"};
+        const OS_CONFIG = {"diseaseName": "Spinocerebellar ataxia 27B", "mondoId": "MONDO:0859340", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinocerebellar_ataxia_27B", "yamlRevision": "29a77cc00a64"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

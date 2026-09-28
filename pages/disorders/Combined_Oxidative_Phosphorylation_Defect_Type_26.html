@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4682,6 +4721,7 @@ This matters beyond mechanism. If the gradient tracks translational demand, then
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trmt5-biallelic-loss-of-function" data-dismech-node="TRMT5 Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">TRMT5 Biallelic Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic TRMT5 variants remove or degrade the nuclear-encoded methyltransferase that catalyses m1G37 formation on mitochondrial tRNAs. TRMT5 is the human orthologue of yeast Trm5p, and residues involved in catalysis are absolutely conserved between the two - which is what made a heterologous yeast complementation assay a usable pathogenicity test for the patient alleles. In the neuropathy series the missense allele p.Ile222Thr is predicted by structural modelling to destabilise tRNA binding rather than to abolish the catalytic site.</div>
 
 
@@ -4741,6 +4781,8 @@ This pathophysiological event involves TRMT5 (hgnc:23141). hgnc:23141 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: VARIANT</span>
 
 
@@ -4756,6 +4798,9 @@ This pathophysiological event involves TRMT5 (hgnc:23141). hgnc:23141 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4950,6 +4995,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-m1g37-hypomodification-of-mitochondrial-trna" data-dismech-node="m1G37 Hypomodification of Mitochondrial tRNA" data-dismech-type="pathophysiology">
                 <div class="item-name">m1G37 Hypomodification of Mitochondrial tRNA</div>
+
 
                 <div class="item-desc">The direct molecular consequence, and the one measured in patients. Reverse-transcriptase primer-extension across position 37 of mt-tRNA-Leu(CUN) shows markedly increased readthrough in patient material, meaning the methyl group is missing. Two controls make this causal rather than correlative: siRNA depletion of TRMT5 in control cells reproduces the hypomodification, and lentiviral re-expression of wild-type TRMT5 in patient fibroblasts reverses it to control levels.
 A negative result is worth recording here too: loss of m1G37 does not destabilise the tRNA. Steady-state mt-tRNA-Leu(CUN) levels are similar in control and patient fibroblasts, so the downstream defect is a translation-fidelity or efficiency problem rather than a loss of the tRNA pool.</div>
@@ -5149,6 +5195,7 @@ This pathophysiological event involves decreased mitochondrial tRNA methylation 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-specific-amplification-of-the-modification-defect-in-skeletal-muscle" data-dismech-node="Tissue-Specific Amplification of the Modification Defect in Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue-Specific Amplification of the Modification Defect in Skeletal Muscle</div>
 
+
                 <div class="item-desc">The hypomodification is not uniform across tissues. In the founding report the deficit was described as particularly prominent in skeletal muscle, with severely diminished pausing at G37 in muscle biopsy RNA - more marked than in the same patients&#39; fibroblasts. The clinical correlate is direct and diagnostically important: in one of the two founding individuals, muscle respiratory-chain analysis showed decreased complex IV and borderline-low complex I activity while fibroblast studies were normal.
 This node is modelled explicitly rather than left as a caveat because it changes what a negative test means. A normal fibroblast respiratory-chain assay does not exclude COXPD26.</div>
 
@@ -5282,6 +5329,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-translation" data-dismech-node="Impaired Mitochondrial Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Translation</div>
+
 
                 <div class="item-desc">m1G37 sits immediately 3&#39; of the anticodon and maintains reading-frame fidelity and translational efficiency; losing it degrades synthesis of the thirteen mtDNA-encoded respiratory-chain subunits. In COXPD26 this step is inferred rather than directly measured - the founding report measures the modification and the respiratory-chain output and reasons across the gap. It is measured directly, however, in the cybrid systems where an mtDNA point mutation creates a spurious TRMT5 substrate, which is why those papers are cited here with their indirectness marked.</div>
 
@@ -5451,6 +5499,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-respiratory-chain-complex-deficiency" data-dismech-node="Combined Respiratory Chain Complex Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Respiratory Chain Complex Deficiency</div>
 
+
                 <div class="item-desc">Because every mtDNA-encoded subunit passes through the same translational bottleneck, the enzymology in muscle shows several complexes affected together rather than one. In the founding individuals this took the form of a marked histochemical and biochemical cytochrome c oxidase deficiency with a complex III defect in one, and decreased complex IV with borderline-low complex I in the other.
 This node is where the literature disagrees, and the entry does not resolve the disagreement - see the CONTROVERSY discussion. The 2022 neuropathy series found normal respiratory-chain activity in the skeletal muscle of all three of its patients bar a mild complex I decrease in one, despite giant mitochondria on morphology.</div>
 
@@ -5615,6 +5664,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-energy-failure-phenotype" data-dismech-node="Multisystem Energy-Failure Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Energy-Failure Phenotype</div>
+
 
                 <div class="item-desc">The clinical endpoint, and the least uniform part of the disease. Reported presentations range from adult-onset exercise intolerance with exertional dyspnoea, through childhood failure to thrive with hypertrophic cardiomyopathy, to infantile severe developmental delay with demyelinating neuropathy, seizures, spastic diplegia, and hepatic and renal involvement. Lactic acidosis is the recurring biochemical accompaniment.
 The tissues that fail are the ones the founding authors predicted would: the heart is called out as specifically vulnerable to a diminished mitochondrial translation rate, a threshold-effect argument they draw from the shared cardiomyopathy across three tRNA-modification disorders.</div>
@@ -7460,6 +7510,9 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7507,6 +7560,12 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
         c.312_315del (p.Ile105Serfs*4)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Known pathogenic frameshift allele, carried by all three patients of the 2022 neuropathy series in trans with a rare missense change.</div>
@@ -7566,6 +7625,12 @@ This disease-associated gene is TRMT5 (hgnc:23141). hgnc:23141 is a gene from th
         c.665T&gt;C (p.Ile222Thr)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Rare missense allele in the 2022 series. Structural modelling suggests it acts by destabilising tRNA binding rather than by disabling catalysis - a mechanistic distinction that may matter for the milder biochemical phenotype in those patients.</div>

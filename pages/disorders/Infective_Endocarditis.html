@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4640,6 +4679,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-injury-and-sterile-thrombus-formation" data-dismech-node="Endothelial injury and sterile thrombus formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial injury and sterile thrombus formation</div>
 
+
                 <div class="item-desc">Turbulent flow across an abnormal valve, mechanical irritation from a catheter or prosthetic material, or inflammatory injury exposes subendothelial matrix. Platelets adhere and the coagulation cascade activates, producing a sterile fibrin-platelet thrombus known as non-bacterial thrombotic endocarditis. This step is entirely non-infectious, and it is the reason a structurally abnormal valve is a risk factor for an infectious disease.
 </div>
 
@@ -4876,6 +4916,7 @@ This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transient-bacteraemia" data-dismech-node="Transient bacteraemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Transient bacteraemia</div>
 
+
                 <div class="item-desc">Organisms enter the bloodstream from dental or mucosal manipulation, injection drug use, intravascular catheters, or gut translocation. Bacteraemia is common and endocarditis is rare, which is the observation that makes the sterile thrombus a necessary condition rather than an incidental finding, and which undermines the intuitive case for antibiotic prophylaxis before dental procedures.
 </div>
 
@@ -4918,6 +4959,7 @@ This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbial-adherence-to-the-sterile-thrombus" data-dismech-node="Microbial adherence to the sterile thrombus" data-dismech-type="pathophysiology">
                 <div class="item-name">Microbial adherence to the sterile thrombus</div>
+
 
                 <div class="item-desc">Organisms bind the thrombus through surface adhesins that recognise host matrix proteins, principally fibrinogen and fibronectin. Staphylococcus aureus is particularly effective at this and is now the leading cause in much of the world, displacing the streptococci of the older literature.
 </div>
@@ -5034,6 +5076,7 @@ This pathophysiological event involves increased cell adhesion involved in biofi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vegetation-maturation-with-biofilm-like-protection" data-dismech-node="Vegetation maturation with biofilm-like protection" data-dismech-type="pathophysiology">
                 <div class="item-name">Vegetation maturation with biofilm-like protection</div>
+
 
                 <div class="item-desc">Continued platelet and fibrin recruitment builds a friable mass of fibrin, platelets, inflammatory cells, and dense microbial colonies. The scaffold physically excludes phagocytes and impedes antibiotic penetration, so organisms persist at high density in a site the immune system cannot reach. This is the single fact that governs treatment: it is why therapy is measured in weeks, why bactericidal agents are required, and why a sufficiently established vegetation may not be curable without excising it.
 </div>
@@ -5185,6 +5228,7 @@ This pathophysiological event occurs in endocardium (UBERON:0002165). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-activation-and-systemic-inflammatory-response" data-dismech-node="Innate immune activation and systemic inflammatory response" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate immune activation and systemic inflammatory response</div>
+
 
                 <div class="item-desc">Pathogen-associated molecular patterns engage pattern recognition receptors on monocytes and endothelium, driving cytokine release and inflammasome activation. This produces the fever and systemic features, and contributes to the immune complex phenomena seen in skin, retina, and kidney.
 </div>
@@ -5347,6 +5391,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-valvular-and-perivalvular-destruction" data-dismech-node="Local valvular and perivalvular destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Local valvular and perivalvular destruction</div>
 
+
                 <div class="item-desc">Leaflet perforation and chordal rupture produce acute regurgitation. Extension beyond the annulus produces abscess, pseudoaneurysm, or fistula, and involvement of the conduction system produces heart block. Acute regurgitation is poorly tolerated because the ventricle has had no time to remodel, which is why this disease can decompensate over hours.
 </div>
 
@@ -5462,6 +5507,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-embolization-of-vegetation-fragments" data-dismech-node="Systemic embolization of vegetation fragments" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic embolization of vegetation fragments</div>
 
+
                 <div class="item-desc">Conformance here needs justifying, because the thrombogenesis module explicitly excludes nonthrombotic emboli. The claim is that a septic vegetation is not a nonthrombotic embolus. It is a fibrin-platelet thrombus with organisms in it, formed by the same platelet and coagulation machinery the module models, and the vascular occlusion and downstream ischaemic injury it causes are thrombotic in exactly the module&#39;s sense. The infection changes what is inside the thrombus and adds a septic dimension to the resulting infarct; it does not change the occlusive mechanism. Fragments embolise to brain, spleen, kidneys, and extremities, producing stroke, infarction, mycotic aneurysm, and peripheral lesions. Embolic stroke is both a major cause of morbidity and a complication that constrains surgery, since anticoagulation and cardiopulmonary bypass carry haemorrhagic risk in a recently infarcted brain.
 </div>
 
@@ -5558,6 +5604,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heart-failure-and-haemodynamic-decompensation" data-dismech-node="Heart failure and haemodynamic decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Heart failure and haemodynamic decompensation</div>
+
 
                 <div class="item-desc">The terminal common pathway and the dominant determinant of early mortality, arising from acute regurgitation, myocardial abscess, conduction disturbance, and sepsis together.
 </div>
@@ -6881,7 +6928,7 @@ This environmental factor is injection drug use, annotated with exposure to subs
 
 
 
-                <div class="item-desc">ECTO:6000007 (exposure to substance abuse) is bound as the closest available term, but it names the pharmacological exposure rather than the microbiological one that matters here: the exposure hierarchy has no term expressing injection drug use as a route of microbial entry. An earlier version of this note said no term was bound; the binding was added afterwards, by the #8430 exposure-binding sweep, which did not revisit the note.
+                <div class="item-desc">ECTO:6000007 (exposure to substance abuse) is bound as the closest available term, but it names the pharmacological exposure rather than the microbiological one that matters here: the exposure hierarchy has no term expressing injection drug use as a route of microbial entry. An earlier version of this note said no term was bound; the binding was added afterwards, by the issue 8430 exposure-binding sweep, which did not revisit the note.
 </div>
 
 
@@ -7718,6 +7765,278 @@ This environmental factor is injection drug use, annotated with exposure to subs
 
         <!-- Transmission -->
 
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-haematogenous-seeding-of-the-endocardium-during-bacteraemia">
+                <div class="item-name">Haematogenous seeding of the endocardium during bacteraemia</div>
+
+                <div class="item-desc">Infective endocarditis is not transmitted between people: it is acquired when organisms already in the bloodstream settle on the endocardium. This is the route for every portal below, and it is why the anatomical substrate matters as much as the organism, since circulating bacteria adhere to a sterile platelet-fibrin clot on injured endothelium rather than to a normal valve.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40422904" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40422904" target="_blank">PMID:40422904</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The presence of the bacterium Staphylococcus aureus in the blood (i.e., bacteremia) can result in serious complications, such as IE and osteomyelitis."</div>
+
+
+                <div class="evidence-explanation">States that endocarditis arises as a complication of organisms present in the blood, which is the bloodstream-to-valve route this block records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-oral-and-dental-portal-of-entry">
+                <div class="item-name">Oral and dental portal of entry</div>
+
+                <div class="item-desc">Transient bacteraemia with viridans group streptococci from the mouth is the classical route into subacute disease, and the organism group behind the dental prophylaxis argument curated as a controversy in this entry. Note that the portal is real while its prophylactic significance is contested: antibiotic prophylaxis demonstrably reduces bacteraemia after dental procedures without clear evidence that it prevents endocarditis in low-risk patients, and everyday chewing and tooth brushing produce the same bacteraemia no prophylaxis can cover.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28213367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213367" target="_blank">PMID:28213367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meta-analysis of trials indicates that AP is effective in reducing the incidence of bacteraemia"</div>
+
+
+                <div class="evidence-explanation">Establishes that dental procedures produce a bacteraemia that prophylaxis measurably reduces, evidencing the oral portal itself.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24247105" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24247105" target="_blank">PMID:24247105</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"prevention strategies should no longer focus on prophylaxis of streptococcal bacteraemia during dental procedures, but instead encourage a more-general approach to reduce the incidence of health-care-associated IE"</div>
+
+
+                <div class="evidence-explanation">Records both the historical weight given to the dental streptococcal route and the shift of emphasis toward healthcare-associated acquisition.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-injection-drug-use">
+                <div class="item-name">Injection drug use</div>
+
+                <div class="item-desc">Repeated non-sterile injection introduces skin flora directly into the venous circulation, which is why this route seeds the right side of the heart, characteristically the tricuspid valve, and is dominated by Staphylococcus aureus.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9279330" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9279330" target="_blank">PMID:9279330</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sixty-two patients were intravenous drug users (IVDU); all but 1 of these had an obvious cutaneous portal of entry related to the injection of illicit drugs."</div>
+
+
+                <div class="evidence-explanation">Documents the cutaneous injection site as the demonstrable portal of entry into the bloodstream in injecting drug users with bacteraemia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35589166" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35589166" target="_blank">PMID:35589166</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence of injection drug use-associated infective endocarditis has been increasing rapidly over the last decade."</div>
+
+
+                <div class="evidence-explanation">Establishes injection drug use as a growing acquisition route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-healthcare-associated-intravascular-access-and-cardiac-devices">
+                <div class="item-name">Healthcare-associated intravascular access and cardiac devices</div>
+
+                <div class="item-desc">Indwelling vascular catheters, haemodialysis access, implanted cardiac devices, and other invasive procedures give organisms a standing route into the bloodstream and a prosthetic surface to adhere to. This route now accounts for a substantial share of cases and is part of why the epidemiology has shifted toward older patients and staphylococcal disease.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19273776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19273776" target="_blank">PMID:19273776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recent health care exposure was found in one-quarter of patients."</div>
+
+
+                <div class="evidence-explanation">Quantifies healthcare exposure preceding endocarditis in a prospective cohort of 2781 patients across 25 countries.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19273776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19273776" target="_blank">PMID:19273776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic intravenous access was as common as intravenous drug use in the overall cohort"</div>
+
+
+                <div class="evidence-explanation">Places chronic intravascular access on a par with injection drug use as a route into the bloodstream in the same cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Burden -->
 
@@ -7857,7 +8176,6 @@ classifications:
       its surgical management are cardiac. It is equally an infectious disease, and the
       antimicrobial half of its management follows infectious disease logic rather than cardiac
       logic.
-
 has_subtypes:
 - name: Left-sided native valve
   display_name: Left-sided native valve endocarditis
@@ -7928,6 +8246,96 @@ infectious_agent:
     A growing cause, particularly in older patients and after genitourinary or gastrointestinal
     procedures, and one of the four organism groups for which oral step-down therapy was tested.
 
+transmission:
+- name: Haematogenous seeding of the endocardium during bacteraemia
+  description: &gt;-
+    Infective endocarditis is not transmitted between people: it is acquired
+    when organisms already in the bloodstream settle on the endocardium. This is
+    the route for every portal below, and it is why the anatomical substrate
+    matters as much as the organism, since circulating bacteria adhere to a
+    sterile platelet-fibrin clot on injured endothelium rather than to a normal
+    valve.
+  evidence:
+  - reference: PMID:40422904
+    reference_title: Staphylococcus aureus Endocarditis Immunothrombosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The presence of the bacterium Staphylococcus aureus in the blood (i.e., bacteremia) can result in serious complications, such as IE and osteomyelitis.&#34;
+    explanation: &gt;-
+      States that endocarditis arises as a complication of organisms present in
+      the blood, which is the bloodstream-to-valve route this block records.
+- name: Oral and dental portal of entry
+  description: &gt;-
+    Transient bacteraemia with viridans group streptococci from the mouth is the
+    classical route into subacute disease, and the organism group behind the
+    dental prophylaxis argument curated as a controversy in this entry. Note
+    that the portal is real while its prophylactic significance is contested:
+    antibiotic prophylaxis demonstrably reduces bacteraemia after dental
+    procedures without clear evidence that it prevents endocarditis in low-risk
+    patients, and everyday chewing and tooth brushing produce the same
+    bacteraemia no prophylaxis can cover.
+  evidence:
+  - reference: PMID:28213367
+    reference_title: &#34;Antibiotic prophylaxis for infective endocarditis: a systematic review and meta-analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Meta-analysis of trials indicates that AP is effective in reducing the incidence of bacteraemia&#34;
+    explanation: &gt;-
+      Establishes that dental procedures produce a bacteraemia that prophylaxis
+      measurably reduces, evidencing the oral portal itself.
+  - reference: PMID:24247105
+    reference_title: &#34;Mechanisms of infective endocarditis: pathogen-host interaction and risk states.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;prevention strategies should no longer focus on prophylaxis of streptococcal bacteraemia during dental procedures, but instead encourage a more-general approach to reduce the incidence of health-care-associated IE&#34;
+    explanation: &gt;-
+      Records both the historical weight given to the dental streptococcal route
+      and the shift of emphasis toward healthcare-associated acquisition.
+- name: Injection drug use
+  description: &gt;-
+    Repeated non-sterile injection introduces skin flora directly into the
+    venous circulation, which is why this route seeds the right side of the
+    heart, characteristically the tricuspid valve, and is dominated by
+    Staphylococcus aureus.
+  evidence:
+  - reference: PMID:9279330
+    reference_title: Group A streptococcal bacteremia. A 10-year prospective study.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Sixty-two patients were intravenous drug users (IVDU); all but 1 of these had an obvious cutaneous portal of entry related to the injection of illicit drugs.&#34;
+    explanation: &gt;-
+      Documents the cutaneous injection site as the demonstrable portal of entry
+      into the bloodstream in injecting drug users with bacteraemia.
+  - reference: PMID:35589166
+    reference_title: &#34;Diagnosis and Management of Infective Endocarditis in People Who Inject Drugs: JACC State-of-the-Art Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The incidence of injection drug use-associated infective endocarditis has been increasing rapidly over the last decade.&#34;
+    explanation: Establishes injection drug use as a growing acquisition route.
+- name: Healthcare-associated intravascular access and cardiac devices
+  description: &gt;-
+    Indwelling vascular catheters, haemodialysis access, implanted cardiac
+    devices, and other invasive procedures give organisms a standing route into
+    the bloodstream and a prosthetic surface to adhere to. This route now
+    accounts for a substantial share of cases and is part of why the
+    epidemiology has shifted toward older patients and staphylococcal disease.
+  evidence:
+  - reference: PMID:19273776
+    reference_title: &#34;Clinical presentation, etiology, and outcome of infective endocarditis in the 21st century: the International Collaboration on Endocarditis-Prospective Cohort Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Recent health care exposure was found in one-quarter of patients.&#34;
+    explanation: &gt;-
+      Quantifies healthcare exposure preceding endocarditis in a prospective
+      cohort of 2781 patients across 25 countries.
+  - reference: PMID:19273776
+    reference_title: &#34;Clinical presentation, etiology, and outcome of infective endocarditis in the 21st century: the International Collaboration on Endocarditis-Prospective Cohort Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Chronic intravenous access was as common as intravenous drug use in the overall cohort&#34;
+    explanation: &gt;-
+      Places chronic intravascular access on a par with injection drug use as a
+      route into the bloodstream in the same cohort.
 pathophysiology:
 - name: Endothelial injury and sterile thrombus formation
   biological_scale: TISSUE
@@ -8414,7 +8822,7 @@ environmental:
     ECTO:6000007 (exposure to substance abuse) is bound as the closest available term, but it names
     the pharmacological exposure rather than the microbiological one that matters here: the exposure
     hierarchy has no term expressing injection drug use as a route of microbial entry. An earlier
-    version of this note said no term was bound; the binding was added afterwards, by the #8430
+    version of this note said no term was bound; the binding was added afterwards, by the issue 8430
     exposure-binding sweep, which did not revisit the note.
 
 - name: Intravascular catheters and prosthetic material
@@ -8779,7 +9187,7 @@ discussions:
       subclinical sterile vegetation predicts subsequent infection. If it does, risk targeting can
       move from valve category to the lesion itself.
 
-notes: &gt;
+notes: &gt;-
   Deep-research provenance. Curated from a claude_code deep-research report treated as leads only.
 
   Deep-research reference errors caught. Three PMIDs appearing in the report were fetched and found
@@ -8858,8 +9266,7 @@ Curated negative. Antibiotic prophylaxis before dental procedures is curated tog
 Corrected provenance claims. An earlier revision of this entry asserted that the cached abstracts for the partial oral therapy trial and the ICE-PCS cohort were truncated, and that the Duke-ISCVID record contained no abstract body. All three claims were false. The caches are complete, and the apparent truncation was an artefact of a fixed-width extraction window used during curation rather than anything in the cache. Every affected snippet has been re-quoted at sentence boundaries from the full cached text, which in the Duke-ISCVID case replaced a title-only snippet carrying no evidentiary content with the sentence enumerating the actual changes in the 2023 revision.
 One fetched reference is deliberately not cited. PMID:35139280, the five-year outcomes of the partial oral therapy trial, is a research letter whose cached record contains citation metadata and no abstract body. Citing it would require a title-only snippet carrying no evidentiary content, which is the defect corrected elsewhere in this entry, so the five-year durability of that result is not asserted here.
 Absent bindings. No ECTO terms are bound for injection drug use or for intravascular catheters as exposures, because the hierarchy has no term expressing either as a route of microbial entry, and the available drug-exposure terms would assert a pharmacological exposure rather than the microbiological one that matters here.
-NEC preflight returned SKIP, since MONDO records no causal gene for this infectious disease. The manual fallback was run. The preflight also reported an OMIM identifier of 154700 from the report, which is Marfan syndrome; inspection showed the report cites it correctly and explicitly as a predisposing condition several causal steps removed from the infection, not as an identifier for this disease, so it is not an identity mismatch.
-</p>
+NEC preflight returned SKIP, since MONDO records no causal gene for this infectious disease. The manual fallback was run. The preflight also reported an OMIM identifier of 154700 from the report, which is Marfan syndrome; inspection showed the report cites it correctly and explicitly as a predisposing condition several causal steps removed from the infection, not as an identifier for this disease, so it is not an identity mismatch.</p>
                     </div>
 
                     <div>
@@ -9519,7 +9926,7 @@ of 15 verified against cached references. Module conformance foreign keys pass.
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Infective Endocarditis", "mondoId": "MONDO:0000565", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infective_Endocarditis", "yamlRevision": "e2718946f4eb"};
+        const OS_CONFIG = {"diseaseName": "Infective Endocarditis", "mondoId": "MONDO:0000565", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infective_Endocarditis", "yamlRevision": "444ba64b5c14"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

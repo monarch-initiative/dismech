@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4174,6 +4213,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdk8-kinase-module-dysfunction" data-dismech-node="CDK8 kinase module dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">CDK8 kinase module dysfunction</div>
 
+
                 <div class="item-desc">CDK8 is the catalytic kinase of the CDK8 kinase module (CKM), the dissociable regulatory cap of the Mediator complex. Disease-causing de novo missense variants cluster in the ATP-binding pocket of the kinase domain and behave as hypomorphic alleles, reducing phosphorylation of CDK8 substrates (e.g., STAT1-Ser727) and disrupting Mediator-dependent transcriptional regulation of developmental gene-expression programs. CDK8 belongs to the group of CDK8-kinase module-associated disease genes, alongside CDK19, MED12, MED12L, MED13, and MED13L.
 </div>
 
@@ -4298,6 +4338,44 @@ This pathophysiological event involves dysregulated regulation of gene expressio
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        cyclin-dependent protein serine/threonine kinase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004693" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0004693</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased cyclin-dependent protein serine/threonine kinase activity (GO:0004693). GO:0004693 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4370,6 +4448,7 @@ This pathophysiological event involves dysregulated regulation of gene expressio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-transcriptional-dysregulation" data-dismech-node="Neurodevelopmental transcriptional dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental transcriptional dysregulation</div>
 
+
                 <div class="item-desc">Downstream of CDK8 kinase dysfunction, neuronal gene-expression programs are dysregulated during brain development, contributing to hypotonia, intellectual disability, and behavioral abnormalities.
 </div>
 
@@ -4385,11 +4464,11 @@ This pathophysiological event involves dysregulated regulation of gene expressio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4426,11 +4505,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045664" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0045664</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045664" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045664</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated regulation of neuron differentiation (GO:0045664). GO:0045664 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4543,6 +4622,7 @@ This pathophysiological event involves dysregulated regulation of neuron differe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-and-structural-developmental-dysregulation" data-dismech-node="Cardiac and structural developmental dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac and structural developmental dysregulation</div>
 
+
                 <div class="item-desc">CDK8 kinase-module dysfunction perturbs cardiac and other developmental transcriptional programs, contributing to congenital heart disease (in about half of individuals) and additional structural anomalies including corpus callosum agenesis and ano-rectal malformations.
 </div>
 
@@ -4558,11 +4638,11 @@ This pathophysiological event involves dysregulated regulation of neuron differe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000746</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4599,11 +4679,11 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003007" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0003007</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003007" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0003007</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated heart morphogenesis (GO:0003007). GO:0003007 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4722,7 +4802,7 @@ This pathophysiological event involves dysregulated heart morphogenesis (GO:0003
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Behavioral abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities including autism spectrum disorder and/or ADHD are common, particularly in older individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"CDK8 de novo missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK8\"], \"gene_terms\": [{\"label\": \"CDK8\", \"id\": \"hgnc:1779\"}], \"association\": \"Causative\"}}, {\"id\": \"CDK8 kinase module dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDK8 is the catalytic kinase of the CDK8 kinase module (CKM), the dissociable regulatory cap of the Mediator complex. Disease-causing de novo missense variants cluster in the ATP-binding pocket of the kinase domain and behave as hypomorphic alleles, reducing phosphorylation of CDK8 substrates (e.g., STAT1-Ser727) and disrupting Mediator-dependent transcriptional regulation of developmental gene-expression programs. CDK8 belongs to the group of CDK8-kinase module-associated disease genes, alongside CDK19, MED12, MED12L, MED13, and MED13L.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transcription by RNA polymerase II\", \"regulation of gene expression\"], \"genes\": [\"CDK8\"], \"gene_terms\": [{\"label\": \"CDK8\", \"id\": \"hgnc:1779\"}]}}, {\"id\": \"Cardiac and structural developmental dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDK8 kinase-module dysfunction perturbs cardiac and other developmental transcriptional programs, contributing to congenital heart disease (in about half of individuals) and additional structural anomalies including corpus callosum agenesis and ano-rectal malformations.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"heart morphogenesis\"]}}, {\"id\": \"Congenital heart disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease occurred in about half of individuals in the defining cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corpus callosum agenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis of the corpus callosum is reported in multiple individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001274\"}}, {\"id\": \"Facial dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable, non-specific facial dysmorphism is reported in CDK8-related disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile hypotonia is a common feature of CDK8-related disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate intellectual disability is a core feature of CDK8-related disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neurodevelopmental transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downstream of CDK8 kinase dysfunction, neuronal gene-expression programs are dysregulated during brain development, contributing to hypotonia, intellectual disability, and behavioral abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of neuron differentiation\"]}}], \"edges\": [{\"source\": \"CDK8 kinase module dysfunction\", \"target\": \"Neurodevelopmental transcriptional dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CDK8 kinase activity disrupts Mediator-dependent transcription of neurodevelopmental gene-expression programs.\"}, {\"source\": \"CDK8 kinase module dysfunction\", \"target\": \"Cardiac and structural developmental dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CKM dysfunction perturbs cardiac and other developmental programs, contributing to congenital heart disease and structural anomalies.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neuronal developmental programs contribute to intellectual disability.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neurodevelopmental programs contribute to hypotonia.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Behavioral abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental transcriptional dysregulation contributes to autism spectrum disorder and ADHD.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Facial dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted craniofacial developmental programs contribute to variable facial dysmorphism.\"}, {\"source\": \"Cardiac and structural developmental dysregulation\", \"target\": \"Congenital heart disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed cardiac transcriptional programs contribute to congenital heart disease.\"}, {\"source\": \"Cardiac and structural developmental dysregulation\", \"target\": \"Corpus callosum agenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed midline/commissural morphogenesis contributes to agenesis of the corpus callosum.\"}, {\"source\": \"CDK8 de novo missense variants\", \"target\": \"CDK8 kinase module dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Behavioral abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral abnormalities including autism spectrum disorder and/or ADHD are common, particularly in older individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"CDK8 de novo missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK8\"], \"gene_terms\": [{\"label\": \"CDK8\", \"id\": \"hgnc:1779\"}], \"association\": \"Causative\"}}, {\"id\": \"CDK8 kinase module dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDK8 is the catalytic kinase of the CDK8 kinase module (CKM), the dissociable regulatory cap of the Mediator complex. Disease-causing de novo missense variants cluster in the ATP-binding pocket of the kinase domain and behave as hypomorphic alleles, reducing phosphorylation of CDK8 substrates (e.g., STAT1-Ser727) and disrupting Mediator-dependent transcriptional regulation of developmental gene-expression programs. CDK8 belongs to the group of CDK8-kinase module-associated disease genes, alongside CDK19, MED12, MED12L, MED13, and MED13L.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transcription by RNA polymerase II\", \"regulation of gene expression\"], \"molecular_functions\": [\"cyclin-dependent protein serine/threonine kinase activity\"], \"genes\": [\"CDK8\"], \"gene_terms\": [{\"label\": \"CDK8\", \"id\": \"hgnc:1779\"}]}}, {\"id\": \"Cardiac and structural developmental dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CDK8 kinase-module dysfunction perturbs cardiac and other developmental transcriptional programs, contributing to congenital heart disease (in about half of individuals) and additional structural anomalies including corpus callosum agenesis and ano-rectal malformations.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"heart morphogenesis\"]}}, {\"id\": \"Congenital heart disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease occurred in about half of individuals in the defining cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Corpus callosum agenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis of the corpus callosum is reported in multiple individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001274\"}}, {\"id\": \"Facial dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable, non-specific facial dysmorphism is reported in CDK8-related disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile hypotonia is a common feature of CDK8-related disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate intellectual disability is a core feature of CDK8-related disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Neurodevelopmental transcriptional dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Downstream of CDK8 kinase dysfunction, neuronal gene-expression programs are dysregulated during brain development, contributing to hypotonia, intellectual disability, and behavioral abnormalities.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"regulation of neuron differentiation\"]}}], \"edges\": [{\"source\": \"CDK8 kinase module dysfunction\", \"target\": \"Neurodevelopmental transcriptional dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CDK8 kinase activity disrupts Mediator-dependent transcription of neurodevelopmental gene-expression programs.\"}, {\"source\": \"CDK8 kinase module dysfunction\", \"target\": \"Cardiac and structural developmental dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CKM dysfunction perturbs cardiac and other developmental programs, contributing to congenital heart disease and structural anomalies.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neuronal developmental programs contribute to intellectual disability.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neurodevelopmental programs contribute to hypotonia.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Behavioral abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental transcriptional dysregulation contributes to autism spectrum disorder and ADHD.\"}, {\"source\": \"Neurodevelopmental transcriptional dysregulation\", \"target\": \"Facial dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted craniofacial developmental programs contribute to variable facial dysmorphism.\"}, {\"source\": \"Cardiac and structural developmental dysregulation\", \"target\": \"Congenital heart disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed cardiac transcriptional programs contribute to congenital heart disease.\"}, {\"source\": \"Cardiac and structural developmental dysregulation\", \"target\": \"Corpus callosum agenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed midline/commissural morphogenesis contributes to agenesis of the corpus callosum.\"}, {\"source\": \"CDK8 de novo missense variants\", \"target\": \"CDK8 kinase module dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4778,10 +4858,10 @@ This pathophysiological event involves dysregulated heart morphogenesis (GO:0003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -4861,10 +4941,10 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -4942,10 +5022,10 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5023,10 +5103,10 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5097,10 +5177,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5171,10 +5251,10 @@ This clinical feature is Behavioral abnormality, annotated with Atypical behavio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5243,10 +5323,10 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5358,10 +5438,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         Gene: CDK8
 
 
-    <a href="https://bioregistry.io/hgnc:1779" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:1779</a>
+    <a href="https://bioregistry.io/hgnc:1779" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1779</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CDK8 (hgnc:1779). hgnc:1779 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5369,6 +5449,9 @@ This disease-associated gene is CDK8 (hgnc:1779). hgnc:1779 is a gene from the H
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5444,7 +5527,7 @@ This disease-associated gene is CDK8 (hgnc:1779). hgnc:1779 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5509,7 +5592,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5807,6 +5890,12 @@ pathophysiology:
     term:
       id: hgnc:1779
       label: CDK8
+  molecular_functions:
+  - preferred_term: cyclin-dependent protein serine/threonine kinase activity
+    term:
+      id: GO:0004693
+      label: cyclin-dependent protein serine/threonine kinase activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: transcription by RNA polymerase II
     term:
@@ -6130,7 +6219,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CDK8-Related Disorder", "mondoId": "MONDO:0032897", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CDK8-Related_Disorder", "yamlRevision": "cf26685e081c"};
+        const OS_CONFIG = {"diseaseName": "CDK8-Related Disorder", "mondoId": "MONDO:0032897", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CDK8-Related_Disorder", "yamlRevision": "f4c01af38278"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

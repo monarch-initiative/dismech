@@ -9,6 +9,7 @@ own, which is how the synthetic negative tests exercise them.
 
 import glob
 import inspect
+import subprocess
 import sys
 import warnings
 from collections import Counter
@@ -2524,8 +2525,8 @@ def test_entity_reference_file(filepath):
     _assert_all_passed(filepath, _failures(filepath, data, checks))
 
 
-# The frozen shared dataset-verification blob. Kept in git only because ~200 open
-# PRs still carry edits to it; deleting it now would conflict with all of them.
+# The retired shared dataset-verification blob, now deleted after a temporary
+# freeze to reduce conflicts with older PRs. Keep those PRs from restoring it.
 # Nothing may read or write it: dataset verification moved to per-record files
 # under references_cache/, which two PRs can add to without colliding.
 FROZEN_DATASET_CACHE = "cache/dataset_accessions.json"
@@ -2547,6 +2548,20 @@ def test_no_automation_touches_the_frozen_dataset_cache():
     Documentation may still name the file -- that is how curators learn not to
     touch it -- so only code and automation are scanned.
     """
+    # Inspect index metadata only, never the retired blob. Unlike a filesystem
+    # check, this also detects a tracked copy omitted by a sparse checkout.
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", FROZEN_DATASET_CACHE],
+        cwd=ROOT_DIR,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert not tracked, (
+        f"{FROZEN_DATASET_CACHE} is retired and must stay deleted. "
+        "Keep its deletion when resolving old PRs; do not restore or regenerate it."
+    )
+
     scanned = [
         *ROOT_DIR.glob("src/**/*.py"),
         *ROOT_DIR.glob("scripts/**/*.py"),
@@ -2573,7 +2588,7 @@ def test_no_automation_touches_the_frozen_dataset_cache():
             offenders.append(str(path.relative_to(ROOT_DIR)))
 
     assert not offenders, (
-        f"{FROZEN_DATASET_CACHE} is frozen and must not be read or written.\n"
+        f"{FROZEN_DATASET_CACHE} is retired and must not be read or written.\n"
         "Cache dataset records per-record under references_cache/ instead "
         "(see scripts/verify_dataset_accessions.py).\nFound in:\n"
         + "\n".join(f"  - {o}" for o in offenders)

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2048,11 +2085,13 @@ This mechanism module involves increased cell population proliferation (GO:00082
             
             <div class="item-box anchor-target" id="module-pathophysiology-cyclin-d-cdk4-6-rb-pathway-dependency" data-dismech-node="Cyclin D-CDK4/6-RB Pathway Dependency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cyclin D-CDK4/6-RB Pathway Dependency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The tumor&#39;s proliferation depends on the cyclin D-CDK4/6-INK4-RB axis to license the G1/S transition. Cyclin D, induced by lineage-specific mitogenic input (estrogen receptor signaling in HR-positive breast cancer, MAPK signaling in melanoma, CCND1 translocation in mantle cell lymphoma), partners with CDK4 or CDK6 to phosphorylate the retinoblastoma protein, releasing E2F transcription factors and committing the cell to S phase. Loss of the INK4 brake (CDKN2A/p16 deletion) or cyclin D/CDK4-6 amplification deepens this dependency. A tumor that has retained functional RB and depends on this axis is the population in which CDK4/6 inhibition is expected to work; this is the module trigger.</div>
                 
@@ -2137,11 +2176,13 @@ This pathophysiological event involves increased G1/S transition of mitotic cell
             
             <div class="item-box anchor-target" id="module-pathophysiology-pharmacologic-cdk4-6-inhibition-and-g1-arrest" data-dismech-node="Pharmacologic CDK4/6 Inhibition and G1 Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Pharmacologic CDK4/6 Inhibition and G1 Arrest</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A selective CDK4/6 inhibitor (palbociclib, ribociclib, or abemaciclib) occupies the ATP pocket of CDK4 and CDK6, preventing cyclin D-CDK4/6 from phosphorylating RB. RB stays hypophosphorylated, E2F remains sequestered, and sensitive tumor cells arrest in G1. This is the therapeutic response node — the intended, on-target effect — and it is also the selective pressure that shapes everything downstream in this module.</div>
                 
@@ -2240,11 +2281,13 @@ This pathophysiological event involves increased negative regulation of cell cyc
             
             <div class="item-box anchor-target" id="module-pathophysiology-cell-cycle-bypass-lesion-selection" data-dismech-node="Cell-Cycle Bypass Lesion Selection" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell-Cycle Bypass Lesion Selection</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Under CDK4/6-inhibitor pressure the tumor selects lesions in the cell-cycle machinery that make the drug target dispensable. Three recurrent classes are documented: (1) loss-of-function alteration of RB1 itself, which removes the substrate the drug protects and is the only class so far confirmed to be positively selected in a randomized clinical trial; (2) cyclin E1 (CCNE1) overexpression, which activates CDK2 to phosphorylate RB independently of CDK4/6 and is a validated clinical resistance biomarker; and (3) amplification/overexpression of CDK6 itself, which raises the target above achievable drug exposure. Conforming disorder entries substitute whichever lesion their tumor type acquires.</div>
                 
@@ -2308,11 +2351,13 @@ This pathophysiological event involves increased positive regulation of cyclin-d
             
             <div class="item-box anchor-target" id="module-pathophysiology-upstream-bypass-signaling-reactivation" data-dismech-node="Upstream Bypass Signaling Reactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Upstream Bypass Signaling Reactivation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In parallel with lesions in the core cell-cycle machinery, tumors rewire upstream signaling so that cyclin-CDK activity is restored without the inhibited kinases. Loss of the FAT1 tumor suppressor deregulates Hippo signaling, allowing YAP/TAZ to accumulate on the CDK6 promoter and markedly elevate CDK6; alterations in other Hippo components act the same way. PI3K-AKT-mTOR, FGFR, and RAS-MAPK reactivation similarly sustain cyclin D and D-type-cyclin-independent proliferative drive. Reviews of the field group these with the cell-cycle lesions as &#34;upstream response&#34; versus &#34;downstream bypass&#34; mechanisms.</div>
                 
@@ -2404,11 +2449,13 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
             
             <div class="item-box anchor-target" id="module-pathophysiology-rb-pathway-bypass-and-e2f-driven-s-phase-re-entry" data-dismech-node="RB Pathway Bypass and E2F-Driven S-Phase Re-entry" data-dismech-type="pathophysiology">
                 <div class="item-name">RB Pathway Bypass and E2F-Driven S-Phase Re-entry</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent, rate-limiting node of the module. Whether the tumor lost RB1, gained CDK2/cyclin E1 activity, amplified CDK6, or rewired upstream signaling, the common endpoint is the same: the RB brake that the drug was holding in place is bypassed, E2F transcriptional activity is restored, and cells re-enter S phase despite continued CDK4/6 inhibition. This is the key conformance target — a conforming disorder node should describe its own tumor-specific route into this state, not a new endpoint.</div>
                 
@@ -2500,11 +2547,13 @@ This pathophysiological event involves decreased negative regulation of cell cyc
             
             <div class="item-box anchor-target" id="module-pathophysiology-acquired-cdk4-6-inhibitor-resistance-and-tumor-progression" data-dismech-node="Acquired CDK4/6 Inhibitor Resistance and Tumor Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired CDK4/6 Inhibitor Resistance and Tumor Progression</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical consequence: tumor cells proliferate despite continued CDK4/6 inhibition, progression-free survival benefit is lost, and the disease progresses. Innate (de novo) resistance produces the same endpoint without an initial response. This node is where conforming disorder entries attach their disease-specific progression phenotypes and post-progression treatment strategies.</div>
                 
