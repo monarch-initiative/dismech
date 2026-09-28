@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05019729"
+reference_id: clinicaltrials:NCT05019729
 title: "VRC 614: A Phase 1, Dose Escalation, Open-Label Clinical Trial With Experimental Controlled Human Malaria Infections (CHMI) to Evaluate Safety and Protective Efficacy of an Anti-Malaria Human Monoclonal Antibody, VRC-MALMAB0114-00-AB (L9LS), in Healthy Malaria-Naive Adults"
 content_type: summary
+full_text_attempted: true
 ---
 
 # VRC 614: A Phase 1, Dose Escalation, Open-Label Clinical Trial With Experimental Controlled Human Malaria Infections (CHMI) to Evaluate Safety and Protective Efficacy of an Anti-Malaria Human Monoclonal Antibody, VRC-MALMAB0114-00-AB (L9LS), in Healthy Malaria-Naive Adults

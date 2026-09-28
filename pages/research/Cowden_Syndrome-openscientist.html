@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cowden Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Cowden Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Cowden Syndrome</h1>
+                
+                <p class="report-subtitle">Cowden Syndrome: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0016063" target="_blank" rel="noopener noreferrer">MONDO:0016063</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Cowden Syndrome: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Cowden Syndrome (CS) — a PTEN Hamartoma Tumor Syndrome (PHTS)
+<strong>Category:</strong> Mendelian (autosomal dominant)
+<strong>Suggested MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0016063" target="_blank" rel="noopener noreferrer">MONDO:0016063</a> (Cowden disease) / part of the PHTS spectrum
+<strong>Report scope:</strong> Aggregated disease-level synthesis of primary literature and guideline resources (not derived from an individual EHR cohort held by this investigation)</p>
+<hr />
+<h2>Summary</h2>
+<p>Cowden syndrome is a rare, autosomal-dominant, multi-system hamartoma-and-cancer predisposition disorder that constitutes the prototypical member of the <strong>PTEN hamartoma tumor syndrome (PHTS)</strong> spectrum. It is caused chiefly by germline loss-of-function mutations in the <strong>PTEN</strong> tumor-suppressor gene at chromosome <strong>10q23.31</strong>. PTEN is a dual-specificity lipid/protein phosphatase that dephosphorylates PIP3 to PIP2, thereby antagonizing the <strong>PI3K/AKT/mTOR</strong> signaling cascade. When PTEN function is lost, this growth-and-survival pathway is de-repressed, driving the hamartomas, benign overgrowth, macrocephaly, neurodevelopmental features, and markedly elevated multi-organ cancer risks that define the syndrome <a href="https://pubmed.ncbi.nlm.nih.gov/26827793/">PMID: 26827793</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25916396/">PMID: 25916396</a>.</p>
+<p>The clinical burden is dominated by cancer risk. A large prospective study of PHTS-criteria individuals demonstrated dramatically elevated standardized incidence ratios (SIRs) for breast (SIR 25.4; lifetime ~85%), thyroid (SIR 51.1; ~35%), endometrial (SIR 42.9; ~28%), renal (SIR 30.6; ~34%), colorectal (SIR 10.3; ~9%), and melanoma (SIR 8.5; ~6%) cancers <a href="https://pubmed.ncbi.nlm.nih.gov/22252256/">PMID: 22252256</a>. Beyond oncologic risk, patients frequently exhibit near-universal macrocephaly, autism spectrum disorder characteristics in approximately one-quarter of carriers, a distinctive pan-gastrointestinal hamartomatous polyposis, and the pathognomonic cerebellar lesion Lhermitte-Duclos disease.</p>
+<p>Cowden syndrome is genetically heterogeneous. A substantial minority of clinically diagnosed, PTEN-mutation-negative patients are explained by alternative mechanisms including germline <strong>KLLN</strong> promoter hypermethylation (epimutation) and germline <strong>SDHB/SDHD</strong> variants, both of which converge on a shared mitochondrial-dysfunction/elevated-succinate biochemical signature. Management is guideline-based (ERN GENTURIS / NCCN): germline genetic testing, intensive organ-specific cancer surveillance, risk-reducing surgery, and genetic counseling. Molecularly targeted PI3K/mTOR inhibition remains experimental — with encouraging anecdotal hamartoma responses (e.g., rapamycin in Lhermitte-Duclos disease) but a <strong>negative primary endpoint</strong> in the randomized everolimus trial for neurocognitive symptoms.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Cowden syndrome is a rare autosomal-dominant disorder characterized by multiple hamartomas (benign disorganized overgrowths) across ectodermal, mesodermal, and endodermal tissues, together with a substantially increased lifetime risk of breast, thyroid, endometrial, renal, and colorectal cancers plus melanoma. It is the flagship condition of the <strong>PTEN hamartoma tumor syndrome (PHTS)</strong> umbrella, which also encompasses Bannayan-Riley-Ruvalcaba syndrome (BRRS), PTEN-related Proteus syndrome, and Lhermitte-Duclos disease (adult-onset).</p>
+<p><strong>Key identifiers (suggested):</strong>
+- <strong>OMIM:</strong> 158350 (Cowden syndrome 1, PTEN-related); allelic/related PHTS entries
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:201" target="_blank" rel="noopener noreferrer">ORPHA:201</a> (Cowden syndrome)
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0016063" target="_blank" rel="noopener noreferrer">MONDO:0016063</a>
+- <strong>MeSH:</strong> Hamartoma Syndrome, Multiple (D006223)
+- <strong>ICD-10:</strong> Q85.8 (Other phakomatoses, not elsewhere classified)
+- <strong>ICD-11:</strong> LD2D.Y / relevant hamartoneoplastic syndrome code</p>
+<p><strong>Synonyms / alternative names:</strong> Cowden disease; multiple hamartoma syndrome; PTEN hamartoma tumor syndrome (as the encompassing molecular class); Cowden-like syndrome (for clinically compatible, PTEN-negative cases).</p>
+<p><strong>Information source type:</strong> This report is derived from <strong>aggregated, disease-level resources</strong> — primary literature (prospective cohorts, case series, guidelines) and curated ontologies — rather than from an individual-patient EHR dataset.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary causal factor — genetic.</strong> The predominant cause is a germline loss-of-function mutation in <strong>PTEN</strong> (10q23.31), inherited in an autosomal-dominant fashion. "Inherited loss of function mutations in the PTEN gene were originally identified in sufferers of Cowden disease" <a href="https://pubmed.ncbi.nlm.nih.gov/26827793/">PMID: 26827793</a>. PTEN acts as a tumor suppressor and a brake on the PI3K/AKT/mTOR pathway; its germline haploinsufficiency, with somatic second-hit inactivation in lesions, initiates hamartoma and tumor formation.</p>
+<p><strong>Genetic risk factors.</strong>
+- <strong>Causal variant:</strong> germline PTEN pathogenic/likely-pathogenic variants (nonsense, frameshift, missense, splice-site, and promoter mutations; large deletions including 10q23 microdeletions).
+- <strong>Genotype–phenotype correlations:</strong> promoter mutations are associated with breast cancer, and nonsense mutations with colorectal cancer, in PTEN carriers <a href="https://pubmed.ncbi.nlm.nih.gov/22252256/">PMID: 22252256</a>. Catalytically inactive but stable PTEN mutants correlate with the most severe phenotypes, whereas partial-function mutants associate with milder, autism-predominant phenotypes <a href="https://pubmed.ncbi.nlm.nih.gov/25916396/">PMID: 25916396</a>.
+- <strong>Alternative loci (PTEN-negative cases):</strong> germline <strong>KLLN</strong> epimutation and <strong>SDHB/SDHD</strong> variants (see Section 4).
+- <strong>Candidate modifier:</strong> a <strong>SMAD7</strong> missense variant co-occurring with a PTEN frameshift was proposed as a modifier in a family with hamartomatous polyposis and early-onset esophageal cancer <a href="https://pubmed.ncbi.nlm.nih.gov/25554686/">PMID: 25554686</a>.</p>
+<p><strong>Environmental / demographic risk factors.</strong> No specific environmental trigger causes Cowden syndrome; it is a monogenic disorder. Age and sex modulate expression: female carriers face high breast/endometrial cancer risk; cancer risks are age-dependent and cumulative. Family history is the principal actionable risk factor (cascade testing).</p>
+<p><strong>Protective factors.</strong> No validated genetic or environmental protective alleles are established for Cowden syndrome. Practically, "protection" is achieved through surveillance and risk-reducing surgery rather than intrinsic modifiers.</p>
+<p><strong>Gene–environment interactions.</strong> Evidence is limited. The mouse-model observation that simultaneous disruption of PTEN and TGF-β/SMAD signaling promotes esophageal cancer suggests pathway-level genetic interactions rather than classical gene–environment effects <a href="https://pubmed.ncbi.nlm.nih.gov/25554686/">PMID: 25554686</a>.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Cowden syndrome is a pleomorphic multi-system disorder. Major phenotype domains and characteristics:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Onset / course</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Macrocephaly</td>
+<td>Physical/clinical sign</td>
+<td>~100% in pediatric PHTS cohorts</td>
+<td>Congenital/early, stable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" rel="noopener noreferrer">HP:0000256</a></td>
+</tr>
+<tr>
+<td>Autism spectrum disorder characteristics</td>
+<td>Behavioral</td>
+<td>~25% (95% CI 16–33%)</td>
+<td>Childhood</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" rel="noopener noreferrer">HP:0000717</a></td>
+</tr>
+<tr>
+<td>Developmental delay</td>
+<td>Behavioral/neurodev</td>
+<td>~58% early childhood</td>
+<td>Childhood</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+</tr>
+<tr>
+<td>Trichilemmomas / mucocutaneous lesions</td>
+<td>Physical manifestation</td>
+<td>Very common, characteristic</td>
+<td>Adult-onset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007592" target="_blank" rel="noopener noreferrer">HP:0007592</a> (facial papules)</td>
+</tr>
+<tr>
+<td>Hamartomatous GI polyps (large bowel)</td>
+<td>Clinical/pathologic</td>
+<td>85% of CS patients</td>
+<td>Adult</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004390" target="_blank" rel="noopener noreferrer">HP:0004390</a></td>
+</tr>
+<tr>
+<td>Esophageal glycogenic acanthosis</td>
+<td>Pathologic sign</td>
+<td>37%</td>
+<td>Adult</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100633" target="_blank" rel="noopener noreferrer">HP:0100633</a> (esophageal lesion)</td>
+</tr>
+<tr>
+<td>Gastric hamartomatous polyps</td>
+<td>Pathologic</td>
+<td>47%</td>
+<td>Adult</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004394" target="_blank" rel="noopener noreferrer">HP:0004394</a></td>
+</tr>
+<tr>
+<td>Duodenal hamartomatous polyps</td>
+<td>Pathologic</td>
+<td>20%</td>
+<td>Adult</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Thyroid disease (goiter/adenoma/carcinoma)</td>
+<td>Clinical</td>
+<td>Common</td>
+<td>Adult</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100031" target="_blank" rel="noopener noreferrer">HP:0100031</a></td>
+</tr>
+<tr>
+<td>Breast lesions/carcinoma</td>
+<td>Clinical</td>
+<td>Lifetime ~85% (women)</td>
+<td>Adult</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" rel="noopener noreferrer">HP:0003002</a></td>
+</tr>
+<tr>
+<td>Lhermitte-Duclos disease (cerebellar)</td>
+<td>Clinical/imaging</td>
+<td>Rare but pathognomonic</td>
+<td>Adult (usually)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007266" target="_blank" rel="noopener noreferrer">HP:0007266</a> (dysplastic cerebellar gangliocytoma)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Neurodevelopmental phenotype.</strong> A systematic review/meta-analysis "estimated pooled prevalence of ASD characteristics at 25% (95% CI 16-33%)" among individuals with constitutional PTEN mutations <a href="https://pubmed.ncbi.nlm.nih.gov/34983360/">PMID: 34983360</a>. In a pediatric PHTS cohort, "macrocephaly was present in 100%, 58% had developmental delays during early childhood, and 17% had an ASD diagnosis" <a href="https://pubmed.ncbi.nlm.nih.gov/37090027/">PMID: 37090027</a>. Macrocephaly is thus a near-universal, early, and highly sensitive sign that should prompt genetic evaluation.</p>
+<p><strong>Age of onset / severity / progression.</strong> Mucocutaneous and neoplastic manifestations are predominantly adult-onset, while macrocephaly and neurodevelopmental features present in childhood. Severity is highly variable even within families (variable expressivity). Cancer risk is progressive and cumulative with age.</p>
+<p><strong>Quality-of-life impact.</strong> Direct EQ-5D/SF-36 data specific to CS were not identified in this investigation. Qualitatively, QoL is affected by intensive lifelong surveillance burden, repeated surgeries, cancer diagnoses, GI symptoms, and neurodevelopmental/behavioral challenges. The ERN GENTURIS guideline explicitly notes the surveillance program requires significant patient commitment <a href="https://pubmed.ncbi.nlm.nih.gov/42463809/">PMID: 42463809</a>.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>PTEN</strong> (phosphatase and tensin homolog), <a href="https://bioregistry.io/HGNC:9588" target="_blank" rel="noopener noreferrer">HGNC:9588</a>, 10q23.31, OMIM *601728. PTEN encodes a 403-amino-acid dual-specificity phosphatase with an N-terminal phosphatase domain and a C2 (tensin-type) membrane-binding domain.</p>
+<p><strong>Pathogenic variants.</strong>
+- <strong>Genes affected:</strong> PTEN (primary); KLLN, SDHB, SDHD (subsets).
+- <strong>Classification:</strong> pathogenic / likely pathogenic per ACMG/AMP; VUS common for novel missense variants — a pediatric series identified four novel PTEN alterations, with 72% located in the tensin-type C2 domain <a href="https://pubmed.ncbi.nlm.nih.gov/38407606/">PMID: 38407606</a>.
+- <strong>Variant types:</strong> missense, nonsense, frameshift, splice-site, promoter, and structural (10q23 microdeletion encompassing PTEN and BMPR1A) <a href="https://pubmed.ncbi.nlm.nih.gov/20815035/">PMID: 20815035</a>.
+- <strong>Allele frequency:</strong> germline pathogenic PTEN variants are private/rare and effectively absent from population databases (gnomAD) as benign polymorphisms.
+- <strong>Somatic vs germline:</strong> Cowden syndrome is defined by <strong>germline</strong> variants; somatic second hits occur within lesions. Colorectal juvenile polyps in CS arise from epithelial-specific PTEN loss without a stromal PTEN requirement, per a transgenic mouse model <a href="https://pubmed.ncbi.nlm.nih.gov/24200851/">PMID: 24200851</a>.
+- <strong>Functional consequence:</strong> loss of function / haploinsufficiency (with possible dominant-negative effects for some missense mutants); catalytically inactive stable mutants produce the most severe phenotypes <a href="https://pubmed.ncbi.nlm.nih.gov/25916396/">PMID: 25916396</a>.</p>
+<p><strong>Epigenetic mechanism (KLLN epimutation).</strong> In PTEN wild-type Cowden cases, germline hypermethylation of <strong>KLLN</strong> (which shares a bidirectional promoter with PTEN) has been implicated: "Germline hypermethylation of KLLN, a gene uncovered well after the human genome project, has been linked to Cowden cancer-predisposition syndrome (CS) in PTEN wild-type cases" <a href="https://pubmed.ncbi.nlm.nih.gov/26673699/">PMID: 26673699</a>. KLLN maintains pericentric H3K9 trimethylation and genomic stability; its loss causes chromosomal instability, increased micronuclei, and numerical aberrations.</p>
+<p><strong>Succinate dehydrogenase (SDHx) variants.</strong> In 375 PTEN-mutation-negative CS/CS-like individuals, a subset with mitochondrial dysfunction carried SDH variants: "Among these, 10 (13.5%) had germline mutations/variants in SDHB (n = 3) or SDHD (7), not found in 700 controls (p &lt; 0.001)" <a href="https://pubmed.ncbi.nlm.nih.gov/18678321/">PMID: 18678321</a>. SDH-variant carriers were enriched for breast, thyroid, and kidney carcinomas.</p>
+<p><strong>Biochemical marker — succinate.</strong> Both PTEN and SDHx mutation carriers share elevated plasma succinate: "Elevated plasma succinate was observed in 13/21 (62%) individuals with germline PTEN, SDHB, or SDHD mutations as compared with 5/32 (16%) controls (P &lt; 0.001)" <a href="https://pubmed.ncbi.nlm.nih.gov/22261759/">PMID: 22261759</a>. This suggests a convergent reduction in succinate dehydrogenase activity across genotypes.</p>
+<p><strong>Modifier genes.</strong> Candidate: SMAD7 <a href="https://pubmed.ncbi.nlm.nih.gov/25554686/">PMID: 25554686</a>. <strong>Chromosomal abnormalities:</strong> 10q23 contiguous-gene microdeletions (PTEN + BMPR1A) cause infantile juvenile polyposis with overlapping features <a href="https://pubmed.ncbi.nlm.nih.gov/20815035/">PMID: 20815035</a>.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Cowden syndrome is a monogenic germline disorder with <strong>no established environmental cause</strong>. There are no confirmed toxic, radiation, pollution, occupational, lifestyle, or infectious triggers. Environmental exposures relevant to sporadic cancers (e.g., radiation, carcinogens) may plausibly modulate cancer expression in carriers, but disease-specific evidence is lacking. <strong>Infectious agents:</strong> not applicable.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Core molecular pathway.</strong> PTEN is "a major negative regulator of the phosphatidylinositol 3-kinase/protein kinase B/mammalian target of rapamycin (mTOR) signaling pathway-controlling growth, protein synthesis, and proliferation" <a href="https://pubmed.ncbi.nlm.nih.gov/25916396/">PMID: 25916396</a>. PTEN dephosphorylates PIP3 → PIP2 at the plasma membrane, opposing PI3K. Loss of PTEN function elevates PIP3, activating AKT and downstream mTORC1, thereby increasing cell growth, protein synthesis, proliferation, and survival while suppressing apoptosis.</p>
+<p><strong>Causal chain (ASCII):</strong></p>
+<pre><code>Germline PTEN LOF (haploinsufficiency)
+│  + somatic 2nd hit in lesion
+▼
+   ↑ PIP3 at plasma membrane
+▼
+   ↑ PI3K → AKT activation
+▼
+   ↑ mTORC1 signaling
+▼
+ ↑ growth / protein synthesis / proliferation, ↓ apoptosis
+▼
+ Hamartomas (skin, GI, cerebellum), overgrowth (macrocephaly),
+ neuronal hypertrophy → ASD/DD, and multi-organ carcinogenesis
+</code></pre>
+<p><strong>Alternative/convergent axis (PTEN-negative):</strong></p>
+<pre><code>KLLN promoter hypermethylation → ↓KLLN → loss of H3K9me3 → chromosomal instability
+SDHB/SDHD variants → ↓SDH activity → ↑succinate (pseudohypoxia / oncometabolite)
+└──────────────► shared elevated-plasma-succinate signature ◄──────────────┘
+</code></pre>
+<p><strong>Cellular processes.</strong> Dysregulated cell growth/proliferation, reduced apoptosis, and — in the neuronal compartment — enlarged soma, dendritic hypertrophy, increased synaptic density, and altered LTP/LTD contribute to the neurodevelopmental phenotype <a href="https://pubmed.ncbi.nlm.nih.gov/39812527/">PMID: 39812527</a>. In PTEN-negative cases, chromosomal instability and increased micronuclei are mechanistic features of KLLN loss <a href="https://pubmed.ncbi.nlm.nih.gov/26673699/">PMID: 26673699</a>.</p>
+<p><strong>Protein dysfunction.</strong> PTEN's phosphatase activity and membrane access are conformationally regulated (open/closed forms; "eased" vs "strained" states affecting the catalytic site and C2 membrane-binding loops) <a href="https://pubmed.ncbi.nlm.nih.gov/40614725/">PMID: 40614725</a>. Pathogenic missense variants may impair catalysis, destabilize the protein, or hinder membrane localization.</p>
+<p><strong>Metabolic changes.</strong> Elevated plasma succinate across PTEN and SDHx carriers points to a shared metabolic disturbance in the TCA cycle/succinate dehydrogenase axis <a href="https://pubmed.ncbi.nlm.nih.gov/22261759/">PMID: 22261759</a>.</p>
+<p><strong>Tissue/pathway crosstalk.</strong> Epithelial PTEN loss drives colorectal juvenile polyp formation via altered epithelial–mesenchymal crosstalk, without requiring stromal PTEN loss <a href="https://pubmed.ncbi.nlm.nih.gov/24200851/">PMID: 24200851</a>. STAT5–PI3K/AKT cooperativity accelerates mammary tumorigenesis in a Cowden mouse model, and mammary-specific Stat5 ablation prevents carcinogenesis in PTEN-mutant mice <a href="https://pubmed.ncbi.nlm.nih.gov/24469394/">PMID: 24469394</a>.</p>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/GO_0046855" target="_blank" rel="noopener noreferrer">GO:0046855</a> (phosphatidylinositol dephosphorylation); <a href="http://purl.obolibrary.org/obo/GO_0014065" target="_blank" rel="noopener noreferrer">GO:0014065</a> (PI3K signaling); <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" rel="noopener noreferrer">GO:0031929</a> (TOR signaling); <a href="http://purl.obolibrary.org/obo/GO_0008285" target="_blank" rel="noopener noreferrer">GO:0008285</a> (negative regulation of cell proliferation); <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process). CL terms: <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" rel="noopener noreferrer">CL:0000066</a> (epithelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron), <a href="http://purl.obolibrary.org/obo/CL_0002251" target="_blank" rel="noopener noreferrer">CL:0002251</a> (epithelial cell of alimentary canal).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level (primary):</strong> breast (<a href="http://purl.obolibrary.org/obo/UBERON_0000310" target="_blank" rel="noopener noreferrer">UBERON:0000310</a>), thyroid gland (<a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" rel="noopener noreferrer">UBERON:0002046</a>), endometrium/uterus (<a href="http://purl.obolibrary.org/obo/UBERON_0001295" target="_blank" rel="noopener noreferrer">UBERON:0001295</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" rel="noopener noreferrer">UBERON:0000995</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), colon/large intestine (<a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" rel="noopener noreferrer">UBERON:0001155</a>), skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), cerebellum (<a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>), gastrointestinal tract broadly (esophagus, stomach, duodenum).</p>
+<p><strong>Body systems involved:</strong> integumentary, endocrine, digestive, genitourinary/reproductive, nervous, and (rarely) respiratory (bronchial carcinoids reported) <a href="https://pubmed.ncbi.nlm.nih.gov/38353885/">PMID: 38353885</a>.</p>
+<p><strong>Tissue/cell level:</strong> predominantly epithelial tissue (breast ductal, thyroid follicular, colonic/gastric epithelium, trichilemmal skin epithelium) plus mesenchymal/stromal components in GI hamartomas (lymphoid, lipomatous, ganglioneuromatous elements were common in the 43-patient cohort) <a href="https://pubmed.ncbi.nlm.nih.gov/31273317/">PMID: 31273317</a>. Cerebellar involvement features dysplastic ganglion/granule neurons (Lhermitte-Duclos).</p>
+<p><strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0002327" target="_blank" rel="noopener noreferrer">CL:0002327</a> (mammary gland epithelial cell), <a href="http://purl.obolibrary.org/obo/CL_0002258" target="_blank" rel="noopener noreferrer">CL:0002258</a> (thyroid follicular cell), <a href="http://purl.obolibrary.org/obo/CL_0011108" target="_blank" rel="noopener noreferrer">CL:0011108</a> (colonic epithelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" rel="noopener noreferrer">CL:0000121</a> (Purkinje cell), <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron).</p>
+<p><strong>Subcellular level:</strong> plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>) where PTEN acts on PIP3; nucleus (PTEN nuclear functions in genomic stability); mitochondria (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>) implicated via SDHx/succinate metabolism.</p>
+<p><strong>Localization / lateralization:</strong> lesions are typically multifocal and bilateral (e.g., bilateral breast disease, bilateral GI polyposis). Lhermitte-Duclos lesions are often unilateral cerebellar but can be diffuse <a href="https://pubmed.ncbi.nlm.nih.gov/27932596/">PMID: 27932596</a>.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Macrocephaly is congenital/early; neurodevelopmental features emerge in childhood; mucocutaneous lesions and neoplasia are predominantly adult-onset. Overall course is <strong>chronic and lifelong</strong> with an <strong>insidious</strong> onset.</p>
+<p><strong>Progression.</strong> Benign hamartomas are typically slow-growing/stable, but carry premalignant potential in some tissues; cancer risk is progressive and age-cumulative. Colorectal juvenile polyps can undergo dysplastic transformation to carcinoma <a href="https://pubmed.ncbi.nlm.nih.gov/24200851/">PMID: 24200851</a>. Lhermitte-Duclos disease is slow-growing but can cause obstructive hydrocephalus and brainstem compression requiring intervention <a href="https://pubmed.ncbi.nlm.nih.gov/27932596/">PMID: 27932596</a>.</p>
+<p><strong>Patterns / critical periods.</strong> No spontaneous remission of the underlying genetic disorder occurs. Critical intervention windows include childhood (early diagnosis via macrocephaly to enable surveillance) and the adult decades of peak cancer incidence, when surveillance and risk-reducing surgery are most impactful.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance.</strong> Autosomal dominant. Penetrance is high but <strong>incomplete and age-dependent</strong>; <strong>expressivity is highly variable</strong> even within families <a href="https://pubmed.ncbi.nlm.nih.gov/26827793/">PMID: 26827793</a>. A significant proportion of cases are de novo. Germline mosaicism and founder effects are not prominent features. Consanguinity is not a driver (dominant disorder).</p>
+<p><strong>Epidemiology.</strong> Cowden syndrome is rare; commonly cited prevalence estimates are on the order of ~1 in 200,000–250,000, though this is likely an underestimate given variable expressivity and underdiagnosis. Precise incidence figures were not established in this investigation.</p>
+<p><strong>Population demographics.</strong> No strong ethnic predilection is established. Sex influences expression: female carriers bear high breast and endometrial cancer risk. Pediatric presentation is dominated by macrocephaly and neurodevelopmental features; adult presentation by mucocutaneous lesions and neoplasia.</p>
+<p><strong>Genotype–geography of variants:</strong> PTEN variants are private; no dominant founder variant identified.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical diagnostic criteria.</strong> Diagnosis uses established <strong>PTEN hamartoma tumor syndrome / Cowden syndrome clinical criteria (2013 revision)</strong> combining pathognomonic, major, and minor criteria; the <strong>Cleveland Clinic PTEN risk calculator</strong> estimates the probability of a PTEN mutation to guide testing (e.g., an 82–98% predicted probability triggered testing in one case) <a href="https://pubmed.ncbi.nlm.nih.gov/37680909/">PMID: 37680909</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39044874/">PMID: 39044874</a>.</p>
+<p><strong>Genetic testing (recommended, definitive).</strong> Germline <strong>PTEN</strong> sequencing plus deletion/duplication analysis is the primary test. Multi-gene hereditary cancer/polyposis panels and, in PTEN-negative cases, evaluation for KLLN methylation and SDHB/SDHD variants are appropriate. Chromosomal microarray detects 10q23 microdeletions. In pediatrics, targeted/stepwise testing is advised because of autonomy and psychosocial considerations <a href="https://pubmed.ncbi.nlm.nih.gov/42353760/">PMID: 42353760</a>. Significant macrocephaly in a child should prompt a genetic study for early diagnosis <a href="https://pubmed.ncbi.nlm.nih.gov/38407606/">PMID: 38407606</a>.</p>
+<p><strong>Imaging.</strong> Thyroid ultrasound; breast MRI/mammography; endometrial and renal imaging; brain MRI shows the pathognomonic cerebellar "tiger-stripe" pattern of Lhermitte-Duclos disease on T2-weighted images <a href="https://pubmed.ncbi.nlm.nih.gov/40763010/">PMID: 40763010</a>. Brain 18F-FDG PET can complement MRI to characterize neuropsychiatric/movement features <a href="https://pubmed.ncbi.nlm.nih.gov/35006113/">PMID: 35006113</a>.</p>
+<p><strong>Endoscopy / pathology.</strong> Upper and lower GI endoscopy reveals characteristic lesions; histopathology of hamartomatous polyps with mixed stromal (lymphoid, lipomatous, ganglioneuromatous) elements and esophageal glycogenic acanthosis is diagnostically suggestive <a href="https://pubmed.ncbi.nlm.nih.gov/31273317/">PMID: 31273317</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28901964/">PMID: 28901964</a>.</p>
+<p><strong>Candidate biomarker.</strong> Elevated plasma succinate distinguishes PTEN/SDHx carriers from controls and may serve as an adjunct biochemical marker <a href="https://pubmed.ncbi.nlm.nih.gov/22261759/">PMID: 22261759</a>.</p>
+<p><strong>Differential diagnosis.</strong> Other PHTS entities (BRRS, Proteus), juvenile polyposis syndrome (SMAD4/BMPR1A), Peutz-Jeghers syndrome (STK11), other macrocephaly-ASD monogenic conditions, and sporadic hamartomatous polyps <a href="https://pubmed.ncbi.nlm.nih.gov/28901964/">PMID: 28901964</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40282429/">PMID: 40282429</a>.</p>
+<p><strong>Screening.</strong> Cascade genetic testing of at-risk relatives is standard once a familial variant is identified.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Cancer-driven prognosis.</strong> The prognosis is dominated by lifetime cancer risk. The landmark prospective study reported: "Elevated SIRs were found for carcinomas of the breast [25.4, 95% confidence interval (CI), 19.8-32.0], thyroid (51.1, 38.1-67.1), endometrium (42.9, 28.1-62.8), colorectum (10.3, 5.6-17.4), kidney (30.6, 17.8-49.4), and melanoma (8.5, 4.1-15.6)" <a href="https://pubmed.ncbi.nlm.nih.gov/22252256/">PMID: 22252256</a>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cancer</th>
+<th>SIR</th>
+<th>Estimated lifetime risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Breast</td>
+<td>25.4</td>
+<td>~85.2%</td>
+</tr>
+<tr>
+<td>Thyroid</td>
+<td>51.1</td>
+<td>~35.2%</td>
+</tr>
+<tr>
+<td>Endometrial</td>
+<td>42.9</td>
+<td>~28.2%</td>
+</tr>
+<tr>
+<td>Kidney</td>
+<td>30.6</td>
+<td>~33.6%</td>
+</tr>
+<tr>
+<td>Colorectal</td>
+<td>10.3</td>
+<td>~9.0%</td>
+</tr>
+<tr>
+<td>Melanoma</td>
+<td>8.5</td>
+<td>~6.0%</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Morbidity/function.</strong> Neurodevelopmental features (ASD ~25%, developmental delay ~58% in pediatric cohorts) and repeated surgical/surveillance interventions contribute to disability and QoL impact <a href="https://pubmed.ncbi.nlm.nih.gov/34983360/">PMID: 34983360</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37090027/">PMID: 37090027</a>. Lhermitte-Duclos disease can cause life-threatening hydrocephalus/brainstem compression <a href="https://pubmed.ncbi.nlm.nih.gov/27932596/">PMID: 27932596</a>.</p>
+<p><strong>Prognostic factors.</strong> Genotype (promoter mutation → breast cancer; nonsense → colorectal cancer), sex, age, and adherence to surveillance influence outcomes <a href="https://pubmed.ncbi.nlm.nih.gov/22252256/">PMID: 22252256</a>. With early diagnosis and guideline surveillance, many cancers are detected early and are treatable, substantially improving outcomes.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Overall strategy.</strong> There is no cure; management centers on <strong>surveillance, early cancer detection, and risk-reducing surgery</strong>, per ERN GENTURIS and NCCN guidelines <a href="https://pubmed.ncbi.nlm.nih.gov/42463809/">PMID: 42463809</a>.</p>
+<p><strong>Surgical/interventional.</strong> Cancer-directed surgery (e.g., thyroidectomy, mastectomy, hysterectomy), consideration of risk-reducing mastectomy/hysterectomy in high-risk carriers, polypectomy, and neurosurgical resection/decompression for symptomatic Lhermitte-Duclos disease <a href="https://pubmed.ncbi.nlm.nih.gov/40469941/">PMID: 40469941</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36131570/">PMID: 36131570</a>.</p>
+<p><strong>Targeted therapy — mTOR inhibition (experimental).</strong> Because PTEN loss de-represses mTOR, mTOR inhibitors are mechanistically rational (NCIT: everolimus, sirolimus/rapamycin).
+- <strong>Anecdotal success:</strong> In infantile Lhermitte-Duclos disease where surgery was not feasible, rapamycin produced dramatic improvement: "Within 5 months, our patient has become responsive to her surroundings and had return of spontaneous breathing. Repeat magnetic resonance imaging (MRI) reveals lack of brainstem compression or distortion of pituitary stalk. Rapamycin should be considered in cases of Lhermitte-Duclos disease where surgical removal may not be an option" <a href="https://pubmed.ncbi.nlm.nih.gov/27932596/">PMID: 27932596</a>.
+- <strong>RCT — negative primary endpoint:</strong> In a phase II randomized double-blind placebo-controlled trial of everolimus for neurocognitive symptoms in PHTS (n=46), "Changes in the primary endpoint between groups from baseline to Month 6 were not apparent (Cohen's d = -0.10, P = 0.518). However, several measures were associated with modest effect sizes (≥0.2) in the direction of improvement, including measures of nonverbal IQ, verbal learning, autism symptoms, motor skills, adaptive behavior and global improvement" <a href="https://pubmed.ncbi.nlm.nih.gov/35594551/">PMID: 35594551</a>. GI adverse events were more common with everolimus (P&lt;0.001).</p>
+<p><strong>Pharmacogenomics / personalized medicine.</strong> Genotype-guided surveillance intensity is emerging (promoter vs nonsense correlations); no validated CS-specific pharmacogenomic dosing exists.</p>
+<p><strong>Supportive/rehabilitative.</strong> Neurodevelopmental support (behavioral, speech, occupational therapy) for affected children; symptom management for GI disease.</p>
+<p><strong>Suggested NCIT terms:</strong> Everolimus (C48387), Sirolimus/Rapamycin (C1212), Mastectomy (C15277), Thyroidectomy (C15400), Genetic Counseling (C15315).</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention.</strong> Not applicable at the level of preventing the germline disorder; genetic counseling and reproductive options (preimplantation/prenatal diagnosis) can prevent transmission.</p>
+<p><strong>Secondary prevention (core of management).</strong> Intensive organ-specific cancer surveillance for early detection. The ERN GENTURIS guideline states: "PTEN hamartoma tumour syndrome (PHTS) is a diverse multi-system disorder predisposing to a high hereditary risk of breast, thyroid, endometrial, and a moderate risk of renal, and colorectal cancer and skin melanoma" and recommends coordinated multidisciplinary surveillance covering these organs <a href="https://pubmed.ncbi.nlm.nih.gov/42463809/">PMID: 42463809</a>. Typical elements: annual thyroid ultrasound, breast MRI/mammography, endometrial and renal surveillance, dermatologic exam, and colonoscopy.</p>
+<p><strong>Tertiary prevention.</strong> Risk-reducing surgery in high-risk carriers; treatment of premalignant polyps; management of Lhermitte-Duclos complications.</p>
+<p><strong>Counseling.</strong> Genetic counseling and cascade testing of relatives are essential; the guideline emphasizes the substantial patient commitment required and the need for prospective evaluation of surveillance effectiveness <a href="https://pubmed.ncbi.nlm.nih.gov/42463809/">PMID: 42463809</a>.</p>
+<p><strong>Immunization / public health / infectious prophylaxis:</strong> not applicable.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy / orthologs.</strong> PTEN is highly conserved. Human PTEN (NCBI Gene 5728) has a mouse ortholog <em>Pten</em> (NCBI Gene 19211, on mouse chromosome 19). PTEN "encodes a protein... Located on chromosome 10 in humans and chromosome 19 in mice" <a href="https://pubmed.ncbi.nlm.nih.gov/39812527/">PMID: 39812527</a>.</p>
+<p><strong>Natural disease in animals.</strong> Cowden syndrome as a defined germline hereditary syndrome is a human condition; no equivalent naturally occurring hereditary syndrome is established in companion animals. However, PTEN loss/reduced expression is documented in <strong>canine gliomas</strong>, paralleling human tumor biology: reduced PTEN immunopositivity occurred in a substantial fraction of canine gliomas, "in line with those reported in human gliomas" <a href="https://pubmed.ncbi.nlm.nih.gov/39061577/">PMID: 39061577</a> — relevant to comparative oncology rather than to inherited CS.</p>
+<p><strong>Comparative biology.</strong> The deep evolutionary conservation of PTEN and the PI3K/AKT/mTOR axis underlies the utility of model organisms. <strong>Zoonotic potential:</strong> not applicable.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse models (principal).</strong>
+- <strong>Epithelial-specific Pten deletion</strong> recapitulates colorectal juvenile polyposis: "we find epithelial-specific PTEN deletion to cause formation of juvenile polyps in the colorectum... these lesions closely recapitulate all of the characteristic histopathological features of juvenile polyps seen in patients with CS, including stromal alterations and dysplastic transformation to colorectal carcinoma" <a href="https://pubmed.ncbi.nlm.nih.gov/24200851/">PMID: 24200851</a>. This model demonstrated stromal PTEN loss is not a prerequisite and validated altered epithelial–mesenchymal crosstalk.
+- <strong>Mammary Cowden model:</strong> constitutive Stat5 activation cooperates with Pten loss to accelerate mammary tumors, and "mammary gland-specific ablation of Stat5 is sufficient to prevent mammary carcinogenesis in a genuine mouse model for Cowden syndrome" <a href="https://pubmed.ncbi.nlm.nih.gov/24469394/">PMID: 24469394</a>.
+- <strong>Neuronal Pten models</strong> reproduce enlarged soma, dendritic hypertrophy, increased synaptic density, altered LTP/LTD, and deficits in learning/memory and social behavior — recapitulating the macrocephaly/ASD phenotype <a href="https://pubmed.ncbi.nlm.nih.gov/39812527/">PMID: 39812527</a>.</p>
+<p><strong>Model types available:</strong> conditional (tissue-specific Cre) knockouts, transgenic, and germline heterozygous <em>Pten+/−</em> mice. <strong>Applications:</strong> studying carcinogenesis, hamartoma formation, neurodevelopmental mechanisms, and mTOR-inhibitor efficacy. <strong>Limitations:</strong> single-tissue conditional models capture individual manifestations but not the full multi-system syndrome; species differences in cancer spectrum and lifespan limit direct translation.</p>
+<p><strong>Resources:</strong> MGI (Pten), IMPC/IMSR for mouse alleles.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Cowden syndrome is best understood as a <strong>PTEN-dosage disease with a convergent metabolic/genomic-instability tail</strong>. The dominant axis is germline PTEN haploinsufficiency plus somatic second hits, releasing the PI3K/AKT/mTOR brake to drive hamartomatous overgrowth, neuronal hypertrophy (macrocephaly, ASD), and multi-organ carcinogenesis. Genotype tunes phenotype: catalytically dead-but-stable mutants → severe; partial-function → milder/ASD-predominant; promoter mutations → breast; nonsense → colorectal.</p>
+<p>A parallel, smaller stream explains PTEN-negative "Cowden-like" cases: <strong>KLLN epimutation</strong> (genomic instability via loss of pericentric H3K9me3) and <strong>SDHx variants</strong> (mitochondrial dysfunction). Remarkably, both PTEN and SDHx carriers share an <strong>elevated-succinate</strong> signature, hinting at a metabolic node connecting otherwise distinct genotypes — a potential unifying biomarker and therapeutic hypothesis.</p>
+<pre><code>         ┌──────────────── COWDEN SYNDROME ────────────────┐
+   PTEN LOF ─────► PI3K/AKT/mTOR ▲ ──► hamartomas, macrocephaly, cancers
+   KLLN methylation ─► genomic instability ─┐
+   SDHB/SDHD variants ─► ↓SDH ─► ↑succinate ─┴─► shared biochemical signature
+         └──────────────────────────────────────────────────┘
+   Management: surveillance + risk-reducing surgery + counseling
+   Experimental: mTOR inhibition (hamartoma responses; neurocog RCT negative)
+</code></pre>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22252256/">22252256</a></td>
+<td>Prospective SIRs and lifetime cancer risks (breast, thyroid, endometrial, renal, colorectal, melanoma)</td>
+<td>Supports cancer-risk profile (F001)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26827793/">26827793</a></td>
+<td>PTEN germline LOF as cause; phenotype prediction</td>
+<td>Supports etiology (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25916396/">25916396</a></td>
+<td>PTEN as PI3K/AKT/mTOR regulator; genotype–severity</td>
+<td>Mechanism (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34983360/">34983360</a></td>
+<td>ASD prevalence 25% meta-analysis</td>
+<td>Neuro phenotype (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37090027/">37090027</a></td>
+<td>Macrocephaly 100%, DD 58% pediatric</td>
+<td>Neuro phenotype (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31273317/">31273317</a></td>
+<td>GI polyposis spectrum, 43-patient cohort</td>
+<td>GI phenotype (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42463809/">42463809</a></td>
+<td>ERN GENTURIS surveillance guideline</td>
+<td>Prevention/management (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27932596/">27932596</a></td>
+<td>Rapamycin response in Lhermitte-Duclos</td>
+<td>Targeted therapy (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35594551/">35594551</a></td>
+<td>Everolimus RCT (negative primary endpoint)</td>
+<td>Targeted therapy (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26673699/">26673699</a></td>
+<td>KLLN epimutation &amp; genomic instability</td>
+<td>Heterogeneity (F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18678321/">18678321</a></td>
+<td>SDHB/SDHD variants in PTEN-negative CS</td>
+<td>Heterogeneity (F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22261759/">22261759</a></td>
+<td>Elevated plasma succinate biomarker</td>
+<td>Biomarker (F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24200851/">24200851</a></td>
+<td>Epithelial Pten-KO colorectal polyp mouse model</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24469394/">24469394</a></td>
+<td>Stat5/PI3K Cowden mammary mouse model</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39812527/">39812527</a></td>
+<td>PTEN in CNS; neuronal phenotypes; mouse ortholog</td>
+<td>Mechanism/model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40614725/">40614725</a></td>
+<td>PTEN conformational regulation</td>
+<td>Protein dysfunction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25554686/">25554686</a></td>
+<td>PTEN frameshift + SMAD7 modifier; esophageal cancer</td>
+<td>Modifier/etiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39061577/">39061577</a></td>
+<td>PTEN loss in canine gliomas</td>
+<td>Comparative biology</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>QoL data:</strong> No CS-specific EQ-5D/SF-36/PROMIS metrics were identified; QoL impact is described qualitatively.</li>
+<li><strong>Epidemiology precision:</strong> Prevalence/incidence figures are approximate and likely underestimated; no primary registry-derived incidence was verified in this investigation.</li>
+<li><strong>Surveillance effectiveness:</strong> The ERN GENTURIS guideline itself notes the need for prospective evaluation of whether intensive surveillance improves survival <a href="https://pubmed.ncbi.nlm.nih.gov/42463809/">PMID: 42463809</a>.</li>
+<li><strong>Targeted therapy uncertainty:</strong> mTOR-inhibitor benefit rests on anecdotes for hamartomas plus a <strong>negative</strong> primary RCT endpoint for neurocognition; efficacy for cancer prevention is unproven.</li>
+<li><strong>PTEN-negative subsets:</strong> KLLN and SDHx contributions come from single-center studies requiring independent replication; the mechanistic link between succinate elevation and PTEN loss remains hypothesis-level.</li>
+<li><strong>Genotype–phenotype:</strong> Correlations (promoter→breast, nonsense→colorectal) are associations that need validation in independent cohorts.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective surveillance outcome study</strong> — quantify whether guideline surveillance reduces cancer mortality in PHTS, addressing the explicit ERN GENTURIS gap.</li>
+<li><strong>Succinate biomarker validation</strong> — replicate elevated plasma succinate as a diagnostic/monitoring biomarker across PTEN, KLLN, and SDHx subgroups in a larger, controlled cohort.</li>
+<li><strong>Mechanistic dissection of the PTEN–succinate link</strong> — test whether PTEN loss lowers SDH catalytic activity, potentially unifying the PTEN and SDHx metabolic phenotypes.</li>
+<li><strong>Genotype-stratified surveillance trial</strong> — prospectively test intensified organ-specific screening guided by variant class (promoter/nonsense/missense).</li>
+<li><strong>Targeted-therapy trials with tumor endpoints</strong> — evaluate mTOR/PI3K inhibitors for hamartoma burden and cancer prevention (not just neurocognition), with biomarker-based patient selection.</li>
+<li><strong>Registry-based epidemiology</strong> — derive robust prevalence, incidence, penetrance, and de novo rates from multinational PHTS registries.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 9 confirmed findings and 38 reviewed papers over 5 investigation iterations. Evidence types span human clinical cohorts, guideline consensus, model-organism studies, in vitro/structural work, and comparative pathology.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Cowden_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Cowden_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>30</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<ul>
+<li><code>PMID:22252256</code>: "Elevated SIRs were found for carcinomas of the breast [25.4, 95% confidence interval (CI), 19.8-32.0], thyroid (51.1, 38.1-67.1), endometrium (42.9, 28.1-62.8), colorectum (10.3, 5.6-17.4), kidney (30.6, 17.8-49.4), and melanoma (8.5, 4.1-15.6)"</li>
+<li>closest text in source: "Elevated SIRs were found for carcinomas of the breast [25.4, 95% confidence interval (CI), 19.8-32.0], thyroid (51.1, 38.1-67.1), endometrium (42.9, 28.1-62.8), colorectum (10.3, 5.6-17.4), kidney (30.6, 17.8-49.4), and melanoma (8.5, 4.1-15.6)"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Cowden_Syndrome-falcon.html">← Cowden Syndrome (Falcon)</a>
+                
+                
+                <a href="COX4I2-Related_Pancreatic_Insufficiency-Anemia-Hyperostosis_Syndrome-claude.html">COX4I2-Related Pancreatic Insufficiency-Anemia-Hyperostosis Syndrome (Claude) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Cowden_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Cowden_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Cowden_Syndrome-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

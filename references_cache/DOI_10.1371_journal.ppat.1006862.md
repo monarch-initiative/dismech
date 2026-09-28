@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1371/journal.ppat.1006862
+extractor_version: 1
 title: GM1 ganglioside-independent intoxication by Cholera toxin
 authors:
 - Jakob Cervin
@@ -25,12 +26,14 @@ journal: PLOS Pathogens
 year: '2018'
 doi: 10.1371/journal.ppat.1006862
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://journals.plos.org/plospathogens/article/file?id=10.1371/journal.ppat.1006862&type=printable"
 oa_status: gold
-license: cc-by
+license: public-domain
 local_pdf_path: files/DOI_10.1371_journal.ppat.1006862.pdf
+full_text_access_type: open
 ---
 
 # GM1 ganglioside-independent intoxication by Cholera toxin

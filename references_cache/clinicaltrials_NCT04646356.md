@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04646356"
+reference_id: clinicaltrials:NCT04646356
 title: Tacrolimus Trial for Hereditary Hemorrhagic Telangiectasia (HHT)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Tacrolimus Trial for Hereditary Hemorrhagic Telangiectasia (HHT)

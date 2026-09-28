@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05027633"
+reference_id: clinicaltrials:NCT05027633
 title: Immunotherapy With Chemotherapy and Chemoradiation for Advanced Squamous Cancer of Nasal Cavity / Paranasal Sinuses (I-NAPA)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Immunotherapy With Chemotherapy and Chemoradiation for Advanced Squamous Cancer of Nasal Cavity / Paranasal Sinuses (I-NAPA)

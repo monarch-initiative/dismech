@@ -321,6 +321,72 @@ on the claim. This provides a "second opinion" mechanism.
 It may take a few minutes for the agent comment to appear, so you can start
 work and check back later.
 
+## One PR per disease
+
+**N diseases means N branches and N pull requests.** Never package a multi-disease
+claim run into a single branch or a single commit. Each disease gets its own
+branch off `main`, carrying only:
+
+```
++ kb/disorders/<Disease>.yaml
++ history/disorders/<Disease>/...
++ references_cache/PMID_*.md        <- only the PMIDs THAT entry cites
+  cache/**/*.csv                    <- only the term rows THAT entry introduced
+- stubs/<Disease>.yaml
+```
+
+The shared files are the part people get wrong. `references_cache/` and
+`cache/**/*.csv` are repository-wide, so a lazy `git add references_cache/ cache/`
+sweeps another disease's rows into this PR. Derive the ownership instead of
+eyeballing it: a reference belongs to the entry that cites its PMID, and a cache
+row belongs to the entry that uses that CURIE. Rows land in canonical sorted
+position (`just normalize-cache`), never appended at end-of-file — see the cache
+ordering rules in `CLAUDE.md`.
+
+Unrelated cleanup found along the way — a stale stub for a disease somebody else
+already curated, say — is its own small PR. Do not attach it to a curation PR it
+has nothing to do with.
+
+**Why this matters and is not bookkeeping.** The claim/stub machinery is
+per-disease: one `Closes #<issue>` releases one claim and retires one stub. A
+combined PR cannot release three claims cleanly, presents reviewers with a diff
+several thousand lines long, and lets one contested lump/split call block two
+diseases that nobody disputes.
+
+### When the environment hands you one branch
+
+Some runners inject a single pre-named branch for the whole invocation (e.g.
+`claude/claim-disease-3-<id>`) together with an instruction not to push anywhere
+else without permission. That instruction does not scale with N, and it
+**conflicts** with the rule above.
+
+Do not resolve that conflict silently in either direction. Say so, and ask:
+
+> The run gave me one branch, but dismech convention is one PR per disease.
+> Shall I open three branches instead?
+
+Raise it **before** committing, not after the work is packaged — re-splitting a
+finished single commit is recoverable but wasteful, and a reviewer should never
+be the one to discover the packaging is wrong.
+
+## After the PRs are open
+
+Opening the PR is not the end of the task. Keep the worktrees in place and stay
+available to respond to review feedback — the automated reviewer usually comments
+within a few minutes, and CI may go red.
+
+Work each PR until it is **approved**, then stop:
+
+- Address review comments and push fixes to that PR's branch.
+- Fix CI failures that your diff caused.
+- Reply where a reviewer asked something you are not going to change, with the
+  reason.
+
+Once a PR is approved, stop working it. Do not merge it yourself, do not dismiss
+a review to clear a gate, and do not keep polishing an approved PR. Approved is
+the finish line. Only tear the worktrees down once every PR in the run is
+approved (or closed).
+
 ## Finishing a curation
 
 The curation PR **should delete the stub** alongside adding the KB entry, and
@@ -379,6 +445,14 @@ close the claim issue explaining it. That is a completed curation.
 - **Treating an old claim as free.** A claim with an open PR is live however old
   it is. `just check-claims` flags old-with-no-PR claims; ask the assignee or
   the user before taking one — do not just take it.
+- **Packaging N diseases into one branch or one commit.** One PR per disease. If
+  the runner handed you a single branch, surface the conflict and ask rather than
+  quietly accepting it — see "When the environment hands you one branch".
+- **`git add references_cache/ cache/` on a multi-disease run.** That sweeps other
+  diseases' reference and term-cache rows into this PR. Assign them by which entry
+  cites the PMID / uses the CURIE.
+- **Walking away once the PR is open.** Stay on it until approved — see
+  "After the PRs are open".
 - **Filing fewer issues than requested without saying so.** Report the shortfall.
 
 ## Adding to the queue

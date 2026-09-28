@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celiac Disease-phenotype-wiring · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Celiac Disease-phenotype-wiring</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Celiac Disease-phenotype-wiring</h1>
+                
+                <p class="report-subtitle">Mechanism-to-Phenotype Wiring Research Template</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">65 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) e4c8898a5d741502b1868031e5dbb9e7ad91d698 &#10;Resolve with: git log --find-object=e4c8898a5d741502b1868031e5dbb9e7ad91d698 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_phenotype_wiring_research.md" target="_blank" rel="noopener noreferrer">disease_phenotype_wiring_research.md</a>
+                        <code>e4c8898a5d74</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Mechanism-to-Phenotype Wiring Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Celiac Disease</li>
+<li><strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005130" target="_blank" rel="noopener noreferrer">MONDO:0005130</a> (if available)</li>
+</ul>
+<h2>Context: What Is Already Curated</h2>
+<p>This disease's knowledge base entry already models the following pathophysiology
+mechanism nodes:</p>
+<ol>
+<li>Gluten-Triggered Immune Response (TG2 deamidation of gliadin, HLA-DQ2/DQ8 presentation, CD4 T-cell activation); 2. Mixed Th1/Th17/IL-21 Mucosal Cytokine Response; 3. Intestinal Epithelial Damage (IL-15/NKG2D-MICA intraepithelial lymphocyte cytotoxicity, villous atrophy, crypt hyperplasia); 4. Autoantibody Production (anti-TG2 IgA, anti-deamidated-gliadin-peptide antibodies, plasma cells); 5. Barrier Dysfunction (zonulin, tight junction disruption, increased permeability); 6. Microbiome Dysbiosis</li>
+</ol>
+<p>It also records the following clinical phenotypes, each already evidenced as
+occurring in the disease:</p>
+<p>Chronic Diarrhea; Abdominal Pain; Bloating; Constipation; Villous Atrophy; Weight Loss; Iron Deficiency Anemia; Fatigue; Growth Failure in Children; Dermatitis Herpetiformis; Reduced Bone Mineral Density; Dental Enamel Defects; Recurrent Aphthous Stomatitis; Peripheral Neuropathy; Cerebellar Ataxia; Elevated Hepatic Transaminases; Vitamin D Deficiency; Small intestinal lymphoma; Osteoporosis; Arthritis; Short stature; Female infertility</p>
+<p>The core disease mechanism is already curated in depth and is NOT the subject of
+this report. Treat it as established context and do not re-derive, re-survey, or
+re-justify it:</p>
+<p>Dietary gluten leads to TG2-mediated deamidation of gliadin peptides, which bind HLA-DQ2/DQ8 with high affinity and activate gluten-reactive CD4 T cells; the resulting mixed Th1/Th17/IL-21 cytokine response, together with IL-15-driven innate epithelial activation, licenses NKG2D/MICA-mediated intraepithelial lymphocyte cytotoxicity, producing villous atrophy and crypt hyperplasia, with anti-TG2 autoantibody production by B cells. Corroborated by the ZED1227 TG2-inhibitor randomized trial, HLA-DQ2 tetramer studies, and gluten-free-diet remission.</p>
+<h2>Research Objective</h2>
+<p>The missing layer is the <strong>causal wiring between the mechanism nodes and the
+clinical phenotypes</strong>: which pathophysiological process produces which clinical
+manifestation, through what intermediates. For <strong>each phenotype listed above</strong>,
+report:</p>
+<ol>
+<li><strong>The mechanistic chain</strong> from the established disease process to that
+   phenotype, as an ordered sequence of steps, one per line, with explicit
+   causal verbs ("leads to", "results in"). Start each chain from whichever of
+   the existing mechanism nodes is the true proximal upstream step.</li>
+<li><strong>Missing intermediate processes</strong>: where the chain passes through a
+   process that is NOT in the mechanism node list above (for example a
+   malabsorption step, a distinct autoantibody specificity, a clonal expansion
+   step), name it explicitly and flag it as a proposed new node.</li>
+<li><strong>Primary human evidence</strong> for each causal step: PMIDs with exact quotes
+   from the abstracts. Prefer human clinical and interventional studies
+   (dietary-withdrawal reversal counts as interventional evidence for a causal
+   link). Distinguish evidence source types: human clinical, model organism,
+   in vitro, computational.</li>
+<li><strong>An evidence grade for the chain as a whole</strong>, one of:</li>
+<li>ESTABLISHED — causal chain demonstrated in humans, widely accepted</li>
+<li>SUPPORTED — plausible chain with direct human evidence for most steps</li>
+<li>PROPOSED — hypothesis in the literature, key steps not demonstrated</li>
+<li>NOT_ESTABLISHED — the association is documented but no mechanistic chain
+     has been demonstrated; competing explanations remain open</li>
+<li><strong>Non-causal alternatives</strong> where they are live: if the phenotype may be
+   associated through shared genetic background (for example shared HLA
+   haplotypes), coincident autoimmunity, or ascertainment rather than through
+   downstream causation, say so explicitly.</li>
+</ol>
+<p><strong>Honesty requirement:</strong> "NOT_ESTABLISHED, mechanism unknown" is a correct and
+valuable answer. Do NOT manufacture a mechanistic chain to satisfy the request.
+A phenotype with no settled mechanism should be reported as exactly that, with
+the competing hypotheses named and graded. It is expected that several
+phenotypes in the list will end up NOT_ESTABLISHED.</p>
+<h2>Priority Hubs</h2>
+<p>The following convergence hubs are anticipated to route several phenotypes and
+must NOT be given shallow treatment. For each, report the full mechanistic
+detail and per-branch citations:</p>
+<p>(a) Nutrient malabsorption cascade: villous atrophy leads to reduced absorptive surface area and loss of brush-border transporters, producing deficiency of iron, folate, vitamin B12, vitamin D, calcium, zinc and fat-soluble vitamins, which in turn produce iron deficiency anemia, reduced bone mineral density and osteoporosis (also via secondary hyperparathyroidism), growth failure and short stature in children, weight loss, and fatigue. Detail which nutrient deficit drives which phenotype and where deficiency-independent (inflammatory, e.g. RANKL/OPG or cytokine-mediated) contributions are documented, especially for bone disease. (b) Extraintestinal autoimmunity by epitope spreading: anti-transglutaminase-3 (TG3) IgA and dermal IgA-TG3 deposits leading to dermatitis herpetiformis; anti-transglutaminase-6 (TG6) antibodies and cerebellar Purkinje cell injury leading to gluten ataxia; the disputed role of humoral versus T-cell mechanisms in gluten neuropathy. (c) Lymphomagenesis: chronic IL-15-driven activation and clonal expansion of intraepithelial lymphocytes leading to refractory celiac disease type II (aberrant clonal IELs, often with JAK1/STAT3 mutations) progressing to enteropathy-associated T-cell lymphoma, and the epidemiological protection conferred by gluten-free diet adherence.</p>
+<h2>Output Format</h2>
+<ul>
+<li>One subsection per phenotype, headed by the phenotype name exactly as listed
+  above, containing: the numbered causal chain, the evidence grade, PMIDs with
+  exact abstract quotes per step, and suggested ontology terms (GO for
+  biological processes, CL for cell types, HP for the phenotype itself).</li>
+<li>A final section titled <strong>Proposed New Mechanism Nodes</strong> listing every
+  intermediate process flagged in item 2, each with: a suggested node name, its
+  upstream node (from the existing list or another proposed node), its
+  downstream phenotypes, and the strongest single citation for its causal
+  placement.</li>
+<li>A final section titled <strong>Unwired Phenotypes</strong> listing every phenotype graded
+  NOT_ESTABLISHED, with one sentence each on what evidence would settle it.</li>
+</ul>
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic claims</li>
+<li>Include direct quotes from abstracts to support key statements</li>
+<li>Never cite a paper for a claim its abstract does not make</li>
+</ul>
+<h1>Mechanism-to-Phenotype Wiring Report: Celiac Disease</h1>
+<p><strong>Disease:</strong> Celiac disease; <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005130" target="_blank" rel="noopener noreferrer">MONDO:0005130</a>.<br />
+<strong>Scope:</strong> This report starts from the six already-curated mechanism nodes and does not re-derive the core gluten–HLA–TG2–T-cell pathway. “Proposed new node” means an intermediate process absent from the supplied node list. Evidence grades describe the <strong>entire chain</strong>, not merely the disease–phenotype association.</p>
+<p>A compact overview precedes the phenotype-level wiring.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Proximal existing mechanism node</th>
+<th>Key proposed intermediate node(s)</th>
+<th>Evidence grade</th>
+<th>Main caveat/alternative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chronic Diarrhea</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> generalized malabsorption; osmotic load; fat/bile-acid spillover; electrolyte secretion</td>
+<td><strong>SUPPORTED</strong></td>
+<td>Multiple mechanisms coexist; phenotype-specific human causal partitioning is limited. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-22-24">montorohuguet2021smallandlarge pages 22-24</a>)</td>
+</tr>
+<tr>
+<td>Abdominal Pain</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> mucosal nociception; luminal distension; dysmotility</td>
+<td><strong>PROPOSED</strong></td>
+<td>IBS, lactose/FODMAP intolerance, and other disorders may independently cause pain. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</td>
+</tr>
+<tr>
+<td>Bloating</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> brush-border enzyme loss; carbohydrate malabsorption; microbial fermentation and gas</td>
+<td><strong>PROPOSED</strong></td>
+<td>Direct celiac-specific human evidence for this complete chain is sparse. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-22-24">montorohuguet2021smallandlarge pages 22-24</a>)</td>
+</tr>
+<tr>
+<td>Constipation</td>
+<td>Microbiome Dysbiosis / Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> altered intestinal transit or defecatory function</td>
+<td><strong>NOT_ESTABLISHED</strong></td>
+<td>Mechanism is unknown; functional constipation, diet, thyroid disease, and medication effects are alternatives. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</td>
+</tr>
+<tr>
+<td>Villous Atrophy</td>
+<td>Intestinal Epithelial Damage</td>
+<td>None; this is the histologic expression of the curated epithelial-damage node</td>
+<td><strong>ESTABLISHED</strong></td>
+<td>Patchiness and sampling orientation can affect histologic ascertainment. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</td>
+</tr>
+<tr>
+<td>Weight Loss</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> macronutrient malabsorption; steatorrhea; negative energy balance</td>
+<td><strong>SUPPORTED</strong></td>
+<td>Reduced intake, inflammation, and fluid shifts may contribute; obesity does not exclude celiac disease. (<a href="#ref-merlotti2022bonefragilityin-pages-5-7">merlotti2022bonefragilityin pages 5-7</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-22-24">montorohuguet2021smallandlarge pages 22-24</a>)</td>
+</tr>
+<tr>
+<td>Iron Deficiency Anemia</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> proximal-duodenal iron malabsorption; depleted iron stores; impaired erythropoiesis; sometimes inflammation/hepcidin</td>
+<td><strong>ESTABLISHED</strong></td>
+<td>Menstrual or occult blood loss and persistent enterocyte defects can coexist. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</td>
+</tr>
+<tr>
+<td>Fatigue</td>
+<td>Intestinal Epithelial Damage / Mixed Th1/Th17/IL-21 Mucosal Cytokine Response</td>
+<td><strong>New:</strong> anemia, micronutrient deficits, pain/depression, or inflammatory sickness signaling</td>
+<td><strong>NOT_ESTABLISHED</strong></td>
+<td>Fatigue improves on a gluten-free diet but may persist and was not associated with nutritional deficiency or disease activity in a 2023 cohort. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</td>
+</tr>
+<tr>
+<td>Growth Failure in Children</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> energy/protein and micronutrient malabsorption; reduced weight gain; disrupted GH–IGF-1 axis</td>
+<td><strong>SUPPORTED</strong></td>
+<td>Endocrine disease, genetics, delayed diagnosis, and socioeconomic nutrition remain alternatives. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>, <a href="#ref-merlotti2022bonefragilityin-pages-5-7">merlotti2022bonefragilityin pages 5-7</a>)</td>
+</tr>
+<tr>
+<td>Dermatitis Herpetiformis</td>
+<td>Autoantibody Production</td>
+<td><strong>New:</strong> TG2→TG3 epitope spreading; anti-TG3 IgA; dermal IgA–TG3 deposition; complement/neutrophil injury</td>
+<td><strong>ESTABLISHED</strong></td>
+<td>TG3 deposits are highly characteristic, but their precise lesion-initiating role remains incompletely resolved. (<a href="#ref-patt2023unravelingtheimmunopathological-pages-7-8">patt2023unravelingtheimmunopathological pages 7-8</a>, <a href="#ref-kaunisto2022antibodyresponsesto-pages-1-3">kaunisto2022antibodyresponsesto pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>Reduced Bone Mineral Density</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> calcium/vitamin-D malabsorption; secondary hyperparathyroidism; increased resorption; inflammatory RANKL/OPG imbalance</td>
+<td><strong>ESTABLISHED</strong></td>
+<td>Hypogonadism, low weight, immobility, menopause, and persistent inflammation also contribute. (<a href="#ref-krupakozak2014pathologicbonealterations-pages-4-5">krupakozak2014pathologicbonealterations pages 4-5</a>, <a href="#ref-altoma2022thedietaryand-pages-2-4">altoma2022thedietaryand pages 2-4</a>, <a href="#ref-lungaro2023osteoporosisandceliac-pages-2-4">lungaro2023osteoporosisandceliac pages 2-4</a>)</td>
+</tr>
+<tr>
+<td>Dental Enamel Defects</td>
+<td>Intestinal Epithelial Damage / Autoantibody Production</td>
+<td><strong>New:</strong> calcium/vitamin-D deficiency during amelogenesis; possible anti-gliadin/ameloblast cross-reactivity</td>
+<td><strong>PROPOSED</strong></td>
+<td>Established enamel damage is irreversible; nutritional and immune branches have not been causally separated. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</td>
+</tr>
+<tr>
+<td>Recurrent Aphthous Stomatitis</td>
+<td>Intestinal Epithelial Damage / Mixed Th1/Th17/IL-21 Mucosal Cytokine Response</td>
+<td><strong>New:</strong> oral mucosal immune dysregulation or iron/folate/B12 deficiency</td>
+<td><strong>NOT_ESTABLISHED</strong></td>
+<td>Association is reproducible, but trauma, infection, hematinic deficiency, and other immune diseases remain competing causes. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</td>
+</tr>
+<tr>
+<td>Peripheral Neuropathy</td>
+<td>Autoantibody Production / Mixed Th1/Th17/IL-21 Mucosal Cytokine Response</td>
+<td><strong>New:</strong> peripheral axonopathy; anti-neural/TG6 antibodies and/or perivascular T-cell injury</td>
+<td><strong>NOT_ESTABLISHED</strong></td>
+<td>Humoral versus T-cell causation is unresolved; B12 deficiency, diabetes, and coincident autoimmunity must be excluded. (<a href="#ref-lauret2013celiacdiseaseand-pages-6-7">lauret2013celiacdiseaseand pages 6-7</a>, <a href="#ref-rouvroye2020theneuropathologyof-pages-13-15">rouvroye2020theneuropathologyof pages 13-15</a>)</td>
+</tr>
+<tr>
+<td>Cerebellar Ataxia</td>
+<td>Autoantibody Production</td>
+<td><strong>New:</strong> anti-TG6/anti-Purkinje reactivity; cerebellar immune deposition; Purkinje-cell loss and gliosis</td>
+<td><strong>PROPOSED</strong></td>
+<td>TG6 is a biomarker/candidate antigen, not a conclusively proven human effector; non-celiac gluten sensitivity and other ataxias complicate attribution. (<a href="#ref-lauret2013celiacdiseaseand-pages-6-7">lauret2013celiacdiseaseand pages 6-7</a>, <a href="#ref-rouvroye2020theneuropathologyof-pages-13-15">rouvroye2020theneuropathologyof pages 13-15</a>)</td>
+</tr>
+<tr>
+<td>Elevated Hepatic Transaminases</td>
+<td>Barrier Dysfunction</td>
+<td><strong>New:</strong> portal delivery of microbial products/antigens; hepatic innate immune injury (“celiac hepatitis”)</td>
+<td><strong>SUPPORTED</strong></td>
+<td>Autoimmune hepatitis, MASLD, drugs, and viral liver disease are alternatives; mechanism is inferred chiefly from permeability and dietary reversal. (<a href="#ref-barton2008celiacdiseaseand-pages-14-16">barton2008celiacdiseaseand pages 14-16</a>)</td>
+</tr>
+<tr>
+<td>Vitamin D Deficiency</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> fat-soluble-vitamin malabsorption; steatorrhea; reduced vitamin-D uptake</td>
+<td><strong>SUPPORTED</strong></td>
+<td>Low intake and sunlight exposure can contribute, and deficiency may persist on a gluten-free diet. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>, <a href="#ref-lungaro2023osteoporosisandceliac-pages-2-4">lungaro2023osteoporosisandceliac pages 2-4</a>)</td>
+</tr>
+<tr>
+<td>Small intestinal lymphoma</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> persistent IL-15/JAK-STAT selection; aberrant clonal IEL expansion (RCDII); JAK1/STAT3 and NF-κB lesions; EATL transformation</td>
+<td><strong>ESTABLISHED</strong></td>
+<td>EATL can arise without recognized RCDII; gluten-free-diet protection is observational and not absolute. (<a href="#ref-cording2022oncogeneticlandscapeof-pages-1-1">cording2022oncogeneticlandscapeof pages 1-1</a>, <a href="#ref-chander2018pathogenesisofenteropathyassociated-pages-1-2">chander2018pathogenesisofenteropathyassociated pages 1-2</a>, <a href="#ref-botosso2023theroleof-pages-6-8">botosso2023theroleof pages 6-8</a>, <a href="#ref-hue2022cellularoriginsand-pages-14-16">hue2022cellularoriginsand pages 14-16</a>)</td>
+</tr>
+<tr>
+<td>Osteoporosis</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> calcium/vitamin-D malabsorption; secondary hyperparathyroidism; osteoclastogenesis; chronic cytokine/RANKL–OPG imbalance</td>
+<td><strong>ESTABLISHED</strong></td>
+<td>Bone density may not fully normalize; age, sex hormones, low BMI, and primary osteoporosis modify risk. (<a href="#ref-krupakozak2014pathologicbonealterations-pages-4-5">krupakozak2014pathologicbonealterations pages 4-5</a>, <a href="#ref-altoma2022thedietaryand-pages-2-4">altoma2022thedietaryand pages 2-4</a>, <a href="#ref-lungaro2023osteoporosisandceliac-pages-2-4">lungaro2023osteoporosisandceliac pages 2-4</a>, <a href="#ref-gracefarfaglia2015bonesofcontention-pages-13-15">gracefarfaglia2015bonesofcontention pages 13-15</a>)</td>
+</tr>
+<tr>
+<td>Arthritis</td>
+<td>Mixed Th1/Th17/IL-21 Mucosal Cytokine Response / Microbiome Dysbiosis</td>
+<td><strong>New:</strong> systemic immune activation or gut–joint trafficking causing synovitis</td>
+<td><strong>NOT_ESTABLISHED</strong></td>
+<td>Shared genetics, rheumatoid/JIA comorbidity, and ascertainment may explain association; diet alone often does not control arthritis. (<a href="#ref-barton2008celiacdiseaseand-pages-14-16">barton2008celiacdiseaseand pages 14-16</a>)</td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td>Intestinal Epithelial Damage</td>
+<td><strong>New:</strong> chronic nutrient/energy deficit; impaired GH–IGF-1 signaling; reduced linear growth</td>
+<td><strong>SUPPORTED</strong></td>
+<td>Genetic short stature, endocrine deficiency, and failure of catch-up growth despite mucosal treatment require separate evaluation. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>, <a href="#ref-merlotti2022bonefragilityin-pages-5-7">merlotti2022bonefragilityin pages 5-7</a>)</td>
+</tr>
+<tr>
+<td>Female infertility</td>
+<td>Intestinal Epithelial Damage / Autoantibody Production</td>
+<td><strong>New:</strong> zinc/folate/iron deficiency and hypothalamic–gonadal disruption; proposed anti-TG2 effects on endometrium/trophoblast/angiogenesis</td>
+<td><strong>NOT_ESTABLISHED</strong></td>
+<td>Human causal evidence is inadequate; shared autoimmunity, thyroid disease, HLA background, and referral bias are major alternatives. (<a href="#ref-patt2023unravelingtheimmunopathological-pages-14-15">patt2023unravelingtheimmunopathological pages 14-15</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: Compact mapping of all curated phenotypes to proximal mechanisms, proposed intermediate nodes, conservative evidence grades, and major causal alternatives. Citations identify the gathered evidence supporting each assessment.</em></p>
+<h2>Evidence interpretation and limitations</h2>
+<p>The strongest wiring is found for proximal-duodenal iron malabsorption, calcium/vitamin-D-related bone disease, TG3-associated dermatitis herpetiformis, and RCDII–EATL evolution. By contrast, constipation, fatigue, aphthous ulcers, peripheral neuropathy, arthritis, and infertility have documented associations but no uniquely demonstrated downstream mechanism.</p>
+<p>The retrieval system exposed DOI and publication metadata more consistently than PMID fields. Accordingly, a PMID is given only when it was verifiable from the retrieved record; <strong>“PMID not exposed” is used instead of manufacturing an identifier</strong>. Quoted wording below is taken from retrieved abstracts unless explicitly labeled “full-text synthesis.”</p>
+<h1>Phenotype-level wiring</h1>
+<h2>Chronic Diarrhea</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to villous surface loss and impaired mucosal absorption.  </li>
+<li>Impaired absorption leads to <strong>generalized nutrient and fluid malabsorption</strong> (<strong>proposed new node</strong>).  </li>
+<li>Malabsorption results in luminal osmotic load, fat delivery to the colon, bacterial production of cathartic hydroxy-fatty acids, and—when ileal function is involved—bile-salt spillover (<strong>proposed nodes</strong>).  </li>
+<li>These processes result in increased stool water and chronic diarrhea.</li>
+</ol>
+<p><strong>Grade: SUPPORTED.</strong> Human clinicopathologic association and dietary reversal are strong, but individual contributions of osmotic, fatty-acid, bile-acid, and secretory pathways have not been partitioned experimentally in celiac cohorts. A review reports that persistent villous atrophy is associated with “chronic diarrhea, steatorrhea, abdominal pain, weight loss, and nutritional deficiencies”; it also describes increased osmotic load, electrolyte secretion, and cathartic effects of malabsorbed fat and bile salts. <a href="https://doi.org/10.3390/nu13041254">Human clinical synthesis; DOI 10.3390/nu13041254; April 2021; PMID not exposed</a>. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-22-24">montorohuguet2021smallandlarge pages 22-24</a>)</p>
+<p><strong>Alternatives:</strong> pancreatic insufficiency, microscopic colitis, bile-acid diarrhea, lactose intolerance, infection, IBS, and inadvertent gluten exposure can independently produce diarrhea.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea; <a href="http://purl.obolibrary.org/obo/GO_0050892" target="_blank" rel="noopener noreferrer">GO:0050892</a> intestinal absorption; <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> enterocyte.</p>
+<h2>Abdominal Pain</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to mucosal inflammation and malabsorption.  </li>
+<li>Inflammation and malabsorption may lead to <strong>visceral nociceptor activation, luminal distension, and altered motility</strong> (<strong>proposed new nodes</strong>).  </li>
+<li>These processes may result in abdominal pain.</li>
+</ol>
+<p><strong>Grade: PROPOSED.</strong> Abdominal pain accompanies active and refractory enteropathy, but a celiac-specific human experiment demonstrating which intermediate causes pain is lacking. The malabsorption review documents abdominal pain with persistent villous atrophy but does not establish a unique pain pathway. <a href="https://doi.org/10.3390/nu13041254">Human clinical synthesis; DOI 10.3390/nu13041254</a>. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</p>
+<p><strong>Alternatives:</strong> IBS, lactose/FODMAP intolerance, constipation, dyspepsia, endometriosis, and other gastrointestinal disease.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> Abdominal pain; <a href="http://purl.obolibrary.org/obo/GO_0007600" target="_blank" rel="noopener noreferrer">GO:0007600</a> sensory perception; <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" rel="noopener noreferrer">CL:0000198</a> pain receptor cell/nociceptor.</p>
+<h2>Bloating</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to loss or dysfunction of brush-border digestive capacity.  </li>
+<li>Brush-border dysfunction may lead to <strong>carbohydrate maldigestion and malabsorption</strong> (<strong>proposed new node</strong>).  </li>
+<li>Unabsorbed substrate leads to <strong>microbial fermentation, gas production, and luminal distension</strong> (<strong>proposed new node</strong>).  </li>
+<li>Distension results in bloating.</li>
+</ol>
+<p><strong>Grade: PROPOSED.</strong> This is physiologically coherent, but retrieved celiac literature did not demonstrate the complete chain in humans. The broader malabsorption literature supports impaired assimilation, whereas phenotype-specific evidence for fermentation-driven bloating is limited. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-22-24">montorohuguet2021smallandlarge pages 22-24</a>)</p>
+<p><strong>Alternatives:</strong> IBS, small-intestinal bacterial overgrowth, dietary FODMAPs, aerophagia, and constipation.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" rel="noopener noreferrer">HP:0003270</a> Abdominal distention; <a href="http://purl.obolibrary.org/obo/GO_0019646" target="_blank" rel="noopener noreferrer">GO:0019646</a> aerobic/anaerobic carbohydrate metabolism; <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> enterocyte.</p>
+<h2>Constipation</h2>
+<ol>
+<li><strong>NOT_ESTABLISHED, mechanism unknown.</strong>  </li>
+<li>Candidate routes—<strong>altered transit, pelvic-floor dysfunction, dietary fiber change, or dysbiosis</strong>—remain proposed and have not been causally placed downstream of celiac enteropathy.</li>
+</ol>
+<p><strong>Grade: NOT_ESTABLISHED.</strong> The available malabsorption evidence explains diarrheal phenotypes much better than constipation and provides no celiac-specific causal chain. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</p>
+<p><strong>Alternatives:</strong> functional constipation, hypothyroidism or other coincident autoimmunity, medication effects, low-fiber gluten-free diet, and ascertainment.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a> Constipation; <a href="http://purl.obolibrary.org/obo/GO_0019229" target="_blank" rel="noopener noreferrer">GO:0019229</a> regulation of vasoconstriction is not suitable—use the broader process label “gastrointestinal motility” pending ontology curation; <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a> enteric neuron.</p>
+<h2>Villous Atrophy</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads directly to enterocyte loss and villous architectural shortening.  </li>
+<li>Enterocyte loss results in villous atrophy.</li>
+</ol>
+<p><strong>Grade: ESTABLISHED.</strong> This phenotype is effectively the histologic expression of an already-curated mechanism node. Human biopsy evidence establishes reduced villus-to-crypt ratio and duodenal lymphocytosis. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</p>
+<p><strong>Alternatives:</strong> medication-induced enteropathy, infection, immune deficiency, Crohn disease, autoimmune enteropathy, and tropical sprue can produce non-celiac villous atrophy.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0011473" target="_blank" rel="noopener noreferrer">HP:0011473</a> Villous atrophy; <a href="http://purl.obolibrary.org/obo/GO_0048870" target="_blank" rel="noopener noreferrer">GO:0048870</a> cell motility is not specific—prefer “intestinal epithelial tissue morphogenesis” as a local ontology label; <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> enterocyte.</p>
+<h2>Weight Loss</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to reduced absorptive area.  </li>
+<li>Reduced absorption leads to <strong>macronutrient malabsorption and steatorrhea</strong> (<strong>proposed new node</strong>).  </li>
+<li>Energy loss, sometimes combined with reduced intake and inflammation, leads to <strong>negative energy balance</strong> (<strong>proposed new node</strong>).  </li>
+<li>Negative energy balance results in weight loss.</li>
+</ol>
+<p><strong>Grade: SUPPORTED.</strong> Human studies consistently associate active enteropathy with malabsorption and weight loss. In an untreated adult cohort, the abstract states: “Malabsorption, weight loss and vitamin/mineral-deficiencies characterize classical celiac disease”; 17% were malnourished with greater than 10% undesired weight loss. <a href="https://doi.org/10.3390/nu5103975">Primary human cross-sectional study; DOI 10.3390/nu5103975; September 2013; PMID not exposed</a>. Reviews also connect persistent atrophy with weight loss. (<a href="#ref-merlotti2022bonefragilityin-pages-5-7">merlotti2022bonefragilityin pages 5-7</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-22-24">montorohuguet2021smallandlarge pages 22-24</a>)</p>
+<p><strong>Alternatives:</strong> reduced intake, malignancy, endocrine disease, depression, and fluid shifts; obesity does not exclude active celiac disease.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a> Weight loss; <a href="http://purl.obolibrary.org/obo/GO_0006091" target="_blank" rel="noopener noreferrer">GO:0006091</a> generation of precursor metabolites and energy; <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> enterocyte.</p>
+<h2>Iron Deficiency Anemia</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to proximal-duodenal villous loss at the principal site of iron absorption.  </li>
+<li>Villous loss leads to <strong>impaired iron absorption and depleted iron stores</strong> (<strong>proposed new node</strong>).  </li>
+<li>Iron depletion leads to impaired hemoglobin synthesis and iron-deficiency anemia.</li>
+</ol>
+<p><strong>Grade: ESTABLISHED.</strong> An abstract states: “The iron absorption process develops mainly in the proximal duodenum. This portion of the intestine is typically destroyed in celiac disease… resulting in a reduction in absorption of iron and subsequent iron deficiency anemia.” It reports prevalence of 12–82% at diagnosis and notes that anemia commonly normalizes after at least six months of gluten-free diet, although iron-store recovery can take two years. <a href="https://doi.org/10.3390/nu13051695">Human clinical review integrating intervention cohorts; DOI 10.3390/nu13051695; May 2021; PMID not exposed</a>. Another abstract identifies villous atrophy and inflammation/anemia of chronic disease as the two main causes. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</p>
+<p><strong>Alternatives:</strong> menstrual loss, gastrointestinal bleeding, low dietary iron, inflammation/hepcidin, H. pylori, or genetic iron-regulatory variants. Persistent anemia despite healed villi requires investigation.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" rel="noopener noreferrer">HP:0001891</a> Iron deficiency anemia; <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" rel="noopener noreferrer">GO:0030218</a> erythrocyte differentiation; <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> erythrocyte; <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> enterocyte.</p>
+<h2>Fatigue</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> may lead to iron, folate, B12, or other nutrient deficits.  </li>
+<li>Deficiency may lead to anemia and reduced oxygen delivery, which may contribute to fatigue.  </li>
+<li>Independently, <strong>Mixed Th1/Th17/IL-21 Mucosal Cytokine Response</strong> may produce inflammatory sickness signaling; pain, sleep disturbance, and depression may also contribute.  </li>
+<li>No single route has been demonstrated as the celiac-specific cause of fatigue.</li>
+</ol>
+<p><strong>Grade: NOT_ESTABLISHED.</strong> A 2023 prospective controlled study found substantial improvement after a gluten-free diet—median Fatigue Severity Scale 3.8 to 1.9 and fatigue VAS 44.5 to 15.5, all <em>p</em>&lt;0.001—but fatigue remained above controls and was associated with depression and pain, “but not with signs of disease activity or nutritional deficiency.” <a href="https://doi.org/10.3389/fmed.2023.1242512">Primary human prospective intervention-follow-up; DOI 10.3389/fmed.2023.1242512; September 2023; trial NCT01551563</a>. Systematic reviewers conclude that mechanisms are poorly understood. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</p>
+<p><strong>Alternatives:</strong> anemia, depression, sleep disorder, chronic pain, hypothyroidism, medication, and deconditioning.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> Fatigue; <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response; <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> erythrocyte.</p>
+<h2>Growth Failure in Children</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to energy, protein, iron, zinc, folate, vitamin-D, and calcium malabsorption.  </li>
+<li>Malabsorption leads to <strong>malnutrition and impaired weight gain</strong> (<strong>proposed new node</strong>).  </li>
+<li>Malnutrition and chronic inflammation may suppress the <strong>growth-hormone–IGF-1 axis</strong> (<strong>proposed new node</strong>).  </li>
+<li>Reduced substrate availability and growth signaling lead to growth failure.</li>
+</ol>
+<p><strong>Grade: SUPPORTED.</strong> A 2024 human case-control study found stunting in 31%, low age-adjusted BMI in 20.8%, and both stunting and wasting in 5.2% of affected children; low ferritin and socioeconomic factors predicted stunting. The persistence of abnormalities despite diet shows that nutrition, adherence, and social determinants modify the chain. <a href="https://doi.org/10.3390/children11091042">Primary human case-control study; DOI 10.3390/children11091042; August 2024</a>. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>, <a href="#ref-merlotti2022bonefragilityin-pages-5-7">merlotti2022bonefragilityin pages 5-7</a>)</p>
+<p><strong>Alternatives:</strong> constitutional or genetic short stature, growth-hormone deficiency, thyroid disease, delayed puberty, and food insecurity.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive; <a href="http://purl.obolibrary.org/obo/GO_0040007" target="_blank" rel="noopener noreferrer">GO:0040007</a> growth; <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> enterocyte; <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> chondrocyte.</p>
+<h2>Dermatitis Herpetiformis</h2>
+<ol>
+<li><strong>Autoantibody Production</strong> leads to expansion of TG3-reactive IgA responses, plausibly through TG2/TG3 epitope spreading (<strong>proposed new node</strong>).  </li>
+<li>Anti-TG3 IgA leads to circulating or locally formed <strong>IgA–TG3 immune complexes</strong> (<strong>proposed new node</strong>).  </li>
+<li>Complexes deposit in dermal papillae and lead to complement/endothelial activation and neutrophil recruitment (<strong>proposed new node</strong>).  </li>
+<li>Neutrophil proteases damage the dermal–epidermal junction, resulting in pruritic vesicles and dermatitis herpetiformis.</li>
+</ol>
+<p><strong>Grade: ESTABLISHED for TG3 autoimmunity and dermal deposition; SUPPORTED—not fully established—for the terminal lesion-producing sequence.</strong> The foundational human study states: “the IgA precipitates in the papillary dermis… contain epidermal transglutaminase” and concludes that TG3 “is the dominant autoantigen.” <a href="https://doi.org/10.1084/jem.20011299">Primary human serologic/tissue study; Sárdy et al.; DOI 10.1084/jem.20011299; March 2002</a>. A 2022 review’s abstract cautions that although granular IgA/TG3 deposits are the diagnostic finding, “the role of these immunocomplexes in the pathogenesis is unknown.” (<a href="#ref-patt2023unravelingtheimmunopathological-pages-7-8">patt2023unravelingtheimmunopathological pages 7-8</a>, <a href="#ref-kaunisto2022antibodyresponsesto-pages-1-3">kaunisto2022antibodyresponsesto pages 1-3</a>)</p>
+<p><strong>Alternatives:</strong> Shared HLA-DQ2/DQ8 explains susceptibility but not the TG3-specific phenotype. Dermal IgA deposits may occur without clinical DH, so deposition alone is insufficient.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0012496" target="_blank" rel="noopener noreferrer">HP:0012496</a> Dermatitis herpetiformis; <a href="http://purl.obolibrary.org/obo/GO_0038096" target="_blank" rel="noopener noreferrer">GO:0038096</a> Fc-gamma receptor signaling is not IgA-specific—prefer immune-complex deposition and neutrophil degranulation (<a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" rel="noopener noreferrer">GO:0043312</a>); <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> neutrophil; <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" rel="noopener noreferrer">CL:0000787</a> plasma cell.</p>
+<h2>Reduced Bone Mineral Density</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to calcium and vitamin-D malabsorption.  </li>
+<li>Calcium/vitamin-D deficiency leads to <strong>secondary hyperparathyroidism</strong> (<strong>proposed new node</strong>).  </li>
+<li>Secondary hyperparathyroidism increases osteoclast-mediated skeletal resorption.  </li>
+<li>In parallel, <strong>Mixed Th1/Th17/IL-21 Mucosal Cytokine Response</strong> may alter the RANKL/OPG balance and favor osteoclastogenesis (<strong>proposed new node</strong>).  </li>
+<li>Increased resorption and impaired mineralization result in reduced BMD.</li>
+</ol>
+<p><strong>Grade: ESTABLISHED.</strong> The literature identifies both nutrient and inflammation branches. A review abstract says bone disease mechanisms include “malabsorption of calcium and vitamin D leading to secondary hyperparathyroidism and increased skeletal resorption” and “pro-inflammatory cytokines altering the osteoprotegerin and receptor activator of nuclear kappa-B ligand ratio favoring osteoclastogenesis.” Another 2023 synthesis reports low BMD in 30–60% of newly diagnosed patients. (<a href="#ref-krupakozak2014pathologicbonealterations-pages-4-5">krupakozak2014pathologicbonealterations pages 4-5</a>, <a href="#ref-altoma2022thedietaryand-pages-2-4">altoma2022thedietaryand pages 2-4</a>, <a href="#ref-lungaro2023osteoporosisandceliac-pages-2-4">lungaro2023osteoporosisandceliac pages 2-4</a>)</p>
+<p><strong>Alternatives:</strong> menopause, hypogonadism, low BMI, inactivity, glucocorticoids, smoking, and primary osteoporosis.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" rel="noopener noreferrer">HP:0004349</a> Reduced bone mineral density; <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" rel="noopener noreferrer">GO:0045453</a> bone resorption; <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> osteoclast; <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a> osteoblast.</p>
+<h2>Dental Enamel Defects</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> during amelogenesis may lead to calcium/vitamin-D and other micronutrient deficiencies.  </li>
+<li>Deficiency may impair ameloblast mineralization (<strong>proposed new node</strong>).  </li>
+<li>A parallel candidate route is <strong>anti-gliadin or transglutaminase-associated cross-reactivity with enamel/ameloblast structures</strong> (<strong>proposed new node</strong>).  </li>
+<li>Disrupted amelogenesis results in symmetric chronological enamel defects.</li>
+</ol>
+<p><strong>Grade: PROPOSED.</strong> A 2024 systematic review found enamel-defect prevalence of 50–94.1%, but did not establish one mechanism. A 2023 review states that micronutrient malabsorption—especially calcium/vitamin D—and immunity are “considered the main cause”; established damage is irreversible. <a href="https://doi.org/10.3390/jcm13051382">Human systematic review; DOI 10.3390/jcm13051382; February 2024</a>.</p>
+<p><strong>Alternatives:</strong> fever or malnutrition during tooth development, fluorosis, prematurity, infection, medications, and genetic enamel disorders.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" rel="noopener noreferrer">HP:0006297</a> Enamel hypoplasia; <a href="http://purl.obolibrary.org/obo/GO_0031214" target="_blank" rel="noopener noreferrer">GO:0031214</a> biomineral tissue development; <a href="http://purl.obolibrary.org/obo/CL_0000729" target="_blank" rel="noopener noreferrer">CL:0000729</a> ameloblast.</p>
+<h2>Recurrent Aphthous Stomatitis</h2>
+<ol>
+<li><strong>NOT_ESTABLISHED, mechanism unknown.</strong>  </li>
+<li>Proposed routes include hematinic deficiency from intestinal damage and systemic/oral immune dysregulation, but neither has been shown to be necessary or sufficient.</li>
+</ol>
+<p><strong>Grade: NOT_ESTABLISHED.</strong> A pediatric comparative study found aphthous-like ulcers in 40% of celiac patients versus 4.44% of controls (<em>p</em>=0.001), establishing association, not mechanism. <a href="https://doi.org/10.17796/1053-4625-43.4.9">Primary human comparative study; DOI 10.17796/1053-4625-43.4.9; 2019</a>.</p>
+<p><strong>Alternatives:</strong> trauma, viral disease, Behçet disease, inflammatory bowel disease, iron/folate/B12 deficiency from other causes, and idiopathic recurrent aphthosis.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0011107" target="_blank" rel="noopener noreferrer">HP:0011107</a> Recurrent aphthous stomatitis; <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response; <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" rel="noopener noreferrer">CL:0000066</a> epithelial cell.</p>
+<h2>Peripheral Neuropathy</h2>
+<ol>
+<li><strong>Autoantibody Production</strong> may lead to anti-neural, antiganglioside, or TG6 antibodies.  </li>
+<li>In parallel, systemic immune activation may lead to <strong>perivascular T-cell infiltration and peripheral axonopathy</strong> (<strong>proposed new node</strong>).  </li>
+<li>Axonal loss or small-fiber injury results in peripheral neuropathy.</li>
+</ol>
+<p><strong>Grade: NOT_ESTABLISHED.</strong> Neuropathology shows axonopathy, loss of myelinated fibers, and focal/perivascular inflammatory cells, supporting immune injury, but the review concludes that the underlying mechanism “is not yet clear” and calls for characterization of infiltrates and target epitopes. Both humoral and cell-mediated routes remain live. <a href="https://doi.org/10.3390/nu12030822">Systematic neuropathology review; DOI 10.3390/nu12030822; March 2020</a>. (<a href="#ref-lauret2013celiacdiseaseand-pages-6-7">lauret2013celiacdiseaseand pages 6-7</a>, <a href="#ref-rouvroye2020theneuropathologyof-pages-13-15">rouvroye2020theneuropathologyof pages 13-15</a>)</p>
+<p><strong>Alternatives:</strong> B12, copper, or vitamin-E deficiency; diabetes; thyroid disease; paraproteinemia; and coincident autoimmune neuropathy.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" rel="noopener noreferrer">HP:0009830</a> Peripheral neuropathy; <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> immune response; <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" rel="noopener noreferrer">CL:0000101</a> sensory neuron; <a href="http://purl.obolibrary.org/obo/CL_0000909" target="_blank" rel="noopener noreferrer">CL:0000909</a> CD8-positive T cell.</p>
+<h2>Cerebellar Ataxia</h2>
+<ol>
+<li><strong>Autoantibody Production</strong> leads in a subset to anti-TG6 and anti-Purkinje-cell reactivity (<strong>proposed new node</strong>).  </li>
+<li>Antibodies and/or lymphocytes may enter cerebellar tissue and lead to immune deposition, microglial activation, and Purkinje-cell injury (<strong>proposed new node</strong>).  </li>
+<li>Purkinje-cell loss, gliosis, and cerebellar atrophy result in ataxia.</li>
+</ol>
+<p><strong>Grade: PROPOSED.</strong> Human tissue and serology strongly support association, but not antibody sufficiency. Neuropathology documents Purkinje-cell loss, gliosis, lymphocytic infiltration, and perivascular cuffing; TG6 is described as a “possible target autoantigen” requiring further investigation. Antibody titers can decline on gluten withdrawal, but irreversible neuronal loss limits clinical recovery. (<a href="#ref-lauret2013celiacdiseaseand-pages-6-7">lauret2013celiacdiseaseand pages 6-7</a>, <a href="#ref-rouvroye2020theneuropathologyof-pages-13-15">rouvroye2020theneuropathologyof pages 13-15</a>)</p>
+<p><strong>Alternatives:</strong> genetic, degenerative, paraneoplastic, nutritional, alcohol-related, and other autoimmune ataxias; neurologic gluten sensitivity can occur without celiac enteropathy.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a> Ataxia; <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" rel="noopener noreferrer">HP:0002072</a> Cerebellar atrophy; <a href="http://purl.obolibrary.org/obo/GO_0098742" target="_blank" rel="noopener noreferrer">GO:0098742</a> cell-cell adhesion via plasma membrane; preferably use “Purkinje cell degeneration” as a local process label; <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" rel="noopener noreferrer">CL:0000121</a> Purkinje cell; <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a> microglial cell.</p>
+<h2>Elevated Hepatic Transaminases</h2>
+<ol>
+<li><strong>Barrier Dysfunction</strong> leads to increased portal delivery of microbial products, food antigens, and inflammatory mediators.  </li>
+<li>Portal exposure may lead to <strong>hepatic innate immune activation and nonspecific hepatocellular injury (“celiac hepatitis”)</strong> (<strong>proposed new node</strong>).  </li>
+<li>Hepatocyte injury releases ALT and AST, resulting in elevated transaminases.</li>
+</ol>
+<p><strong>Grade: SUPPORTED.</strong> Dietary withdrawal supplies human intervention evidence, but the molecular intermediary remains incompletely demonstrated. A review abstract states that “intestinal permeability may be at least one of the mechanisms” and that cryptogenic abnormalities commonly normalize after 6–12 months of strict diet. A pediatric cohort found AST elevation in 28.8%, ALT in 7.6%, and improvement in ALT after six months. <a href="https://doi.org/10.5114/ceh.2021.111003">Primary human retrospective intervention-follow-up; DOI 10.5114/ceh.2021.111003; December 2021</a>. (<a href="#ref-barton2008celiacdiseaseand-pages-14-16">barton2008celiacdiseaseand pages 14-16</a>)</p>
+<p><strong>Alternatives:</strong> autoimmune hepatitis, MASLD, viral hepatitis, medication, muscle disease, and shared autoimmunity. Persistent abnormalities after dietary treatment require separate evaluation.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a> Elevated hepatic transaminase; <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response; <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> hepatocyte; <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> macrophage/Kupffer cell.</p>
+<h2>Vitamin D Deficiency</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to reduced absorptive area and, in severe disease, fat malabsorption/steatorrhea.  </li>
+<li>Fat malabsorption leads to impaired uptake and enterohepatic recovery of fat-soluble vitamin D (<strong>proposed new node</strong>).  </li>
+<li>Reduced uptake results in vitamin-D deficiency.</li>
+</ol>
+<p><strong>Grade: SUPPORTED.</strong> Vitamins A, D, E, and K deficiencies are reported in classical malabsorptive celiac disease. In a prospective older-adult cohort, vitamin D, B12, folate, and ferritin improved after gluten-free treatment, supporting reversibility. The 2023 bone review notes that low intake, dysbiosis, and endocrine factors can contribute even without severe atrophy. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>, <a href="#ref-lungaro2023osteoporosisandceliac-pages-2-4">lungaro2023osteoporosisandceliac pages 2-4</a>)</p>
+<p><strong>Alternatives:</strong> low sunlight exposure, low intake, obesity, liver/kidney disease, and medication.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0100512" target="_blank" rel="noopener noreferrer">HP:0100512</a> Vitamin D deficiency; <a href="http://purl.obolibrary.org/obo/GO_0033280" target="_blank" rel="noopener noreferrer">GO:0033280</a> response to vitamin D; <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> enterocyte.</p>
+<h2>Small intestinal lymphoma</h2>
+<p>Here the phenotype is interpreted primarily as <strong>enteropathy-associated T-cell lymphoma (EATL)</strong>.</p>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong>, together with persistent IL-15-rich mucosal signaling, leads to prolonged activation and survival of cytotoxic/innate-like IELs.  </li>
+<li>Chronic selection leads to <strong>aberrant clonal IEL expansion—refractory celiac disease type II</strong> (<strong>proposed new node</strong>).  </li>
+<li>Clones acquire <strong>JAK1/STAT3 gain-of-function and cooperating NF-κB/epigenetic lesions</strong> (<strong>proposed new node</strong>).  </li>
+<li>Mutated clones gain cytokine-independent survival and proliferative fitness.  </li>
+<li>Expansion and additional evolution lead to overt EATL.</li>
+</ol>
+<p><strong>Grade: ESTABLISHED for the RCDII–JAK/STAT–EATL route.</strong> The pivotal primary human genomic study abstract states that EATL is “often preceded by low-grade clonal intraepithelial lymphoproliferation” and reports JAK1–STAT3 gain-of-function mutations in <strong>80% of RCDII</strong> and <strong>90% of EATL</strong>, with JAK1 p.G1097 in approximately 50%. JAK1 inhibition blocked malignant RCDII-cell survival/proliferation in vitro. <a href="https://doi.org/10.1136/gutjnl-2020-322935">Primary human genomic study plus functional validation; DOI 10.1136/gutjnl-2020-322935; online 2021/issue 2022</a>. (<a href="#ref-cording2022oncogeneticlandscapeof-pages-1-1">cording2022oncogeneticlandscapeof pages 1-1</a>)</p>
+<p>Recent synthesis reports median EATL survival below ten months and dissemination in 10–20%. Population studies estimate markedly elevated gut-lymphoma risk; one synthesis reports SIRs of 16–40 for gut lymphoma. (<a href="#ref-hue2022cellularoriginsand-pages-14-16">hue2022cellularoriginsand pages 14-16</a>, <a href="#ref-pelizzaro2021theriskof-pages-2-4">pelizzaro2021theriskof pages 2-4</a>)</p>
+<p><strong>Dietary protection:</strong> Observational cohorts suggest lower lymphoma risk with strict diet or mucosal healing, but protection is not absolute and evidence is susceptible to adherence measurement, reverse causation, and lead-time bias. In one 1,757-person cohort, nine intestinal lymphomas occurred versus 1.4 expected; only four affected patients had strictly followed a GFD. This supports—not proves—protection from reduced gluten-driven inflammation. (<a href="#ref-chander2018pathogenesisofenteropathyassociated-pages-1-2">chander2018pathogenesisofenteropathyassociated pages 1-2</a>, <a href="#ref-botosso2023theroleof-pages-6-8">botosso2023theroleof pages 6-8</a>)</p>
+<p><strong>Alternatives:</strong> Some EATL arises without recognized RCDII. Other small-intestinal lymphomas, particularly B-cell lymphoma and MEITL, have different causal wiring.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0030445" target="_blank" rel="noopener noreferrer">HP:0030445</a> Intestinal lymphoma (confirm local release); <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" rel="noopener noreferrer">GO:0008283</a> cell population proliferation; <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" rel="noopener noreferrer">GO:0007259</a> JAK-STAT cascade; <a href="http://purl.obolibrary.org/obo/CL_0002496" target="_blank" rel="noopener noreferrer">CL:0002496</a> intraepithelial lymphocyte; <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" rel="noopener noreferrer">CL:0000910</a> cytotoxic T cell.</p>
+<h2>Osteoporosis</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to calcium/vitamin-D malabsorption.  </li>
+<li>Mineral deficiency leads to secondary hyperparathyroidism.  </li>
+<li>Secondary hyperparathyroidism leads to increased bone resorption and impaired mineralization.  </li>
+<li>In parallel, inflammatory cytokines alter RANKL/OPG and favor osteoclastogenesis.  </li>
+<li>Sustained remodeling imbalance leads from low BMD to osteoporosis and fragility.</li>
+</ol>
+<p><strong>Grade: ESTABLISHED.</strong> The evidence supports a multifactorial pathway rather than vitamin deficiency alone. A systematic review found partial BMD recovery by one year and full recovery by five years in included studies, although later reviews emphasize that normalization is not universal. Calcium/vitamin-D supplementation particularly benefited malnourished patients. (<a href="#ref-krupakozak2014pathologicbonealterations-pages-4-5">krupakozak2014pathologicbonealterations pages 4-5</a>, <a href="#ref-altoma2022thedietaryand-pages-2-4">altoma2022thedietaryand pages 2-4</a>, <a href="#ref-lungaro2023osteoporosisandceliac-pages-2-4">lungaro2023osteoporosisandceliac pages 2-4</a>, <a href="#ref-gracefarfaglia2015bonesofcontention-pages-13-15">gracefarfaglia2015bonesofcontention pages 13-15</a>)</p>
+<p><strong>Alternatives:</strong> primary age-related or postmenopausal osteoporosis, hypogonadism, low body weight, inactivity, glucocorticoids, and smoking.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" rel="noopener noreferrer">HP:0000939</a> Osteoporosis; <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" rel="noopener noreferrer">GO:0045453</a> bone resorption; <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> osteoclast; <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a> osteoblast.</p>
+<h2>Arthritis</h2>
+<ol>
+<li><strong>NOT_ESTABLISHED, mechanism unknown.</strong>  </li>
+<li>Proposed routes include systemic cytokine spillover, gut–joint lymphocyte trafficking, and dysbiosis-driven immune activation, but none is demonstrated as the causal route from celiac enteropathy to arthritis.</li>
+</ol>
+<p><strong>Grade: NOT_ESTABLISHED.</strong> A 2023 pediatric cohort found predominantly oligoarticular (76.9%) and asymmetric (84.6%) arthritis; 84.6% required systemic therapy, and diet alone was frequently insufficient. This argues against a simple enteropathy→arthritis chain. <a href="https://doi.org/10.1186/s12969-023-00822-x">Primary human retrospective cohort; DOI 10.1186/s12969-023-00822-x; May 2023</a>.</p>
+<p><strong>Alternatives:</strong> shared autoimmune genetics, juvenile idiopathic arthritis or rheumatoid arthritis as coincident disease, shared environmental triggers, and referral bias. Mendelian-randomization evidence reported no causal effect of celiac liability on RA, further supporting caution.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" rel="noopener noreferrer">HP:0001369</a> Arthritis; <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response; <a href="http://purl.obolibrary.org/obo/CL_0000904" target="_blank" rel="noopener noreferrer">CL:0000904</a> CD4-positive T cell; <a href="http://purl.obolibrary.org/obo/CL_0000214" target="_blank" rel="noopener noreferrer">CL:0000214</a> synovial cell.</p>
+<h2>Short stature</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> leads to chronic energy, protein, mineral, and micronutrient malabsorption.  </li>
+<li>Malnutrition and inflammation lead to impaired GH–IGF-1 signaling and reduced growth-plate substrate availability (<strong>proposed new node</strong>).  </li>
+<li>Reduced linear growth velocity results in short stature.</li>
+</ol>
+<p><strong>Grade: SUPPORTED.</strong> This is the accumulated outcome of the growth-failure branch. Recent human data show stunting in 31% of one pediatric celiac cohort and identify low ferritin and socioeconomic factors as predictors, showing that the disease pathway is neither exclusive nor deterministic. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>, <a href="#ref-merlotti2022bonefragilityin-pages-5-7">merlotti2022bonefragilityin pages 5-7</a>)</p>
+<p><strong>Alternatives:</strong> familial short stature, constitutional delay, endocrine disease, Turner syndrome, chronic systemic disease, and inadequate diet after diagnosis.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> Short stature; <a href="http://purl.obolibrary.org/obo/GO_0040007" target="_blank" rel="noopener noreferrer">GO:0040007</a> growth; <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> chondrocyte.</p>
+<h2>Female infertility</h2>
+<ol>
+<li><strong>Intestinal Epithelial Damage</strong> may lead to iron, folate, zinc, and energy deficiency.  </li>
+<li>Nutritional deficiency may disturb hypothalamic–pituitary–gonadal function, ovulation, or endometrial competence (<strong>proposed new node</strong>).  </li>
+<li>A parallel proposed route is <strong>anti-TG2 binding to endometrial/trophoblast structures with impaired angiogenesis or invasion</strong> (<strong>proposed new node</strong>).  </li>
+<li>These candidate processes may reduce conception or implantation success.</li>
+</ol>
+<p><strong>Grade: NOT_ESTABLISHED.</strong> Human association is inconsistent and the principal antibody mechanism is derived largely from human-cell in-vitro work and animal models, not direct causal intervention in women. A 2023 review states that anti-TG2 could hinder trophoblast invasiveness and endometrial angiogenesis, while also identifying zinc/folate deficiency; it does not prove either route in vivo. <a href="https://doi.org/10.3390/antib12040079">Mechanistic review incorporating in-vitro human cells and murine evidence; DOI 10.3390/antib12040079; December 2023</a>. (<a href="#ref-patt2023unravelingtheimmunopathological-pages-14-15">patt2023unravelingtheimmunopathological pages 14-15</a>)</p>
+<p>A 2024 recurrent-reproductive-failure study found HLA risk alleles in 69% versus 35–40% in the general population, but only 2.3% met celiac diagnostic criteria; thyroid disease and levothyroxine were also influential. This illustrates genetic confounding and coincident autoimmunity rather than a clean celiac-to-infertility pathway.</p>
+<p><strong>Alternatives:</strong> shared HLA background, autoimmune thyroid disease, endometriosis, age, male-factor infertility, referral bias, and nutritional deficiency unrelated to celiac disease.</p>
+<p><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" rel="noopener noreferrer">HP:0008222</a> Female infertility; <a href="http://purl.obolibrary.org/obo/GO_0007566" target="_blank" rel="noopener noreferrer">GO:0007566</a> embryo implantation; <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" rel="noopener noreferrer">CL:0000351</a> trophoblast cell; <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" rel="noopener noreferrer">CL:0002255</a> endometrial stromal cell.</p>
+<h1>Proposed New Mechanism Nodes</h1>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Proposed node</th>
+<th>Upstream node</th>
+<th>Principal downstream phenotypes</th>
+<th>Strongest causal-placement evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Generalized small-intestinal malabsorption</td>
+<td>Intestinal Epithelial Damage</td>
+<td>Diarrhea, weight loss, anemia, deficiencies, growth failure</td>
+<td>Celiac mucosal injury and persistent atrophy are associated with diarrhea, steatorrhea, weight loss, and deficiencies. DOI 10.3390/nu13041254. (<a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</td>
+</tr>
+<tr>
+<td>Brush-border digestive/transport failure</td>
+<td>Intestinal Epithelial Damage</td>
+<td>Diarrhea, bloating; iron/folate deficits</td>
+<td>Site-specific nutrient absorption and reduced mucosal capacity; direct symptom partitioning remains incomplete. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>, <a href="#ref-montorohuguet2021smallandlarge-pages-10-13">montorohuguet2021smallandlarge pages 10-13</a>)</td>
+</tr>
+<tr>
+<td>Macronutrient malabsorption and negative energy balance</td>
+<td>Generalized malabsorption</td>
+<td>Weight loss, growth failure, short stature</td>
+<td>Untreated human nutritional cohort: 17% had &gt;10% undesired weight loss. DOI 10.3390/nu5103975.</td>
+</tr>
+<tr>
+<td>Proximal-duodenal iron malabsorption</td>
+<td>Intestinal Epithelial Damage</td>
+<td>Iron deficiency anemia, fatigue branch</td>
+<td>Abstract directly locates iron absorption in the damaged proximal duodenum. DOI 10.3390/nu13051695. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</td>
+</tr>
+<tr>
+<td>Folate/B12 malabsorption</td>
+<td>Intestinal Epithelial Damage</td>
+<td>Macrocytic anemia, neuropathy alternative, fatigue</td>
+<td>Malabsorption review and GFD-follow-up evidence. DOI 10.3390/nu13041254. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</td>
+</tr>
+<tr>
+<td>Fat-soluble-vitamin malabsorption</td>
+<td>Intestinal Epithelial Damage</td>
+<td>Vitamin D deficiency, bone disease</td>
+<td>Vitamins A/D/E/K are deficient in classical malabsorption; vitamin D rises after GFD. (<a href="#ref-montorohuguet2021smallandlarge-pages-24-25">montorohuguet2021smallandlarge pages 24-25</a>)</td>
+</tr>
+<tr>
+<td>Calcium/vitamin-D deficiency</td>
+<td>Generalized malabsorption</td>
+<td>Reduced BMD, osteoporosis, dental defects</td>
+<td>Bone literature consistently identifies this branch. (<a href="#ref-krupakozak2014pathologicbonealterations-pages-4-5">krupakozak2014pathologicbonealterations pages 4-5</a>, <a href="#ref-lungaro2023osteoporosisandceliac-pages-2-4">lungaro2023osteoporosisandceliac pages 2-4</a>)</td>
+</tr>
+<tr>
+<td>Secondary hyperparathyroidism</td>
+<td>Calcium/vitamin-D deficiency</td>
+<td>Reduced BMD, osteoporosis</td>
+<td>Human clinical synthesis links deficiency to PTH-mediated resorption. (<a href="#ref-krupakozak2014pathologicbonealterations-pages-4-5">krupakozak2014pathologicbonealterations pages 4-5</a>, <a href="#ref-altoma2022thedietaryand-pages-2-4">altoma2022thedietaryand pages 2-4</a>)</td>
+</tr>
+<tr>
+<td>Inflammatory RANKL/OPG imbalance</td>
+<td>Mixed Mucosal Cytokine Response</td>
+<td>Reduced BMD, osteoporosis</td>
+<td>Human cytokine/biomarker studies summarized in bone reviews; contribution is documented but heterogeneous. (<a href="#ref-krupakozak2014pathologicbonealterations-pages-4-5">krupakozak2014pathologicbonealterations pages 4-5</a>, <a href="#ref-stefano2013bonemassand-pages-10-12">stefano2013bonemassand pages 10-12</a>)</td>
+</tr>
+<tr>
+<td>Growth-axis suppression</td>
+<td>Malnutrition plus inflammation</td>
+<td>Growth failure, short stature</td>
+<td>Pediatric observational evidence and catch-up-growth literature; exact mediator remains incompletely tested.</td>
+</tr>
+<tr>
+<td>TG3-specific IgA autoimmunity/epitope spreading</td>
+<td>Autoantibody Production</td>
+<td>Dermatitis herpetiformis</td>
+<td>Human sera and dermal precipitates identify TG3 as dominant autoantigen. DOI 10.1084/jem.20011299. (<a href="#ref-patt2023unravelingtheimmunopathological-pages-7-8">patt2023unravelingtheimmunopathological pages 7-8</a>, <a href="#ref-kaunisto2022antibodyresponsesto-pages-1-3">kaunisto2022antibodyresponsesto pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>Dermal IgA–TG3 deposition and neutrophilic junction injury</td>
+<td>TG3 autoimmunity</td>
+<td>Dermatitis herpetiformis</td>
+<td>Deposits are diagnostic; their exact lesion-initiating role remains unresolved. (<a href="#ref-kaunisto2022antibodyresponsesto-pages-1-3">kaunisto2022antibodyresponsesto pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>TG6/anti-Purkinje neuroimmunity</td>
+<td>Autoantibody Production</td>
+<td>Cerebellar ataxia</td>
+<td>Human serology/tissue association and neuropathology; effector causality remains proposed. (<a href="#ref-lauret2013celiacdiseaseand-pages-6-7">lauret2013celiacdiseaseand pages 6-7</a>, <a href="#ref-rouvroye2020theneuropathologyof-pages-13-15">rouvroye2020theneuropathologyof pages 13-15</a>)</td>
+</tr>
+<tr>
+<td>Immune-mediated peripheral axonopathy</td>
+<td>Autoantibody Production/systemic immunity</td>
+<td>Peripheral neuropathy</td>
+<td>Human nerve pathology supports axonopathy and inflammatory infiltrates but not one dominant effector. (<a href="#ref-rouvroye2020theneuropathologyof-pages-13-15">rouvroye2020theneuropathologyof pages 13-15</a>)</td>
+</tr>
+<tr>
+<td>Portal antigen/endotoxin exposure and celiac hepatitis</td>
+<td>Barrier Dysfunction</td>
+<td>Elevated transaminases</td>
+<td>Permeability hypothesis plus enzyme normalization on dietary withdrawal.</td>
+</tr>
+<tr>
+<td>Aberrant clonal IEL expansion/RCDII</td>
+<td>Persistent epithelial IL-15 environment</td>
+<td>EATL</td>
+<td>RCDII is a low-grade clonal IEL proliferation that often precedes EATL. (<a href="#ref-cording2022oncogeneticlandscapeof-pages-1-1">cording2022oncogeneticlandscapeof pages 1-1</a>, <a href="#ref-patt2023unravelingtheimmunopathological-pages-5-7">patt2023unravelingtheimmunopathological pages 5-7</a>)</td>
+</tr>
+<tr>
+<td>JAK1/STAT3-mutant IEL selection</td>
+<td>RCDII</td>
+<td>EATL</td>
+<td>80% of RCDII and 90% of EATL carried JAK1–STAT3 gain-of-function lesions. (<a href="#ref-cording2022oncogeneticlandscapeof-pages-1-1">cording2022oncogeneticlandscapeof pages 1-1</a>)</td>
+</tr>
+<tr>
+<td>Impaired amelogenesis</td>
+<td>Nutrient deficiency/possible autoimmunity</td>
+<td>Dental enamel defects</td>
+<td>Strong epidemiology, but nutritional versus antibody branches remain unresolved.</td>
+</tr>
+<tr>
+<td>Oral mucosal immune injury</td>
+<td>Systemic immune response</td>
+<td>Aphthous stomatitis</td>
+<td>Association only; no decisive mechanistic study.</td>
+</tr>
+<tr>
+<td>Gut–joint immune trafficking</td>
+<td>Mucosal cytokines/dysbiosis</td>
+<td>Arthritis</td>
+<td>Hypothesis; diet-insensitive arthritis and shared autoimmunity are competing explanations.</td>
+</tr>
+<tr>
+<td>Reproductive nutrient/endocrine dysfunction</td>
+<td>Intestinal Epithelial Damage</td>
+<td>Female infertility</td>
+<td>Biologically plausible but not demonstrated as the dominant human mechanism.</td>
+</tr>
+<tr>
+<td>Anti-TG2 trophoblast/endometrial injury</td>
+<td>Autoantibody Production</td>
+<td>Female infertility/implantation failure</td>
+<td>Supported mainly by human-cell in-vitro and murine studies, not causal human trials.</td>
+</tr>
+</tbody>
+</table></div></details>
+<h1>Unwired Phenotypes</h1>
+<ul>
+<li><strong>Constipation — NOT_ESTABLISHED:</strong> prospective transit studies before and after verified mucosal healing, with thyroid disease, diet, medications, and pelvic-floor dysfunction controlled, would be needed.</li>
+<li><strong>Fatigue — NOT_ESTABLISHED:</strong> a mechanistic intervention study jointly measuring cytokines, iron and other deficiencies, sleep, pain, mood, and mucosal healing is required to distinguish inflammatory from hematinic and psychosocial routes.</li>
+<li><strong>Recurrent Aphthous Stomatitis — NOT_ESTABLISHED:</strong> serial oral immunophenotyping and hematinic correction/GFD studies with lesion recurrence as the endpoint would settle whether deficiency or local immunity mediates the association.</li>
+<li><strong>Peripheral Neuropathy — NOT_ESTABLISHED:</strong> prospective nerve-biopsy or validated imaging/physiology studies linked to TG6/other antibodies, T-cell clonotypes, nutritional status, and gluten withdrawal are required.</li>
+<li><strong>Arthritis — NOT_ESTABLISHED:</strong> incident-celiac cohorts with imaging-confirmed synovitis, immunophenotyping, genetic controls, and blinded assessment after dietary treatment would distinguish downstream celiac inflammation from coincident inflammatory arthritis.</li>
+<li><strong>Female infertility — NOT_ESTABLISHED:</strong> adequately powered prospective fertility studies stratified by biopsy-proven disease, nutrient status, thyroid autoimmunity, anti-TG2 activity, and objectively verified GFD adherence are needed; trophoblast/endometrial target engagement must be demonstrated in vivo.</li>
+</ul>
+<h2>Overall conclusion</h2>
+<p>Celiac phenotypes do not arise through one uniform downstream pathway. The best-supported convergence hub is <strong>villous injury → nutrient malabsorption</strong>, particularly proximal-duodenal iron loss and calcium/vitamin-D–PTH–bone remodeling. Two organ-specific immune branches are also persuasive: <strong>TG3 IgA/dermal deposition in dermatitis herpetiformis</strong> and <strong>IL-15-selected clonal IELs with JAK1/STAT3 lesions in RCDII/EATL</strong>. TG6-associated ataxia has compelling biomarkers and neuropathology but remains short of demonstrated antibody causality. For constipation, fatigue, aphthous stomatitis, peripheral neuropathy, arthritis, and infertility, association should not be encoded as downstream causation until competing nutritional, genetic, autoimmune, functional, and ascertainment explanations are resolved.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-montorohuguet2021smallandlarge-pages-10-13"></a>(montorohuguet2021smallandlarge pages 10-13): Miguel A. Montoro-Huguet, Blanca Belloc, and Manuel Domínguez-Cajal. Small and large intestine (i): malabsorption of nutrients. Nutrients, 13:1254, Apr 2021. URL: <a href="https://doi.org/10.3390/nu13041254" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu13041254</a>, <a href="https://doi.org/10.3390/nu13041254" target="_blank" rel="noopener noreferrer">doi:10.3390/nu13041254</a>. This article has 210 citations.</p>
+</li>
+<li>
+<p><a id="ref-montorohuguet2021smallandlarge-pages-22-24"></a>(montorohuguet2021smallandlarge pages 22-24): Miguel A. Montoro-Huguet, Blanca Belloc, and Manuel Domínguez-Cajal. Small and large intestine (i): malabsorption of nutrients. Nutrients, 13:1254, Apr 2021. URL: <a href="https://doi.org/10.3390/nu13041254" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu13041254</a>, <a href="https://doi.org/10.3390/nu13041254" target="_blank" rel="noopener noreferrer">doi:10.3390/nu13041254</a>. This article has 210 citations.</p>
+</li>
+<li>
+<p><a id="ref-merlotti2022bonefragilityin-pages-5-7"></a>(merlotti2022bonefragilityin pages 5-7): Daniela Merlotti, Christian Mingiano, Roberto Valenti, Guido Cavati, Marco Calabrese, Filippo Pirrotta, Simone Bianciardi, Alberto Palazzuoli, and Luigi Gennari. Bone fragility in gastrointestinal disorders. International Journal of Molecular Sciences, 23:2713, Feb 2022. URL: <a href="https://doi.org/10.3390/ijms23052713" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms23052713</a>, <a href="https://doi.org/10.3390/ijms23052713" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms23052713</a>. This article has 39 citations.</p>
+</li>
+<li>
+<p><a id="ref-montorohuguet2021smallandlarge-pages-24-25"></a>(montorohuguet2021smallandlarge pages 24-25): Miguel A. Montoro-Huguet, Blanca Belloc, and Manuel Domínguez-Cajal. Small and large intestine (i): malabsorption of nutrients. Nutrients, 13:1254, Apr 2021. URL: <a href="https://doi.org/10.3390/nu13041254" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu13041254</a>, <a href="https://doi.org/10.3390/nu13041254" target="_blank" rel="noopener noreferrer">doi:10.3390/nu13041254</a>. This article has 210 citations.</p>
+</li>
+<li>
+<p><a id="ref-patt2023unravelingtheimmunopathological-pages-7-8"></a>(patt2023unravelingtheimmunopathological pages 7-8): Yonatan Shneor Patt, Adi Lahat, Paula David, Chen Patt, Rowand Eyade, and Kassem Sharif. Unraveling the immunopathological landscape of celiac disease: a comprehensive review. International Journal of Molecular Sciences, 24:15482, Oct 2023. URL: <a href="https://doi.org/10.3390/ijms242015482" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms242015482</a>, <a href="https://doi.org/10.3390/ijms242015482" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms242015482</a>. This article has 31 citations.</p>
+</li>
+<li>
+<p><a id="ref-kaunisto2022antibodyresponsesto-pages-1-3"></a>(kaunisto2022antibodyresponsesto pages 1-3): Helka Kaunisto, Teea Salmi, Katri Lindfors, and Esko Kemppainen. Antibody responses to transglutaminase 3 in dermatitis herpetiformis: lessons from celiac disease. International Journal of Molecular Sciences, 23:2910, Mar 2022. URL: <a href="https://doi.org/10.3390/ijms23062910" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms23062910</a>, <a href="https://doi.org/10.3390/ijms23062910" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms23062910</a>. This article has 26 citations.</p>
+</li>
+<li>
+<p><a id="ref-krupakozak2014pathologicbonealterations-pages-4-5"></a>(krupakozak2014pathologicbonealterations pages 4-5): Urszula Krupa-Kozak. Pathologic bone alterations in celiac disease: etiology, epidemiology, and treatment. Nutrition, 30(1):16-24, Jan 2014. URL: <a href="https://doi.org/10.1016/j.nut.2013.05.027" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.nut.2013.05.027</a>, <a href="https://doi.org/10.1016/j.nut.2013.05.027" target="_blank" rel="noopener noreferrer">doi:10.1016/j.nut.2013.05.027</a>. This article has 145 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-altoma2022thedietaryand-pages-2-4"></a>(altoma2022thedietaryand pages 2-4): Abdulbaqi Al-Toma, Amin Herman, Willem F. Lems, and Chris J. J. Mulder. The dietary and non-dietary management of osteoporosis in adult-onset celiac disease: current status and practical guidance. Nutrients, 14:4554, Oct 2022. URL: <a href="https://doi.org/10.3390/nu14214554" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu14214554</a>, <a href="https://doi.org/10.3390/nu14214554" target="_blank" rel="noopener noreferrer">doi:10.3390/nu14214554</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-lungaro2023osteoporosisandceliac-pages-2-4"></a>(lungaro2023osteoporosisandceliac pages 2-4): Lisa Lungaro, Francesca Manza, Anna Costanzini, Marianna Barbalinardo, Denis Gentili, Fabio Caputo, Matteo Guarino, Giorgio Zoli, Umberto Volta, Roberto De Giorgio, and Giacomo Caio. Osteoporosis and celiac disease: updates and hidden pitfalls. Nutrients, 15:1089, Feb 2023. URL: <a href="https://doi.org/10.3390/nu15051089" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu15051089</a>, <a href="https://doi.org/10.3390/nu15051089" target="_blank" rel="noopener noreferrer">doi:10.3390/nu15051089</a>. This article has 52 citations.</p>
+</li>
+<li>
+<p><a id="ref-lauret2013celiacdiseaseand-pages-6-7"></a>(lauret2013celiacdiseaseand pages 6-7): Eugenia Lauret and Luis Rodrigo. Celiac disease and autoimmune-associated conditions. BioMed Research International, 2013:1-17, Jul 2013. URL: <a href="https://doi.org/10.1155/2013/127589" target="_blank" rel="noopener noreferrer">https://doi.org/10.1155/2013/127589</a>, <a href="https://doi.org/10.1155/2013/127589" target="_blank" rel="noopener noreferrer">doi:10.1155/2013/127589</a>. This article has 321 citations.</p>
+</li>
+<li>
+<p><a id="ref-rouvroye2020theneuropathologyof-pages-13-15"></a>(rouvroye2020theneuropathologyof pages 13-15): Maxine D Rouvroye, Panagiotis Zis, Anne-Marie Van Dam, Annemieke J.M. Rozemuller, Gerd Bouma, and Marios Hadjivassiliou. The neuropathology of gluten-related neurological disorders: a systematic review. Nutrients, 12:822, Mar 2020. URL: <a href="https://doi.org/10.3390/nu12030822" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu12030822</a>, <a href="https://doi.org/10.3390/nu12030822" target="_blank" rel="noopener noreferrer">doi:10.3390/nu12030822</a>. This article has 56 citations.</p>
+</li>
+<li>
+<p><a id="ref-barton2008celiacdiseaseand-pages-14-16"></a>(barton2008celiacdiseaseand pages 14-16): Susan H. Barton and Joseph A. Murray. Celiac disease and autoimmunity in the gut and elsewhere. Gastroenterology clinics of North America, 37 2:411-28,vii, Jun 2008. URL: <a href="https://doi.org/10.1016/j.gtc.2008.02.001" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.gtc.2008.02.001</a>, <a href="https://doi.org/10.1016/j.gtc.2008.02.001" target="_blank" rel="noopener noreferrer">doi:10.1016/j.gtc.2008.02.001</a>. This article has 108 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-cording2022oncogeneticlandscapeof-pages-1-1"></a>(cording2022oncogeneticlandscapeof pages 1-1): Sascha Cording, Ludovic Lhermitte, Georgia Malamut, Sofia Berrabah, Amélie Trinquand, Nicolas Guegan, Patrick Villarese, Sophie Kaltenbach, Bertrand Meresse, Sherine Khater, Michael Dussiot, Marc Bras, Morgane Cheminant, Bruno Tesson, Christine Bole-Feysot, Julie Bruneau, Thierry Jo Molina, David Sibon, Elizabeth Macintyre, Olivier Hermine, Christophe Cellier, Vahid Asnafi, and Nadine Cerf-Bensussan. Oncogenetic landscape of lymphomagenesis in coeliac disease. Gut, 71:497-508, Sep 2022. URL: <a href="https://doi.org/10.1136/gutjnl-2020-322935" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/gutjnl-2020-322935</a>, <a href="https://doi.org/10.1136/gutjnl-2020-322935" target="_blank" rel="noopener noreferrer">doi:10.1136/gutjnl-2020-322935</a>. This article has 116 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-chander2018pathogenesisofenteropathyassociated-pages-1-2"></a>(chander2018pathogenesisofenteropathyassociated pages 1-2): Udit Chander, Rebecca J. Leeman-Neill, and Govind Bhagat. Pathogenesis of enteropathy-associated t cell lymphoma. Current Hematologic Malignancy Reports, 13:308-317, Jun 2018. URL: <a href="https://doi.org/10.1007/s11899-018-0459-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s11899-018-0459-5</a>, <a href="https://doi.org/10.1007/s11899-018-0459-5" target="_blank" rel="noopener noreferrer">doi:10.1007/s11899-018-0459-5</a>. This article has 65 citations.</p>
+</li>
+<li>
+<p><a id="ref-botosso2023theroleof-pages-6-8"></a>(botosso2023theroleof pages 6-8): Maiara Botosso, Renatta Damasceno, and Priscila Farage. The role of the gluten-free diet in the development of malignancies in celiac disease. Celiac Disease and Gluten-Free Diet, Jun 2023. URL: <a href="https://doi.org/10.5772/intechopen.110858" target="_blank" rel="noopener noreferrer">https://doi.org/10.5772/intechopen.110858</a>, <a href="https://doi.org/10.5772/intechopen.110858" target="_blank" rel="noopener noreferrer">doi:10.5772/intechopen.110858</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-hue2022cellularoriginsand-pages-14-16"></a>(hue2022cellularoriginsand pages 14-16): Susan Swee-Shan Hue, Siok-Bian Ng, Shi Wang, and Soo-Yong Tan. Cellular origins and pathogenesis of gastrointestinal nk- and t-cell lymphoproliferative disorders. Cancers, 14:2483, May 2022. URL: <a href="https://doi.org/10.3390/cancers14102483" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cancers14102483</a>, <a href="https://doi.org/10.3390/cancers14102483" target="_blank" rel="noopener noreferrer">doi:10.3390/cancers14102483</a>. This article has 6 citations.</p>
+</li>
+<li>
+<p><a id="ref-gracefarfaglia2015bonesofcontention-pages-13-15"></a>(gracefarfaglia2015bonesofcontention pages 13-15): Patricia Grace-Farfaglia. Bones of contention: bone mineral density recovery in celiac disease—a systematic review. Nutrients, 7:3347-3369, May 2015. URL: <a href="https://doi.org/10.3390/nu7053347" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu7053347</a>, <a href="https://doi.org/10.3390/nu7053347" target="_blank" rel="noopener noreferrer">doi:10.3390/nu7053347</a>. This article has 101 citations.</p>
+</li>
+<li>
+<p><a id="ref-patt2023unravelingtheimmunopathological-pages-14-15"></a>(patt2023unravelingtheimmunopathological pages 14-15): Yonatan Shneor Patt, Adi Lahat, Paula David, Chen Patt, Rowand Eyade, and Kassem Sharif. Unraveling the immunopathological landscape of celiac disease: a comprehensive review. International Journal of Molecular Sciences, 24:15482, Oct 2023. URL: <a href="https://doi.org/10.3390/ijms242015482" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms242015482</a>, <a href="https://doi.org/10.3390/ijms242015482" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms242015482</a>. This article has 31 citations.</p>
+</li>
+<li>
+<p><a id="ref-pelizzaro2021theriskof-pages-2-4"></a>(pelizzaro2021theriskof pages 2-4): Filippo Pelizzaro, Ilaria Marsilio, Matteo Fassan, Francesco Piazza, Brigida Barberio, Anna D’Odorico, Edoardo V. Savarino, Fabio Farinati, and Fabiana Zingone. The risk of malignancies in celiac disease—a literature review. Cancers, 13:5288, Oct 2021. URL: <a href="https://doi.org/10.3390/cancers13215288" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cancers13215288</a>, <a href="https://doi.org/10.3390/cancers13215288" target="_blank" rel="noopener noreferrer">doi:10.3390/cancers13215288</a>. This article has 54 citations.</p>
+</li>
+<li>
+<p><a id="ref-stefano2013bonemassand-pages-10-12"></a>(stefano2013bonemassand pages 10-12): Michele Di Stefano, Caterina Mengoli, Manuela Bergonzi, and Gino Corazza. Bone mass and mineral metabolism alterations in adult celiac disease: pathophysiology and clinical approach. Nutrients, 5:4786-4799, Nov 2013. URL: <a href="https://doi.org/10.3390/nu5114786" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/nu5114786</a>, <a href="https://doi.org/10.3390/nu5114786" target="_blank" rel="noopener noreferrer">doi:10.3390/nu5114786</a>. This article has 89 citations.</p>
+</li>
+<li>
+<p><a id="ref-patt2023unravelingtheimmunopathological-pages-5-7"></a>(patt2023unravelingtheimmunopathological pages 5-7): Yonatan Shneor Patt, Adi Lahat, Paula David, Chen Patt, Rowand Eyade, and Kassem Sharif. Unraveling the immunopathological landscape of celiac disease: a comprehensive review. International Journal of Molecular Sciences, 24:15482, Oct 2023. URL: <a href="https://doi.org/10.3390/ijms242015482" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms242015482</a>, <a href="https://doi.org/10.3390/ijms242015482" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms242015482</a>. This article has 31 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Celiac_Disease-phenotype-wiring-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>27</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>66</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>64</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005130</code> (2 mentions) - the report calls it "if available"; MONDO calls it <strong>celiac disease</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>CL:0000729</code> (obsolete tertiary pigment cell) (1 mention)</li>
+<li><code>GO:0098742</code> (obsolete cell-cell adhesion via plasma-membrane adhesion molecules) (1 mention) - replaced by <code>GO:0098609</code></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Celiac_Disease-phenotype-deep-dive-falcon.html">← Celiac Disease-phenotype-deep-dive (Falcon)</a>
+                
+                
+                <a href="Central_Areolar_Choroidal_Dystrophy-falcon.html">Central Areolar Choroidal Dystrophy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Celiac_Disease-phenotype-wiring-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

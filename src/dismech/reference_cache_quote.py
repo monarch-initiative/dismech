@@ -30,7 +30,9 @@ restore the naive ``c in value`` colon test.
 Frontmatter replacement uses match offsets into the original text so a literal
 ``---`` in the body is never mistaken for the closing delimiter. Double-quoted
 rewrites escape backslashes before quotes so values such as ``C:\\study`` remain
-valid YAML and round-trip unchanged.
+valid YAML and round-trip unchanged. The sweep also trims generated line-end
+spaces and tabs from the scoped cache body so fresh full-text fetches cannot
+leave commits that fail ``git diff --check``.
 """
 
 from __future__ import annotations
@@ -210,29 +212,42 @@ def files_needing_requote(
     cache_dir = Path(cache_dir)
     if not cache_dir.exists():
         return []
+    inputs = list(data_files)
     return [
         md_file.name
-        for md_file, _content, match in _iter_cache_files(cache_dir, data_files)
+        for md_file, _content, match in _iter_cache_files(cache_dir, inputs)
         if requote_frontmatter(match.group("frontmatter"))[1]
+        or (inputs and _strip_line_end_whitespace(_content)[1])
     ]
+
+
+def _strip_line_end_whitespace(content: str) -> tuple[str, bool]:
+    normalized = re.sub(r"[ \t]+(?=\r?\n|\Z)", "", content)
+    return normalized, normalized != content
 
 
 def normalize_reference_cache(
     cache_dir: str | Path, data_files: Iterable[Path] = ()
 ) -> list[str]:
-    """Quote frontmatter values that need it; return the names of rewritten files."""
+    """Normalize scoped cache files; return the names of rewritten files."""
     cache_dir = Path(cache_dir)
     rewritten: list[str] = []
     if not cache_dir.exists():
         return rewritten
-    for md_file, content, match in _iter_cache_files(cache_dir, data_files):
+    inputs = list(data_files)
+    for md_file, content, match in _iter_cache_files(cache_dir, inputs):
         new_frontmatter, modified = requote_frontmatter(match.group("frontmatter"))
+        normalized = content
         if modified:
             normalized = (
                 content[: match.start("frontmatter")]
                 + new_frontmatter
                 + content[match.end("frontmatter") :]
             )
+        whitespace_modified = False
+        if inputs:
+            normalized, whitespace_modified = _strip_line_end_whitespace(normalized)
+        if modified or whitespace_modified:
             md_file.write_text(normalized, encoding="utf-8")
             rewritten.append(md_file.name)
     return rewritten
@@ -244,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     data_files = [Path(value) for value in args[1:]]
     rewritten = normalize_reference_cache(cache_dir, data_files)
     if rewritten:
-        print(f"fix-references-cache: re-quoted {len(rewritten)} file(s)")
+        print(f"fix-references-cache: normalized {len(rewritten)} file(s)")
     return 0
 
 
