@@ -92,7 +92,9 @@ def _entry(
     label: str | None = None,
     references: list[dict] = (),
 ) -> dict:
-    doc: dict = {"name": name, "synonyms": list(synonyms)}
+    doc: dict = {"name": name}
+    if synonyms:
+        doc["synonyms"] = list(synonyms)
     doc["disease_term"] = {
         "preferred_term": label or name,
         "term": {"id": "MONDO:0000001", "label": label or name},
@@ -449,12 +451,24 @@ def test_no_chapter_with_synonyms_stays_clean(tmp_path, index):
     assert "note:" not in text
 
 
-@pytest.mark.parametrize("synonyms", [[], [""], ["   "]])
-def test_empty_or_blank_synonyms_count_as_none(tmp_path, index, synonyms):
-    report = _assess(
-        tmp_path, index, _entry("Chromosome 17q12 Duplication Syndrome", synonyms)
-    )
+@pytest.mark.parametrize("synonyms", [None, [""], ["   "]])
+def test_absent_or_blank_synonyms_count_as_none(tmp_path, index, synonyms):
+    doc = _entry("Chromosome 17q12 Duplication Syndrome")
+    if synonyms is not None:
+        doc["synonyms"] = synonyms
+    report = _assess(tmp_path, index, doc)
     assert report.synonymless and report.unproven("genereviews")
+    assert not report.no_synonyms_recorded
+
+
+def test_explicit_empty_synonyms_records_that_none_exist(tmp_path, index):
+    doc = _entry("Chromosome 17q12 Duplication Syndrome")
+    doc["synonyms"] = []
+    report = _assess(tmp_path, index, doc)
+    assert report.synonymless and report.no_synonyms_recorded
+    assert report.sources["genereviews"].verdict == "NO_CHAPTER"
+    assert not report.unproven("genereviews")
+    assert not report.gating
 
 
 def test_synonymless_candidate_is_noted_but_does_not_gate(tmp_path, index):
@@ -498,12 +512,24 @@ def test_strict_fails_on_synonymless_no_chapter(tmp_path, index, monkeypatch, ca
     assert cgb.main(args) == 0
     out = capsys.readouterr().out
     assert "note: entry has no synonyms" in out
-    assert "1 of the NO_CHAPTER/CANDIDATE_CHAPTER above are from" in out
+    assert "1 NO_CHAPTER/CANDIDATE_CHAPTER verdicts above are from" in out
     assert "is not a\nverified negative" in out
     assert cgb.main(args + ["--strict"]) == 1
     capsys.readouterr()
     assert cgb.main(args + ["--format", "json"]) == 0
     assert '"synonymless": true' in capsys.readouterr().out
+
+    # A whole-KB --strict run names the entries it fails on.
+    monkeypatch.setattr(cgb, "iter_targets", lambda paths: [entry])
+    assert cgb.main(args[1:] + ["--strict"]) == 1
+    out = capsys.readouterr().out
+    assert "note: entry has no synonyms" in out and "`--all` lists" not in out
+    assert cgb.main(args[1:]) == 0
+    assert "`--all` lists those entries" in capsys.readouterr().out
+
+    entry.write_text("name: Chromosome 17q12 Duplication Syndrome\nsynonyms: []\n")
+    assert cgb.main(args + ["--strict", "--source", "genereviews"]) == 0
+    assert "no synonyms;" not in capsys.readouterr().out
 
     entry.write_text(
         "name: Dandy-Walker Syndrome\nsynonyms:\n- Dandy-Walker malformation\n"

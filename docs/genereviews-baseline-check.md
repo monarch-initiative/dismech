@@ -71,8 +71,17 @@ that were searched. That note is printed whenever the file is named on the
 command line, and `--strict` fails a GeneReviews `NO_CHAPTER` of this kind. A
 whole-KB run counts these verdicts on a separate summary line rather than
 listing them, because several hundred finished entries have no synonyms;
-`--all` lists them. The fix is to add the entry's synonyms and re-run, not to
-record that no chapter exists.
+`--all` lists them, and so does `--strict`, since they are then a reason for
+the non-zero exit. The fix is to add the entry's synonyms and re-run, not to
+record that no chapter exists. For a disease that has no synonyms anywhere
+(MONDO included), write an explicit `synonyms: []`: an empty list records that
+synonyms were looked for and none exist, so the negative counts as checked,
+while an absent `synonyms` key still counts as unsearched.
+
+In `--format json` output, `gating` is `true` for a synonym-less GeneReviews
+`NO_CHAPTER`, so a whole-KB count of gating entries includes them. The
+`synonymless` and `no_synonyms_recorded` fields separate them from the other
+gating verdicts; TSV output does not carry either field.
 
 Gating is opt-in (`--strict`) and only ever on GeneReviews. A `TAGGED` entry
 that also has an untagged candidate is reported, not failed.

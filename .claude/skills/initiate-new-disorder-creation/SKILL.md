@@ -406,7 +406,8 @@ you to read; `NO_CHAPTER` means none names the disease. If the report adds
 `note: entry has no synonyms`, the check matched only the name and
 `disease_term`, so its `NO_CHAPTER` proves nothing yet: chapters are often
 titled by a synonym (#12075). Add the synonyms and re-run before writing that
-no chapter exists. The reviewer runs the
+no chapter exists. If the disease has no synonyms anywhere, write
+`synonyms: []` to record that. The reviewer runs the
 same check, so its verdict is what the review will see. The `StatPearls` line
 is informational — a StatPearls chapter may be cited for orientation but is
 never the baseline (see `docs/genereviews-baseline-check.md`).

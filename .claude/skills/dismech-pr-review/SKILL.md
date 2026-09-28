@@ -279,7 +279,7 @@ informational; see below):
 | `CITED_UNTAGGED` | the chapter is cited in the file but not tagged in `references:` — same, and `just tag-references FILE` fixes a PMID citation |
 | `MISTAGGED` | a reference tagged `GeneReviews` is not a GeneReviews chapter: **blocking** — say which |
 | `CANDIDATE_CHAPTER` | a partial title match (`CONTAINS` / `TITLE_IN_NAME` / `NEAR`) or a retired chapter: **read the title** and decide; this is the judgement the check leaves to you |
-| `NO_CHAPTER` | nothing in the snapshot names this entry — no action, and the entry's "no GeneReviews chapter" note is verified. **Unless** the report adds `note: entry has no synonyms`: then only the name and `disease_term` were searched, the negative is unproven, and a missing `synonyms:` block on a new entry is the thing to ask for (#12075) |
+| `NO_CHAPTER` | nothing in the snapshot names this entry — no action, and the entry's "no GeneReviews chapter" note is verified. **Unless** the report adds `note: entry has no synonyms`: then only the name and `disease_term` were searched, the negative is unproven, and a missing `synonyms:` block on a new entry is the thing to ask for (#12075). An entry with an explicit `synonyms: []` has recorded that none exist and gets no note |
 
 The index is a dated snapshot (the summary line prints the date). A chapter
 published since then is missed; when you have network, `--online` adds a live

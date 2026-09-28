@@ -48,7 +48,8 @@ Duplication* for ``Chromosome 17q12 Duplication Syndrome``, #12075). Such a
 report carries a note naming the strings that were searched. It is printed
 when its file is named on the command line; a whole-KB run only counts such
 reports, on their own summary line, because several hundred finished entries
-have no synonyms.
+have no synonyms. An entry that carries an explicit ``synonyms: []`` records
+that none exist, and its negative is treated as checked.
 
 ``GeneReviews`` findings gate under ``--strict`` (``MISTAGGED``,
 ``CITED_UNTAGGED``, ``UNTAGGED_CHAPTER``, and a ``NO_CHAPTER`` from an entry
@@ -155,12 +156,15 @@ class EntryReport:
     #: The entry has no non-empty ``synonyms``, so only its ``name`` and
     #: ``disease_term`` strings were matched against chapter titles.
     synonymless: bool = False
+    #: The entry carries ``synonyms: []``: none exist, rather than none written.
+    no_synonyms_recorded: bool = False
 
     def unproven(self, source: str) -> bool:
         """True when this source's weak verdict rests on a synonym-less search."""
         report = self.sources.get(source)
         return (
             self.synonymless
+            and not self.no_synonyms_recorded
             and report is not None
             and report.verdict in NAME_DEPENDENT_VERDICTS
         )
@@ -190,6 +194,17 @@ def has_synonyms(document: dict) -> bool:
     """Whether the entry carries at least one non-empty string synonym."""
     synonyms = document.get("synonyms") or []
     return any(isinstance(s, str) and s.strip() for s in synonyms)
+
+
+def records_no_synonyms(document: dict) -> bool:
+    """Whether the entry says outright that it has no synonyms: ``synonyms: []``.
+
+    An absent ``synonyms`` key says nothing, so a negative from it is unproven.
+    An explicit empty list is a curator's record that synonyms were looked for
+    and none exist, which is the only way a disease with no synonyms anywhere
+    can pass ``--strict``.
+    """
+    return document.get("synonyms", None) == []
 
 
 def tagged_references(document: dict) -> dict[str, set[str]]:
@@ -415,6 +430,7 @@ def assess_entry(
         path=rel,
         names=names,
         synonymless=not has_synonyms(document),
+        no_synonyms_recorded=records_no_synonyms(document),
         sources={
             source: assess_source(
                 source,
@@ -528,6 +544,7 @@ def to_dict(report: EntryReport) -> dict:
         "path": report.path,
         "names": report.names,
         "synonymless": report.synonymless,
+        "no_synonyms_recorded": report.no_synonyms_recorded,
         "gating": report.gating,
         "sources": {source: asdict(sr) for source, sr in report.sources.items()},
     }
@@ -645,7 +662,7 @@ def summarize(
         unproven = sum(1 for report in reports if report.unproven(source))
         if unproven:
             lines.append(
-                f"  {'':<12} {unproven} of the NO_CHAPTER/CANDIDATE_CHAPTER above are from"
+                f"  {'':<12} {unproven} NO_CHAPTER/CANDIDATE_CHAPTER verdicts above are from"
                 " entries with no synonyms (only name and disease_term searched)"
             )
     return lines
@@ -712,7 +729,9 @@ def main(argv: list[str] | None = None) -> int:
         # A synonym-less NO_CHAPTER is printed when its file was named, which is
         # the drafting case #12075 is about; a whole-KB run only counts them.
         for report in reports:
-            if args.all or report.noteworthy or (args.files and report.has_unproven):
+            # Under --strict it is printed too, since it is then a reason to exit 1.
+            listed = args.files or args.strict
+            if args.all or report.noteworthy or (listed and report.has_unproven):
                 print("\n".join(format_text(report, show_all=args.all)))
         print()
         print("\n".join(summarize(reports, index, sources)))
@@ -729,7 +748,12 @@ def main(argv: list[str] | None = None) -> int:
                 "verified negative: chapters are often titled by a synonym. Add the entry's\n"
                 "synonyms (MONDO's exact synonyms are a good start) and re-run before recording\n"
                 "that no chapter exists."
-                + ("" if args.files else " `--all` lists those entries.")
+                + (
+                    ""
+                    if (args.files or args.strict)
+                    else " `--all` lists those entries."
+                )
+                + " If the disease has no synonyms at all, write `synonyms: []` to record that."
             )
 
     if args.strict and any(r.gating for r in reports):
