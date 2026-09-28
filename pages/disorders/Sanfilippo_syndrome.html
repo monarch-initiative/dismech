@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 33</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Sanfilippo%20syndrome"
@@ -3966,7 +4059,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">31</div>
+                <div class="stat-value">33</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3977,7 +4070,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3994,6 +4087,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4236,6 +4337,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4353,6 +4456,8 @@ This subtype is caused by variation in SGSH (hgnc:10818). hgnc:10818 is a gene f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4374,6 +4479,8 @@ This subtype is caused by variation in SGSH (hgnc:10818). hgnc:10818 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4458,6 +4565,8 @@ This subtype is caused by variation in NAGLU (hgnc:7632). hgnc:7632 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4479,6 +4588,8 @@ This subtype is caused by variation in NAGLU (hgnc:7632). hgnc:7632 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4563,6 +4674,8 @@ This subtype is caused by variation in HGSNAT (hgnc:26527). hgnc:26527 is a gene
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4584,6 +4697,8 @@ This subtype is caused by variation in HGSNAT (hgnc:26527). hgnc:26527 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4668,6 +4783,8 @@ This subtype is caused by variation in GNS (hgnc:4422). hgnc:4422 is a gene from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4689,6 +4806,8 @@ This subtype is caused by variation in GNS (hgnc:4422). hgnc:4422 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4735,6 +4854,7 @@ This subtype is caused by variation in GNS (hgnc:4422). hgnc:4422 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-heparan-sulfate-catabolism-defect" data-dismech-node="Lysosomal heparan sulfate catabolism defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal heparan sulfate catabolism defect</div>
+
 
                 <div class="item-desc">The root disease mechanism is deficiency of one of four lysosomal enzymes required for the stepwise degradation of heparan sulfate.</div>
 
@@ -5154,6 +5274,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5175,6 +5297,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5199,6 +5323,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-heparan-sulfate-accumulation" data-dismech-node="Lysosomal heparan sulfate accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal heparan sulfate accumulation</div>
+
 
                 <div class="item-desc">Partially degraded heparan sulfate accumulates within lysosomes and becomes the biochemical lesion that drives downstream brain pathology.</div>
 
@@ -5236,6 +5361,26 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-nsg-mpsiiia-mice-with-ipsc-sgsh-neural-progenitor-cell-transplant">NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant</a>
+
+                            <span class="crosslink-meta">Mouse</span>
+
+
+                            <span class="crosslink-meta">rescues</span>
+
+
+                            <span class="crosslink-desc">Intrastriatal transplantation of SGSH-transduced iPSC-derived neural progenitors corrects the accumulated heparan sulfate burden in the NSG-MPSIIIA brain, demonstrating that the storage lesion is reversible once enzyme is delivered.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -5312,6 +5457,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5334,6 +5481,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammatory-cascade" data-dismech-node="Neuroinflammatory cascade" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroinflammatory cascade</div>
+
 
                 <div class="item-desc">Brain heparan sulfate storage is accompanied by microglial, astrocytic, and cytokine evidence of neuroinflammation.</div>
 
@@ -5470,6 +5618,26 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-nsg-mpsiiia-mice-with-ipsc-sgsh-neural-progenitor-cell-transplant">NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant</a>
+
+                            <span class="crosslink-meta">Mouse</span>
+
+
+                            <span class="crosslink-meta">rescues</span>
+
+
+                            <span class="crosslink-desc">Gliosis in the NSG-MPSIIIA brain is reduced following SGSH restoration via neural progenitor cell transplantation, indicating that the neuroinflammatory component is responsive to enzyme delivery.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -5505,6 +5673,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5527,6 +5697,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-synaptic-dysfunction" data-dismech-node="Cortical synaptic dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical synaptic dysfunction</div>
+
 
                 <div class="item-desc">Sanfilippo syndrome includes early cortical synaptic dysfunction with abnormal synaptic vesicle and postsynaptic protein handling before overt neuronal loss becomes dominant.</div>
 
@@ -5672,6 +5843,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5694,6 +5867,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-central-neurodegeneration" data-dismech-node="Progressive central neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive central neurodegeneration</div>
+
 
                 <div class="item-desc">The shared clinical trajectory across Sanfilippo syndrome is progressive central nervous system degeneration with worsening cognition, regression, and later premature death.</div>
 
@@ -5765,6 +5939,26 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 </div>
 
 
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-nsg-mpsiiia-mice-with-ipsc-sgsh-neural-progenitor-cell-transplant">NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant</a>
+
+                            <span class="crosslink-meta">Mouse</span>
+
+
+                            <span class="crosslink-meta">rescues</span>
+
+
+                            <span class="crosslink-desc">Spatial working memory deficits in NSG-MPSIIIA mice are fully corrected three months after transplant, showing that this functional component of the neurodegenerative phenotype is reversible at the age treated.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -5849,6 +6043,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5871,6 +6067,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-manifestations-of-glycosaminoglycan-storage" data-dismech-node="Systemic manifestations of glycosaminoglycan storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic manifestations of glycosaminoglycan storage</div>
+
 
                 <div class="item-desc">Although neurologic decline dominates Sanfilippo syndrome, extraneural glycosaminoglycan storage produces a milder systemic branch involving musculoskeletal, auditory, respiratory, and cardiac manifestations.</div>
 
@@ -6016,6 +6213,8 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6061,7 +6260,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal heart valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac valve thickening is part of Sanfilippo cardiac involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001654\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are a core part of the Sanfilippo neurobehavioral presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Autism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism-spectrum manifestations are included among the neurologic and behavioral features of Sanfilippo syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000717\"}}, {\"id\": \"Cardiac conduction abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defects in the cardiac conduction system are part of Sanfilippo cardiac involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031546\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are part of the systemic mucopolysaccharidosis type III phenotype, although somatic features are usually milder than in MPS I and II.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Cortical synaptic dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sanfilippo syndrome includes early cortical synaptic dysfunction with abnormal synaptic vesicle and postsynaptic protein handling before overt neuronal loss becomes dominant.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired developmental skills is a hallmark of progressive Sanfilippo syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysostosis multiplex\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysostosis multiplex can occur in Sanfilippo syndrome as part of the milder systemic skeletal branch of this heparan-sulfate storage disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000943\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are part of the managed clinical complications in MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"GM2 ganglioside storage\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:141420\", \"term_label\": \"ganglioside GM2 (natural compound)\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"GM2 ganglioside storage reports secondary lysosomal storage in the MPS III CNS disease branch.\"}]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is a systemic manifestation in the Sanfilippo syndrome spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heparan sulfate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:28815\", \"term_label\": \"heparan sulfate\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated heparan sulfate reports the proximal lysosomal storage lesion.\"}]}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dysplasia is part of the milder systemic musculoskeletal involvement in MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Hyperactivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe hyperactivity is a prominent early behavioral manifestation of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000752\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive intellectual disability is one of the dominant central nervous system manifestations across the Sanfilippo spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Investigational gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Subtype-specific gene restoration strategies are in development to restore the missing lysosomal enzyme step and lower heparan sulfate storage. The strongest abstract-level mechanistic support in this curation comes from SGSH-directed type A models.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Joint contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Contractures are part of the musculoskeletal branch of MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint stiffness is a systemic musculoskeletal manifestation in the Sanfilippo syndrome spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"Lysosomal heparan sulfate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Partially degraded heparan sulfate accumulates within lysosomes and becomes the biochemical lesion that drives downstream brain pathology.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lysosomal heparan sulfate catabolism defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The root disease mechanism is deficiency of one of four lysosomal enzymes required for the stepwise degradation of heparan sulfate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"heparan sulfate catabolism\"], \"molecular_functions\": [\"N-sulfoglucosamine sulfohydrolase activity\", \"alpha-N-acetylglucosaminidase activity\", \"heparan-alpha-glucosaminide N-acetyltransferase activity\", \"N-acetylglucosamine-6-sulfatase activity\"], \"genes\": [\"SGSH\", \"NAGLU\", \"HGSNAT\", \"GNS\"], \"gene_terms\": [{\"label\": \"SGSH\", \"id\": \"hgnc:10818\"}, {\"label\": \"NAGLU\", \"id\": \"hgnc:7632\"}, {\"label\": \"HGSNAT\", \"id\": \"hgnc:26527\"}, {\"label\": \"GNS\", \"id\": \"hgnc:4422\"}]}}, {\"id\": \"Neuroinflammatory cascade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain heparan sulfate storage is accompanied by microglial, astrocytic, and cytokine evidence of neuroinflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\", \"astrocyte\"], \"biological_processes\": [\"neuroinflammatory response\"], \"locations\": [\"brain\"]}}, {\"id\": \"Progressive central neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared clinical trajectory across Sanfilippo syndrome is progressive central nervous system degeneration with worsening cognition, regression, and later premature death.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Respiratory tract infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory tract and sinopulmonary infections are part of the systemic MPS III spectrum and can contribute to shortened survival.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011947\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis can occur as part of the systemic musculoskeletal involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are recognized neurologic complications requiring specialist management in MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a common neurobehavioral manifestation across the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Substrate reduction therapy (genistein)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Genistein has preclinical activity as a substrate reduction strategy in MPS IIIB, lowering storage burden, neuroinflammation, and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Subtype-specific lysosomal enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate catabolism defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased SGSH, NAGLU, HGSNAT, or GNS enzyme activity reports the root heparan-sulfate catabolic defect.\"}]}}, {\"id\": \"Supportive symptomatic care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management remains largely supportive, with medications and specialist care directed toward behavioral symptoms, sleep disturbance, seizures, and other complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic manifestations of glycosaminoglycan storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although neurologic decline dominates Sanfilippo syndrome, extraneural glycosaminoglycan storage produces a milder systemic branch involving musculoskeletal, auditory, respiratory, and cardiac manifestations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Urinary glycosaminoglycans\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"term_id\": \"CHEBI:18085\", \"term_label\": \"glycosaminoglycan\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Abnormal urinary glycosaminoglycan analysis reports the lysosomal glycosaminoglycan storage axis.\"}]}}], \"edges\": [{\"source\": \"Lysosomal heparan sulfate catabolism defect\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed lysosomal catabolism leads to storage of partially degraded heparan sulfate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate catabolism defect\", \"target\": \"Subtype-specific lysosomal enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same upstream enzymatic lesion is detected diagnostically as decreased activity of the subtype-specific lysosomal enzyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Neuroinflammatory cascade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heparan sulfate storage triggers a neuroinflammatory response in the brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Cortical synaptic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heparan sulfate oligosaccharides perturb synaptic vesicle protein homeostasis in cortical neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Systemic manifestations of glycosaminoglycan storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal heparan sulfate storage also has extraneural systemic effects, including musculoskeletal, hearing, respiratory, and cardiac involvement.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"extraneural glycosaminoglycan storage in somatic tissues\"]}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Heparan sulfate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased heparan sulfate reports the stored substrate in Sanfilippo syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Urinary glycosaminoglycans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Quantitative urinary glycosaminoglycan analysis is used as a diagnostic readout of Sanfilippo glycosaminoglycan storage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"accumulated glycosaminoglycans measured in urine\"]}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"GM2 ganglioside storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GM2 ganglioside storage is a secondary biochemical abnormality in neurodegenerative MPS III brain pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"secondary lysosomal lipid storage in affected brain regions\"]}, {\"source\": \"Neuroinflammatory cascade\", \"target\": \"Progressive central neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory cascade is part of the progressive brain pathology that culminates in severe neurologic decline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical synaptic dysfunction\", \"target\": \"Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early synaptic dysfunction is a plausible mediator of the prominent early behavioral phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS degeneration produces severe intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS degeneration leads to loss of previously acquired developmental skills.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a common neurologic-behavioral consequence of the progressive CNS disease process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autism-spectrum manifestations are part of the neurologic and behavioral output of progressive Sanfilippo CNS disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral problems are part of the neurobehavioral expression of the progressive CNS disease process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures are neurologic complications managed as part of the Sanfilippo clinical spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"progressive neurologic decline\"]}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulties are managed among the later neurologic and systemic complications of Sanfilippo syndrome.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"progressive neurologic decline and multisystem involvement\"]}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycosaminoglycan storage in somatic tissues contributes to coarse facial features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Dysostosis multiplex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic glycosaminoglycan storage can affect skeletal development and produce dysostosis multiplex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint stiffness is one of the musculoskeletal manifestations in the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractures are part of the milder musculoskeletal involvement in MPS III.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is part of the musculoskeletal systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hip dysplasia is one of the musculoskeletal manifestations in the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is part of the systemic Sanfilippo syndrome spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Respiratory tract infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory tract and sinopulmonary infections are part of systemic MPS III involvement and contribute to mortality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Abnormal heart valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Valvular thickening is a cardiac manifestation in the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Cardiac conduction abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac conduction defects are part of the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Investigational gene therapy\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Substrate reduction therapy (genistein)\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Substrate reduction therapy (genistein)\", \"target\": \"Neuroinflammatory cascade\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Hyperactivity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Atypical behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Joint stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Cardiac conduction abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lysosomal heparan sulfate catabolism defect\", \"target\": \"Subtype-specific lysosomal enzyme activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased SGSH, NAGLU, HGSNAT, or GNS enzyme activity reports the root heparan-sulfate catabolic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Heparan sulfate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated heparan sulfate reports the proximal lysosomal storage lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Urinary glycosaminoglycans\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Abnormal urinary glycosaminoglycan analysis reports the lysosomal glycosaminoglycan storage axis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"GM2 ganglioside storage\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"GM2 ganglioside storage reports secondary lysosomal storage in the MPS III CNS disease branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal heart valve morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac valve thickening is part of Sanfilippo cardiac involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001654\"}}, {\"id\": \"Atypical behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are a core part of the Sanfilippo neurobehavioral presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000708\"}}, {\"id\": \"Autism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism-spectrum manifestations are included among the neurologic and behavioral features of Sanfilippo syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000717\"}}, {\"id\": \"Cardiac conduction abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defects in the cardiac conduction system are part of Sanfilippo cardiac involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031546\"}}, {\"id\": \"Coarse facial features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarse facial features are part of the systemic mucopolysaccharidosis type III phenotype, although somatic features are usually milder than in MPS I and II.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Cortical synaptic dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sanfilippo syndrome includes early cortical synaptic dysfunction with abnormal synaptic vesicle and postsynaptic protein handling before overt neuronal loss becomes dominant.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"brain\"]}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of previously acquired developmental skills is a hallmark of progressive Sanfilippo syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Dysostosis multiplex\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysostosis multiplex can occur in Sanfilippo syndrome as part of the milder systemic skeletal branch of this heparan-sulfate storage disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000943\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are part of the managed clinical complications in MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"GM2 ganglioside storage\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:141420\", \"term_label\": \"ganglioside GM2 (natural compound)\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"GM2 ganglioside storage reports secondary lysosomal storage in the MPS III CNS disease branch.\"}]}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is a systemic manifestation in the Sanfilippo syndrome spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Heparan sulfate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:28815\", \"term_label\": \"heparan sulfate\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated heparan sulfate reports the proximal lysosomal storage lesion.\"}]}}, {\"id\": \"Hip dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dysplasia is part of the milder systemic musculoskeletal involvement in MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001385\"}}, {\"id\": \"Hyperactivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe hyperactivity is a prominent early behavioral manifestation of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000752\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive intellectual disability is one of the dominant central nervous system manifestations across the Sanfilippo spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Investigational gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Subtype-specific gene restoration strategies are in development to restore the missing lysosomal enzyme step and lower heparan sulfate storage. The strongest abstract-level mechanistic support in this curation comes from SGSH-directed type A models.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Joint contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Contractures are part of the musculoskeletal branch of MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint stiffness is a systemic musculoskeletal manifestation in the Sanfilippo syndrome spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"Lysosomal heparan sulfate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Partially degraded heparan sulfate accumulates within lysosomes and becomes the biochemical lesion that drives downstream brain pathology.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant\", \"species\": \"Mouse\", \"genotype\": \"NSG-MPSIIIA (immunodeficient NOD/SCID/Il2rg-null, Sgsh-deficient)\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Intrastriatal transplantation of SGSH-transduced iPSC-derived neural progenitors corrects the accumulated heparan sulfate burden in the NSG-MPSIIIA brain, demonstrating that the storage lesion is reversible once enzyme is delivered.\"}]}}, {\"id\": \"Lysosomal heparan sulfate catabolism defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The root disease mechanism is deficiency of one of four lysosomal enzymes required for the stepwise degradation of heparan sulfate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"heparan sulfate catabolism\"], \"molecular_functions\": [\"N-sulfoglucosamine sulfohydrolase activity\", \"alpha-N-acetylglucosaminidase activity\", \"heparan-alpha-glucosaminide N-acetyltransferase activity\", \"N-acetylglucosamine-6-sulfatase activity\"], \"genes\": [\"SGSH\", \"NAGLU\", \"HGSNAT\", \"GNS\"], \"gene_terms\": [{\"label\": \"SGSH\", \"id\": \"hgnc:10818\"}, {\"label\": \"NAGLU\", \"id\": \"hgnc:7632\"}, {\"label\": \"HGSNAT\", \"id\": \"hgnc:26527\"}, {\"label\": \"GNS\", \"id\": \"hgnc:4422\"}]}}, {\"id\": \"NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"NSG (NOD/SCID/IL2R\\u03b3 null immunocompromised) mice with MPS IIIA genetic background receiving allogeneic iPSC-derived neural progenitor cells transduced with SGSH lentiviral vector and transplanted bilaterally into the striatum at 2 months of age.\"}, {\"id\": \"Neuroinflammatory cascade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Brain heparan sulfate storage is accompanied by microglial, astrocytic, and cytokine evidence of neuroinflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\", \"astrocyte\"], \"biological_processes\": [\"neuroinflammatory response\"], \"locations\": [\"brain\"], \"animal_models\": [{\"name\": \"NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant\", \"species\": \"Mouse\", \"genotype\": \"NSG-MPSIIIA (immunodeficient NOD/SCID/Il2rg-null, Sgsh-deficient)\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Gliosis in the NSG-MPSIIIA brain is reduced following SGSH restoration via neural progenitor cell transplantation, indicating that the neuroinflammatory component is responsive to enzyme delivery.\"}]}}, {\"id\": \"Progressive central neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared clinical trajectory across Sanfilippo syndrome is progressive central nervous system degeneration with worsening cognition, regression, and later premature death.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"], \"animal_models\": [{\"name\": \"NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant\", \"species\": \"Mouse\", \"genotype\": \"NSG-MPSIIIA (immunodeficient NOD/SCID/Il2rg-null, Sgsh-deficient)\", \"relationship\": \"RESCUES\", \"fidelity\": \"LOW\", \"description\": \"Spatial working memory deficits in NSG-MPSIIIA mice are fully corrected three months after transplant, showing that this functional component of the neurodegenerative phenotype is reversible at the age treated.\"}]}}, {\"id\": \"Respiratory tract infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory tract and sinopulmonary infections are part of the systemic MPS III spectrum and can contribute to shortened survival.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011947\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis can occur as part of the systemic musculoskeletal involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are recognized neurologic complications requiring specialist management in MPS III.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a common neurobehavioral manifestation across the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Substrate reduction therapy (genistein)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Genistein has preclinical activity as a substrate reduction strategy in MPS IIIB, lowering storage burden, neuroinflammation, and behavioral abnormalities.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Subtype-specific lysosomal enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate catabolism defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased SGSH, NAGLU, HGSNAT, or GNS enzyme activity reports the root heparan-sulfate catabolic defect.\"}]}}, {\"id\": \"Supportive symptomatic care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management remains largely supportive, with medications and specialist care directed toward behavioral symptoms, sleep disturbance, seizures, and other complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic manifestations of glycosaminoglycan storage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Although neurologic decline dominates Sanfilippo syndrome, extraneural glycosaminoglycan storage produces a milder systemic branch involving musculoskeletal, auditory, respiratory, and cardiac manifestations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Urinary glycosaminoglycans\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"term_id\": \"CHEBI:18085\", \"term_label\": \"glycosaminoglycan\", \"readouts\": [{\"target\": \"Lysosomal heparan sulfate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Abnormal urinary glycosaminoglycan analysis reports the lysosomal glycosaminoglycan storage axis.\"}]}}, {\"id\": \"iPSC-derived neural progenitor cell therapy (SGSH)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"iPSC-derived neural progenitor cells transduced with lentiviral vectors encoding SGSH and transplanted into the brain restore SGSH enzyme activity, reduce heparan sulfate storage, reverse neuroinflammation, and correct cognitive deficits in a preclinical MPS IIIA model.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Lysosomal heparan sulfate catabolism defect\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed lysosomal catabolism leads to storage of partially degraded heparan sulfate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate catabolism defect\", \"target\": \"Subtype-specific lysosomal enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same upstream enzymatic lesion is detected diagnostically as decreased activity of the subtype-specific lysosomal enzyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Neuroinflammatory cascade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heparan sulfate storage triggers a neuroinflammatory response in the brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Cortical synaptic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heparan sulfate oligosaccharides perturb synaptic vesicle protein homeostasis in cortical neurons.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Systemic manifestations of glycosaminoglycan storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lysosomal heparan sulfate storage also has extraneural systemic effects, including musculoskeletal, hearing, respiratory, and cardiac involvement.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"extraneural glycosaminoglycan storage in somatic tissues\"]}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Heparan sulfate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased heparan sulfate reports the stored substrate in Sanfilippo syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Urinary glycosaminoglycans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Quantitative urinary glycosaminoglycan analysis is used as a diagnostic readout of Sanfilippo glycosaminoglycan storage.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"accumulated glycosaminoglycans measured in urine\"]}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"GM2 ganglioside storage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GM2 ganglioside storage is a secondary biochemical abnormality in neurodegenerative MPS III brain pathology.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"secondary lysosomal lipid storage in affected brain regions\"]}, {\"source\": \"Neuroinflammatory cascade\", \"target\": \"Progressive central neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory cascade is part of the progressive brain pathology that culminates in severe neurologic decline.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical synaptic dysfunction\", \"target\": \"Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early synaptic dysfunction is a plausible mediator of the prominent early behavioral phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS degeneration produces severe intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive CNS degeneration leads to loss of previously acquired developmental skills.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Sleep disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sleep disturbance is a common neurologic-behavioral consequence of the progressive CNS disease process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Autism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autism-spectrum manifestations are part of the neurologic and behavioral output of progressive Sanfilippo CNS disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Atypical behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral problems are part of the neurobehavioral expression of the progressive CNS disease process.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures are neurologic complications managed as part of the Sanfilippo clinical spectrum.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"progressive neurologic decline\"]}, {\"source\": \"Progressive central neurodegeneration\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulties are managed among the later neurologic and systemic complications of Sanfilippo syndrome.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"progressive neurologic decline and multisystem involvement\"]}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Coarse facial features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glycosaminoglycan storage in somatic tissues contributes to coarse facial features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Dysostosis multiplex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic glycosaminoglycan storage can affect skeletal development and produce dysostosis multiplex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint stiffness is one of the musculoskeletal manifestations in the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Joint contracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contractures are part of the milder musculoskeletal involvement in MPS III.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is part of the musculoskeletal systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Hip dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hip dysplasia is one of the musculoskeletal manifestations in the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss is part of the systemic Sanfilippo syndrome spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Respiratory tract infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory tract and sinopulmonary infections are part of systemic MPS III involvement and contribute to mortality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Abnormal heart valve morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Valvular thickening is a cardiac manifestation in the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic manifestations of glycosaminoglycan storage\", \"target\": \"Cardiac conduction abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac conduction defects are part of the systemic branch.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Investigational gene therapy\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Substrate reduction therapy (genistein)\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Substrate reduction therapy (genistein)\", \"target\": \"Neuroinflammatory cascade\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"iPSC-derived neural progenitor cell therapy (SGSH)\", \"target\": \"Lysosomal heparan sulfate catabolism defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"iPSC-derived neural progenitor cell therapy (SGSH)\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"iPSC-derived neural progenitor cell therapy (SGSH)\", \"target\": \"Neuroinflammatory cascade\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Hyperactivity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Sleep disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Atypical behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Joint stiffness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive symptomatic care\", \"target\": \"Cardiac conduction abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant\", \"target\": \"Lysosomal heparan sulfate accumulation\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Intrastriatal transplantation of SGSH-transduced iPSC-derived neural progenitors corrects the accumulated heparan sulfate burden in the NSG-MPSIIIA brain, demonstrating that the storage lesion is reversible once enzyme is delivered.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"NSG mice are immunocompromised, which differs from the immunologic context of human disease and may influence the neuroinflammatory and microglial response to transplanted cells. The graft is also xenogeneic here -- human cells into murine brain -- whereas the intended clinical product is allogeneic donor-derived material in a human recipient, so the transplant immunology of the model does not match either setting.\"}, {\"source\": \"NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant\", \"target\": \"Neuroinflammatory cascade\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Gliosis in the NSG-MPSIIIA brain is reduced following SGSH restoration via neural progenitor cell transplantation, indicating that the neuroinflammatory component is responsive to enzyme delivery.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The immunocompromised NSG background reduces native microglial activation and may underestimate human neuroinflammatory severity, so the size of the rescue may not transfer to an immunocompetent host. Astrogliosis is also a single glial marker and does not cover the wider neuroinflammatory cascade this link targets.\"}, {\"source\": \"NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant\", \"target\": \"Progressive central neurodegeneration\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Spatial working memory deficits in NSG-MPSIIIA mice are fully corrected three months after transplant, showing that this functional component of the neurodegenerative phenotype is reversible at the age treated.\", \"relationship\": \"RESCUES\", \"fidelity\": \"LOW\", \"limitations\": \"The rescue is measured as a behavioural outcome, not as neuronal survival, so it evidences functional recovery rather than reversal of neurodegeneration itself. Three months of follow-up captures acute-to-subacute reversal but does not assess chronic neurodegeneration beyond this window, and mouse models may miss species-specific aspects of human neuronal vulnerability and cognitive architecture.\"}, {\"source\": \"Lysosomal heparan sulfate catabolism defect\", \"target\": \"Subtype-specific lysosomal enzyme activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased SGSH, NAGLU, HGSNAT, or GNS enzyme activity reports the root heparan-sulfate catabolic defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Heparan sulfate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated heparan sulfate reports the proximal lysosomal storage lesion.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"Urinary glycosaminoglycans\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Abnormal urinary glycosaminoglycan analysis reports the lysosomal glycosaminoglycan storage axis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Lysosomal heparan sulfate accumulation\", \"target\": \"GM2 ganglioside storage\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"GM2 ganglioside storage reports secondary lysosomal storage in the MPS III CNS disease branch.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6092,7 +6291,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6133,6 +6332,9 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6147,6 +6349,8 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6200,6 +6404,9 @@ This clinical feature is Cardiac conduction abnormality (HP:0031546). HP:0031546
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6214,6 +6421,8 @@ This clinical feature is Cardiac conduction abnormality (HP:0031546). HP:0031546
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6276,20 +6485,25 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31536183" target="_blank">PMID:31536183</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6352,6 +6566,9 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6366,6 +6583,8 @@ This clinical feature is Hearing loss, annotated with Hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6430,6 +6649,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6444,6 +6666,8 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6508,6 +6732,9 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6522,6 +6749,8 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6575,6 +6804,9 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6589,6 +6821,8 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6642,6 +6876,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6656,6 +6893,8 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6709,6 +6948,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6723,6 +6965,8 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6776,6 +7020,9 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6790,6 +7037,8 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6852,6 +7101,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6866,6 +7118,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6919,6 +7173,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6933,6 +7190,8 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6986,6 +7245,9 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7000,6 +7262,8 @@ This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7053,6 +7317,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7069,6 +7336,8 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7076,7 +7345,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
                 <div class="evidence-snippet">"Mucopolysaccharidosis type III (MPS III) is a multisystem lysosomal storage disease characterized by progressive central nervous system degeneration manifest as severe intellectual disability (ID), developmental regression, and other neurologic manifestations including autism spectrum disorder..."</div>
 
 
-                <div class="evidence-explanation">GeneReviews directly supports sleep disturbance as a core neurologic- behavioral manifestation of the syndrome.</div>
+                <div class="evidence-explanation">GeneReviews directly supports sleep disturbance as a core neurologic-behavioral manifestation of the syndrome.</div>
 
 
 
@@ -7120,6 +7389,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7134,6 +7406,8 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7187,6 +7461,9 @@ This clinical feature is Behavioral problems, annotated with Atypical behavior (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7201,6 +7478,8 @@ This clinical feature is Behavioral problems, annotated with Atypical behavior (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7254,20 +7533,25 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31536183" target="_blank">PMID:31536183</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7298,7 +7582,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Respiratory
                     <span class="cat-count">1</span>
                 </summary>
 
@@ -7330,6 +7614,9 @@ This clinical feature is Respiratory tract infection (HP:0011947). HP:0011947 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7344,6 +7631,8 @@ This clinical feature is Respiratory tract infection (HP:0011947). HP:0011947 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7414,7 +7703,7 @@ This clinical feature is Respiratory tract infection (HP:0011947). HP:0011947 is
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-investigational-gene-therapy" data-dismech-node="Investigational gene therapy" data-dismech-type="treatment">
@@ -7458,6 +7747,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Subtype-specific gene restoration strategies are in development to restore the missing lysosomal enzyme step and lower heparan sulfate storage. The strongest abstract-level mechanistic support in this curation comes from SGSH-directed type A models.</div>
 
 
@@ -7488,6 +7802,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7530,6 +7846,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7593,6 +7911,20 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genistein has preclinical activity as a substrate reduction strategy in MPS IIIB, lowering storage burden, neuroinflammation, and behavioral abnormalities.</div>
 
 
@@ -7623,6 +7955,8 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7671,6 +8005,8 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7713,6 +8049,8 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7733,6 +8071,266 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-ipsc-derived-neural-progenitor-cell-therapy-sgsh" data-dismech-node="iPSC-derived neural progenitor cell therapy (SGSH)" data-dismech-type="treatment">
+                <div class="item-name">
+                    iPSC-derived neural progenitor cell therapy (SGSH)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">ex vivo neural progenitor gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ex vivo neural progenitor gene therapy, annotated with Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">iPSC-derived neural progenitor cells transduced with lentiviral vectors encoding SGSH and transplanted into the brain restore SGSH enzyme activity, reduce heparan sulfate storage, reverse neuroinflammation, and correct cognitive deficits in a preclinical MPS IIIA model.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Lysosomal heparan sulfate catabolism defect</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; iPSC-derived neural progenitor cells transduced with SGSH gene restore enzyme expression and catabolism in the brain.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report a neural stem cell gene therapy that achieves high enzyme delivery and restores cognitive function, likely through integration of healthy neural cells across multiple brain regions."</div>
+
+
+                <div class="evidence-explanation">Reports that the transplanted, SGSH-transduced neural cells achieve high enzyme delivery to the brain, which is the restoration of the deficient catabolic step this link claims.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Lysosomal heparan sulfate accumulation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; SGSH-expressing neural progenitor cell transplants reduce heparan sulfate storage in the brain.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis."</div>
+
+
+                <div class="evidence-explanation">This model demonstrates significant reduction in the primary lysosomal storage lesion following SGSH cell transplantation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Neuroinflammatory cascade</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Reduced astrogliosis indicates dampening of the neuroinflammatory cascade.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis."</div>
+
+
+                <div class="evidence-explanation">Reduced astrogliosis is a direct marker of reduced neuroinflammatory activation following SGSH restoration.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This allogeneic, enzyme-expressing neural cell strategy addresses both enzyme deficiency and neurodegeneration, offering a promising therapeutic avenue for MPS IIIA and broader lysosomal storage disorders."</div>
+
+
+                <div class="evidence-explanation">This preclinical study demonstrates a novel cell and gene therapy approach combining iPSC-derived neural progenitor cells with SGSH restoration as a disease-modifying strategy for MPS IIIA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
             <div class="item-box treatment-box anchor-target" id="treatment-supportive-symptomatic-care" data-dismech-node="Supportive symptomatic care" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive symptomatic care
@@ -7741,7 +8339,7 @@ This treatment is substrate reduction therapy, annotated with Substrate Deprivat
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7774,6 +8372,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management remains largely supportive, with medications and specialist care directed toward behavioral symptoms, sleep disturbance, seizures, and other complications.</div>
 
 
@@ -7789,11 +8401,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000752</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000752</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hyperactivity (HP:0000752). HP:0000752 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7806,11 +8418,11 @@ This treatment targets Hyperactivity (HP:0000752). HP:0000752 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002360</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7823,11 +8435,11 @@ This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000708</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Behavioral problems, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7840,11 +8452,11 @@ This treatment targets Behavioral problems, annotated with Atypical behavior (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7857,11 +8469,11 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0011968</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7874,11 +8486,11 @@ This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000365</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Hearing loss, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7891,11 +8503,11 @@ This treatment targets Hearing loss, annotated with Hearing impairment (HP:00003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001387</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001387</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7908,11 +8520,11 @@ This treatment targets Joint stiffness (HP:0001387). HP:0001387 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0031546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0031546</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7936,6 +8548,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8025,6 +8639,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8064,6 +8680,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8138,6 +8756,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8177,6 +8797,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8251,6 +8873,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8290,6 +8914,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8364,6 +8990,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8405,6 +9033,8 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8428,6 +9058,196 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-neurobehavioral-onset">
+                <div class="item-name">Childhood neurobehavioral onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: typically before age 10 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Sanfilippo syndrome usually begins in childhood with a neurobehavioral presentation and may follow either a rapidly progressive or a more slowly progressive course.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31536183" target="_blank">PMID:31536183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disease onset is typically before age ten years."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports childhood onset as the usual entry point into the disease course.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31536183" target="_blank">PMID:31536183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disease course may be rapidly or slowly progressive; some individuals with an extremely attenuated disease course present in mid-to-late adulthood with early-onset dementia with or without a history of ID."</div>
+
+
+                <div class="evidence-explanation">This review supports modeling Sanfilippo syndrome as a shared spectrum with variable tempo, including attenuated forms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-neurologic-decline-and-shortened-survival">
+                <div class="item-name">Progressive neurologic decline and shortened survival</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Neurologic decline is universal across the syndrome, although severity varies within and among subtypes.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31536183" target="_blank">PMID:31536183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurologic decline is seen in all affected individuals; however, clinical severity varies within and among the four MPS III subtypes (defined by the enzyme involved) and even among members of the same family."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports universal neurologic decline across the syndrome while preserving subtype- and family-level variability.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31536183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31536183" target="_blank">PMID:31536183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Death usually occurs in the second or third decade of life secondary to neurologic regression or respiratory tract infections."</div>
+
+
+                <div class="evidence-explanation">This review supports shortened survival from progressive neurologic and systemic complications.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8441,6 +9261,366 @@ This treatment targets Cardiac conduction abnormality (HP:0031546). HP:0031546 i
 
 
         <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-nsg-mpsiiia-mice-with-ipsc-sgsh-neural-progenitor-cell-transplant" data-dismech-node="NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant" data-dismech-type="animal_model">
+                <div class="item-name">
+                    NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant
+
+                </div>
+
+                <div class="item-desc">NSG (NOD/SCID/IL2Rγ null immunocompromised) mice with MPS IIIA genetic background receiving allogeneic iPSC-derived neural progenitor cells transduced with SGSH lentiviral vector and transplanted bilaterally into the striatum at 2 months of age.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">NSG-MPSIIIA (immunodeficient NOD/SCID/Il2rg-null, Sgsh-deficient)</div>
+                    </div>
+
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:42576387">PMID:42576387</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-lysosomal-heparan-sulfate-accumulation">Lysosomal heparan sulfate accumulation</a>
+
+                <span class="crosslink-meta">rescues</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Intrastriatal transplantation of SGSH-transduced iPSC-derived neural progenitors corrects the accumulated heparan sulfate burden in the NSG-MPSIIIA brain, demonstrating that the storage lesion is reversible once enzyme is delivered.</span>
+
+
+                <div class="mapping-notes">Limitations: NSG mice are immunocompromised, which differs from the immunologic context of human disease and may influence the neuroinflammatory and microglial response to transplanted cells. The graft is also xenogeneic here -- human cells into murine brain -- whereas the intended clinical product is allogeneic donor-derived material in a human recipient, so the transplant immunology of the model does not match either setting.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Heparan sulfate content in brain</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Reduction in the primary stored substrate after transplant is the direct measure of the rescue arm.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis."</div>
+
+
+                <div class="evidence-explanation">Documents the quantified reduction in heparan sulfate storage following SGSH cell transplantation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-neuroinflammatory-cascade">Neuroinflammatory cascade</a>
+
+                <span class="crosslink-meta">rescues</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Gliosis in the NSG-MPSIIIA brain is reduced following SGSH restoration via neural progenitor cell transplantation, indicating that the neuroinflammatory component is responsive to enzyme delivery.</span>
+
+
+                <div class="mapping-notes">Limitations: The immunocompromised NSG background reduces native microglial activation and may underestimate human neuroinflammatory severity, so the size of the rescue may not transfer to an immunocompetent host. Astrogliosis is also a single glial marker and does not cover the wider neuroinflammatory cascade this link targets.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Astrogliosis (GFAP+ cell burden)</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Reduced astrogliosis indicates dampening of the neuroinflammatory response following enzymatic correction.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis."</div>
+
+
+                <div class="evidence-explanation">Directly measures reduced glial activation as a marker of neuroinflammatory improvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-progressive-central-neurodegeneration">Progressive central neurodegeneration</a>
+
+                <span class="crosslink-meta">rescues</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">Spatial working memory deficits in NSG-MPSIIIA mice are fully corrected three months after transplant, showing that this functional component of the neurodegenerative phenotype is reversible at the age treated.</span>
+
+
+                <div class="mapping-notes">Limitations: The rescue is measured as a behavioural outcome, not as neuronal survival, so it evidences functional recovery rather than reversal of neurodegeneration itself. Three months of follow-up captures acute-to-subacute reversal but does not assess chronic neurodegeneration beyond this window, and mouse models may miss species-specific aspects of human neuronal vulnerability and cognitive architecture.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Spatial working memory</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: RESTORED</div>
+
+
+        <div class="mapping-notes">Interpretation: Full correction of the cognitive deficit is a functional readout of the rescue. The abstract does not name the behavioural task used.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis."</div>
+
+
+                <div class="evidence-explanation">Demonstrates full reversal of the cognitive phenotype following SGSH cell transplantation, the primary behavioral outcome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">The abstract names the strain as NSG-MPSIIIA but does not state the Sgsh allele, so none is recorded here. Every link below is a RESCUES arm: this study reports only post-transplant outcomes, and the abstract offers no quotable baseline measurement of untreated mutants against wild-type, so no recapitulation claim is made for this model.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42576387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42576387" target="_blank">PMID:42576387</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Induced pluripotent stem cells were generated from healthy and MPS IIIA patient fibroblasts, differentiated into neural progenitor cells, and transduced with lentiviral vectors encoding codon-optimized SGSH and luciferase. Modified cells were bilaterally transplanted into the striatum of..."</div>
+
+
+                <div class="evidence-explanation">Establishes the NSG-MPSIIIA mouse model as a preclinical platform for testing iPSC-derived SGSH gene therapy and neural cell transplantation in MPS IIIA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -8884,7 +10064,7 @@ pathophysiology:
     evidence:
     - reference: PMID:22008915
       reference_title: Liver production of sulfamidase reverses peripheral and ameliorates CNS pathology in mucopolysaccharidosis IIIA mice.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: Mucopolysaccharidosis type IIIA (MPSIIIA) is an inherited lysosomal storage disease caused by deficiency of sulfamidase, resulting in accumulation of the glycosaminoglycan (GAG) heparan sulfate. It is characterized by severe progressive neurodegeneration, together with somatic alterations, which lead to death during adolescence.
       explanation: &gt;-
@@ -8986,7 +10166,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37794029
       reference_title: Disease pathology signatures in a mouse model of Mucopolysaccharidosis type IIIB.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: The lack of functional enzyme in MPS IIIB patients leads to the progressive accumulation of heparan sulfate throughout the body and triggers a cascade of neuroinflammatory and other biochemical processes ultimately resulting in severe mental impairment and early death in adolescence or young adulthood.
       explanation: &gt;-
@@ -9033,7 +10213,7 @@ pathophysiology:
     evidence:
     - reference: PMID:19386237
       reference_title: Enhanced degradation of synaptophysin by the proteasome in mucopolysaccharidosis type IIIB.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: Behavioural manifestations are prominent at disease onset, suggesting possible early synaptic defects in cortical neurons.
       explanation: &gt;-
@@ -9144,7 +10324,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31536183
       reference_title: Mucopolysaccharidosis Type III.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Treatment of manifestations: Supportive therapies for neurodevelopmental
@@ -9166,7 +10346,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31536183
       reference_title: Mucopolysaccharidosis Type III.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Treatment of manifestations: Supportive therapies for neurodevelopmental
@@ -9213,7 +10393,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:581
-      reference_title: &#34;Mucopolysaccharidosis type 3 (Orphanet structured-database record)&#34;
+      reference_title: &#34;Mucopolysaccharidosis type 3&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000280 | Coarse facial features | Frequent (79-30%)&#34;
@@ -9226,7 +10406,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:581
-      reference_title: &#34;Mucopolysaccharidosis type 3 (Orphanet structured-database record)&#34;
+      reference_title: &#34;Mucopolysaccharidosis type 3&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000943 | Dysostosis multiplex | Occasional (29-5%)&#34;
@@ -9411,8 +10591,8 @@ phenotypes:
     evidence_source: OTHER
     snippet: Mucopolysaccharidosis type III (MPS III) is a multisystem lysosomal storage disease characterized by progressive central nervous system degeneration manifest as severe intellectual disability (ID), developmental regression, and other neurologic manifestations including autism spectrum disorder (ASD), behavioral problems, and sleep disturbances.
     explanation: &gt;-
-      GeneReviews directly supports sleep disturbance as a core neurologic-
-      behavioral manifestation of the syndrome.
+      GeneReviews directly supports sleep disturbance as a core neurologic-behavioral
+      manifestation of the syndrome.
 - name: Autism
   category: Behavioral
   description: &gt;-
@@ -9464,7 +10644,7 @@ phenotypes:
   evidence:
   - reference: PMID:31536183
     reference_title: Mucopolysaccharidosis Type III.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Treatment of manifestations: Supportive therapies for neurodevelopmental
@@ -9489,7 +10669,7 @@ phenotypes:
   evidence:
   - reference: PMID:31536183
     reference_title: Mucopolysaccharidosis Type III.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Treatment of manifestations: Supportive therapies for neurodevelopmental
@@ -9515,7 +10695,7 @@ phenotypes:
       label: Coarse facial features
   evidence:
   - reference: ORPHA:581
-    reference_title: &#34;Mucopolysaccharidosis type 3 (Orphanet structured-database record)&#34;
+    reference_title: &#34;Mucopolysaccharidosis type 3&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000280 | Coarse facial features | Frequent (79-30%)&#34;
@@ -9536,7 +10716,7 @@ phenotypes:
       label: Dysostosis multiplex
   evidence:
   - reference: ORPHA:581
-    reference_title: &#34;Mucopolysaccharidosis type 3 (Orphanet structured-database record)&#34;
+    reference_title: &#34;Mucopolysaccharidosis type 3&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000943 | Dysostosis multiplex | Occasional (29-5%)&#34;
@@ -9912,6 +11092,88 @@ treatments:
     explanation: &gt;-
       This preclinical abstract supports genistein as an investigational
       substrate reduction approach relevant to the Sanfilippo spectrum.
+- name: iPSC-derived neural progenitor cell therapy (SGSH)
+  description: &gt;-
+    iPSC-derived neural progenitor cells transduced with lentiviral vectors
+    encoding SGSH and transplanted into the brain restore SGSH enzyme activity,
+    reduce heparan sulfate storage, reverse neuroinflammation, and correct
+    cognitive deficits in a preclinical MPS IIIA model.
+  therapeutic_modality: CELL_THERAPY
+  treatment_term:
+    preferred_term: ex vivo neural progenitor gene therapy
+    term:
+      id: NCIT:C15238
+      label: Gene Therapy
+  notes: &gt;-
+    This is an ex vivo gene-modified cell product, so it sits across two
+    categories. `treatment_term` is bound to Gene Therapy because the
+    intervention is lentiviral transfer of a codon-optimized SGSH transgene --
+    the paper&#39;s own framing is a &#34;neural stem cell gene therapy&#34; -- while
+    `therapeutic_modality` records CELL_THERAPY because the transgene is
+    delivered as a transplanted neural progenitor cell product rather than as a
+    vector. NCIT has no clinical-action term for neural or non-hematopoietic
+    stem cell transplantation; the hematopoietic transplantation terms must not
+    be reused here, because HSCT is a separate and distinct intervention in
+    MPS III with its own outcome literature. How the graft corrects distant
+    brain regions is not settled: the authors attribute the effect &#34;likely
+    through integration of healthy neural cells across multiple brain regions&#34;,
+    which is a hedge, and the alternative -- secreted-enzyme cross-correction of
+    neighbouring host cells from a focal striatal depot -- is not excluded by
+    the reported data.
+  target_mechanisms:
+  - target: Lysosomal heparan sulfate catabolism defect
+    treatment_effect: RESTORES
+    description: &gt;-
+      iPSC-derived neural progenitor cells transduced with SGSH gene restore
+      enzyme expression and catabolism in the brain.
+    evidence:
+    - reference: PMID:42576387
+      reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Here, we report a neural stem cell gene therapy that achieves high enzyme delivery and restores cognitive function, likely through integration of healthy neural cells across multiple brain regions.
+      explanation: &gt;-
+        Reports that the transplanted, SGSH-transduced neural cells achieve high
+        enzyme delivery to the brain, which is the restoration of the deficient
+        catabolic step this link claims.
+  - target: Lysosomal heparan sulfate accumulation
+    treatment_effect: INHIBITS
+    description: &gt;-
+      SGSH-expressing neural progenitor cell transplants reduce heparan sulfate
+      storage in the brain.
+    evidence:
+    - reference: PMID:42576387
+      reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis.
+      explanation: &gt;-
+        This model demonstrates significant reduction in the primary lysosomal
+        storage lesion following SGSH cell transplantation.
+  - target: Neuroinflammatory cascade
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Reduced astrogliosis indicates dampening of the neuroinflammatory
+      cascade.
+    evidence:
+    - reference: PMID:42576387
+      reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis.
+      explanation: &gt;-
+        Reduced astrogliosis is a direct marker of reduced neuroinflammatory
+        activation following SGSH restoration.
+  evidence:
+  - reference: PMID:42576387
+    reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: This allogeneic, enzyme-expressing neural cell strategy addresses both enzyme deficiency and neurodegeneration, offering a promising therapeutic avenue for MPS IIIA and broader lysosomal storage disorders.
+    explanation: &gt;-
+      This preclinical study demonstrates a novel cell and gene therapy
+      approach combining iPSC-derived neural progenitor cells with SGSH
+      restoration as a disease-modifying strategy for MPS IIIA.
 - name: Supportive symptomatic care
   description: &gt;-
     Management remains largely supportive, with medications and specialist care
@@ -9973,6 +11235,115 @@ treatments:
   notes: &gt;-
     The same GeneReviews summary states that no treatments are currently
     clinically available for the primary manifestations of MPS III.
+animal_models:
+- name: NSG-MPSIIIA mice with iPSC-SGSH neural progenitor cell transplant
+  species: Mouse
+  genotype: NSG-MPSIIIA (immunodeficient NOD/SCID/Il2rg-null, Sgsh-deficient)
+  description: &gt;-
+    NSG (NOD/SCID/IL2Rγ null immunocompromised) mice with MPS IIIA
+    genetic background receiving allogeneic iPSC-derived neural progenitor
+    cells transduced with SGSH lentiviral vector and transplanted
+    bilaterally into the striatum at 2 months of age.
+  notes: &gt;-
+    The abstract names the strain as NSG-MPSIIIA but does not state the Sgsh
+    allele, so none is recorded here. Every link below is a RESCUES arm: this
+    study reports only post-transplant outcomes, and the abstract offers no
+    quotable baseline measurement of untreated mutants against wild-type, so no
+    recapitulation claim is made for this model.
+  publication: PMID:42576387
+  modeled_mechanisms:
+  - target: Lysosomal heparan sulfate accumulation
+    relationship: RESCUES
+    fidelity: MODERATE
+    description: &gt;-
+      Intrastriatal transplantation of SGSH-transduced iPSC-derived neural
+      progenitors corrects the accumulated heparan sulfate burden in the
+      NSG-MPSIIIA brain, demonstrating that the storage lesion is reversible
+      once enzyme is delivered.
+    limitations: &gt;-
+      NSG mice are immunocompromised, which differs from the immunologic
+      context of human disease and may influence the neuroinflammatory and
+      microglial response to transplanted cells. The graft is also xenogeneic
+      here -- human cells into murine brain -- whereas the intended clinical
+      product is allogeneic donor-derived material in a human recipient, so the
+      transplant immunology of the model does not match either setting.
+    readouts:
+    - name: Heparan sulfate content in brain
+      target: Lysosomal heparan sulfate accumulation
+      direction: DECREASED
+      interpretation: Reduction in the primary stored substrate after transplant
+        is the direct measure of the rescue arm.
+      evidence:
+      - reference: PMID:42576387
+        reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis.
+        explanation: Documents the quantified reduction in heparan sulfate storage following SGSH cell transplantation.
+  - target: Neuroinflammatory cascade
+    relationship: RESCUES
+    fidelity: MODERATE
+    description: &gt;-
+      Gliosis in the NSG-MPSIIIA brain is reduced following SGSH restoration via
+      neural progenitor cell transplantation, indicating that the
+      neuroinflammatory component is responsive to enzyme delivery.
+    limitations: &gt;-
+      The immunocompromised NSG background reduces native microglial
+      activation and may underestimate human neuroinflammatory severity, so the
+      size of the rescue may not transfer to an immunocompetent host.
+      Astrogliosis is also a single glial marker and does not cover the wider
+      neuroinflammatory cascade this link targets.
+    readouts:
+    - name: Astrogliosis (GFAP+ cell burden)
+      target: Neuroinflammatory cascade
+      direction: DECREASED
+      interpretation: Reduced astrogliosis indicates dampening of the
+        neuroinflammatory response following enzymatic correction.
+      evidence:
+      - reference: PMID:42576387
+        reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis.
+        explanation: Directly measures reduced glial activation as a marker of neuroinflammatory improvement.
+  - target: Progressive central neurodegeneration
+    relationship: RESCUES
+    fidelity: LOW
+    description: &gt;-
+      Spatial working memory deficits in NSG-MPSIIIA mice are fully corrected
+      three months after transplant, showing that this functional component of
+      the neurodegenerative phenotype is reversible at the age treated.
+    limitations: &gt;-
+      The rescue is measured as a behavioural outcome, not as neuronal
+      survival, so it evidences functional recovery rather than reversal of
+      neurodegeneration itself. Three months of follow-up captures
+      acute-to-subacute reversal but does not assess chronic neurodegeneration
+      beyond this window, and mouse models may miss species-specific aspects of
+      human neuronal vulnerability and cognitive architecture.
+    readouts:
+    - name: Spatial working memory
+      target: Progressive central neurodegeneration
+      direction: RESTORED
+      interpretation: Full correction of the cognitive deficit is a functional
+        readout of the rescue. The abstract does not name the behavioural task
+        used.
+      evidence:
+      - reference: PMID:42576387
+        reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: Three months post-injection, behavioural and histological analyses demonstrated full correction of spatial working memory deficits and significant reductions in heparan sulfate storage and astrogliosis.
+        explanation: Demonstrates full reversal of the cognitive phenotype following SGSH cell transplantation, the primary behavioral outcome.
+  evidence:
+  - reference: PMID:42576387
+    reference_title: Human iPSC-derived neural progenitor gene therapy improves outcomes in a neuropathic lysosomal disease.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: Induced pluripotent stem cells were generated from healthy and MPS IIIA patient fibroblasts, differentiated into neural progenitor cells, and transduced with lentiviral vectors encoding codon-optimized SGSH and luciferase. Modified cells were bilaterally transplanted into the striatum of NSG-MPSIIIA mice at two months of age.
+    explanation: &gt;-
+      Establishes the NSG-MPSIIIA mouse model as a preclinical platform for
+      testing iPSC-derived SGSH gene therapy and neural cell transplantation
+      in MPS IIIA.
 references:
 - reference: PMID:31536183
   title: &#34;Mucopolysaccharidosis Type III.&#34;
@@ -10022,6 +11393,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10345,7 +11718,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sanfilippo syndrome", "mondoId": "MONDO:0018937", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sanfilippo_syndrome", "yamlRevision": "7c539479ea28"};
+        const OS_CONFIG = {"diseaseName": "Sanfilippo syndrome", "mondoId": "MONDO:0018937", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sanfilippo_syndrome", "yamlRevision": "8bdc0f422783"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

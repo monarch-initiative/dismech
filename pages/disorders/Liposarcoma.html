@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4206,6 +4299,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-12q13-15-mdm2-cdk4-amplification" data-dismech-node="12q13-15 (MDM2/CDK4) Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">12q13-15 (MDM2/CDK4) Amplification</div>
 
+
                 <div class="item-desc">Well-differentiated and dedifferentiated liposarcomas exhibit the characteristic amplification of chromosome region 12q13-15, which contains the oncogenes MDM2 and CDK4 (and HMGA2). This copy-number amplification is the defining molecular event of the WDLPS/DDLPS lineage and is detected diagnostically by FISH/IHC to distinguish these tumors from benign lipoma.</div>
 
 
@@ -4243,6 +4337,31 @@ This pathophysiological event involves mesenchymal stem cell of adipose tissue (
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -4291,6 +4410,8 @@ This pathophysiological event involves mesenchymal stem cell of adipose tissue (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4315,6 +4436,7 @@ MDM2."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-inactivation-and-cell-cycle-dysregulation" data-dismech-node="p53 Inactivation and Cell-Cycle Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">p53 Inactivation and Cell-Cycle Dysregulation</div>
+
 
                 <div class="item-desc">Amplified MDM2 is an E3 ubiquitin ligase that targets the p53 tumor suppressor for degradation, abrogating p53-mediated apoptosis and cell-cycle arrest; amplified CDK4 phosphorylates RB to drive G1/S cell-cycle progression. The combined loss of these checkpoints permits uncontrolled proliferation and underpins the rationale for MDM2 inhibitors and CDK4/6 inhibitors in WDLPS/DDLPS.</div>
 
@@ -4395,14 +4517,16 @@ This pathophysiological event involves increased cell population proliferation (
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38254762" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38254762" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38254762" target="_blank">PMID:38254762</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4428,6 +4552,7 @@ MDM2 inhibitors"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocyte-stem-cell-origin-and-clonal-evolution" data-dismech-node="Adipocyte Stem Cell Origin and Clonal Evolution" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocyte Stem Cell Origin and Clonal Evolution</div>
+
 
                 <div class="item-desc">Single-cell profiling of paired well-differentiated and dedifferentiated DDLPS components identifies a population of tumor adipocyte stem cells (ASC) resembling adipocyte stromal progenitors of white adipose tissue. These ASC harbor the ancestral genomic alterations shared by both components, indicating that the WD and DD components derive from a common progenitor through clonal evolution.</div>
 
@@ -4535,6 +4660,8 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4558,6 +4685,8 @@ similarities with adipocyte stromal progenitors found in white adipose tissue."<
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4584,6 +4713,7 @@ evolution."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adipocytic-differentiation-block" data-dismech-node="Adipocytic Differentiation Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Adipocytic Differentiation Block</div>
+
 
                 <div class="item-desc">A hallmark of liposarcoma is the failure of tumor cells to complete normal adipogenic differentiation. In DDLPS, the adipogenic properties of ASC-like tumor cells are actively inhibited by a TGF-beta-high immunosuppressive tumor microenvironment. In myxoid liposarcoma, the FUS::DDIT3 chimeric transcription factor blocks adipocyte differentiation. Restoring differentiation (e.g., with trabectedin in MLS) is therapeutically exploitable.</div>
 
@@ -4693,6 +4823,8 @@ This pathophysiological event involves increased transforming growth factor beta
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4716,6 +4848,7 @@ are inhibited by a TGF-β-high immunosuppressive tumor micro-environment."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fus-ddit3-fusion-oncoprotein-in-myxoid-liposarcoma" data-dismech-node="FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma" data-dismech-type="pathophysiology">
                 <div class="item-name">FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma</div>
+
 
                 <div class="item-desc">Myxoid liposarcoma is driven by the FUS::DDIT3 fusion protein, formed by the t(12;16)(q13;p11) translocation and present in over 90% of cases (a minority instead carry EWSR1::DDIT3). FUS::DDIT3 acts as an aberrant transcription factor that inhibits adipocyte differentiation and promotes tumor growth and invasive migration. Trabectedin detaches FUS-DDIT3 from its DNA binding sites, reactivating adipogenesis - providing the mechanistic basis for its unusual efficacy in this subtype.</div>
 
@@ -4754,6 +4887,31 @@ This pathophysiological event involves adipocyte progenitor, annotated with mese
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -4825,6 +4983,8 @@ This pathophysiological event involves increased negative regulation of fat cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4850,6 +5010,8 @@ crucial protein in its development."</div>
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4873,6 +5035,8 @@ an aberrant transcription factor"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4922,7 +5086,7 @@ reactivation of adipogenesis."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"12q13-15 (MDM2/CDK4) Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Well-differentiated and dedifferentiated liposarcomas exhibit the characteristic amplification of chromosome region 12q13-15, which contains the oncogenes MDM2 and CDK4 (and HMGA2). This copy-number amplification is the defining molecular event of the WDLPS/DDLPS lineage and is detected diagnostically by FISH/IHC to distinguish these tumors from benign lipoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mesenchymal stem cell of adipose tissue\"]}}, {\"id\": \"Adipocyte Stem Cell Origin and Clonal Evolution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell profiling of paired well-differentiated and dedifferentiated DDLPS components identifies a population of tumor adipocyte stem cells (ASC) resembling adipocyte stromal progenitors of white adipose tissue. These ASC harbor the ancestral genomic alterations shared by both components, indicating that the WD and DD components derive from a common progenitor through clonal evolution.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"tumor adipocyte stem cell\"], \"locations\": [\"adipose tissue\"]}}, {\"id\": \"Adipocytic Differentiation Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hallmark of liposarcoma is the failure of tumor cells to complete normal adipogenic differentiation. In DDLPS, the adipogenic properties of ASC-like tumor cells are actively inhibited by a TGF-beta-high immunosuppressive tumor microenvironment. In myxoid liposarcoma, the FUS::DDIT3 chimeric transcription factor blocks adipocyte differentiation. Restoring differentiation (e.g., with trabectedin in MLS) is therapeutically exploitable.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of fat cell differentiation\", \"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"CDK4/6 Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CDK4/6 inhibitors (e.g., palbociclib) target the amplified CDK4 driver in WDLPS/DDLPS, blocking RB phosphorylation and G1/S cell-cycle progression. Palbociclib has been evaluated in advanced/metastatic liposarcoma.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"palbociclib\"]}}, {\"id\": \"FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myxoid liposarcoma is driven by the FUS::DDIT3 fusion protein, formed by the t(12;16)(q13;p11) translocation and present in over 90% of cases (a minority instead carry EWSR1::DDIT3). FUS::DDIT3 acts as an aberrant transcription factor that inhibits adipocyte differentiation and promotes tumor growth and invasive migration. Trabectedin detaches FUS-DDIT3 from its DNA binding sites, reactivating adipogenesis - providing the mechanistic basis for its unusual efficacy in this subtype.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adipocyte progenitor\"], \"biological_processes\": [\"negative regulation of fat cell differentiation\"]}}, {\"id\": \"MDM2 Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MDM2 inhibitors (e.g., brigimadlin/BI 907828, milademetan) target the amplified MDM2 driver in WDLPS/DDLPS, reactivating p53. Multiple phase 2/3 programs (Brightline-1, Brightline-4, milademetan vs trabectedin) have operationalized MDM2 as a therapeutic target in DDLPS.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"MDM2 inhibitor\"]}}, {\"id\": \"Trabectedin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Trabectedin has unusual effectiveness in myxoid liposarcoma. Mechanistically it detaches the FUS-DDIT3 chimera from its DNA binding sites, restoring adipocyte differentiation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trabectedin\"]}}, {\"id\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Amplified MDM2 is an E3 ubiquitin ligase that targets the p53 tumor suppressor for degradation, abrogating p53-mediated apoptosis and cell-cycle arrest; amplified CDK4 phosphorylates RB to drive G1/S cell-cycle progression. The combined loss of these checkpoints permits uncontrolled proliferation and underpins the rationale for MDM2 inhibitors and CDK4/6 inhibitors in WDLPS/DDLPS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"12q13-15 (MDM2/CDK4) Amplification\", \"target\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MDM2 overexpression degrades p53 and CDK4 overexpression drives RB phosphorylation, together releasing cell-cycle control.\"}, {\"source\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"target\": \"Adipocytic Differentiation Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated cell-cycle and progenitor signaling sustains an undifferentiated tumor-cell state.\"}, {\"source\": \"Adipocyte Stem Cell Origin and Clonal Evolution\", \"target\": \"Adipocytic Differentiation Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASC-derived tumor cells fail to complete adipogenic differentiation.\"}, {\"source\": \"Trabectedin\", \"target\": \"FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CDK4/6 Inhibitor Therapy\", \"target\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MDM2 Inhibitor Therapy\", \"target\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"12q13-15 (MDM2/CDK4) Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Well-differentiated and dedifferentiated liposarcomas exhibit the characteristic amplification of chromosome region 12q13-15, which contains the oncogenes MDM2 and CDK4 (and HMGA2). This copy-number amplification is the defining molecular event of the WDLPS/DDLPS lineage and is detected diagnostically by FISH/IHC to distinguish these tumors from benign lipoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mesenchymal stem cell of adipose tissue\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"Adipocyte Stem Cell Origin and Clonal Evolution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell profiling of paired well-differentiated and dedifferentiated DDLPS components identifies a population of tumor adipocyte stem cells (ASC) resembling adipocyte stromal progenitors of white adipose tissue. These ASC harbor the ancestral genomic alterations shared by both components, indicating that the WD and DD components derive from a common progenitor through clonal evolution.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"tumor adipocyte stem cell\"], \"locations\": [\"adipose tissue\"]}}, {\"id\": \"Adipocytic Differentiation Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hallmark of liposarcoma is the failure of tumor cells to complete normal adipogenic differentiation. In DDLPS, the adipogenic properties of ASC-like tumor cells are actively inhibited by a TGF-beta-high immunosuppressive tumor microenvironment. In myxoid liposarcoma, the FUS::DDIT3 chimeric transcription factor blocks adipocyte differentiation. Restoring differentiation (e.g., with trabectedin in MLS) is therapeutically exploitable.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of fat cell differentiation\", \"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"CDK4/6 Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CDK4/6 inhibitors (e.g., palbociclib) target the amplified CDK4 driver in WDLPS/DDLPS, blocking RB phosphorylation and G1/S cell-cycle progression. Palbociclib has been evaluated in advanced/metastatic liposarcoma.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"palbociclib\"]}}, {\"id\": \"FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myxoid liposarcoma is driven by the FUS::DDIT3 fusion protein, formed by the t(12;16)(q13;p11) translocation and present in over 90% of cases (a minority instead carry EWSR1::DDIT3). FUS::DDIT3 acts as an aberrant transcription factor that inhibits adipocyte differentiation and promotes tumor growth and invasive migration. Trabectedin detaches FUS-DDIT3 from its DNA binding sites, reactivating adipogenesis - providing the mechanistic basis for its unusual efficacy in this subtype.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adipocyte progenitor\"], \"biological_processes\": [\"negative regulation of fat cell differentiation\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"MDM2 Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MDM2 inhibitors (e.g., brigimadlin/BI 907828, milademetan) target the amplified MDM2 driver in WDLPS/DDLPS, reactivating p53. Multiple phase 2/3 programs (Brightline-1, Brightline-4, milademetan vs trabectedin) have operationalized MDM2 as a therapeutic target in DDLPS.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"MDM2 inhibitor\"]}}, {\"id\": \"Trabectedin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Trabectedin has unusual effectiveness in myxoid liposarcoma. Mechanistically it detaches the FUS-DDIT3 chimera from its DNA binding sites, restoring adipocyte differentiation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trabectedin\"]}}, {\"id\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Amplified MDM2 is an E3 ubiquitin ligase that targets the p53 tumor suppressor for degradation, abrogating p53-mediated apoptosis and cell-cycle arrest; amplified CDK4 phosphorylates RB to drive G1/S cell-cycle progression. The combined loss of these checkpoints permits uncontrolled proliferation and underpins the rationale for MDM2 inhibitors and CDK4/6 inhibitors in WDLPS/DDLPS.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"12q13-15 (MDM2/CDK4) Amplification\", \"target\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MDM2 overexpression degrades p53 and CDK4 overexpression drives RB phosphorylation, together releasing cell-cycle control.\"}, {\"source\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"target\": \"Adipocytic Differentiation Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated cell-cycle and progenitor signaling sustains an undifferentiated tumor-cell state.\"}, {\"source\": \"Adipocyte Stem Cell Origin and Clonal Evolution\", \"target\": \"Adipocytic Differentiation Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASC-derived tumor cells fail to complete adipogenic differentiation.\"}, {\"source\": \"Trabectedin\", \"target\": \"FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CDK4/6 Inhibitor Therapy\", \"target\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MDM2 Inhibitor Therapy\", \"target\": \"p53 Inactivation and Cell-Cycle Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4943,9 +5107,9 @@ reactivation of adipogenesis."</div>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Neoplasm<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4988,20 +5152,25 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37298520" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37298520" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37298520" target="_blank">PMID:37298520</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5034,13 +5203,13 @@ procedures whenever clinically feasible."</div>
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Neoplasm
+                    Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-soft-tissue-sarcoma-mass" data-dismech-node="Soft Tissue Sarcoma Mass" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lipomatous-tumor" data-dismech-node="Lipomatous Tumor" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Soft Tissue Sarcoma Mass
+                        Lipomatous Tumor
 
 
 
@@ -5052,15 +5221,18 @@ procedures whenever clinically feasible."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0030448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012031" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0012031</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Soft tissue sarcoma (HP:0030448). HP:0030448 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Lipomatous tumor (HP:0012031). HP:0012031 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5082,16 +5254,16 @@ This clinical feature is Soft tissue sarcoma (HP:0030448). HP:0030448 is a pheno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"liposarcoma being
-one of the most common types, accounting for approximately 13-20% of all
-soft-tissue sarcomas."</div>
+                <div class="evidence-snippet">"well-differentiated liposarcoma (WDLS)/atypical lipomatous tumors (ALT)"</div>
 
 
-                <div class="evidence-explanation">Establishes liposarcoma as a soft-tissue sarcoma, the core clinical manifestation.</div>
+                <div class="evidence-explanation">Supports the lipomatous (atypical lipomatous tumor) nature of well-differentiated liposarcoma.</div>
 
 
 
@@ -5112,13 +5284,13 @@ soft-tissue sarcomas."</div>
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Neoplasm
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lipomatous-tumor" data-dismech-node="Lipomatous Tumor" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-soft-tissue-sarcoma-mass" data-dismech-node="Soft Tissue Sarcoma Mass" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Lipomatous Tumor
+                        Soft Tissue Sarcoma Mass
 
 
 
@@ -5130,15 +5302,18 @@ soft-tissue sarcomas."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012031" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012031</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0030448</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lipomatous tumor (HP:0012031). HP:0012031 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Soft tissue sarcoma (HP:0030448). HP:0030448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5160,14 +5335,18 @@ This clinical feature is Lipomatous tumor (HP:0012031). HP:0012031 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"well-differentiated liposarcoma (WDLS)/atypical lipomatous tumors (ALT)"</div>
+                <div class="evidence-snippet">"liposarcoma being
+one of the most common types, accounting for approximately 13-20% of all
+soft-tissue sarcomas."</div>
 
 
-                <div class="evidence-explanation">Supports the lipomatous (atypical lipomatous tumor) nature of well-differentiated liposarcoma.</div>
+                <div class="evidence-explanation">Establishes liposarcoma as a soft-tissue sarcoma, the core clinical manifestation.</div>
 
 
 
@@ -5259,6 +5438,9 @@ This disease-associated gene is MDM2 (hgnc:6973). hgnc:6973 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5273,6 +5455,8 @@ This disease-associated gene is MDM2 (hgnc:6973). hgnc:6973 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5335,6 +5519,9 @@ This disease-associated gene is CDK4 (hgnc:1773). hgnc:1773 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5349,6 +5536,8 @@ This disease-associated gene is CDK4 (hgnc:1773). hgnc:1773 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5411,6 +5600,9 @@ This disease-associated gene is DDIT3 (hgnc:2726). hgnc:2726 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5425,6 +5617,8 @@ This disease-associated gene is DDIT3 (hgnc:2726). hgnc:2726 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5486,6 +5680,9 @@ This disease-associated gene is FUS (hgnc:4010). hgnc:4010 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5500,6 +5697,8 @@ This disease-associated gene is FUS (hgnc:4010). hgnc:4010 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5561,6 +5760,9 @@ This disease-associated gene is EWSR1 (hgnc:3508). hgnc:3508 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5575,6 +5777,8 @@ This disease-associated gene is EWSR1 (hgnc:3508). hgnc:3508 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5635,20 +5839,25 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40747377" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40747377" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40747377" target="_blank">PMID:40747377</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5710,20 +5919,25 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40747377" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40747377" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40747377" target="_blank">PMID:40747377</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5785,20 +5999,25 @@ This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37298520" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37298520" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37298520" target="_blank">PMID:37298520</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5881,6 +6100,31 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgery is the mainstay of treatment for localized liposarcoma across all subtypes. WDLPS is primarily managed with local therapy including multiple resections and debulking procedures whenever clinically feasible.</div>
 
 
@@ -5902,6 +6146,8 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6006,6 +6252,20 @@ This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">DDLPS can respond to cytotoxic chemotherapy including doxorubicin (alone or with ifosfamide), gemcitabine (alone or with docetaxel), trabectedin, eribulin, and pazopanib, although response rates are generally low and durations short.</div>
 
 
@@ -6027,6 +6287,8 @@ This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6113,6 +6375,20 @@ This treatment uses trabectedin (CHEBI:84050). CHEBI:84050 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Trabectedin has unusual effectiveness in myxoid liposarcoma. Mechanistically it detaches the FUS-DDIT3 chimera from its DNA binding sites, restoring adipocyte differentiation.</div>
 
 
@@ -6152,6 +6428,8 @@ This treatment uses trabectedin (CHEBI:84050). CHEBI:84050 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6238,6 +6516,20 @@ This treatment uses eribulin (CHEBI:63587). CHEBI:63587 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Eribulin, a synthetic analogue of halichondrin B and a microtubule inhibitor, demonstrated superiority over dacarbazine in a phase 3 trial of previously treated advanced liposarcoma and leiomyosarcoma and appears particularly effective for liposarcomas.</div>
 
 
@@ -6259,6 +6551,8 @@ This treatment uses eribulin (CHEBI:63587). CHEBI:63587 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6345,6 +6639,20 @@ This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">CDK4/6 inhibitors (e.g., palbociclib) target the amplified CDK4 driver in WDLPS/DDLPS, blocking RB phosphorylation and G1/S cell-cycle progression. Palbociclib has been evaluated in advanced/metastatic liposarcoma.</div>
 
 
@@ -6384,6 +6692,8 @@ This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6470,6 +6780,20 @@ This treatment uses MDM2 inhibitor (NCIT:C162996). NCIT:C162996 is a therapeutic
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">MDM2 inhibitors (e.g., brigimadlin/BI 907828, milademetan) target the amplified MDM2 driver in WDLPS/DDLPS, reactivating p53. Multiple phase 2/3 programs (Brightline-1, Brightline-4, milademetan vs trabectedin) have operationalized MDM2 as a therapeutic target in DDLPS.</div>
 
 
@@ -6509,6 +6833,8 @@ This treatment uses MDM2 inhibitor (NCIT:C162996). NCIT:C162996 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6611,6 +6937,31 @@ This treatment uses eribulin (CHEBI:63587). CHEBI:63587 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Checkpoint-inhibitor-based combinations are under investigation. In a non-randomized phase II trial, eribulin plus pembrolizumab showed promising activity in liposarcoma (12-week PFS 69.6%).</div>
 
 
@@ -6632,6 +6983,8 @@ This treatment uses eribulin (CHEBI:63587). CHEBI:63587 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6662,6 +7015,33 @@ promising activity in LPS and angiosarcoma."</div>
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7005,6 +7385,8 @@ This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The purpose of this study is to compare a medicine called brigimadlin (BI 907828) with doxorubicin in people with liposarcoma."</div>
@@ -7075,6 +7457,8 @@ This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7149,6 +7533,8 @@ This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Phase 3 registration study designed to evaluate the safety and efficacy of milademetan compared to trabectedin in patients with unresectable"</div>
@@ -7219,6 +7605,8 @@ This clinical trial targets Soft tissue sarcoma (HP:0030448). HP:0030448 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7345,6 +7733,8 @@ has_subtypes:
 
 pathophysiology:
 - name: 12q13-15 (MDM2/CDK4) Amplification
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     Well-differentiated and dedifferentiated liposarcomas exhibit the
     characteristic amplification of chromosome region 12q13-15, which contains
@@ -7401,7 +7791,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38254762
     reference_title: &#34;Genetic, Epigenetic and Transcriptome Alterations in Liposarcoma for Target Therapy Selection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most promising results were shown for CDK4/6 and \nMDM2 inhibitors&#34;
     explanation: &gt;-
@@ -7478,6 +7868,8 @@ pathophysiology:
       Supports a TGF-beta-high immunosuppressive microenvironment blocking
       adipogenic differentiation in DDLPS.
 - name: FUS::DDIT3 Fusion Oncoprotein in Myxoid Liposarcoma
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     Myxoid liposarcoma is driven by the FUS::DDIT3 fusion protein, formed by the
     t(12;16)(q13;p11) translocation and present in over 90% of cases (a minority
@@ -7584,7 +7976,7 @@ phenotypes:
   evidence:
   - reference: PMID:37298520
     reference_title: &#34;Treatment of De-Differentiated Liposarcoma in the Era of Immunotherapy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;WDLPS does not respond to systemic chemotherapy and is primarily \nmanaged with local therapy, including multiple resections and debulking \nprocedures whenever clinically feasible.&#34;
     explanation: &gt;-
@@ -7715,7 +8107,7 @@ genetic:
   evidence:
   - reference: PMID:40747377
     reference_title: &#34;Histomorphological and molecular characteristics of liposarcoma (Review).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the complex karyotype and lack of specificity in \npleomorphic liposarcoma are associated with poor treatment outcomes&#34;
     explanation: &gt;-
@@ -7737,7 +8129,7 @@ genetic:
   evidence:
   - reference: PMID:40747377
     reference_title: &#34;Histomorphological and molecular characteristics of liposarcoma (Review).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the complex karyotype and lack of specificity in \npleomorphic liposarcoma are associated with poor treatment outcomes&#34;
     explanation: &gt;-
@@ -7758,7 +8150,7 @@ genetic:
   evidence:
   - reference: PMID:37298520
     reference_title: &#34;Treatment of De-Differentiated Liposarcoma in the Era of Immunotherapy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the characteristic \namplification of chromosome region 12q13-15&#34;
     explanation: &gt;-
@@ -8166,6 +8558,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9132,7 +9526,7 @@ Trabectedin has “unusual effectiveness” in MLPS and mechanistically detaches
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Liposarcoma", "mondoId": "MONDO:0005060", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Liposarcoma", "yamlRevision": "1a6d765d41a7"};
+        const OS_CONFIG = {"diseaseName": "Liposarcoma", "mondoId": "MONDO:0005060", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Liposarcoma", "yamlRevision": "106f8c6edf25"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

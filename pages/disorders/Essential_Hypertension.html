@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4117,6 +4210,50 @@
 
         <!-- Comorbidities -->
 
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Essential_Hypertension__Dieulafoy_Lesion.html">Essential Hypertension &lt;-&gt; Dieulafoy Lesion</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease A</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Essential_Hypertension__Peripheral_Artery_Disease.html">Essential Hypertension &lt;-&gt; Peripheral Artery Disease</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease A</span>
+
+
+                        <span class="tag tag-classification">A_BEFORE_B</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
 
         <!-- Mechanistic Hypotheses -->
 
@@ -4135,6 +4272,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-resistance" data-dismech-node="Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Resistance</div>
+
 
                 <div class="item-desc">Increased systemic vascular resistance due to structural and functional changes in resistance arterioles. Endothelial dysfunction, vascular remodeling, and increased smooth muscle tone contribute.
 </div>
@@ -4271,6 +4409,8 @@ This pathophysiological event involves Blood Pressure Regulation, annotated with
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The alterations in signaling pathways in these cells are the key molecular mechanisms underlying vascular dysfunction and hypertension development."</div>
@@ -4290,6 +4430,8 @@ This pathophysiological event involves Blood Pressure Regulation, annotated with
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4313,6 +4455,8 @@ This pathophysiological event involves Blood Pressure Regulation, annotated with
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Both innate and adaptive immunity are now known to promote the elevation of blood pressure by triggering vascular inflammation and microvascular remodeling."</div>
@@ -4333,6 +4477,7 @@ This pathophysiological event involves Blood Pressure Regulation, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renin-angiotensin-aldosterone-system-dysregulation" data-dismech-node="Renin-Angiotensin-Aldosterone System Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Renin-Angiotensin-Aldosterone System Dysregulation</div>
+
 
                 <div class="item-desc">Overactivation of the RAAS leads to sodium retention, vasoconstriction, and vascular remodeling, all contributing to elevated blood pressure.
 </div>
@@ -4439,6 +4584,8 @@ This pathophysiological event involves RAAS Pathway, annotated with renin-angiot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Activation of intrarenal angiotensin II receptors contributes to sodium retention and high BP."</div>
@@ -4458,6 +4605,8 @@ This pathophysiological event involves RAAS Pathway, annotated with renin-angiot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4481,6 +4630,8 @@ This pathophysiological event involves RAAS Pathway, annotated with renin-angiot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"In this manuscript, we will comprehensively review the signaling pathways involved in vascular function regulation and hypertension progression, including calcium pathway, NO-NOsGC-cGMP pathway, various vascular remodeling pathways and some important upstream pathways such as..."</div>
@@ -4501,6 +4652,7 @@ This pathophysiological event involves RAAS Pathway, annotated with renin-angiot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sympathetic-nervous-system-overactivity" data-dismech-node="Sympathetic Nervous System Overactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Sympathetic Nervous System Overactivity</div>
+
 
                 <div class="item-desc">Enhanced sympathetic tone increases heart rate, cardiac output, and peripheral vascular resistance through catecholamine release.
 </div>
@@ -4529,14 +4681,16 @@ This pathophysiological event involves RAAS Pathway, annotated with renin-angiot
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38172242" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38172242" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38172242" target="_blank">PMID:38172242</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4559,6 +4713,7 @@ This pathophysiological event involves RAAS Pathway, annotated with renin-angiot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-and-inflammatory-activation" data-dismech-node="Immune and Inflammatory Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune and Inflammatory Activation</div>
+
 
                 <div class="item-desc">Chronic immune activation involving both innate and adaptive immunity drives vascular inflammation and remodeling. T cells, monocytes, macrophages, and dendritic cells infiltrate target organs including arteries, kidneys, heart, and brain, releasing proinflammatory cytokines such as IL-17, IFN-gamma, and TNF-alpha that elevate blood pressure and cause end-organ damage.
 </div>
@@ -4725,6 +4880,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"T cells, monocytes, macrophages, dendritic cells, B cells and natural killer cells are all implicated in hypertension."</div>
@@ -4746,6 +4903,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The activated immune cells migrate to target organs such as arteries (especially the perivascular fat and adventitia), kidneys, the heart and the brain, where they release effector cytokines that elevate blood pressure and cause vascular remodelling, renal damage, cardiac hypertrophy, cognitive..."</div>
@@ -4765,6 +4924,8 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4789,6 +4950,7 @@ This pathophysiological event involves Inflammatory Response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress" data-dismech-node="Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress</div>
+
 
                 <div class="item-desc">Increased production of reactive oxygen species (ROS) by NADPH oxidases and decreased antioxidant defenses lead to oxidative stress. ROS impair nitric oxide bioavailability, promote endothelial dysfunction, and activate inflammatory pathways, all contributing to elevated blood pressure and kidney injury.
 </div>
@@ -4861,6 +5023,8 @@ This pathophysiological event involves ROS Metabolic Process, annotated with rea
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Overproduction of reactive oxygen species (ROS) plays a crucial role in the development and progression of HTN, impacting renal function and BP regulation."</div>
@@ -4882,6 +5046,8 @@ This pathophysiological event involves ROS Metabolic Process, annotated with rea
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Targeting specific NADPH oxidase (NOX) isoforms to inhibit ROS production and enhance antioxidant mechanisms may improve renal structure and function while lowering blood pressure."</div>
@@ -4901,6 +5067,8 @@ This pathophysiological event involves ROS Metabolic Process, annotated with rea
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5014,6 +5182,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5028,6 +5199,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5049,6 +5222,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5099,6 +5274,9 @@ This clinical feature is Left Ventricular Hypertrophy (HP:0001712). HP:0001712 i
                     </div>
 
 
+
+
+
                     <div class="item-desc">Secondary to chronic pressure overload</div>
 
 
@@ -5118,6 +5296,8 @@ This clinical feature is Left Ventricular Hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5179,6 +5359,9 @@ This clinical feature is Renal Insufficiency (HP:0000083). HP:0000083 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Hypertensive nephropathy and chronic kidney disease</div>
 
 
@@ -5198,6 +5381,8 @@ This clinical feature is Renal Insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5221,6 +5406,8 @@ This clinical feature is Renal Insufficiency (HP:0000083). HP:0000083 is a pheno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The activated immune cells migrate to target organs such as arteries (especially the perivascular fat and adventitia), kidneys, the heart and the brain, where they release effector cytokines that elevate blood pressure and cause vascular remodelling, renal damage, cardiac hypertrophy, cognitive..."</div>
@@ -5240,6 +5427,8 @@ This clinical feature is Renal Insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5297,6 +5486,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5380,6 +5572,9 @@ This disease-associated gene is ACE (hgnc:2707). hgnc:2707 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5394,6 +5589,8 @@ This disease-associated gene is ACE (hgnc:2707). hgnc:2707 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5448,6 +5645,9 @@ This disease-associated gene is AGT (hgnc:333). hgnc:333 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5462,6 +5662,8 @@ This disease-associated gene is AGT (hgnc:333). hgnc:333 is a gene from the HUGO
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -5518,6 +5720,9 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
 
+
+
+
             </div>
 
         </div>
@@ -5547,6 +5752,20 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Block angiotensin-converting enzyme to reduce vasoconstriction and sodium retention.</div>
 
 
@@ -5560,14 +5779,16 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39765782" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39765782" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39765782" target="_blank">PMID:39765782</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5589,6 +5810,8 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5620,6 +5843,20 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Block AT1 receptors to reduce RAAS effects.</div>
 
 
@@ -5633,14 +5870,16 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39765782" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39765782" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39765782" target="_blank">PMID:39765782</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5662,6 +5901,8 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5693,6 +5934,20 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reduce vascular smooth muscle contraction.</div>
 
 
@@ -5716,6 +5971,8 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Meanwhile, we will also summarize the treatment methods of hypertension that targets vascular function regulation and discuss the possibility of these signaling pathways being applied to clinical work."</div>
@@ -5735,6 +5992,8 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5766,6 +6025,20 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Promote sodium excretion to reduce blood volume.</div>
 
 
@@ -5789,6 +6062,8 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Anti-natriuretic mechanisms can reset the pressure-natriuresis relationship, requiring a higher BP to excrete sodium matched to intake."</div>
@@ -5808,6 +6083,8 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5839,6 +6116,20 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Reduce heart rate and cardiac output.</div>
 
 
@@ -5853,6 +6144,20 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
                 <div class="item-name">
                     Lifestyle Modification
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5879,6 +6184,8 @@ This disease-associated gene is ADD1 (hgnc:243). hgnc:243 is a gene from the HUG
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                 </div>
@@ -5963,6 +6270,8 @@ This environmental factor is increased high dietary sodium chloride exposure, an
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Approximately 50% of hypertensive and 25% of normotensive people exhibit salt sensitivity of blood pressure, which is an independent risk factor for cardiovascular disease."</div>
@@ -5984,6 +6293,8 @@ This environmental factor is increased high dietary sodium chloride exposure, an
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Moreover, high-salt intake is associated with gut dysbiosis, leading to inflammation, oxidative stress, and blood pressure elevation but the mechanistic contribution to salt-sensitivity of blood pressure is not clearly understood."</div>
@@ -6003,6 +6314,8 @@ This environmental factor is increased high dietary sodium chloride exposure, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6053,6 +6366,8 @@ This environmental factor is increased high dietary sodium chloride exposure, an
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6066,14 +6381,16 @@ This environmental factor is increased high dietary sodium chloride exposure, an
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38164753" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38164753" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38164753" target="_blank">PMID:38164753</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6129,6 +6446,8 @@ This environmental factor is increased high dietary sodium chloride exposure, an
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"These mechanisms link hypertension with obesity, autoimmunity, periodontitis and COVID-19."</div>
@@ -6167,14 +6486,16 @@ This environmental factor is increased high dietary sodium chloride exposure, an
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38172242" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38172242" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38172242" target="_blank">PMID:38172242</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6253,6 +6574,8 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6326,6 +6649,8 @@ This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECT
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6351,6 +6676,33 @@ This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECT
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6622,7 +6974,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38172242
     reference_title: &#34;Immune and inflammatory mechanisms in hypertension.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Neoantigens, the NLRP3 inflammasome and increased sympathetic outflow,
       as well as cytokines (including IL-6, IL-7, IL-15, IL-18 and IL-21) and a high-salt
       environment, can contribute to immune activation in hypertension.&#34;
@@ -6890,7 +7242,7 @@ environmental:
         in one sentence.
     - reference: PMID:38164753
       reference_title: &#34;Recent Advances in Understanding Peripheral and Gut Immune Cell-Mediated Salt-Sensitive Hypertension and Nephropathy.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Moreover, high-salt intake is associated with gut dysbiosis, leading to inflammation, oxidative stress, and blood pressure elevation but the mechanistic contribution to salt-sensitivity of blood pressure is not clearly understood.&#34;
       explanation: &gt;-
@@ -6942,7 +7294,7 @@ environmental:
     evidence:
     - reference: PMID:38172242
       reference_title: &#34;Immune and inflammatory mechanisms in hypertension.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;These mechanisms link hypertension with obesity, autoimmunity, periodontitis and COVID-19.&#34;
       explanation: &gt;-
@@ -6999,7 +7351,7 @@ treatments:
   evidence:
   - reference: PMID:39765782
     reference_title: &#34;Oxidative Stress in Kidney Injury and Hypertension.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Managing blood pressure (BP) effectively with treatments targeting RAAS
       activation, oxidative stress, and inflammation is crucial in preventing renal
       damage and the progression of HTN-related CKD and ESRD.&#34;
@@ -7016,7 +7368,7 @@ treatments:
   evidence:
   - reference: PMID:39765782
     reference_title: &#34;Oxidative Stress in Kidney Injury and Hypertension.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Managing blood pressure (BP) effectively with treatments targeting RAAS
       activation, oxidative stress, and inflammation is crucial in preventing renal
       damage and the progression of HTN-related CKD and ESRD.&#34;
@@ -7264,6 +7616,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7689,7 +8043,7 @@ Essential hypertension reflects convergent dysregulation of renal RAAS–sodium 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Essential Hypertension", "mondoId": "MONDO:0001134", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Essential_Hypertension", "yamlRevision": "df0de8b1dedb"};
+        const OS_CONFIG = {"diseaseName": "Essential Hypertension", "mondoId": "MONDO:0001134", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Essential_Hypertension", "yamlRevision": "999f9dc12be1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

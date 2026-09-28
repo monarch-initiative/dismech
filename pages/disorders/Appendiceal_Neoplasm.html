@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4114,6 +4207,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4185,6 +4280,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4246,6 +4343,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4311,6 +4410,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4374,6 +4475,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4435,6 +4538,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4536,6 +4641,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4570,6 +4677,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kras-and-gnas-oncogenic-activation" data-dismech-node="KRAS and GNAS Oncogenic Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">KRAS and GNAS Oncogenic Activation</div>
+
 
                 <div class="item-desc">Appendiceal mucinous neoplasms are driven by activating somatic mutations in the KRAS oncogene (codons 12/13) and the GNAS oncogene (codon 201). KRAS activation engages downstream MAPK and PI3K signaling to drive proliferation and survival, while activating GNAS mutations constitutively activate the stimulatory G protein alpha subunit. In appendiceal mucinous tumors KRAS and GNAS mutations frequently co-occur, and GNAS is characteristically enriched in low-grade lesions.</div>
 
@@ -4757,6 +4865,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4778,6 +4888,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4802,6 +4914,7 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gnas-camp-pka-mucin-hypersecretion" data-dismech-node="GNAS-cAMP-PKA Mucin Hypersecretion" data-dismech-type="pathophysiology">
                 <div class="item-name">GNAS-cAMP-PKA Mucin Hypersecretion</div>
+
 
                 <div class="item-desc">Constitutive Gs-cAMP-PKA signaling from mutant GNAS markedly upregulates the gel-forming mucins MUC2 and MUC5AC, producing the copious mucin that is the hallmark of low-grade appendiceal mucinous neoplasms.</div>
 
@@ -4960,6 +5073,8 @@ This pathophysiological event involves increased mucus secretion (GO:0070254). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4982,6 +5097,7 @@ This pathophysiological event involves increased mucus secretion (GO:0070254). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neoplastic-epithelial-proliferation" data-dismech-node="Neoplastic Epithelial Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neoplastic Epithelial Proliferation</div>
+
 
                 <div class="item-desc">KRAS-driven mitogenic signaling produces neoplastic proliferation of appendiceal epithelium, generating the mucinous or glandular tumor mass. In the low-grade mucinous setting the proliferative advantage is modest and combined with the secretory (mucinous) phenotype rather than aggressive growth.</div>
 
@@ -5080,6 +5196,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5102,6 +5220,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-appendiceal-luminal-distension-and-rupture" data-dismech-node="Appendiceal Luminal Distension and Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Appendiceal Luminal Distension and Rupture</div>
+
 
                 <div class="item-desc">Progressive intraluminal mucin accumulation distends the appendix (mucocele), thins the muscular wall, and can culminate in rupture of the visceral peritoneum, releasing neoplastic mucin into the peritoneal cavity.</div>
 
@@ -5175,6 +5294,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5196,6 +5317,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5220,6 +5343,7 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pseudomyxoma-peritonei" data-dismech-node="Pseudomyxoma Peritonei" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudomyxoma Peritonei</div>
+
 
                 <div class="item-desc">Intraperitoneal accumulation of mucinous ascites and mucin-producing neoplastic implants coating peritoneal surfaces and abdominal viscera, following spread from a ruptured appendiceal mucinous neoplasm. Characterized by the redistribution phenomenon, progressive abdominal distension, and functional gastrointestinal obstruction.</div>
 
@@ -5316,6 +5440,8 @@ This pathophysiological event occurs in peritoneum (UBERON:0002358). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5338,6 +5464,7 @@ This pathophysiological event occurs in peritoneum (UBERON:0002358). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-associated-high-grade-progression-and-invasion" data-dismech-node="TP53-Associated High-Grade Progression and Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53-Associated High-Grade Progression and Invasion</div>
+
 
                 <div class="item-desc">Acquisition of TP53 mutation (mutually exclusive with GNAS) marks progression to high-grade and invasive appendiceal cancer. Loss of p53 function impairs DNA-damage response and apoptosis, enabling infiltrative invasion and metastatic potential; TP53 mutation status independently predicts survival.</div>
 
@@ -5428,6 +5555,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5450,6 +5579,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-invasive-adenocarcinoma-and-metastatic-spread" data-dismech-node="Invasive Adenocarcinoma and Metastatic Spread" data-dismech-type="pathophysiology">
                 <div class="item-name">Invasive Adenocarcinoma and Metastatic Spread</div>
+
 
                 <div class="item-desc">Frankly invasive appendiceal adenocarcinoma infiltrates the appendiceal wall and adjacent structures (cecum, ileocecal valve), spreads to regional lymph nodes, and can metastasize to distant organs such as the liver. Signet ring cell carcinoma is the most aggressive high-grade variant.</div>
 
@@ -5508,6 +5638,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5529,6 +5661,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5554,6 +5688,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5576,6 +5712,7 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-goblet-cell-amphicrine-differentiation" data-dismech-node="Goblet Cell Amphicrine Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Goblet Cell Amphicrine Differentiation</div>
+
 
                 <div class="item-desc">Goblet cell adenocarcinoma exhibits amphicrine differentiation, with tumor cells co-expressing mucinous (goblet-cell) and neuroendocrine phenotypes, including Paneth-like cells. Its diagnostic hallmarks are a classic low-grade goblet-cell component and immunoreactivity for neuroendocrine markers, yet it behaves as and is treated as an adenocarcinoma.</div>
 
@@ -5707,6 +5844,8 @@ This pathophysiological event involves abnormal amphicrine (combined goblet-cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5728,6 +5867,8 @@ This pathophysiological event involves abnormal amphicrine (combined goblet-cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5752,6 +5893,7 @@ This pathophysiological event involves abnormal amphicrine (combined goblet-cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-appendiceal-neuroendocrine-cell-neoplasia" data-dismech-node="Appendiceal Neuroendocrine-Cell Neoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Appendiceal Neuroendocrine-Cell Neoplasia</div>
+
 
                 <div class="item-desc">Well-differentiated neoplasia of appendiceal enteroendocrine (including enterochromaffin) cells, usually a small tip-located incidental lesion. This node is a cross-reference anchor to the subtype-level entry kb/disorders/Appendiceal_Neuroendocrine_Tumor.yaml (MONDO:0015066), where the EC-/L-/mixed-cell mechanism is curated in detail; it is intentionally summary here to avoid duplication.</div>
 
@@ -5844,6 +5986,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5902,6 +6046,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5948,6 +6094,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5992,6 +6140,8 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6057,9 +6207,11 @@ This pathophysiological event occurs in vermiform appendix (UBERON:0001154). UBE
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6100,6 +6252,9 @@ This clinical feature is Mucinous ascites, annotated with Ascites (HP:0001541). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6116,7 +6271,9 @@ This clinical feature is Mucinous ascites, annotated with Ascites (HP:0001541). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -6144,6 +6301,87 @@ This clinical feature is Mucinous ascites, annotated with Ascites (HP:0001541). 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-carcinoid-tumor" data-dismech-node="Carcinoid tumor" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Carcinoid tumor
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100570" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100570</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Carcinoid tumor (HP:0100570). HP:0100570 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37956190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37956190" target="_blank">PMID:37956190</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the annual incidence of appendiceal neuroendocrine tumors (aNETs) increased significantly, from 0.03 to 0.90 per 100,000 person-years, with the most dramatic increase in the number of patients with localized disease."</div>
+
+
+                <div class="evidence-explanation">Supports the appendiceal neuroendocrine (carcinoid) tumor phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
@@ -6162,15 +6400,18 @@ This clinical feature is Mucinous ascites, annotated with Ascites (HP:0001541). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6190,6 +6431,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6217,11 +6460,11 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Neoplasm
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-appendiceal-mucinous-neoplasm" data-dismech-node="Appendiceal mucinous neoplasm" data-dismech-type="phenotype">
@@ -6238,15 +6481,18 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031499" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0031499</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031499" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031499</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Appendiceal mucinous neoplasm (HP:0031499). HP:0031499 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6268,6 +6514,8 @@ This clinical feature is Appendiceal mucinous neoplasm (HP:0031499). HP:0031499 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6276,73 +6524,6 @@ This clinical feature is Appendiceal mucinous neoplasm (HP:0031499). HP:0031499 
 
 
                 <div class="evidence-explanation">Supports the appendiceal mucinous neoplasm as a defining phenotype of the mucinous subtype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-carcinoid-tumor" data-dismech-node="Carcinoid tumor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Carcinoid tumor
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100570" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100570</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Carcinoid tumor (HP:0100570). HP:0100570 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37956190" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37956190" target="_blank">PMID:37956190</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the annual incidence of appendiceal neuroendocrine tumors (aNETs) increased significantly, from 0.03 to 0.90 per 100,000 person-years, with the most dramatic increase in the number of patients with localized disease."</div>
-
-
-                <div class="evidence-explanation">Supports the appendiceal neuroendocrine (carcinoid) tumor phenotype.</div>
 
 
 
@@ -6434,6 +6615,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6448,6 +6632,8 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6508,6 +6694,9 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6522,6 +6711,8 @@ This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6582,6 +6773,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6596,6 +6790,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6680,6 +6876,31 @@ This treatment is appendectomy (NCIT:C51687). NCIT:C51687 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Simple appendectomy is the primary and appropriate definitive treatment for small (&lt; 1 cm) localized low-risk lesions, including small tip-located neuroendocrine tumors and LAMN confined to the appendix with clear margins; larger lesions (&gt; 2 cm) require right hemicolectomy.</div>
 
 
@@ -6710,6 +6931,8 @@ This treatment is appendectomy (NCIT:C51687). NCIT:C51687 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6752,6 +6975,8 @@ This treatment is appendectomy (NCIT:C51687). NCIT:C51687 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6817,6 +7042,31 @@ This treatment is right colectomy (NCIT:C51623). NCIT:C51623 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Right hemicolectomy with regional lymphadenectomy is used for invasive adenocarcinoma, HAMN, and higher-risk or larger neuroendocrine tumors, removing the tumor and regional nodes analogously to colorectal cancer surgery.</div>
 
 
@@ -6839,14 +7089,16 @@ This treatment is right colectomy (NCIT:C51623). NCIT:C51623 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32913983" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32913983" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913983" target="_blank">PMID:32913983</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6889,6 +7141,8 @@ This treatment is right colectomy (NCIT:C51623). NCIT:C51623 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6954,6 +7208,31 @@ This treatment is cytoreductive surgery (NCIT:C132068). NCIT:C132068 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For pseudomyxoma peritonei and disseminated mucinous disease, cytoreductive surgery (peritonectomy, omentectomy, and resection of involved organs) combined with hyperthermic intraperitoneal chemotherapy is the standard of care in specialized centers, targeting residual microscopic peritoneal disease.</div>
 
 
@@ -6984,6 +7263,8 @@ This treatment is cytoreductive surgery (NCIT:C132068). NCIT:C132068 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7026,6 +7307,8 @@ This treatment is cytoreductive surgery (NCIT:C132068). NCIT:C132068 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7091,6 +7374,31 @@ This treatment is hyperthermic intraperitoneal chemotherapy (NCIT:C91835). NCIT:
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intraoperative circulation of heated chemotherapy (e.g., mitomycin C or oxaliplatin) within the peritoneal cavity, delivered at the time of cytoreductive surgery to treat residual microscopic peritoneal disease with enhanced penetrance from hyperthermia.</div>
 
 
@@ -7121,6 +7429,8 @@ This treatment is hyperthermic intraperitoneal chemotherapy (NCIT:C91835). NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7163,6 +7473,8 @@ This treatment is hyperthermic intraperitoneal chemotherapy (NCIT:C91835). NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7228,6 +7540,31 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic chemotherapy, largely extrapolated from colorectal cancer regimens (fluoropyrimidines with oxaliplatin or irinotecan), is used for unresectable or metastatic appendiceal adenocarcinoma and high-grade disease, though the evidence base is limited by the rarity of these tumors.</div>
 
 
@@ -7250,14 +7587,16 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32913983" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32913983" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913983" target="_blank">PMID:32913983</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7302,6 +7641,8 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7329,6 +7670,430 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-appendectomy-specimen-histopathology">
+                <div class="item-name">
+                    Appendectomy-Specimen Histopathology
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Most appendiceal neoplasms are diagnosed by histopathologic examination of an appendectomy specimen removed for presumed acute appendicitis; subtype, grade, depth of invasion, and margin status are then determined.)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Identification of the specific subtype (LAMN, HAMN, adenocarcinoma, goblet cell adenocarcinoma, or neuroendocrine tumor) establishes the diagnosis and directs management.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31811385" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31811385" target="_blank">PMID:31811385</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"malignant appendiceal tumors found by chance in 0.7-2.5% of appendiceal specimen after appendectomy"</div>
+
+
+                <div class="evidence-explanation">Supports incidental pathologic diagnosis on appendectomy specimens as the principal diagnostic route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-preoperative-risk-assessment-in-appendicitis">
+                <div class="item-name">
+                    Preoperative Risk Assessment in Appendicitis
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(In patients undergoing appendectomy for acute appendicitis, older age and a larger sonographic appendiceal diameter raise suspicion for an underlying neoplasm, although preoperative prediction is imprecise.)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Age &gt;= 50 years and sonographic appendiceal diameter &gt;= 13 mm were independent predictors of appendiceal neoplasm/malignancy, but with low sensitivity and specificity.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31811385" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31811385" target="_blank">PMID:31811385</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In multivariate analysis, age ≥ 50 years and a diameter of the appendix in the sonography ≥ 13 mm were independent risk factors predicting the presence of appendiceal neoplasm and malignancy."</div>
+
+
+                <div class="evidence-explanation">Supports the two independent preoperative risk factors for underlying appendiceal neoplasm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-immunohistochemistry-for-amphicrine-differentiation">
+                <div class="item-name">
+                    Immunohistochemistry for Amphicrine Differentiation
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Immunohistochemistry for neuroendocrine markers helps confirm goblet cell adenocarcinoma, which shows a classic low-grade goblet-cell component with neuroendocrine-marker immunoreactivity.)</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Immunohistochemistry Staining Method
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C23020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C23020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Combined goblet-cell morphology and neuroendocrine-marker positivity supports goblet cell adenocarcinoma rather than a conventional adenocarcinoma or a pure neuroendocrine tumor.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34804955" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34804955" target="_blank">PMID:34804955</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The classic low-grade component of GCA and the immunoreactivity for neuroendocrine markers are the key points to diagnosing GCA."</div>
+
+
+                <div class="evidence-explanation">Supports immunohistochemical confirmation of the amphicrine goblet cell adenocarcinoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-seer-2000-2017">
+                <div class="item-name">United States (SEER 2000-2017)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.93 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Appendiceal tumors are rare (~4% of intestinal tumors). Overall US age-adjusted incidence is on the order of ~0.9 per 100,000 person-years, and has risen over two decades driven mainly by appendiceal neuroendocrine tumors (aNET incidence rose from 0.03 to 0.90 per 100,000 person-years).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37956190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37956190" target="_blank">PMID:37956190</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The overall incidence of appendiceal tumors was 0.93 per 100,000 person-years"</div>
+
+
+                <div class="evidence-explanation">SEER-based population study reports the overall appendiceal-tumor incidence of 0.93 per 100,000 person-years, backing the rate_per_100000 value.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37956190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37956190" target="_blank">PMID:37956190</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary appendiceal tumor is extremely rare in clinical practice, accounting for only 4% of intestinal tumors"</div>
+
+
+                <div class="evidence-explanation">SEER-based population study documents the rarity of appendiceal tumors.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37956190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37956190" target="_blank">PMID:37956190</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence of appendiceal neoplasms has increased significantly over the past nearly two decades, which is mainly due to the increased incidence and significant migration to earlier stages in aNETs."</div>
+
+
+                <div class="evidence-explanation">Documents the rising incidence trend and its principal driver.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7388,6 +8153,8 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7738,7 +8505,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23403822
       reference_title: &#34;Frequent GNAS mutations in low-grade appendiceal mucinous neoplasms.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         KRAS mutations were found in 30 LAMNs and in all MACs.
@@ -7846,7 +8613,7 @@ pathophysiology:
         the GNAS-enriched low-grade lesions.
     - reference: PMID:32821969
       reference_title: &#34;Molecular and clinicopathological features of appendiceal mucinous neoplasms.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         a gradual transition from LAMN to MAC via HAMN could be considered.
@@ -8242,7 +9009,7 @@ phenotypes:
   - reference: PMID:23403822
     reference_title: &#34;Frequent GNAS mutations in low-grade appendiceal mucinous neoplasms.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Over time, mucin accumulation in the peritoneal cavity gradually causes
       massive symptomatic distension and functional gastrointestinal obstruction.
@@ -8470,7 +9237,7 @@ treatments:
     evidence:
     - reference: PMID:32913983
       reference_title: &#34;Genomic Landscape of Appendiceal Neoplasms.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Early-stage cancers can be treated definitively with surgery, and selected
@@ -8596,7 +9363,7 @@ treatments:
     evidence:
     - reference: PMID:32913983
       reference_title: &#34;Genomic Landscape of Appendiceal Neoplasms.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Appendiceal neoplasms are heterogeneous and are often treated with
@@ -8696,6 +9463,24 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">De-novo root umbrella entry created 2026-08-14 for issue #8459 with Perplexity deep research (leads only; every PMID and snippet independently verified against cached PubMed abstracts). Models four subtype families (adenocarcinoma; mucinous neoplasm with LAMN/HAMN children; goblet cell adenocarcinoma; neuroendocrine tumor). The neuroendocrine subtype is cross-referenced to the existing subtype-level entry Appendiceal_Neuroendocrine_Tumor.yaml (MONDO:0015066) and not duplicated. Pathophysiology captures the KRAS/GNAS-cAMP-PKA mucin mechanism, luminal rupture to pseudomyxoma peritonei, TP53-associated high-grade progression/invasion, and goblet-cell amphicrine differentiation. NCIT treatment terms (appendectomy, right colectomy, cytoreductive surgery, HIPEC, chemotherapy) were independently validated with OAK rather than taken from the DR report, whose NCIT identifiers were unreliable. The deep-research report&#39;s one unresolved identifier (PubMed 31629386) was excluded and not cited.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Appendiceal Neoplasm</strong> · 2026-08-14T13:38:04Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Appendiceal_Neoplasm/2026-08-14T133804Z-claude-code-01d279.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo root umbrella entry for appendiceal neoplasm (MONDO:0001236), issue #8459. Perplexity deep research used as leads only; every PMID fetched and all 52 snippets verified against cached PubMed abstracts. preflight-dr returned SKIP with top genes GNAS/KRAS/TP53 confirming the correct entity (no Named Entity Confusion). Four subtype families via has_subtypes: adenocarcinoma; mucinous neoplasm with LAMN and HAMN children; goblet cell adenocarcinoma; and neuroendocrine tumor cross-referenced to the existing Appendiceal_Neuroendocrine_Tumor entry (MONDO:0015066) rather than duplicated. Pathophysiology: KRAS/GNAS activation, GNAS-cAMP-PKA mucin hypersecretion, luminal rupture to pseudomyxoma peritonei, TP53-associated high-grade progression/invasion, and goblet-cell amphicrine differentiation. NCIT treatment terms independently validated with OAK. DR-unresolved PMID:31629386 excluded. Validated with just validate, validate-terms, count-verified-snippets 52/52, validate-disorders, check-title-snippets, and full test_data.py (4021 passed).
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9022,7 +9807,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Appendiceal Neoplasm", "mondoId": "MONDO:0001236", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Appendiceal_Neoplasm", "yamlRevision": "049052bd34ec"};
+        const OS_CONFIG = {"diseaseName": "Appendiceal Neoplasm", "mondoId": "MONDO:0001236", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Appendiceal_Neoplasm", "yamlRevision": "733b9ac737eb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

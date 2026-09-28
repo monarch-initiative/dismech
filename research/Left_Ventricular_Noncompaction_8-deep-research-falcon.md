@@ -1,14 +1,15 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: true
-start_time: '2026-08-17T21:36:01.098906'
-end_time: '2026-08-17T21:36:01.118017'
-duration_seconds: 0.02
+cached: false
+start_time: '2026-09-06T14:29:00.546455'
+end_time: '2026-09-06T14:40:25.374206'
+duration_seconds: 684.83
 template_file: templates/disease_pathophysiology_research.md
+template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
 template_variables:
   disease_name: Left Ventricular Noncompaction 8
-  mondo_id: ''
+  mondo_id: MONDO:0014152
   category: Genetic
 provider_config:
   timeout: null
@@ -17,16 +18,34 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
     max_embedded_images: 8
-citation_count: 23
+citation_count: 36
 reference_validation:
-  total_references: 11
-  verified: 11
+  total_references: 13
+  verified: 13
   not_found: 0
   unverifiable: 0
   confabulation_rate: 0.0
-  relevance_assessed: 11
-  on_topic: 8
+  relevance_assessed: 13
+  on_topic: 10
   validator_version: 0.2.1
+term_validation:
+  total_terms: 23
+  verified: 23
+  not_found: 0
+  obsolete: 0
+  unverifiable: 0
+  confabulation_rate: 0.0
+  labels_checked: 3
+  labels_matching: 2
+  labels_mismatched: 1
+  mislabelled_terms:
+  - term_id: MONDO:0014152
+    reported_labels:
+    - if available
+    ontology_label: left ventricular noncompaction 8
+  needs_review: true
+  adapter: 'ols:'
+  validator_version: 0.4.5
 artifact_count: 1
 artifact_sources:
   edison_answer_artifacts: 1
@@ -45,7 +64,7 @@ artifacts:
 
 ## Target Disease
 - **Disease Name:** Left Ventricular Noncompaction 8
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0014152 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -130,6 +149,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -506,7 +535,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 
 ## Target Disease
 - **Disease Name:** Left Ventricular Noncompaction 8
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0014152 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -591,6 +620,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -949,282 +988,333 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Left Ventricular Noncompaction 8 (LVNC8): comprehensive disease-characteristics report
+# Left Ventricular Noncompaction 8 (LVNC8): Comprehensive Disease Report
 
-**Scope and evidence note.** LVNC8 is an exceptionally rare, genetically defined subtype of left-ventricular noncompaction associated with **PRDM16**. Most clinical evidence consists of individual families and aggregated case series; accordingly, many epidemiologic and management statements below derive from broader LVNC/noncompaction-cardiomyopathy literature and are explicitly labeled as such. This is not an individual-patient/EHR summary.
+## Executive summary and evidence boundaries
 
-| Domain | LVNC8-specific finding | Broader LVNC context | Key identifiers / evidence |
+Left ventricular noncompaction 8 (LVNC8; **MONDO:0014152**) is the **PRDM16-associated genetic subtype** of left ventricular noncompaction. It is principally caused by heterozygous germline loss-of-function variants or deletions involving **PRDM16**, with haploinsufficiency as the best-supported mechanism. The cardiac phenotype ranges from isolated excessive left-ventricular trabeculation to noncompaction cardiomyopathy with dilation, systolic failure, fibrosis, arrhythmia, or conduction disease. Penetrance is incomplete and expression is highly variable.
+
+A critical distinction is necessary: most epidemiologic, diagnostic, prognostic, and treatment evidence concerns **LVNC of all genetic causes**, not LVNC8 specifically. Imaging-defined hypertrabeculation alone is neither specific for PRDM16 disease nor necessarily pathological. A defensible LVNC8 diagnosis therefore requires a compatible phenotype plus a pathogenic/likely pathogenic PRDM16 variant or PRDM16-containing deletion.
+
+| Domain | PRDM16/LVNC8-specific finding | Evidence type | Knowledge-base annotation |
 |---|---|---|---|
-| Identity | Left Ventricular Noncompaction 8 (LVNC8) is the PRDM16-associated monogenic LVNC subtype; disease-level evidence is aggregated from published case series/reviews rather than EHR-derived individual databases. | Broad LVNC / left ventricular noncompaction is recognized as a phenotype/cardiomyopathy spectrum with controversy over whether it is a distinct cardiomyopathy or a morphologic trait shared across disorders. | Broad LVNC MONDO:0018901; PRDM16-associated disease-target evidence in Open Targets (OpenTargets Search: left ventricular noncompaction-PRDM16, wu2022prdm16isa pages 13-14) |
-| Causal gene | **PRDM16** (PR/SET domain 16) is the established causal gene for LVNC8; truncating variants are the main LVNC-associated class. | Other LVNC genes exist, but they define other subtypes or broader nonspecific LVNC phenotypes. | PRDM16 / ENSG00000142611; original human causal paper cited via review as Arndt et al. 2013, PMID 23768516 (wu2022prdm16isa pages 13-14) |
-| Inheritance | Predominantly **autosomal dominant** with de novo and familial cases reported; penetrance appears incomplete/variable but subtype-specific estimates are not established. | Familial screening is recommended in LVNC more generally when cardiomyopathy is suspected. | Multiple inherited and de novo truncating variants summarized in 2023 review (walsh2023thetroublewith pages 10-11) |
-| Strongest human genetic statistic | In a cohort enrichment analysis, PRDM16 variants were found in **1.35% (6/444)** of LVNC cases versus **0.006% (7/120,147)** in gnomAD, **p = 4.0E-12**. | Supports pathogenic enrichment beyond background variation and strengthens subtype validity. | Walsh 2023, DOI: 10.1007/s12265-023-10459-6 (walsh2023thetroublewith pages 10-11) |
-| Core phenotype | LVNC8 presents with excessive LV trabeculation/noncompaction, ventricular dysfunction, and can include dilation, heart failure, conduction disease, arrhythmia, or sudden death; severity ranges from fetal/childhood onset to adult disease. | Broader LVNC may occur isolated or alongside DCM/HCM/RCM/ARVC phenotypes and congenital heart disease. | Human variant summaries across countries/populations (walsh2023thetroublewith pages 10-11) |
-| Imaging criteria | No PRDM16-specific imaging criteria exist; LVNC8 uses standard LVNC imaging thresholds. | Echo criterion commonly cited: end-systolic noncompacted/compacted ratio **>2.0**; CMR criterion commonly cited: ratio **>2.3**; diagnostic overcall is a known concern. | Arbustini 2014 JACC DOI: 10.1016/j.jacc.2014.08.030 (arbustini2014leftventricularnoncompaction pages 7-8); Walsh 2023 (walsh2023thetroublewith pages 1-2) |
-| Major complications | Reported LVNC8 complications include severe biventricular heart failure, ventricular enlargement, conduction abnormalities, arrhythmias, and sudden cardiac death. | In symptomatic broader LVNC cohorts, ventricular tachyarrhythmias up to **47%** and sudden cardiac death **13–18%** have been reported; thromboembolism risk motivates anticoagulation consideration in selected patients. | PRDM16-specific case summaries (walsh2023thetroublewith pages 10-11); broader LVNC management review (arbustini2014leftventricularnoncompaction pages 8-9, arbustini2014leftventricularnoncompaction pages 9-10) |
-| Key mechanism | PRDM16 is a compact-myocardium-enriched transcription factor required to maintain **left-ventricular compact cardiomyocyte identity**; loss causes shift toward trabecular, neuronal-like, atrial, and conduction-system programs, with downstream dysfunction. | LVNC pathogenesis broadly implicates disturbed trabeculation/compaction, developmental signaling, and myocardial maturation failure. | Wu 2022 Circulation DOI: 10.1161/CIRCULATIONAHA.121.056666 (wu2022prdm16isa pages 1-3, wu2022prdm16isa pages 9-11); Van Wauwe 2024 DOI: 10.26508/lsa.202402719 (wauwe2024prdm16determinesspecification pages 1-2) |
-| Latest 2023–2024 developments | 2023 multi-omics mouse work showed early **metabolic dysregulation**, oxidative stress, sex-specific substrate-use defects, and novel regulators **Pyroxd2/Pbxip1** in PRDM16-associated cardiomyopathy; 2024 single-cell RNA+ATAC work showed PRDM16 suppresses alternative atrial/conduction fates and prevents distal ventricular conduction system hyperplasia. | 2024 cardiomyopathy guidance/commentary continues to frame LV trabeculation as dynamic and emphasizes genetics plus deep phenotyping for interpretation. | Kühnisch 2023 DOI: 10.1093/cvr/cvad154 (kuhnisch2023prdm16mutationdetermines pages 1-2, kuhnisch2023prdm16mutationdetermines pages 4-7, kuhnisch2023prdm16mutationdetermines pages 10-11); Van Wauwe 2024 (wauwe2024prdm16determinesspecification pages 1-2); ESC commentary 2024 DOI: 10.1093/eurheartjsupp/suae002 (context from search, not directly cited here) |
-| Management | No PRDM16-targeted therapy exists; management is **phenotype-directed**: standard heart-failure therapy, arrhythmia surveillance, ICD when indicated by conventional risk factors, anticoagulation in selected patients, and family/genetic screening. | Asymptomatic patients with normal LV size/function are generally monitored; symptomatic patients are treated per HF/arrhythmia guidelines; family echocardiographic screening is recommended in familial disease. | Arbustini 2014 (arbustini2014leftventricularnoncompaction pages 8-9, arbustini2014leftventricularnoncompaction pages 9-10) |
-| Trials / real-world studies | No PRDM16-specific interventional trial was identified. | Active LVNC observational studies include **NCT06024759** (risk registry, recruiting, n=500), **NCT04265040** (TORCH-Plus registry, recruiting, n=2040), **NCT06607471** (multicenter registry, recruiting), plus prior imaging/risk studies **NCT01470014**, **NCT03572569**, **NCT02568072**. | ClinicalTrials.gov records (NCT06024759 chunk 1, NCT04265040 chunk 1, NCT06607471 chunk 23, NCT01470014 chunk 1, NCT03572569 chunk 1, NCT02568072 chunk 1) |
-| Major evidence gaps | Exact LVNC8 OMIM/MONDO subtype identifier, prevalence/incidence, penetrance, carrier frequency, genotype-specific prognosis, pregnancy/exercise guidance, and prospective treatment-response data are not well established. Most evidence is from small families, case series, reviews, and model systems. | Broader LVNC itself remains diagnostically controversial because hypertrabeculation can be physiologic (e.g., athletes, pregnancy) and may not correlate with prognosis in isolation. | Evidence-gap summary supported by genetics review and broader LVNC controversy literature (walsh2023thetroublewith pages 10-11, walsh2023thetroublewith pages 1-2) |
+| Identity | **LVNC8** is the PRDM16-associated form of left ventricular noncompaction; heterozygous loss-of-function and deletion evidence supports **PRDM16 haploinsufficiency**, although LVNC can also overlap dilated cardiomyopathy (DCM). (arndt2013finemappingof pages 4-5, mazzarotto2020thegeneticarchitecture pages 1-3, boudina2023prdm16deletionis pages 1-3) | Human genetic association; segregation; translational models | MONDO:0014152; gene: **PRDM16**; genetic disease; distinguish subtype-specific disease from broad LVNC morphology |
+| Representative variants | Reported LVNC-associated variants include **c.1573dupC (p.Arg525Profs*79)**, **c.2104A>T (p.Lys702Ter)**, and **p.Gln187Ter/Q187X**; these are germline protein-truncating variants expected to cause loss of function. (sun2023nonsensevariantprdm16q187x pages 1-3, arndt2013finemappingof pages 4-5) | Human cases; patient-derived iPSC cardiomyocytes; knock-in mouse | Variant classes: frameshift, nonsense; consequence: loss of function/haploinsufficiency; verify transcript and ClinVar classification before variant-level ingestion |
+| Chromosomal lesion | Heterozygous **1p36 deletions encompassing PRDM16** increase cardiomyopathy risk, but neighboring deleted genes may modify the syndromic phenotype. In a combined cohort, cardiomyopathy occurred in 29.1% with versus 10.8% without PRDM16 deletion. (boudina2023prdm16deletionis pages 1-3) | Human retrospective cohort plus systematic review, n=134 | Structural variant/CNV; 1p36 deletion syndrome; record PRDM16-containing deletions separately from isolated sequence variants |
+| Inheritance | Sequence-variant LVNC8 is principally described as **autosomal dominant with incomplete, age-dependent penetrance and variable expressivity**; phenotypes include LVNC, DCM, or overlapping LVNC/DCM. (sun2023nonsensevariantprdm16q187x pages 10-11, arndt2013finemappingof pages 4-5, mazzarotto2020thegeneticarchitecture pages 1-3) | Human pedigrees and case series | AD inheritance; germline; variable expressivity; no established anticipation or founder effect |
+| Key phenotypes | Excessive LV trabeculation/deep intertrabecular recesses, thin compact myocardium, LV systolic dysfunction or dilation, heart failure, fibrosis, arrhythmia, and conduction abnormalities; onset ranges from fetal/infantile to adult and severity is variable. (sun2023nonsensevariantprdm16q187x pages 1-3, arndt2013finemappingof pages 4-5, nam2020cardiacspecificinactivationof pages 1-5) | PRDM16-specific human cases and models | Suggested HPO: **HP:0030682** left ventricular noncompaction; HP:0001635 congestive heart failure; HP:0001644 dilated cardiomyopathy; HP:0011675 arrhythmia; HP:0031546 myocardial fibrosis |
+| Upstream mechanism | PRDM16 loss disrupts its transcriptional/chromatin-regulatory function, reducing specification and proliferation of compact-myocardial cardiomyocytes and permitting trabecular, atrial, neuronal-like, or conduction-cell transcriptional programs. (wu2022prdm16isa pages 11-13, wauwe2024prdm16determinesspecification pages 1-2) | Conditional mouse genetics; scRNA-seq; spatial transcriptomics; single-cell RNA+ATAC sequencing | GO suggestions: regulation of transcription, chromatin organization, cardiac muscle-cell differentiation, ventricular cardiac muscle development; CL: ventricular cardiomyocyte, cardiac conduction cell |
+| TGF-β and tissue injury | PRDM16 binds TGFB2/TGFB3 regulatory regions and alters H3K4 methylation. Loss produces developmentally dependent TGF-β dysregulation, impaired proliferation, increased apoptosis, fibrosis, and hypertrophy; some causal links remain model-derived. (sun2023nonsensevariantprdm16q187x pages 1-3, sun2023nonsensevariantprdm16q187x pages 10-11, sun2023nonsensevariantprdm16q187x pages 11-13, nam2020cardiacspecificinactivationof pages 1-5) | Patient iPSC cardiomyocytes; knock-in/conditional mice; cardiomyoblast assays | GO: TGF-β receptor signaling, cardiomyocyte proliferation, apoptotic process, extracellular-matrix organization; cells: cardiomyocyte and cardiac fibroblast |
+| Electrophysiology | Prdm16-null mouse hearts have prolonged QRS/QTc, fibrosis, and dysregulated **KCNE1, SCN5A, CACNA1H, CACNA2D2**, suggesting impaired Na+, K+, and Ca2+ homeostasis; TGF-β-receptor inhibition did not rescue conduction defects. (nam2020cardiacspecificinactivationof pages 1-5) | Mouse ECG, histology, qPCR, RNA-seq | GO: cardiac conduction, membrane depolarization, ion transmembrane transport; classify as mechanistic model evidence, not a proven universal human pathway |
+| 2023–2024 developments | The 2023 Q187X study linked human pediatric LVNC to impaired proliferation, apoptosis, and TGF-β dysregulation. A 2023 multi-omics study identified early sex-specific energetic abnormalities. In 2024, single-cell RNA+ATAC analysis showed loss of ventricular working-cardiomyocyte identity and distal conduction-system hyperplasia. (sun2023nonsensevariantprdm16q187x pages 1-3, wauwe2024prdm16determinesspecification pages 1-2, kuhnisch2023prdm16mutationdetermines pages 1-2) | Human/iPSC and mouse translational studies; transcriptomics, proteomics, metabolomics, scRNA+ATAC | Recent evidence strengthens developmental cell-identity and metabolic mechanisms but does not yet establish a targeted therapy |
+| Metabolism | Monoallelic Prdm16-mutant mice showed reduced amino-acid, glycerol, glycolytic and TCA-cycle metabolites, low glutathione, increased IMP, male-specific triacylglyceride accumulation, reduced male fatty-acid use, and reduced female glucose use. (kuhnisch2023prdm16mutationdetermines pages 1-2) | Mouse multi-omics and computational metabolic modeling | GO: cellular respiration, glycolysis, TCA cycle, fatty-acid oxidation, glutathione metabolism, response to oxidative stress; model-only evidence |
+| Diagnosis | **Broad-LVNC fact:** diagnosis integrates clinical context with echocardiography and CMR rather than morphology alone. Common thresholds include echocardiographic NC/C >2 and CMR NC/C ≥2.3; hypertrabeculation may be physiological in athletes or pregnancy. (martineztittonel2025leftventricularnoncompaction pages 5-7, NCT03572569 chunk 1, aung2020prognosticsignificanceof pages 1-2) | Imaging cohorts, reviews, registry criteria | Imaging phenotype plus function, ECG, family history, and genetics; use a cardiomyopathy panel including PRDM16, with CNV analysis; consider CMA for syndromic 1p36 deletion |
+| Prognosis | **Broad-LVNC fact:** outcomes are driven more by LVEF than trabeculation burden. Across 2,501 patients, cardiovascular mortality was 1.92 and ventricular arrhythmia 2.17 per 100 person-years. **PRDM16-specific:** deletion was associated with death, transplant, or VAD (p=0.04). (boudina2023prdm16deletionis pages 1-3, aung2020prognosticsignificanceof pages 1-2) | Meta-analysis of observational cohorts; PRDM16 deletion cohort | Adverse markers: reduced LVEF, advanced NYHA class, ventricular tachycardia, fibrosis/LGE; subtype-specific survival estimates remain unavailable |
+| Treatment | No PRDM16- or LVNC8-specific disease-modifying therapy exists. **Broad-LVNC practice:** phenotype-directed guideline therapy for heart failure and arrhythmia; anticoagulation for standard indications or documented thrombus/embolism; ICD according to systolic-function/arrhythmic risk; LVAD or transplantation for end-stage disease. | Extrapolated cardiomyopathy/heart-failure management; no subtype-specific randomized trial | NCIT suggestions: Pharmacotherapy, Anticoagulation Therapy, Implantable Cardioverter-Defibrillator, Ventricular Assist Device, Heart Transplantation |
+| Models | Available systems include PRDM16-Q187X patient-derived iPSC cardiomyocytes, Q187X knock-in mice, cardiomyocyte-specific Prdm16 knockout mice, monoallelic Prdm16csp1/wt mice, and zebrafish knockdown. They reproduce impaired proliferation, apoptosis, noncompaction/compact-layer defects, dysfunction, fibrosis, conduction changes, and metabolic abnormalities to varying degrees. (sun2023nonsensevariantprdm16q187x pages 1-3, wu2022prdm16isa pages 11-13, nam2020cardiacspecificinactivationof pages 1-5, kuhnisch2023prdm16mutationdetermines pages 1-2) | In vitro human cells; mouse and zebrafish genetic models | Taxa: Homo sapiens, Mus musculus, Danio rerio; model limitations include dosage-, Cre-, developmental-stage-, and sex-dependent phenotypes |
+| Uncertainty | PRDM16 truncating variants are enriched in LVNC, but penetrance, subtype prevalence, complete phenotype frequencies, modifiers, environmental interactions, protective factors, and variant-specific prognosis are not established. Morphologic LVNC alone is neither specific for LVNC8 nor necessarily pathological. (sun2023nonsensevariantprdm16q187x pages 11-13, mazzarotto2020thegeneticarchitecture pages 1-3, aung2020prognosticsignificanceof pages 1-2) | Genetic association and expert synthesis | Do not infer LVNC8 from imaging alone; require pathogenic/likely pathogenic PRDM16 evidence and phenotype correlation; retain VUS separately |
 
 
-*Table: This compact table summarizes subtype-specific facts for PRDM16-associated Left Ventricular Noncompaction 8 and separates them from broader LVNC evidence. It highlights what is established, what is extrapolated from general LVNC literature, and where important evidence gaps remain.*
+*Table: Concise evidence map for PRDM16-associated left ventricular noncompaction, separating subtype-specific findings from broader LVNC evidence. It summarizes genetics, mechanisms, phenotypes, diagnostics, prognosis, treatment, models, and ontology-ready annotations.*
 
 ## 1. Disease information
 
 ### Definition
-LVNC8 is a genetic cardiomyopathy characterized by excessive ventricular trabeculation, deep intertrabecular recesses, and a relatively thin compact myocardial layer, caused principally by pathogenic heterozygous variants affecting **PRDM16**. The phenotype can coexist with ventricular dilation or systolic dysfunction and may manifest as heart failure, conduction disease, ventricular arrhythmia, thromboembolism, or sudden cardiac death.
 
-A crucial current distinction is between **pathologic noncompaction cardiomyopathy** and **isolated hypertrabeculation**. Sensitive cardiac MRI may identify marked trabeculation in up to 15% of healthy people; reversible increases also occur during pregnancy and intensive athletic training. Trabeculation burden alone does not reliably correlate with ventricular dysfunction or prognosis. Diagnosis should therefore integrate morphology with ventricular function, ECG findings, fibrosis, symptoms, family history, and genotype (Walsh, published November 2023; DOI: https://doi.org/10.1007/s12265-023-10459-6). (walsh2023thetroublewith pages 1-2)
+LVNC is a ventricular myocardial phenotype characterized by excessive trabeculae, deep intertrabecular recesses communicating with the ventricular cavity, and a relatively thin compact epicardial layer. LVNC8 denotes the subset attributable to **PRDM16 dysfunction**. Large-scale genetic analysis found that many LVNC cases overlap genetically with dilated or hypertrophic cardiomyopathy, whereas protein-truncating variants in PRDM16, MYH7, and ACTN2 showed enrichment more specific to noncompaction. Thus, LVNC8 is best treated as a molecularly defined developmental cardiomyopathy rather than an imaging label alone. (mazzarotto2020thegeneticarchitecture pages 1-3)
 
-### Identifiers and nomenclature
+### Identifiers and synonyms
 
-- **Preferred name:** Left ventricular noncompaction 8; LVNC8.
-- **Causal-gene name:** PRDM16-associated cardiomyopathy/noncompaction cardiomyopathy.
-- **Broad disease MONDO:** **MONDO:0018901**, left ventricular noncompaction. Open Targets associates PRDM16/ENSG00000142611 with this entity. A confidently verified subtype-specific MONDO identifier was not recovered. (OpenTargets Search: left ventricular noncompaction-PRDM16)
-- **OMIM:** PRDM16 is **MIM 605557**. The original causal report is Arndt et al., 2013, PMID **23768516**. A subtype-specific OMIM number should be verified directly in the current OMIM release before database deposition because it was not independently recovered in the retrieved evidence. (micolonghi2024unveilingthespectrum pages 18-19, wu2022prdm16isa pages 13-14)
-- **HPO disease-phenotype concept:** Left ventricular noncompaction cardiomyopathy, **HP:0011664**. (OpenTargets Search: left ventricular noncompaction-PRDM16)
-- **ICD:** No dedicated ICD-10-CM code uniquely identifies LVNC8; it is generally coded under cardiomyopathy (e.g., I42.8/I42.9 depending jurisdiction and documentation). ICD-11 likewise does not provide a PRDM16-specific code in the retrieved material.
-- **Synonyms:** noncompaction cardiomyopathy, left-ventricular hypertrabeculation/noncompaction, spongy myocardium, PRDM16-related cardiomyopathy. “Isolated LVNC” should be used cautiously because associated DCM, congenital, neuromuscular, and arrhythmic phenotypes are common.
+- **MONDO:** MONDO:0014152, Left ventricular noncompaction 8.
+- **Gene:** PRDM16, PR/SET domain 16; chromosomal location **1p36.32**.
+- **Suggested OMIM mapping:** the numbered phenotype is commonly represented as *Left ventricular noncompaction 8*; database release-specific OMIM numbers should be verified directly before production ingestion.
+- **MeSH:** no retrieved evidence established a dedicated LVNC8 MeSH descriptor; broader indexing commonly falls under cardiomyopathies.
+- **ICD-10/ICD-11:** no gene-specific LVNC8 code was identified. Coding generally uses an appropriate cardiomyopathy code, supplemented by a genetic diagnosis where supported.
+- **Synonyms:** PRDM16-related cardiomyopathy; PRDM16-associated noncompaction cardiomyopathy; PRDM16-associated LVNC; noncompaction cardiomyopathy due to PRDM16 haploinsufficiency; left ventricular hypertrabeculation/noncompaction, PRDM16-related.
 
-## 2. Etiology, risk, and protective factors
+This report synthesizes **aggregated disease-level resources and published cohorts**, not individual EHR records. Patient-level observations are used only where reported in primary case or family studies.
 
-### Primary causal factor
-The principal cause is a **germline heterozygous pathogenic PRDM16 variant**, particularly a nonsense or frameshift variant producing protein truncation or loss of function. Contemporary review evidence indicates that truncating variants are preferentially associated with LVNC, whereas missense variants have more often been reported with dilated cardiomyopathy. PRDM16 is predicted to be highly loss-of-function intolerant. (micolonghi2024unveilingthespectrum pages 18-19)
+## 2. Etiology
 
-The strongest reported enrichment analysis found PRDM16 variants in **6/444 LVNC cases (1.35%)**, compared with **7/120,147 gnomAD individuals (0.006%)**, *p*=4.0×10⁻¹². Variants occurred in geographically diverse families and included de novo and inherited alleles, supporting a genuine but rare disease association rather than a founder effect. (walsh2023thetroublewith pages 10-11)
+### Causal factors and genetic risk
 
-### Risk factors and modifiers
+The primary cause is a heterozygous germline loss-of-function variant in PRDM16 or a chromosome 1p36 deletion encompassing PRDM16. Foundational human variants included **c.1573dupC (p.Arg525ProfsTer79)**, **c.2104A>T (p.Lys702Ter)**, and **c.2447A>G (p.Asn816Ser)**. These variants affected conserved residues or truncated the protein and were absent from 1000 Genomes and more than 6,400 Exome Sequencing Project controls. The study found greater than fourfold enrichment of novel nonsynonymous variants over expectation, with *p*=0.006. Published July 2013; DOI: [10.1016/j.ajhg.2013.05.015](https://doi.org/10.1016/j.ajhg.2013.05.015). (arndt2013finemappingof pages 4-5)
 
-- **Established:** a pathogenic PRDM16 allele; a family history of cardiomyopathy, congenital heart disease, arrhythmia, or sudden death.
-- **Possible genetic modifiers:** broader cardiomyopathy-variant burden, and interaction with developmental regulators including **TBX5, HAND1, TBX20**, and **SKI**. Modifier effects are mechanistically plausible but not quantitatively validated for human LVNC8. PRDM16 and SKI reduction interacted to lower cardiac output in zebrafish. (theisen2024characterisationofthe pages 17-21)
-- **Age/sex:** onset ranges from fetal life through adulthood. Human sex-specific penetrance is unresolved. A 1p36-deletion cardiomyopathy series included 16 females among 18 individuals, while heterozygous mouse disease was more severe in females; neither observation establishes a human female risk ratio. (theisen2024characterisationofthe pages 17-21, kuhnisch2023prdm16mutationdetermines pages 1-2)
-- **Environmental/lifestyle risks:** no toxin, infection, diet, smoking, alcohol, or occupational exposure is established as a cause of LVNC8. Pregnancy and endurance training can increase trabeculation and thereby mimic or unmask the morphology, but are not demonstrated causes of PRDM16 disease. (walsh2023thetroublewith pages 1-2, NCT02568072 chunk 1)
-- **Protective factors:** no validated genetic or environmental protective factor is known. Early detection, guideline-directed therapy, and avoidance of individually unsafe exertion prevent complications rather than prevent the congenital genetic substrate.
+A large analysis of **840 LVNC cases and 125,748 gnomAD controls** independently found PRDM16 truncating variants among the classes uniquely enriched in LVNC, supporting haploinsufficiency rather than a generic association with all cardiomyopathies. (mazzarotto2020thegeneticarchitecture pages 1-3)
+
+The 2023 Q187X study reported two pediatric probands with PRDM16 loss-of-function variants; one had **PRDM16 p.Gln187Ter (Q187X)** and infant-onset heart failure. Its abstract states: “Novel loss-of-function PRDM16 variant impairs myocardial development resulting in noncompaction cardiomyopathy in humans and mice associated with altered TGF-β signaling.” Published December 2023; DOI: [10.1161/CIRCHEARTFAILURE.122.010351](https://doi.org/10.1161/circheartfailure.122.010351). (sun2023nonsensevariantprdm16q187x pages 1-3)
+
+### Chromosome 1p36 deletion
+
+In a four-hospital retrospective cohort of 71 people with 1p36 deletion syndrome, cardiomyopathy occurred in **34.5%** of individuals whose deletion included PRDM16 versus **7.7%** when PRDM16 was retained, although this comparison did not reach significance (*p*=0.1). In the combined clinical and systematic-review cohort (**n=134**), the corresponding rates were **29.1% versus 10.8%** (*p*=0.03). PRDM16 deletion was also associated with death, transplantation, or ventricular-assist-device support (*p*=0.04). Published August 2023; DOI: [10.1161/CIRCGEN.122.003912](https://doi.org/10.1161/CIRCGEN.122.003912). (boudina2023prdm16deletionis pages 1-3)
+
+Because 1p36 deletions can remove multiple genes, their syndromic manifestations cannot be attributed wholly to PRDM16. Sequence-variant LVNC8 and PRDM16-containing 1p36 deletion syndrome should therefore be represented as related but distinct knowledge-base entities.
+
+### Environmental, lifestyle, infectious, and protective factors
+
+No toxin, infection, diet, smoking exposure, or occupational factor is known to cause molecularly defined LVNC8. Hemodynamic loading, pregnancy, and intensive exercise can produce **acquired or physiological hypertrabeculation**, creating an imaging phenocopy rather than PRDM16 disease. (mazzarotto2020thegeneticarchitecture pages 1-3, aung2020prognosticsignificanceof pages 1-2)
+
+No validated protective PRDM16 allele, diet, medication, or lifestyle exposure has been demonstrated. A 2024 exploratory study proposed a potentially protective MYH7 SNV for broad LVNC, but this is neither replicated nor relevant enough to annotate as protective for LVNC8.
+
+### Gene–environment interaction
+
+A formal PRDM16-by-environment interaction has not been established. It is plausible—but unproved—that pregnancy, athletic loading, hypertension, myocarditis, alcohol, or cardiotoxic exposure could unmask dysfunction in a genetically susceptible myocardium. Such factors should be documented clinically as possible modifiers, not recorded as established LVNC8 causes.
 
 ## 3. Phenotypes
 
-Frequencies specific to LVNC8 are unavailable because published patients are too few and ascertainment is nonuniform.
+Subtype-specific frequencies are unavailable because published PRDM16 cohorts are small. The following phenotype spectrum combines PRDM16 cases with clearly labeled broad-LVNC estimates.
 
-| Phenotype | Type, onset, course, impact | Suggested HPO term |
-|---|---|---|
-| Left-ventricular noncompaction/hypertrabeculation | Imaging sign; congenital substrate, detectable fetally or later; may remain stable or accompany progressive dysfunction | HP:0011664 |
-| Dilated or hypoplastic LV; reduced ejection fraction | Structural/functional sign; severity variable from asymptomatic to biventricular failure | Dilated cardiomyopathy HP:0001644; decreased LV ejection fraction HP:0012664 |
-| Heart failure | Symptom/sign; pediatric or adult onset; potentially progressive and transplant-requiring | HP:0001635 |
-| Exercise intolerance, dyspnea, fatigue | Symptoms secondary to low output/congestion; impair mobility, school/work, and quality of life | HP:0002875; HP:0002094; HP:0012378 |
-| Ventricular arrhythmia/palpitations | Episodic; may cause syncope, ICD therapy, or sudden death | HP:0004308; HP:0001962 |
-| Conduction abnormality | ECG sign; mechanistically consistent with altered ventricular-conduction-cell specification | HP:0001678 |
-| Sudden cardiac death | Severe outcome, reported in PRDM16 families | HP:0001645 |
-| Intracardiac thrombosis/systemic embolism | Complication, especially with dysfunction, atrial fibrillation, or prior thrombus | HP:0031292; HP:0002204 |
-| Myocardial fibrosis | CMR/pathologic sign; not universal | HP:0031325 |
+- **Left ventricular noncompaction/hypertrabeculation** — structural sign; congenital substrate, detectable prenatally through adulthood; severity variable. Suggested HPO: **HP:0030682, Left ventricular noncompaction**.
+- **Thin or underdeveloped compact myocardium** — imaging/pathologic sign; developmental and potentially progressive in functional consequence. Suggested HPO: HP:0030682, with a local morphology annotation if no more specific HPO term is available.
+- **Dilated cardiomyopathy/LV dilation** — sign; childhood or adult onset; may progress. Suggested HPO: **HP:0001644, Dilated cardiomyopathy**.
+- **Reduced LV systolic function/heart failure** — sign and symptom complex; ranges from absent to severe infantile or adult failure. Suggested HPO: **HP:0001635, Congestive heart failure**; HP:0012664, reduced ejection fraction.
+- **Arrhythmia and conduction disease** — palpitations, bradycardia, AV block, ventricular or supraventricular arrhythmia, and occasionally pre-excitation. Suggested HPO: **HP:0011675, Arrhythmia**; HP:0001662, bradycardia; HP:0001678, atrioventricular block; HP:0004308, ventricular arrhythmia.
+- **Myocardial fibrosis** — CMR or histologic sign, generally associated with worse function. Suggested HPO: myocardial fibrosis where available; GO:0030198 extracellular matrix organization.
+- **Thromboembolism/stroke** — downstream complication, especially with reduced function, atrial fibrillation, or intracardiac thrombus. Suggested HPO: HP:0002140 ischemic stroke; HP:0001907 thromboembolism.
+- **Sudden cardiac arrest/death** — uncommon but clinically important complication of malignant arrhythmia or severe cardiomyopathy.
 
-PRDM16 case summaries include fetal-to-adult presentation, severe biventricular failure in a 33-year-old man, onset at 12 years in a female, ventricular/atrial enlargement, fibrosis, and sudden death. (walsh2023thetroublewith pages 10-11) Broader historical symptomatic LVNC cohorts reported ventricular tachyarrhythmias in as many as **47%** and sudden death in **13–18%**, but these figures must not be treated as LVNC8-specific. (arbustini2014leftventricularnoncompaction pages 8-9)
+For context, a pediatric LVNC cohort of 31 children—not restricted to PRDM16—reported heart-failure symptoms in **10/31 (32%)**, arrhythmia or AV-conduction abnormalities in **15/31 (48%)**, elevated NT-proBNP in **5/31 (16%)**, thromboembolism in **2/31 (6%)**, and death in **2/31 (6%)**. Sixteen children (52%) had an identified molecular variant, including two with PRDM16 variants. These rates must not be assigned directly to LVNC8. (piekutowskaabramczuk2022geneticprofileof pages 3-5)
+
+Quality of life has not been quantified specifically for LVNC8 using EQ-5D, SF-36, or PROMIS. Symptomatic heart failure can impair exercise tolerance, schooling/employment, and activities of daily living; arrhythmic risk and inherited-disease surveillance add psychosocial burden.
 
 ## 4. Genetic and molecular information
 
-### Gene and variants
+### Causal gene and protein
 
-- **Gene:** **PRDM16**, PR/SET domain 16; Ensembl **ENSG00000142611**; protein is a zinc-finger transcriptional/epigenetic regulator. (OpenTargets Search: left ventricular noncompaction-PRDM16, micolonghi2024unveilingthespectrum pages 18-19)
-- **Variant spectrum:** principally germline nonsense and frameshift/truncating alleles in LVNC; missense alleles are more frequently associated with DCM. The experimentally examined truncating allele **c.2104A>T (p.Lys702Ter)** impaired zebrafish cardiac function. (micolonghi2024unveilingthespectrum pages 18-19, theisen2024characterisationofthe pages 17-21)
-- **Origin:** germline; familial autosomal-dominant and de novo cases occur. No evidence supports a somatic origin.
-- **Population frequency:** causal alleles are individually very rare or absent from population databases. Aggregate comparison was 0.006% in gnomAD versus 1.35% in LVNC cases, but each variant requires transcript-aware gnomAD review and ACMG/AMP classification. (walsh2023thetroublewith pages 10-11)
-- **Functional effect:** haploinsufficiency/loss of transcriptional regulation is the leading model. Variant-specific dominant-negative or gain-of-function effects are not established universally.
+- **Gene:** PRDM16; HGNC identifier should be verified against the current HGNC release before ingestion.
+- **Protein:** a nuclear zinc-finger transcriptional regulator containing a PR/SET domain, two zinc-finger DNA-binding regions, and transcriptional activation/repression domains. It also influences chromatin state and histone H3K4 methylation. (nam2020cardiacspecificinactivationof pages 1-5)
+- **Disease mechanism:** predominantly **loss of function/haploinsufficiency**.
+- **Origin:** germline. No evidence supports a recurrent somatic LVNC8 mechanism.
 
-### Chromosomal and epigenetic context
-The original mapping arose from **1p36 deletion syndrome**: 18 deletion patients with cardiomyopathy shared a deleted interval containing PRDM16 exons 4–17. Large 1p36 deletions can remove additional genes, so their phenotype is not equivalent to isolated LVNC8. (theisen2024characterisationofthe pages 17-21)
+### Variant classes and interpretation
 
-PRDM16 has histone-methyltransferase/chromatin-regulatory activity, but no reproducible disease-specific DNA-methylation signature has been defined. Variant interpretation should not infer LVNC8 from a 1p36 deletion without considering deletion extent and other dosage-sensitive genes.
+Documented classes include nonsense, frameshift, splice-disrupting, missense, and multigene copy-number deletions. Protein-truncating variants provide the strongest class-level evidence. Each variant nevertheless requires current ACMG/AMP classification, transcript normalization, segregation review, and population-frequency assessment. A VUS must not establish LVNC8.
 
-### Testing interpretation
-Apply ACMG/AMP criteria with ClinVar/ClinGen curation, segregation, de novo status, phenotype specificity, functional evidence, and population frequency. A rare PRDM16 missense VUS should not by itself establish LVNC8, especially when trabeculation is isolated.
+Population frequencies are variant-specific. The foundational truncating variants were absent from the cited historical controls. One later PRDM16 variant associated with LVNC/Wolff–Parkinson–White syndrome, rs201814961/ClinVar Variation ID 487607, was reported at approximately **0.03%** in gnomAD, illustrating why rarity alone does not establish pathogenicity. (umapathi2025…geneticvariant pages 1-2, umapathi2025araregenetic pages 1-2)
 
-## 5. Environmental, lifestyle, and infectious information
+### Modifiers, epigenetics, and structural variation
 
-No infectious agent, toxin, radiation exposure, dietary factor, or occupational exposure is known to cause LVNC8. Physiologic remodeling during pregnancy or high-intensity training can meet morphology-based thresholds, creating a **gene–environment diagnostic interaction** rather than proven PRDM16 penetrance modification. The MARATHON study, NCT02568072, specifically examined exercise-induced trabeculation and reversibility after detraining. (NCT02568072 chunk 1)
+No validated human modifier gene is established. Variable 1p36 deletion boundaries, additional cardiomyopathy variants, sex, and genetic background are plausible modifiers. PRDM16 itself changes chromatin accessibility and H3K4 methylation at target loci, but no diagnostic DNA-methylation signature has been validated. Large PRDM16-containing **1p36 deletions** are the principal structural abnormality; no recurrent LVNC8-specific translocation, inversion, aneuploidy, or repeat expansion is known.
 
-For affected individuals, exercise recommendations should be individualized according to ejection fraction, arrhythmia burden, fibrosis, symptoms, and genotype rather than trabeculation alone. Standard cardiovascular risk reduction—no smoking, moderate alcohol, blood-pressure control, and appropriate activity—supports general cardiac health but is not primary prevention of LVNC8.
+## 5. Environmental information
+
+LVNC8 is not infectious or toxicologic, and it has no zoonotic transmission. Athletic remodeling, pregnancy, anemia/sickle-cell disease, and other loading states can mimic LVNC morphology and should be treated as differential-context variables. Smoking, alcohol excess, obesity, uncontrolled hypertension, and cardiotoxic drugs may worsen general myocardial health, but LVNC8-specific effect sizes are unavailable. (martineztittonel2025leftventricularnoncompaction pages 5-7, aung2020prognosticsignificanceof pages 1-2)
 
 ## 6. Mechanism and pathophysiology
 
-### Causal chain
+### Ordered causal chain
 
-1. **Upstream trigger:** heterozygous PRDM16 loss of function or deletion reduces effective PRDM16 activity in developing ventricular cardiomyocytes.
-2. **Cell-identity defect:** PRDM16 normally activates compact-myocardial genes and represses trabecular, neuronal, atrial, and conduction-system programs, partly with **TBX5** and **HAND1**.
-3. **Developmental consequence:** compact-layer cardiomyocytes adopt trabecular/alternative identities; proliferation and ventricular-wall maturation are disturbed, producing excessive trabeculation and a thin compact layer.
-4. **Metabolic consequence:** altered mitochondrial substrate use, redox stress, and reduced glycolytic/TCA intermediates impair energy reserve.
-5. **Tissue/organ consequence:** ventricular dilation or hypoplasia, systolic/diastolic dysfunction, conduction-system abnormalities, fibrosis in some models/patients, arrhythmia, heart failure, and sudden death.
+1. **A heterozygous PRDM16 loss-of-function variant or deletion leads to reduced PRDM16 dosage and transcriptional/chromatin-regulatory activity.**
+2. **Reduced PRDM16 activity leads to impaired ventricular working/compact-cardiomyocyte specification and permits inappropriate trabecular, atrial, neuronal-like, or conduction-cell programs.** This is demonstrated primarily in mouse single-cell studies and inferred in humans. (wu2022prdm16isa pages 11-13, wauwe2024prdm16determinesspecification pages 1-2)
+3. **Abnormal cell identity leads to reduced compact-layer cardiomyocyte proliferation and, in some models, increased apoptosis**, producing an underdeveloped compact myocardium. (sun2023nonsensevariantprdm16q187x pages 1-3, wu2022prdm16isa pages 11-13)
+4. **PRDM16 loss also leads to developmentally abnormal TGF-β regulation** through TGFB2/TGFB3 promoter occupancy and altered H3K4 methylation; the direction depends on developmental stage. (sun2023nonsensevariantprdm16q187x pages 10-11, sun2023nonsensevariantprdm16q187x pages 11-13)
+5. **These developmental defects lead to persistent trabeculation/noncompaction and ventricular wall abnormality.**
+6. **Branch A:** altered myocardial structure and energetics lead to hypoplasia or dilation, systolic dysfunction, remodeling, fibrosis, and heart failure. (boudina2023prdm16deletionis pages 1-3, kuhnisch2023prdm16mutationdetermines pages 1-2)
+7. **Branch B:** conduction-system fate expansion, ion-channel dysregulation, and fibrosis lead to slowed conduction, prolonged QRS/QTc, arrhythmia, and possible sudden death. The detailed ion mechanism is demonstrated in mice and remains inferential in human LVNC8. (nam2020cardiacspecificinactivationof pages 1-5, wauwe2024prdm16determinesspecification pages 1-2)
+8. **Branch C:** ventricular dysfunction, recess-associated stasis, and atrial arrhythmia may lead to intracardiac thrombosis and systemic embolism; this is broad-LVNC inference rather than a PRDM16-specific demonstration.
 
-### Multi-omics and advanced technologies
+### Cellular identity and advanced profiling
 
-Cardiomyocyte-specific Prdm16 knockout mice developed LV-specific dilation/dysfunction and biventricular noncompaction. RNA-seq, ChIP-seq, single-cell RNA-seq, and spatial transcriptomics showed that LV compact cardiomyocytes ectopically expressed trabecular genes (**Nppa, Nppb, Cited1, Mest**) and neural genes (**Cttnbp2, Spon1**), while compact-myocardial genes (**Hey2, Mb**) fell. In 7,783 single cardiomyocytes, the dominant changes occurred in LV compact myocardium, whereas right-ventricular compact cells were comparatively preserved. (wu2022prdm16isa pages 9-11, wu2022prdm16isa pages 1-3)
+A 2022 cardiomyocyte-specific knockout study combined scRNA-seq with spatial transcriptomics. LV compact cardiomyocytes lost compact-layer markers and acquired trabecular or even neuronal-like signatures. PRDM16 appeared to cooperate with LV-enriched **TBX5** and **HAND1**. Importantly, noncompaction and dilation were separable: both ventricles could show noncompaction, while dilation and proliferative defects were LV-predominant. (wu2022prdm16isa pages 11-13)
 
-A 2024 combined single-cell RNA+ATAC study found that developmental PRDM16 loss shifted ventricular working cardiomyocytes toward atrial and conduction fates, caused distal ventricular conduction-system hyperplasia, abnormal electrophysiology, contractile dysfunction, and premature death. Direct abstract statement: **“PRDM16 favors ventricular working cardiomyocyte identity, by opposing the activity of master regulators of ventricular conduction and atrial fate.”** (Van Wauwe et al., published September 2024; DOI: https://doi.org/10.26508/lsa.202402719). (wauwe2024prdm16determinesspecification pages 1-2)
+A study published online **20 September 2024** used combined single-cell RNA and ATAC sequencing. PRDM16 loss opposed ventricular working-cardiomyocyte identity, permitted atrial and conduction fates, and produced distal ventricular-conduction-system hyperplasia, abnormal electrophysiology, contractile dysfunction, and premature death. DOI: [10.26508/lsa.202402719](https://doi.org/10.26508/lsa.202402719). (wauwe2024prdm16determinesspecification pages 1-2)
 
-The 2023 heterozygous-mouse multi-omics study found hypoplastic hearts and reduced stroke volume, output, and ejection fraction with normal survival through eight months. Cardiac metabolites involved in amino-acid/glycerol metabolism, glycolysis, pentose-phosphate metabolism, and the TCA cycle were reduced; glutathione fell and IMP rose, indicating oxidative and energetic stress. Males accumulated triacylglycerides and showed reduced fatty-acid use; females had a more severe phenotype and prominent glucose/mitochondrial abnormalities. **PYROXD2** and **PBXIP1** emerged as candidate downstream metabolic regulators. (Kühnisch et al., published October 2023; DOI: https://doi.org/10.1093/cvr/cvad154). (kuhnisch2023prdm16mutationdetermines pages 1-2, kuhnisch2023prdm16mutationdetermines pages 4-7, kuhnisch2023prdm16mutationdetermines pages 10-11, kuhnisch2023prdm16mutationdetermines pages 8-10)
+Suggested cell terms: **CL:0000746 cardiac muscle cell/cardiomyocyte**, ventricular working cardiomyocyte, trabecular cardiomyocyte, Purkinje/conduction-system cell, cardiac fibroblast, coronary arterial endothelial cell, and vascular smooth-muscle cell. Suggested processes: GO:0055008 cardiac muscle tissue development; GO:0007507 heart development; GO:0048738 cardiac muscle tissue development; GO:0006355 regulation of transcription; GO:0006338 chromatin remodeling; GO:0060048 cardiac muscle contraction; GO:0061337 cardiac conduction.
 
-In zebrafish, PRDM16 knockdown or p.Lys702Ter expression caused bradycardia, reduced output, diminished cardiomyocyte proliferation, increased apoptosis, and electrical uncoupling. (theisen2024characterisationofthe pages 17-21)
+### TGF-β, apoptosis, fibrosis, and ion homeostasis
 
-**Suggested ontology annotations:** GO:0007507 heart development; GO:0003208 cardiac ventricle morphogenesis; GO:0060415 muscle-tissue morphogenesis; GO:0006355 regulation of DNA-templated transcription; GO:0007005 mitochondrion organization; GO:0006091 generation of precursor metabolites and energy; GO:0006979 response to oxidative stress. Cell types: ventricular cardiomyocyte (**CL:0000746**, verify current release), cardiac conduction cell, endothelial cell, and cardiac fibroblast.
+Patient-derived Q187X iPSC cardiomyocytes showed significantly impaired proliferation and increased apoptosis with dysregulation of cardiac-maturation and TGF-β-associated transcripts. Homozygous Q187X mice had underdeveloped compact myocardium and embryonic lethality; heterozygotes had smaller ventricles, fibrosis, and age-dependent loss of TGF-β expression. (sun2023nonsensevariantprdm16q187x pages 1-3)
+
+Cardiac-specific Prdm16-null mice had prolonged QRS and QTc, cardiomyocyte hypertrophy, and fibrosis, with increased **Ctgf, Timp1, Acta2, Tgfb1–3**, and phosphorylated SMAD2. RNA-seq identified dysregulated **Kcne1, Scn5a, Cacna1h**, and **Cacna2d2**, implicating Na+, K+, and Ca2+ homeostasis. TGF-β-receptor inhibition did not rescue conduction, suggesting a parallel electrophysiologic pathway rather than conduction disease being merely secondary to TGF-β activation. (nam2020cardiacspecificinactivationof pages 1-5)
+
+### Metabolic multi-omics
+
+A 2023 transcriptomic, proteomic, metabolomic, lipidomic, and computational study of heterozygous Prdm16 mice found hypoplastic hearts and reduced systolic performance, worse in females. Mutant hearts had reduced amino-acid, glycerol, glycolytic, and tricarboxylic-acid-cycle metabolites; reduced glutathione and increased inosine monophosphate suggested oxidative stress and disturbed energetics. Male hearts accumulated triacylglycerides and showed reduced modeled fatty-acid use, whereas females showed lower glucose use. **PYROXD2** and **PBXIP1** were upregulated. The authors concluded that “metabolic dysregulation is an early event in the PRDM16 associated cardiac pathology.” Published online 16 October 2023; DOI: [10.1093/cvr/cvad154](https://doi.org/10.1093/cvr/cvad154). These are model findings, not validated human biomarkers. (kuhnisch2023prdm16mutationdetermines pages 1-2)
+
+Immune or autoimmune mechanisms, reproducible human proteomic biomarkers, and subtype-specific circulating metabolomic signatures have not been established.
 
 ## 7. Anatomical structures affected
 
-- **Primary organ/system:** heart/cardiovascular system; primarily left ventricle, sometimes biventricular myocardium.
-- **Localization:** apical and mid-ventricular segments are commonly emphasized in LVNC imaging; the process is not a lateralized paired-organ disorder.
-- **Tissues:** compact and trabecular myocardium, ventricular conduction system, and secondarily interstitium/fibrosis.
-- **Cells:** ventricular working cardiomyocytes are primary; conduction cardiomyocytes are secondarily expanded/mis-specified in models. Endocardial/endothelial signaling contributes to normal trabeculation generally, but direct endothelial causality in LVNC8 remains insufficiently established.
-- **Subcellular compartments:** nucleus/chromatin—PRDM16 transcriptional regulation; mitochondria—energy/redox abnormalities; sarcomere and intercalated/electrical-coupling structures as downstream functional compartments.
+The principal organ is the **heart** (UBERON:0000948), particularly the **left ventricle** (UBERON:0002084) and its myocardium. The apical and mid-inferolateral segments are commonly involved in broad LVNC, although distribution is variable. Biventricular noncompaction can occur, so the label “left ventricular” does not exclude right-ventricular trabecular abnormalities. (wu2022prdm16isa pages 11-13, aung2020prognosticsignificanceof pages 1-2)
 
-Suggested anatomy terms include UBERON:0000948 heart, UBERON:0002084 heart left ventricle, ventricular myocardium, and interventricular septum; exact accession numbers beyond these should be validated against the production ontology release.
+Affected tissues and cells include compact and trabecular myocardium, ventricular cardiomyocytes, conduction-system cardiomyocytes, cardiac fibroblasts, and potentially coronary vascular cells. Relevant subcellular compartments are the nucleus/chromatin, sarcomeric/contractile apparatus, plasma membrane ion-channel complexes, and mitochondria. PRDM16 is predominantly nuclear in cardiomyocytes and cardiac interstitial cells. (arndt2013finemappingof pages 4-5, nam2020cardiacspecificinactivationof pages 1-5)
 
-## 8. Temporal development and natural history
+Secondary organs may be affected by heart-failure hypoperfusion or thromboembolism, especially brain, kidney, liver, and lung. There is no meaningful left-right body lateralization beyond predominant involvement of the left cardiac ventricle.
 
-The structural susceptibility is developmental, but clinical recognition can be fetal, neonatal, childhood, or adult. PRDM16 expression is ventricular and developmentally prominent, declining postnatally. (wauwe2024prdm16determinesspecification pages 1-2)
+## 8. Temporal development
 
-Disease course is highly variable: lifelong asymptomatic morphology; stable mild dysfunction; or progressive dilation, heart failure, arrhythmia, and transplantation/death. No validated LVNC8 staging system exists. Practical stages are: genotype-positive/phenotype-negative; hypertrabeculation with preserved function; cardiomyopathy with dysfunction or arrhythmia; and advanced heart failure. Apparent “remission” can reflect reverse remodeling with heart-failure therapy or resolution of physiologic pregnancy/exercise trabeculation, not correction of the germline defect.
+The initiating lesion is germline and the developmental substrate is congenital, but clinical onset ranges from fetal or infantile disease to asymptomatic adulthood. Severe biallelic disruption is embryonically lethal in mouse models; heterozygous human disease can cause infant-onset heart failure or remain mild for decades. (sun2023nonsensevariantprdm16q187x pages 1-3, sun2023nonsensevariantprdm16q187x pages 10-11)
+
+The course is chronic and lifelong but highly variable: stable morphology with preserved function, progressive ventricular dysfunction, episodic arrhythmia, or advanced heart failure may occur. Critical periods include embryonic compact-myocardium specification, infancy/childhood in severe disease, puberty and growth, pregnancy, and periods of high hemodynamic demand. True remission of the causal genotype does not occur; ventricular function may improve with heart-failure therapy, and loading-related hypertrabeculation can regress when it is a phenocopy rather than LVNC8.
 
 ## 9. Inheritance and population
 
-- **Inheritance:** predominantly autosomal dominant; de novo cases occur. Expressivity is markedly variable and penetrance is likely incomplete/age-dependent, but no reliable percentage exists. (walsh2023thetroublewith pages 10-11)
-- **Anticipation:** not established.
-- **Germline mosaicism:** theoretically possible after an apparently de novo event, but no LVNC8-specific frequency is known.
-- **Founder effect/consanguinity:** none established; variants have been reported across European, Asian, and Australian populations. (walsh2023thetroublewith pages 10-11)
-- **Prevalence/incidence/carrier frequency:** unknown for LVNC8. The 1.35% statistic is the proportion of an ascertained LVNC cohort carrying qualifying PRDM16 variants, not population prevalence. (walsh2023thetroublewith pages 10-11)
-- **Sex ratio:** unknown. Mouse sexual dimorphism cannot be directly converted into human epidemiology. (kuhnisch2023prdm16mutationdetermines pages 1-2)
+### Inheritance
+
+The usual pattern is **autosomal dominant**, with incomplete, age-dependent penetrance and variable expressivity. Reported expressions include isolated LVNC, DCM, mixed LVNC/DCM, preserved-function hypertrabeculation, and conduction disease. No evidence supports genetic anticipation. Germline mosaicism is theoretically possible but not quantified. No reproducible founder variant or consanguinity effect is established. Carrier frequency cannot be estimated because variant pathogenicity and penetrance remain uncertain.
+
+Sex may modify severity. In PRDM16-deleted 1p36 cases, cardiomyopathy occurred in **34.5% of females versus 16.7% of males**, but the difference was not significant (*p*=0.2). Female knockout mice had more severe dysfunction, fibrosis, and mortality (*p*=0.0003), providing biological support but not a definitive human sex-risk estimate. (boudina2023prdm16deletionis pages 1-3)
+
+### Epidemiology
+
+No prevalence or incidence estimate exists for molecularly confirmed LVNC8. For **adult LVNC of all causes**, a 2024 systematic review/meta-analysis reported pooled prevalence of **0.5%**, with CMR detection of **1.3%**; estimates across studies ranged from 0.014% to 14.79%, illustrating major ascertainment and criteria effects. Mortality was 12% and transplantation 7%. Published online 16 September 2024; DOI: [10.14740/cr1673](https://doi.org/10.14740/cr1673). (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2)
+
+In an earlier meta-analysis of 2,501 LVNC patients, mean age was 46 years and the male:female ratio was **1.7:1**. These figures cannot be assumed for LVNC8. (aung2020prognosticsignificanceof pages 1-2)
+
+1p36 deletion syndrome occurs in approximately **1 in 5,000 newborns**, but only a subset of deletions includes PRDM16 and only a subset of those individuals develops cardiomyopathy. (boudina2023prdm16deletionis pages 1-3)
+
+No validated ethnic or geographic enrichment of isolated PRDM16-LVNC8 has been established.
 
 ## 10. Diagnostics
 
-### Clinical and imaging work-up
+### Clinical evaluation
 
-1. History, three-generation pedigree, physical examination, ECG, ambulatory rhythm monitoring, and transthoracic echocardiography.
-2. Common echocardiographic criterion: end-systolic noncompacted-to-compacted myocardial ratio **>2.0** with characteristic two-layer morphology and perfused recesses.
-3. CMR: commonly cited end-diastolic NC/C ratio **>2.3**; also assesses ventricular volumes/function, regional morphology, thrombus, and late-gadolinium-enhancement fibrosis. Neither threshold is sufficiently specific in isolation. (arbustini2014leftventricularnoncompaction pages 7-8)
-4. Biomarkers such as BNP/NT-proBNP and troponin assess heart failure/injury but are not diagnostic of LVNC8. Heterozygous Prdm16 mice showed elevated BNP, supporting stretch/dysfunction rather than a specific biomarker. (kuhnisch2023prdm16mutationdetermines pages 2-3)
-5. CT can assess trabeculation when MRI is unavailable or contraindicated; NCT01470014 enrolled 39 patients to investigate CT discrimination of isolated LVNC. (NCT01470014 chunk 1)
+Evaluation should include three-generation pedigree, symptoms, examination, 12-lead ECG, ambulatory ECG, echocardiography, and CMR when feasible. Exercise testing is useful for functional capacity and exertional arrhythmia. NT-proBNP/troponin can characterize heart failure or injury but are not diagnostic for LVNC8. Biopsy is not routinely required.
 
-### Genetic testing
-Use a validated cardiomyopathy panel including PRDM16 plus established sarcomeric, cytoskeletal, nuclear-envelope, ion-channel, mitochondrial, and syndromic LVNC genes. Exome/genome sequencing is appropriate when panel testing is negative, phenotype is syndromic, or structural variants are suspected. Copy-number analysis/CMA is important for developmental abnormalities suggestive of 1p36 deletion. Karyotype/FISH is not routine unless a chromosomal rearrangement is suspected. Mitochondrial-DNA testing is phenotype-driven; repeat-expansion testing has no specific role.
+Common morphology thresholds include:
 
-RNA sequencing may clarify splice variants but remains an adjunct. No validated diagnostic proteomic, metabolomic, epigenomic, or liquid-biopsy assay exists.
+- **Chin echocardiographic criterion:** X/Y ≤0.5 in diastole.
+- **Jenni criterion:** noncompacted/compacted (**NC/C**) ratio >2 in systole, with a two-layer structure and perfused recesses.
+- **Stöllberger criterion:** at least three prominent trabeculae apical to papillary muscles, perfused recesses, and often NC/C >2.
+- **Petersen CMR criterion:** NC/C ≥2.3 in end-diastole.
+- **Jacquier CMR criterion:** trabeculated mass >20% of total LV mass. (martineztittonel2025leftventricularnoncompaction pages 5-7)
+
+These are not interchangeable and can overdiagnose healthy athletes, pregnancy-related remodeling, and some ancestries. The contemporary expert position is to integrate morphology with ventricular size/function, fibrosis, ECG abnormalities, symptoms, family history, congenital/syndromic features, and genotype. In a pediatric cohort, median echocardiographic NC/C was 2.80 and median CMR NC/C 3.09; CMR confirmed all 25 evaluable echocardiographic cases. (piekutowskaabramczuk2022geneticprofileof pages 3-5)
+
+### Genetic testing strategy
+
+1. Perform a validated cardiomyopathy panel containing **PRDM16** plus established LVNC/DCM/HCM and arrhythmia genes, with deletion/duplication analysis.
+2. Use exome or genome sequencing when panel testing is negative and suspicion remains high, particularly for pediatric, syndromic, or familial disease.
+3. Use chromosomal microarray when developmental delay, dysmorphism, seizures, congenital anomalies, or growth abnormalities suggest **1p36 deletion syndrome**.
+4. Confirm reportable variants and test parents/relatives for segregation.
+5. RNA analysis may clarify suspected splice variants, but it is not yet routine.
+6. Karyotype/FISH may characterize a known structural rearrangement but are less sensitive than CMA for small 1p36 deletions.
+7. Mitochondrial DNA and repeat-expansion testing are not specifically indicated unless the broader phenotype suggests those disorders.
 
 ### Differential diagnosis
-Physiologic athletic/pregnancy remodeling; normal prominent trabeculation; DCM/HCM with secondary trabeculation; apical HCM; endocardial fibroelastosis; arrhythmogenic cardiomyopathy; myocarditis; congenital heart disease; endomyocardial fibrosis; cardiac thrombus or tumor; neuromuscular/mitochondrial disorders. Dysfunction, fibrosis, arrhythmia, pathogenic genotype, and familial segregation favor cardiomyopathy over a benign trait.
+
+Rule out physiological athlete’s heart, pregnancy-associated hypertrabeculation, sickle-cell/anemia-associated remodeling, DCM/HCM with secondary trabeculation, myocarditis, ischemic or hypertensive remodeling, apical hypertrophic cardiomyopathy, endocardial fibroelastosis, endomyocardial fibrosis, cardiac tumors or thrombus, congenital heart disease, Barth syndrome/TAZ disease, mitochondrial disease, neuromuscular disorders, and HCN4/RYR2-associated arrhythmic LVNC. (martineztittonel2025leftventricularnoncompaction pages 5-7, aung2020prognosticsignificanceof pages 1-2)
 
 ### Screening
-Offer genetic counseling and cascade testing for a pathogenic/likely pathogenic familial PRDM16 variant. First-degree relatives should have baseline ECG and imaging; variant-positive relatives require longitudinal surveillance. Echocardiographic family screening is recommended in familial LVNC. (arbustini2014leftventricularnoncompaction pages 9-10)
+
+Cascade screening of first-degree relatives should combine genetic testing for the familial pathogenic variant with ECG and cardiac imaging. Genotype-positive/phenotype-negative relatives require longitudinal surveillance because penetrance may be age-dependent. There is no population or newborn LVNC8 screening program.
 
 ## 11. Outcome and prognosis
 
-No LVNC8-specific 5- or 10-year survival estimate exists. Prognosis is driven less by trabeculation extent than by ventricular dysfunction, dilation, fibrosis, sustained ventricular arrhythmia, syncope, conduction disease, thrombus/embolism, and heart-failure severity. (walsh2023thetroublewith pages 1-2)
+LVNC8-specific survival curves are unavailable. In the broad-LVNC meta-analysis of 28 studies and 2,501 patients followed for a median 2.9 years, event rates per 100 person-years were:
 
-Broader LVNC morbidity includes heart-failure hospitalization, ICD implantation, stroke/systemic embolism, mechanical circulatory support, transplant, and sudden death. In one small historical ICD series, **37% of 30 patients** received appropriate ICD therapy during **40±34 months**, but this is neither a randomized estimate nor LVNC8-specific. (arbustini2014leftventricularnoncompaction pages 9-10)
+- cardiovascular mortality **1.92** (95% CI 1.54–2.30);
+- all-cause mortality **2.16**;
+- stroke/systemic embolism **1.54**;
+- heart-failure admission **3.53**;
+- transplantation **1.24**;
+- ventricular arrhythmia **2.17**;
+- cardiac-device implantation **2.66**. (aung2020prognosticsignificanceof pages 1-2)
 
-Quality-of-life instruments specific to LVNC8 have not been validated. EQ-5D, SF-36, Kansas City Cardiomyopathy Questionnaire, pediatric quality-of-life tools, and PROMIS measures can quantify the impact of dyspnea, fatigue, arrhythmia anxiety, activity restriction, repeated imaging, and familial genetic risk.
+Cardiovascular mortality was similar to DCM (OR 1.10, 95% CI 0.18–6.67). The strongest conclusion was that **LVEF, not trabeculation burden, drove adverse outcomes**. Reduced LVEF, NYHA III/IV symptoms, ventricular tachycardia, dilation, and CMR late gadolinium enhancement/fibrosis are therefore more useful prognostic markers than NC/C ratio alone. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2, aung2020prognosticsignificanceof pages 1-2)
 
-## 12. Treatment and current applications
+PRDM16 deletion conferred increased risk of death, transplantation, or VAD in the 2023 cohort. Severe pediatric onset, marked systolic dysfunction, malignant arrhythmia, and fibrosis should be regarded as adverse indicators, although no validated PRDM16-specific risk calculator exists. (boudina2023prdm16deletionis pages 1-3)
 
-There is **no approved PRDM16-directed, gene, cell, RNA, or epigenetic therapy**. Treatment is phenotype-directed:
+## 12. Treatment
 
-- **Heart failure:** guideline-directed therapy appropriate to age and ejection fraction—typically renin–angiotensin-system inhibition/ARNI, evidence-based beta-blocker, mineralocorticoid-receptor antagonist, SGLT2 inhibitor, and diuretic for congestion. Pediatric regimens require specialist dosing.
-- **Arrhythmia:** ambulatory monitoring; antiarrhythmic therapy or ablation as clinically indicated. ICD placement follows conventional secondary-prevention or cardiomyopathy primary-prevention criteria rather than trabeculation alone. CRT may be considered with EF ≤35% and qualifying electrical dyssynchrony. (arbustini2014leftventricularnoncompaction pages 8-9)
-- **Anticoagulation:** indicated for atrial fibrillation, documented ventricular thrombus, prior systemic embolism, or another standard indication; often considered when substantial LV dysfunction is present. Routine anticoagulation for isolated trabeculation with normal function remains debated. (arbustini2014leftventricularnoncompaction pages 9-10, arbustini2014leftventricularnoncompaction pages 8-9)
-- **Advanced disease:** mechanical circulatory support and heart transplantation according to standard advanced-heart-failure criteria.
-- **Rehabilitation/support:** individualized cardiac rehabilitation, exercise prescription, vaccination and infection prevention appropriate to heart-failure care, pregnancy counseling, psychosocial support, and genetic counseling.
-- **Pharmacogenomics:** no PRDM16-specific drug-response guidance exists.
+No approved PRDM16-restoring, gene-editing, RNA, cell, or TGF-β-targeted therapy exists. Management is phenotype-directed and extrapolated from heart-failure and arrhythmia guidelines.
 
-Suggested NCIt intervention concepts include genetic counseling, echocardiography, cardiac MRI, electrocardiography, Holter monitoring, anticoagulant therapy, beta-blocker therapy, implantable cardioverter-defibrillator, cardiac resynchronization therapy, ventricular assist device, and heart transplantation; exact NCIt accessions should be resolved against the implementation release.
+- **Heart failure:** guideline-directed therapy according to age and phenotype, generally including an ACE inhibitor/ARB or ARNI, evidence-based beta-blocker, mineralocorticoid-receptor antagonist, SGLT2 inhibitor in eligible patients, and diuretics for congestion.
+- **Arrhythmia:** beta-blocker or other antiarrhythmic therapy selected by rhythm and ventricular function; catheter ablation when appropriate.
+- **ICD:** standard primary- or secondary-prevention indications based on LVEF, sustained VT/VF, prior arrest, and individualized genetic/fibrotic risk—not trabeculation alone.
+- **Anticoagulation:** indicated for atrial fibrillation, intracardiac thrombus, previous systemic embolism, or other conventional high-risk contexts. Routine anticoagulation solely for morphology is not supported.
+- **Advanced failure:** cardiac resynchronization when standard criteria are met; LVAD or heart transplantation for refractory end-stage disease.
+- **Supportive care:** individualized exercise advice, vaccination and infection prevention as for other cardiomyopathies, pregnancy counseling, psychosocial support, and cardiac rehabilitation when stable.
 
-### Trials and real-world implementation
-No PRDM16-specific interventional trial was identified. Current implementation is through registries and risk-stratification studies:
+Suggested NCIt intervention concepts: Pharmacotherapy; Angiotensin-Converting Enzyme Inhibitor; Beta-Adrenergic Blocker; Anticoagulation Therapy; Catheter Ablation; Implantable Cardioverter-Defibrillator; Cardiac Resynchronization Therapy; Ventricular Assist Device; Heart Transplantation.
 
-- **NCT06024759**, recruiting, observational, target **500**, 10-year LVNC risk registry examining genetics, ventricular dysfunction, arrhythmia, strain, and ICD predictors. https://clinicaltrials.gov/study/NCT06024759 (NCT06024759 chunk 1)
-- **NCT04265040**, recruiting, TORCH-Plus cardiomyopathy registry, target **2,040**, with phenotyping, biosampling, genomics, inflammation, and four-year mortality. https://clinicaltrials.gov/study/NCT04265040 (NCT04265040 chunk 1)
-- **NCT03572569**, prospective family-based pediatric cardiomyopathy study, target **200**, evaluating death, mechanical support, and transplant over up to eight years. https://clinicaltrials.gov/study/NCT03572569 (NCT03572569 chunk 1)
-- **NCT01470014**, completed CT diagnostic study, **39** participants. https://clinicaltrials.gov/study/NCT01470014 (NCT01470014 chunk 1)
+### Current research implementation
+
+No retrieved interventional trial tested an LVNC8-specific treatment. Active work is registry-based:
+
+- **NCT06024759**, recruiting, estimated **500 adults**, follows LVNC for 10 years to identify genetic, strain, PVC/NSVT, dysfunction, and ICD-risk predictors; start 1 September 2023, estimated completion 2033. [ClinicalTrials.gov](https://clinicaltrials.gov/study/NCT06024759). (NCT06024759 chunk 1)
+- **NCT04265040 (TORCH-Plus)**, recruiting, estimated **2,040 participants**, integrates deep phenotyping, genomics, inflammation, fibrosis, biomarkers, and outcomes across cardiomyopathies including rare LVNC; estimated completion December 2027. [ClinicalTrials.gov](https://clinicaltrials.gov/study/NCT04265040). (NCT04265040 chunk 1)
+- **NCT03572569 (RIKADA)** is a prospective family-based pediatric cardiomyopathy study, estimated **200 participants**, incorporating ECG/Holter, exercise testing, echo, CMR, laboratory testing, and genetics. Registry status is currently “unknown,” with last known status recruiting. [ClinicalTrials.gov](https://clinicaltrials.gov/study/NCT03572569). (NCT03572569 chunk 1)
 
 ## 13. Prevention
 
-**Primary prevention:** the germline disorder cannot currently be prevented by lifestyle or vaccination. Reproductive options after counseling include prenatal diagnosis and preimplantation genetic testing when a familial pathogenic variant is known.
+Primary prevention of a de novo or inherited PRDM16 variant is not available. Reproductive options after genetic counseling include prenatal diagnosis and preimplantation genetic testing when a familial pathogenic variant is known; counseling must emphasize incomplete penetrance and variable expressivity.
 
-**Secondary prevention:** cascade genetic testing, periodic ECG/imaging, ambulatory rhythm monitoring, and early treatment of dysfunction or arrhythmia. Population or newborn screening is not recommended because prevalence, penetrance, and test performance are insufficiently defined.
+Secondary prevention consists of cascade genetic testing, baseline ECG/echo, periodic surveillance of genotype-positive relatives, ambulatory rhythm monitoring when indicated, and early treatment of ventricular dysfunction or arrhythmia. Tertiary prevention includes guideline-directed heart-failure therapy, embolic-risk management, ICD use under conventional criteria, avoidance of cardiotoxic exposures, and timely referral for advanced-heart-failure care.
 
-**Tertiary prevention:** guideline-directed heart-failure therapy; thrombosis prevention when indicated; ICD/CRT in selected patients; exercise and pregnancy risk assessment; prompt treatment of decompensation; and family education regarding syncope, sustained palpitations, chest pain, and heart-failure warning signs.
+No vaccine or infectious prophylaxis prevents LVNC8. General vaccination and prompt treatment of infections may reduce cardiovascular decompensation but are not disease-specific.
 
 ## 14. Other species and natural disease
 
-- **Human:** *Homo sapiens*, NCBI Taxon **9606**.
-- **Mouse:** *Mus musculus*, Taxon **10090**; ortholog **Prdm16**.
-- **Zebrafish:** *Danio rerio*, Taxon **7955**; prdm16 perturbation produces developmental cardiac dysfunction.
+- **Human:** *Homo sapiens*, NCBI Taxonomy **9606**; naturally occurring PRDM16 variants and deletions cause LVNC/DCM.
+- **Mouse:** *Mus musculus*, Taxonomy **10090**; engineered Prdm16 loss produces noncompaction, compact-layer defects, conduction abnormalities, fibrosis, metabolic dysfunction, and sex-biased severity.
+- **Zebrafish:** *Danio rerio*, Taxonomy **7955**; experimental prdm16 knockdown reduces heart rate and cardiac output and impairs cardiomyocyte proliferation. (nam2020cardiacspecificinactivationof pages 1-5)
 
-Naturally occurring LVNC-like disease has been described in veterinary species and Japanese macaques, but no retrieved evidence established a naturally occurring PRDM16-defined LVNC8 orthologous disease, breed predisposition, or VBO term. The condition is noninfectious and has no zoonotic or cross-species transmission.
+No well-established naturally occurring veterinary LVNC8 syndrome or breed predisposition was identified. There is no transmission or zoonotic potential. The conserved cardiac expression and phenotype across vertebrates support evolutionary conservation of PRDM16-dependent myocardial development, although zebrafish cardiac anatomy and regenerative capacity limit direct clinical extrapolation.
 
 ## 15. Model organisms and experimental systems
 
-### Zebrafish
-Morpholino/antisense knockdown and expression of human p.Lys702Ter produced reduced output, bradycardia, diminished proliferation, apoptosis, and electrical uncoupling. Advantages include rapid developmental and cardiac-function assays; limitations include two-chamber anatomy, gene-duplication differences, and imperfect modeling of human ventricular compaction. (theisen2024characterisationofthe pages 17-21)
+### Available models
 
-### Mouse
+- **Patient-derived PRDM16-Q187X iPSC cardiomyocytes:** impaired proliferation, increased apoptosis, and TGF-β/cardiac-maturation transcriptional abnormalities. Strength: human genetic background. Limitation: immature in-vitro cardiomyocytes and absent organ-level loading. (sun2023nonsensevariantprdm16q187x pages 1-3)
+- **Prdm16-Q187X knock-in mouse:** homozygotes show compact-layer underdevelopment and embryonic lethality; heterozygotes show milder underdevelopment, fibrosis, and age-dependent signaling changes. Strength: allelic fidelity; limitation: mouse dosage effects differ from humans. (sun2023nonsensevariantprdm16q187x pages 1-3, sun2023nonsensevariantprdm16q187x pages 10-11)
+- **Cardiomyocyte-specific Prdm16 knockout mouse:** recapitulates LV-predominant dilation/dysfunction, noncompaction, identity switching, conduction abnormalities, hypertrophy, and fibrosis. Useful for developmental timing and cell-autonomous effects; results depend on Cre driver and deletion timing. (wu2022prdm16isa pages 11-13, nam2020cardiacspecificinactivationof pages 1-5)
+- **Prdm16csp1/wt systemic heterozygous mouse:** models monoallelic human loss and early sex-specific metabolic dysfunction; useful for multi-omics and preclinical metabolism studies. (kuhnisch2023prdm16mutationdetermines pages 1-2)
+- **Zebrafish morpholino/knockdown:** suitable for rapid developmental and cardiac-output assays but incompletely models mammalian ventricular compaction.
+- **H9c2 cardiomyoblasts:** demonstrated PRDM16 occupancy/regulation at TGFB promoters and H3K4 effects; limited by their rat, nonadult-cardiomyocyte identity. (sun2023nonsensevariantprdm16q187x pages 11-13)
 
-- **Cardiomyocyte-specific biallelic Prdm16 knockout:** LV dilation/dysfunction and biventricular noncompaction; strong model for developmental cell-identity mechanisms, but more severe than many heterozygous human cases. (wu2022prdm16isa pages 1-3)
-- **Prdm16csp1/wt heterozygote:** viable with mild hypoplastic cardiomyopathy, reduced systolic performance, early metabolic stress, and female-predominant severity. It better models haploinsufficiency but lacks the full human structural/arrhythmic spectrum and showed no fibrosis in one characterization. (kuhnisch2023prdm16mutationdetermines pages 1-2, theisen2024characterisationofthe pages 76-81)
-- **Developmental cardiomyocyte knockout with single-cell RNA+ATAC:** demonstrates atrial/conduction fate shift and conduction-system hyperplasia; useful for chromatin and lineage studies, though premature death limits chronic-treatment experiments. (wauwe2024prdm16determinesspecification pages 1-2)
+No validated human cardiac organoid, large-animal, or natural veterinary PRDM16-LVNC8 model was identified in the retrieved literature.
 
-### Human cellular systems
-Patient-specific iPSC cardiomyocytes have established the broader LVNC paradigm that abnormal developmental signaling and impaired cardiomyocyte proliferation can be modeled and rescued experimentally. In TBX20-associated LVNC, TGF-β activation reduced proliferation; PRDM16 was identified as a downstream target, and PRDM16 editing itself caused proliferation defects. This supports pathway convergence but is not a direct PRDM16-patient LVNC8 model. Relevant abstract language states that **“inhibition of TGF-β signalling and genome correction of the TBX20 mutation were sufficient to reverse the disease phenotype”** (Kodo et al., 2016; DOI: https://doi.org/10.1038/ncb3411).
+## Evidence gaps and knowledge-base cautions
 
-## Evidence appraisal and critical gaps
+1. Molecularly confirmed LVNC8 prevalence, incidence, penetrance, and age-specific natural history remain unknown.
+2. Human phenotype frequencies cannot be inferred from broad LVNC cohorts.
+3. Variant-specific risks require current ClinVar/ClinGen and population-database review; historical “mutation” labels should not automatically be converted to pathogenic.
+4. Imaging hypertrabeculation alone must not be equated with cardiomyopathy or LVNC8.
+5. TGF-β, metabolic, and conduction mechanisms are compelling but predominantly model-derived; none yet supports targeted clinical therapy.
+6. No validated protective factor, pharmacogenomic rule, molecular biomarker, epigenetic diagnostic, or disease-modifying treatment exists.
 
-The strongest LVNC8 evidence combines rare-variant enrichment, de novo/familial truncating alleles, 1p36 deletion mapping, and concordant zebrafish/mouse functional studies. Recent 2023–2024 work substantially advances mechanism through multi-omics and single-cell chromatin/transcriptome analysis. However, exact prevalence, penetrance, variant-specific prognosis, human sex effects, environmental modifiers, quality-of-life data, and treatment-response rates remain unknown. Morphology-only diagnosis risks substantial overcalling; expert interpretation should prioritize the integrated **genotype–phenotype–function–family** context rather than the NC/C ratio alone. (walsh2023thetroublewith pages 10-11, wauwe2024prdm16determinesspecification pages 1-2, walsh2023thetroublewith pages 1-2, kuhnisch2023prdm16mutationdetermines pages 1-2)
+Overall, the strongest current model is that **PRDM16 haploinsufficiency disrupts ventricular/compact-cardiomyocyte identity, proliferation, chromatin regulation, developmental TGF-β signaling, electrophysiology, and energy metabolism**, producing a variably penetrant spectrum from isolated hypertrabeculation to severe noncompaction/dilated cardiomyopathy.
 
 References
 
-1. (OpenTargets Search: left ventricular noncompaction-PRDM16): Open Targets Query (left ventricular noncompaction-PRDM16, 2 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+1. (arndt2013finemappingof pages 4-5): Anne-Karin Arndt, Sebastian Schafer, Jorg-Detlef Drenckhahn, M. Khaled Sabeh, Eva R. Plovie, Almuth Caliebe, Eva Klopocki, Gabriel Musso, Andreas A. Werdich, Hermann Kalwa, Matthias Heinig, Robert F. Padera, Katharina Wassilew, Julia Bluhm, Christine Harnack, Janine Martitz, Paul J. Barton, Matthias Greutmann, Felix Berger, Norbert Hubner, Reiner Siebert, Hans-Heiner Kramer, Stuart A. Cook, Calum A. MacRae, and Sabine Klaassen. Fine mapping of the 1p36 deletion syndrome identifies mutation of prdm16 as a cause of cardiomyopathy. American journal of human genetics, 93 1:67-77, Jul 2013. URL: https://doi.org/10.1016/j.ajhg.2013.05.015, doi:10.1016/j.ajhg.2013.05.015. This article has 242 citations and is from a highest quality peer-reviewed journal.
 
-2. (wu2022prdm16isa pages 13-14): Tongbin Wu, Zhengyu Liang, Zengming Zhang, Canzhao Liu, Lunfeng Zhang, Yusu Gu, Kirk L. Peterson, Sylvia M. Evans, Xiang-Dong Fu, and Ju Chen. Prdm16 is a compact myocardium-enriched transcription factor required to maintain compact myocardial cardiomyocyte identity in left ventricle. Circulation, 145:586-602, Feb 2022. URL: https://doi.org/10.1161/circulationaha.121.056666, doi:10.1161/circulationaha.121.056666. This article has 106 citations and is from a highest quality peer-reviewed journal.
+2. (mazzarotto2020thegeneticarchitecture pages 1-3): Francesco Mazzarotto, Megan H. Hawley, Matteo Beltrami, Leander Beekman, Antonio de Marvao, Kathryn A. McGurk, Ben Statton, Beatrice Boschi, Francesca Girolami, Angharad M. Roberts, Elisabeth M. Lodder, Mona Allouba, Soha Romeih, Yasmine Aguib, A. John Baksi, Antonis Pantazis, Sanjay K. Prasad, Elisabetta Cerbai, Magdi H. Yacoub, Declan P. O’Regan, Stuart A. Cook, James S. Ware, Birgit Funke, Iacopo Olivotto, Connie R. Bezzina, Paul J.R. Barton, and Roddy Walsh. The genetic architecture of left ventricular non-compaction reveals both substantial overlap with other cardiomyopathies and a distinct aetiology in a subset of cases. European Heart Journal, Jan 2020. URL: https://doi.org/10.1101/2020.01.03.19015602, doi:10.1101/2020.01.03.19015602. This article has 4 citations and is from a highest quality peer-reviewed journal.
 
-3. (walsh2023thetroublewith pages 10-11): Roddy Walsh. The trouble with trabeculation: how genetics can help to unravel a complex and controversial phenotype. Journal of cardiovascular translational research, 16:1310-1324, Nov 2023. URL: https://doi.org/10.1007/s12265-023-10459-6, doi:10.1007/s12265-023-10459-6. This article has 11 citations and is from a peer-reviewed journal.
+3. (boudina2023prdm16deletionis pages 1-3): PhD Sihem Boudina, MD Andrew Landstrom, MD Ruth McPherson, BA Ryan J. Kramer, Amir, BS Nima Fatahian, MD Alice Chan, MD Jeffery Mortenson, BA Jennifer Osher, Bo Sun, BS Lauren E. Parker, M. M. Michael B. Rosamilia, BS Kyra B. Potter, BS Kaila Moore, BS Sage L. Atkins, MS Jill A. Rosenfeld, MD Alona Birjiniuk, PhD Edward Jones, MD Taylor S. Howard, MD Jeffrey J. Kim, MD Daryl A. Scott, PhD Seema Lalani Md, Msc Omid M.T. Rouzbehani, PhD Samantha Kaplan, Marissa A. Hathaway, MD Jennifer L. Cohen, MD S. Yukiko Asaki, and MD Hugo R. Martinez. <i>prdm16</i> deletion is associated with sex-dependent cardiomyopathy and cardiac mortality: a translational, multi-institutional cohort study. Aug 2023. URL: https://doi.org/10.1161/circgen.122.003912, doi:10.1161/circgen.122.003912. This article has 17 citations.
 
-4. (arbustini2014leftventricularnoncompaction pages 7-8): Eloisa Arbustini, Frank Weidemann, and Jennifer L. Hall. Left ventricular noncompaction: a distinct cardiomyopathy or a trait shared by different cardiac diseases? Journal of the American College of Cardiology, 64 17:1840-50, Oct 2014. URL: https://doi.org/10.1016/j.jacc.2014.08.030, doi:10.1016/j.jacc.2014.08.030. This article has 324 citations and is from a highest quality peer-reviewed journal.
+4. (sun2023nonsensevariantprdm16q187x pages 1-3): Bo Sun, Omid M.T. Rouzbehani, Ryan J. Kramer, Rajeshwary Ghosh, Robin M. Perelli, Sage Atkins, Amir Nima Fatahian, Kathryn Davis, Marta W. Szulik, Michael A. Goodman, Marissa A. Hathaway, Ellenor Chi, Tarah A. Word, Hari Tunuguntla, Susan W. Denfield, Xander H.T. Wehrens, Kevin J. Whitehead, Hala Y. Abdelnasser, Junco S. Warren, Mingfu Wu, Sarah Franklin, Sihem Boudina, and Andrew P. Landstrom. Nonsense variant prdm16-q187x causes impaired myocardial development and tgf-β signaling resulting in noncompaction cardiomyopathy in humans and mice. Circulation: Heart Failure, 16:e010351, Dec 2023. URL: https://doi.org/10.1161/circheartfailure.122.010351, doi:10.1161/circheartfailure.122.010351. This article has 26 citations and is from a domain leading peer-reviewed journal.
 
-5. (walsh2023thetroublewith pages 1-2): Roddy Walsh. The trouble with trabeculation: how genetics can help to unravel a complex and controversial phenotype. Journal of cardiovascular translational research, 16:1310-1324, Nov 2023. URL: https://doi.org/10.1007/s12265-023-10459-6, doi:10.1007/s12265-023-10459-6. This article has 11 citations and is from a peer-reviewed journal.
+5. (sun2023nonsensevariantprdm16q187x pages 10-11): Bo Sun, Omid M.T. Rouzbehani, Ryan J. Kramer, Rajeshwary Ghosh, Robin M. Perelli, Sage Atkins, Amir Nima Fatahian, Kathryn Davis, Marta W. Szulik, Michael A. Goodman, Marissa A. Hathaway, Ellenor Chi, Tarah A. Word, Hari Tunuguntla, Susan W. Denfield, Xander H.T. Wehrens, Kevin J. Whitehead, Hala Y. Abdelnasser, Junco S. Warren, Mingfu Wu, Sarah Franklin, Sihem Boudina, and Andrew P. Landstrom. Nonsense variant prdm16-q187x causes impaired myocardial development and tgf-β signaling resulting in noncompaction cardiomyopathy in humans and mice. Circulation: Heart Failure, 16:e010351, Dec 2023. URL: https://doi.org/10.1161/circheartfailure.122.010351, doi:10.1161/circheartfailure.122.010351. This article has 26 citations and is from a domain leading peer-reviewed journal.
 
-6. (arbustini2014leftventricularnoncompaction pages 8-9): Eloisa Arbustini, Frank Weidemann, and Jennifer L. Hall. Left ventricular noncompaction: a distinct cardiomyopathy or a trait shared by different cardiac diseases? Journal of the American College of Cardiology, 64 17:1840-50, Oct 2014. URL: https://doi.org/10.1016/j.jacc.2014.08.030, doi:10.1016/j.jacc.2014.08.030. This article has 324 citations and is from a highest quality peer-reviewed journal.
+6. (nam2020cardiacspecificinactivationof pages 1-5): Jeong Min Nam, Ji Eun Lim, Tae Woong Ha, Bermseok Oh, and Ji-One Kang. Cardiac-specific inactivation of <i>prdm16</i> effects cardiac conduction abnormalities and cardiomyopathy-associated phenotypes. Apr 2020. URL: https://doi.org/10.1152/ajpheart.00647.2019, doi:10.1152/ajpheart.00647.2019. This article has 42 citations.
 
-7. (arbustini2014leftventricularnoncompaction pages 9-10): Eloisa Arbustini, Frank Weidemann, and Jennifer L. Hall. Left ventricular noncompaction: a distinct cardiomyopathy or a trait shared by different cardiac diseases? Journal of the American College of Cardiology, 64 17:1840-50, Oct 2014. URL: https://doi.org/10.1016/j.jacc.2014.08.030, doi:10.1016/j.jacc.2014.08.030. This article has 324 citations and is from a highest quality peer-reviewed journal.
+7. (wu2022prdm16isa pages 11-13): Tongbin Wu, Zhengyu Liang, Zengming Zhang, Canzhao Liu, Lunfeng Zhang, Yusu Gu, Kirk L. Peterson, Sylvia M. Evans, Xiang-Dong Fu, and Ju Chen. Prdm16 is a compact myocardium-enriched transcription factor required to maintain compact myocardial cardiomyocyte identity in left ventricle. Feb 2022. URL: https://doi.org/10.1161/circulationaha.121.056666, doi:10.1161/circulationaha.121.056666. This article has 106 citations and is from a highest quality peer-reviewed journal.
 
-8. (wu2022prdm16isa pages 1-3): Tongbin Wu, Zhengyu Liang, Zengming Zhang, Canzhao Liu, Lunfeng Zhang, Yusu Gu, Kirk L. Peterson, Sylvia M. Evans, Xiang-Dong Fu, and Ju Chen. Prdm16 is a compact myocardium-enriched transcription factor required to maintain compact myocardial cardiomyocyte identity in left ventricle. Circulation, 145:586-602, Feb 2022. URL: https://doi.org/10.1161/circulationaha.121.056666, doi:10.1161/circulationaha.121.056666. This article has 106 citations and is from a highest quality peer-reviewed journal.
+8. (wauwe2024prdm16determinesspecification pages 1-2): Jore Van Wauwe, Alexia Mahy, Sander Craps, Samaneh Ekhteraei-Tousi, Pieter Vrancaert, Hannelore Kemps, Wouter Dheedene, Rosa Doñate Puertas, Sander Trenson, H. Llewelyn Roderick, Manu Beerens, and Aernout Luttun. Prdm16 determines specification of ventricular cardiomyocytes by suppressing alternative cell fates. Life Science Alliance, 7:e202402719, Sep 2024. URL: https://doi.org/10.26508/lsa.202402719, doi:10.26508/lsa.202402719. This article has 8 citations and is from a peer-reviewed journal.
 
-9. (wu2022prdm16isa pages 9-11): Tongbin Wu, Zhengyu Liang, Zengming Zhang, Canzhao Liu, Lunfeng Zhang, Yusu Gu, Kirk L. Peterson, Sylvia M. Evans, Xiang-Dong Fu, and Ju Chen. Prdm16 is a compact myocardium-enriched transcription factor required to maintain compact myocardial cardiomyocyte identity in left ventricle. Circulation, 145:586-602, Feb 2022. URL: https://doi.org/10.1161/circulationaha.121.056666, doi:10.1161/circulationaha.121.056666. This article has 106 citations and is from a highest quality peer-reviewed journal.
+9. (sun2023nonsensevariantprdm16q187x pages 11-13): Bo Sun, Omid M.T. Rouzbehani, Ryan J. Kramer, Rajeshwary Ghosh, Robin M. Perelli, Sage Atkins, Amir Nima Fatahian, Kathryn Davis, Marta W. Szulik, Michael A. Goodman, Marissa A. Hathaway, Ellenor Chi, Tarah A. Word, Hari Tunuguntla, Susan W. Denfield, Xander H.T. Wehrens, Kevin J. Whitehead, Hala Y. Abdelnasser, Junco S. Warren, Mingfu Wu, Sarah Franklin, Sihem Boudina, and Andrew P. Landstrom. Nonsense variant prdm16-q187x causes impaired myocardial development and tgf-β signaling resulting in noncompaction cardiomyopathy in humans and mice. Circulation: Heart Failure, 16:e010351, Dec 2023. URL: https://doi.org/10.1161/circheartfailure.122.010351, doi:10.1161/circheartfailure.122.010351. This article has 26 citations and is from a domain leading peer-reviewed journal.
 
-10. (wauwe2024prdm16determinesspecification pages 1-2): Jore Van Wauwe, Alexia Mahy, Sander Craps, Samaneh Ekhteraei-Tousi, Pieter Vrancaert, Hannelore Kemps, Wouter Dheedene, Rosa Doñate Puertas, Sander Trenson, H. Llewelyn Roderick, Manu Beerens, and Aernout Luttun. Prdm16 determines specification of ventricular cardiomyocytes by suppressing alternative cell fates. Life Science Alliance, 7:e202402719, Sep 2024. URL: https://doi.org/10.26508/lsa.202402719, doi:10.26508/lsa.202402719. This article has 8 citations and is from a peer-reviewed journal.
+10. (kuhnisch2023prdm16mutationdetermines pages 1-2): Jirko Kühnisch, Simon Theisen, Josephine Dartsch, Raphaela Fritsche-Guenther, Marieluise Kirchner, Benedikt Obermayer, Anna Bauer, Anne-Karin Kahlert, Michael Rothe, Dieter Beule, Arnd Heuser, Philipp Mertins, Jennifer A Kirwan, Nikolaus Berndt, Calum A MacRae, Norbert Hubner, and Sabine Klaassen. <i>prdm16</i> mutation determines sex-specific cardiac metabolism and identifies two novel cardiac metabolic regulators. Oct 2023. URL: https://doi.org/10.1093/cvr/cvad154, doi:10.1093/cvr/cvad154. This article has 16 citations and is from a domain leading peer-reviewed journal.
 
-11. (kuhnisch2023prdm16mutationdetermines pages 1-2): Jirko Kühnisch, Simon Theisen, Josephine Dartsch, Raphaela Fritsche-Guenther, Marieluise Kirchner, Benedikt Obermayer, Anna Bauer, Anne-Karin Kahlert, Michael Rothe, Dieter Beule, Arnd Heuser, Philipp Mertins, Jennifer A Kirwan, Nikolaus Berndt, Calum A MacRae, Norbert Hubner, and Sabine Klaassen. <i>prdm16</i> mutation determines sex-specific cardiac metabolism and identifies two novel cardiac metabolic regulators. Cardiovascular Research, 119:2902-2916, Oct 2023. URL: https://doi.org/10.1093/cvr/cvad154, doi:10.1093/cvr/cvad154. This article has 16 citations and is from a domain leading peer-reviewed journal.
+11. (martineztittonel2025leftventricularnoncompaction pages 5-7): Luis Elias Martínez-Tittonel, Florin Ciorba, Xavier Bayona-Huguet, and Edgardo Kaplinsky. Left ventricular non-compaction cardiomyopathy: a review of the pathophysiology, epidemiology, diagnosis, genetics, and clinical management. Jul 2025. URL: https://doi.org/10.20944/preprints202507.1652.v1, doi:10.20944/preprints202507.1652.v1.
 
-12. (kuhnisch2023prdm16mutationdetermines pages 4-7): Jirko Kühnisch, Simon Theisen, Josephine Dartsch, Raphaela Fritsche-Guenther, Marieluise Kirchner, Benedikt Obermayer, Anna Bauer, Anne-Karin Kahlert, Michael Rothe, Dieter Beule, Arnd Heuser, Philipp Mertins, Jennifer A Kirwan, Nikolaus Berndt, Calum A MacRae, Norbert Hubner, and Sabine Klaassen. <i>prdm16</i> mutation determines sex-specific cardiac metabolism and identifies two novel cardiac metabolic regulators. Cardiovascular Research, 119:2902-2916, Oct 2023. URL: https://doi.org/10.1093/cvr/cvad154, doi:10.1093/cvr/cvad154. This article has 16 citations and is from a domain leading peer-reviewed journal.
+12. (NCT03572569 chunk 1):  Risk Stratification in Children and Adolescents With Primary Cardiomyopathy. German Heart Institute. 2013. ClinicalTrials.gov Identifier: NCT03572569
 
-13. (kuhnisch2023prdm16mutationdetermines pages 10-11): Jirko Kühnisch, Simon Theisen, Josephine Dartsch, Raphaela Fritsche-Guenther, Marieluise Kirchner, Benedikt Obermayer, Anna Bauer, Anne-Karin Kahlert, Michael Rothe, Dieter Beule, Arnd Heuser, Philipp Mertins, Jennifer A Kirwan, Nikolaus Berndt, Calum A MacRae, Norbert Hubner, and Sabine Klaassen. <i>prdm16</i> mutation determines sex-specific cardiac metabolism and identifies two novel cardiac metabolic regulators. Cardiovascular Research, 119:2902-2916, Oct 2023. URL: https://doi.org/10.1093/cvr/cvad154, doi:10.1093/cvr/cvad154. This article has 16 citations and is from a domain leading peer-reviewed journal.
+13. (aung2020prognosticsignificanceof pages 1-2): Nay Aung, Sara Doimo, Fabrizio Ricci, Mihir M. Sanghvi, Cesar Pedrosa, Simon P. Woodbridge, Amer Al-Balah, Filip Zemrak, Mohammed Y. Khanji, Patricia B. Munroe, Huseyin Naci, and Steffen E. Petersen. Prognostic significance of left ventricular noncompaction. Circulation. Cardiovascular Imaging, 13:e009712-e009712, Jan 2020. URL: https://doi.org/10.1161/circimaging.119.009712, doi:10.1161/circimaging.119.009712. This article has 143 citations.
 
-14. (NCT06024759 chunk 1):  Predictors of Risk in Left Ventricular Non-Compaction. London Health Sciences Centre Research Institute OR Lawson Research Institute of St. Joseph's. 2023. ClinicalTrials.gov Identifier: NCT06024759
+14. (piekutowskaabramczuk2022geneticprofileof pages 3-5): Dorota Piekutowska-Abramczuk, Agata Paszkowska, Elżbieta Ciara, Kamila Frączak, Alicja Mirecka-Rola, Dorota Wicher, Agnieszka Pollak, Karolina Rutkowska, Jędrzej Sarnecki, and Lidia Ziółkowska. Genetic profile of left ventricular noncompaction cardiomyopathy in children—a single reference center experience. Genes, 13:1334, Jul 2022. URL: https://doi.org/10.3390/genes13081334, doi:10.3390/genes13081334. This article has 20 citations.
 
-15. (NCT04265040 chunk 1): Benjamin Meder. DZHK TORCH-Plus is a Registry for Patients With Cardiomyopathies and Serves as Source for Cardiovascular Research Studies. University Hospital Heidelberg. 2020. ClinicalTrials.gov Identifier: NCT04265040
+15. (umapathi2025…geneticvariant pages 1-2): KK Umapathi, SB Schmidt, and U Kohli. … genetic variant in prdm16 is associated with wolff–parkinson–white syndrome with complex accessory pathway characteristics and left ventricular non-compaction …. Unknown journal, 2025.
 
-16. (NCT06607471 chunk 23): Giovanni Peretto. Multimodal and Multidisciplinary Approach to Optimize Diagnostic, Prognostic, and Therapeutic Management of Patients with Non-ischemic Cardiomyopathies and Arrhythmogenic-inflammatory Phenotypes: a Multicenter, Observational, Retrospective and Prospective Registry Study.. Scientific Institute San Raffaele. 2018. ClinicalTrials.gov Identifier: NCT06607471
+16. (umapathi2025araregenetic pages 1-2): KK Umapathi, SB Schmidt, and U Kohli. A rare genetic variant in prdm16 is associated with wolff–parkinson–white syndrome with complex accessory pathway characteristics and left ventricular non …. Unknown journal, 2025.
 
-17. (NCT01470014 chunk 1):  Cardiac Computed Tomography: Characteristics of Isolated Left Ventricular Non-compaction. University of Zurich. 2011. ClinicalTrials.gov Identifier: NCT01470014
+17. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2): Jordan Llerena-Velastegui, Almendra Lopez-Usina, and Camila Mantilla-Cisneros. Prevalence, clinical manifestations, and adverse outcomes of left ventricular noncompaction in adults: a systematic review and meta-analysis. Oct 2024. URL: https://doi.org/10.14740/cr1673, doi:10.14740/cr1673. This article has 6 citations.
 
-18. (NCT03572569 chunk 1):  Risk Stratification in Children and Adolescents With Primary Cardiomyopathy. German Heart Institute. 2013. ClinicalTrials.gov Identifier: NCT03572569
+18. (NCT06024759 chunk 1):  Predictors of Risk in Left Ventricular Non-Compaction. London Health Sciences Centre Research Institute OR Lawson Research Institute of St. Joseph's. 2023. ClinicalTrials.gov Identifier: NCT06024759
 
-19. (NCT02568072 chunk 1):  Training-induced Increased Left Ventricular Trabeculation. St George's, University of London. 2015. ClinicalTrials.gov Identifier: NCT02568072
-
-20. (micolonghi2024unveilingthespectrum pages 18-19): Caterina Micolonghi, Federica Perrone, Marco Fabiani, Silvia Caroselli, Camilla Savio, Antonio Pizzuti, Aldo Germani, Vincenzo Visco, Simona Petrucci, Speranza Rubattu, and Maria Piane. Unveiling the spectrum of minor genes in cardiomyopathies: a narrative review. International Journal of Molecular Sciences, 25:9787, Sep 2024. URL: https://doi.org/10.3390/ijms25189787, doi:10.3390/ijms25189787. This article has 11 citations.
-
-21. (theisen2024characterisationofthe pages 17-21): Simon Theisen. Characterisation of the prdm16csp1/wt mouse as a model for the prdm16 associated cardiomyopathy. Text, Jan 2024. URL: https://doi.org/10.17169/refubium-41680, doi:10.17169/refubium-41680. This article has 0 citations and is from a peer-reviewed journal.
-
-22. (kuhnisch2023prdm16mutationdetermines pages 8-10): Jirko Kühnisch, Simon Theisen, Josephine Dartsch, Raphaela Fritsche-Guenther, Marieluise Kirchner, Benedikt Obermayer, Anna Bauer, Anne-Karin Kahlert, Michael Rothe, Dieter Beule, Arnd Heuser, Philipp Mertins, Jennifer A Kirwan, Nikolaus Berndt, Calum A MacRae, Norbert Hubner, and Sabine Klaassen. <i>prdm16</i> mutation determines sex-specific cardiac metabolism and identifies two novel cardiac metabolic regulators. Cardiovascular Research, 119:2902-2916, Oct 2023. URL: https://doi.org/10.1093/cvr/cvad154, doi:10.1093/cvr/cvad154. This article has 16 citations and is from a domain leading peer-reviewed journal.
-
-23. (kuhnisch2023prdm16mutationdetermines pages 2-3): Jirko Kühnisch, Simon Theisen, Josephine Dartsch, Raphaela Fritsche-Guenther, Marieluise Kirchner, Benedikt Obermayer, Anna Bauer, Anne-Karin Kahlert, Michael Rothe, Dieter Beule, Arnd Heuser, Philipp Mertins, Jennifer A Kirwan, Nikolaus Berndt, Calum A MacRae, Norbert Hubner, and Sabine Klaassen. <i>prdm16</i> mutation determines sex-specific cardiac metabolism and identifies two novel cardiac metabolic regulators. Cardiovascular Research, 119:2902-2916, Oct 2023. URL: https://doi.org/10.1093/cvr/cvad154, doi:10.1093/cvr/cvad154. This article has 16 citations and is from a domain leading peer-reviewed journal.
-
-24. (theisen2024characterisationofthe pages 76-81): Simon Theisen. Characterisation of the prdm16csp1/wt mouse as a model for the prdm16 associated cardiomyopathy. Text, Jan 2024. URL: https://doi.org/10.17169/refubium-41680, doi:10.17169/refubium-41680. This article has 0 citations and is from a peer-reviewed journal.
+19. (NCT04265040 chunk 1): Benjamin Meder. DZHK TORCH-Plus is a Registry for Patients With Cardiomyopathies and Serves as Source for Cardiovascular Research Studies. University Hospital Heidelberg. 2020. ClinicalTrials.gov Identifier: NCT04265040
 
 ## Artifacts
 
@@ -1236,12 +1326,33 @@ Checked with `linkml-reference-validator` 0.2.1.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 11 |
-| Resolved | 11 |
+| References checked | 13 |
+| Resolved | 13 |
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
-| References weighed for topical relevance | 11 |
-| On topic | 8 |
+| References weighed for topical relevance | 13 |
+| On topic | 10 |
 | Off topic | 0 |
 
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 23 |
+| Resolved | 23 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+| Terms whose name was checked | 3 |
+| Terms named correctly | 2 |
+| Terms named as a **different** term | 1 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0014152` (4 mentions) - the report calls it "if available"; MONDO calls it **left ventricular noncompaction 8**

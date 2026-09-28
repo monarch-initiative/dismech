@@ -50,8 +50,6 @@ from linkml_reference_validator.etl.reference_fetcher import (
     ReferenceFetcher,
 )
 
-# Applying the dismech network-resilience patch also imports the validator.
-import dismech.patch_reference_validator  # noqa: F401
 from dismech.frontmatter import split_frontmatter
 
 try:

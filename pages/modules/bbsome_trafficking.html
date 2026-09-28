@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,6 +1626,11 @@
         <header class="page-header">
             <h1>BBSome Trafficking Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue."
+                      style="background: hsl(120, 68%, 96%); border-color: hsl(120, 52%, 78%); color: hsl(120, 62%, 26%);">Developmental biology</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">bbsome_trafficking</span>
                 <span class="badge badge-count">3 disorders</span>
@@ -1679,6 +1744,8 @@ This mechanism module involves abnormal protein localization to cilium (GO:00615
             </div>
             <div class="item-desc">This is a mechanism module, not a specific disease. Disorder entries reference individual nodes via conforms_to (e.g., &#34;bbsome_trafficking#BBSome-Dependent Ciliary Cargo Trafficking Failure&#34;). Scope discipline: this module covers the BBSome machine plus its dedicated operators (ARL6, LZTFL1, and the BBSome-recycling GTPase IFT27). General IFT-B particle subunits (IFT74, IFT172), transition-zone proteins (CEP290, MKS1, SDCCAG8, NPHP1) and basal-body/other ciliary proteins are shared infrastructure and are modeled in the ciliopathy_dysfunction module, even though variants in those genes also cause the Bardet-Biedl syndrome phenotype. A disease may conform to both modules: its BBSome-core nodes conform here while its transition-zone node conforms to ciliopathy_dysfunction.</div>
         </div>
+        
+
         
 
         
@@ -1812,11 +1879,13 @@ This mechanism module involves abnormal protein localization to cilium (GO:00615
             
             <div class="item-box anchor-target" id="module-pathophysiology-bbsome-subunit-deficiency" data-dismech-node="BBSome Subunit Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">BBSome Subunit Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion in this arm is a biallelic loss-of-function variant in a core BBSome subunit gene (BBS1, BBS2, BBS4, BBS5, BBS7, TTC8/BBS8, BBS9, or BBIP1/BBS18). Because the assembled complex is obligate and highly interconnected, loss of any one subunit destabilizes the whole BBSome. Conforming entries substitute the disorder-specific subunit gene.</div>
                 
@@ -1883,11 +1952,13 @@ This pathophysiological event involves BBSome (GO:0034464). GO:0034464 is a cell
             
             <div class="item-box anchor-target" id="module-pathophysiology-bbs-chaperonin-assembly-defect" data-dismech-node="BBS Chaperonin Assembly Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">BBS Chaperonin Assembly Defect</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion in this arm is a biallelic variant in one of the chaperonin-like BBS genes (MKKS/BBS6, BBS10, BBS12). These three proteins form a CCT/TRiC-associated BBS-chaperonin complex required to fold and assemble the BBSome from its subunits; their loss prevents the complex from being built even when subunit genes are intact. Conforming entries substitute the disorder-specific chaperonin gene.</div>
                 
@@ -1940,9 +2011,11 @@ This pathophysiological event involves BBSome (GO:0034464). GO:0034464 is a cell
             
             <div class="item-box anchor-target" id="module-pathophysiology-defective-bbsome-assembly" data-dismech-node="Defective BBSome Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective BBSome Assembly</div>
+                
                 <div class="item-meta">
                     
                 </div>
+                
                 
                 <div class="item-desc">Convergence node: loss of an obligate subunit (subunit arm) or of the chaperonin assembly machinery (chaperonin arm) prevents formation of a stable, functional BBSome. The native complex is highly interconnected and obligate, so partial complexes are non-functional.</div>
                 
@@ -2033,11 +2106,13 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-bbsome-membrane-recruitment-and-retrograde-ift-coupling" data-dismech-node="BBSome Membrane Recruitment and Retrograde IFT Coupling" data-dismech-type="pathophysiology">
                 <div class="item-name">BBSome Membrane Recruitment and Retrograde IFT Coupling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Independent trigger arm acting on an intact BBSome. The ARF-like GTPase ARL6/BBS3 recruits the autoinhibited BBSome to the ciliary membrane, where the regulator LZTFL1/BBS17 tunes its trafficking and the BBSome couples to retrograde intraflagellar transport (IFT) trains for ciliary exit of cargo. The general IFT-B machinery is shared infrastructure (modeled in ciliopathy_dysfunction); here it is the train the BBSome boards. Loss of ARL6, LZTFL1, or the BBSome-recycling GTPase IFT27 blocks BBSome-dependent cargo movement even when the BBSome is fully assembled.</div>
                 
@@ -2136,11 +2211,13 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-bbsome-dependent-ciliary-cargo-trafficking-failure" data-dismech-node="BBSome-Dependent Ciliary Cargo Trafficking Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">BBSome-Dependent Ciliary Cargo Trafficking Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">convergent phenotype</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Shared output node and the conformance anchor for the BBSome-opathies. Whether the BBSome fails to assemble or fails to be recruited and coupled to IFT, the common consequence is loss of BBSome-dependent trafficking of signaling receptors (e.g. GPCRs) and other cargo into and out of the ciliary compartment. Downstream, the disorder-specific organ branches are determined by which cilia-dependent cell types depend most on this cargo flux.</div>
                 
@@ -2266,6 +2343,9 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

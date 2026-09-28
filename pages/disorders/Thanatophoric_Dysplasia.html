@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4197,6 +4290,8 @@ This root entry deliberately carries only what is reported for TD as a whole —
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4220,6 +4315,8 @@ This root entry deliberately carries only what is reported for TD as a whole —
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4241,6 +4338,8 @@ This root entry deliberately carries only what is reported for TD as a whole —
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4352,6 +4451,8 @@ This subtype is caused by variation in FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4373,6 +4474,8 @@ This subtype is caused by variation in FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4457,6 +4560,8 @@ This subtype is caused by variation in FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4478,6 +4583,8 @@ This subtype is caused by variation in FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4707,6 +4814,7 @@ This subtype is caused by variation in FGFR3 (hgnc:3690). hgnc:3690 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-graded-fgfr3-gain-of-function-activation" data-dismech-node="Graded FGFR3 Gain-of-Function Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Graded FGFR3 Gain-of-Function Activation</div>
 
+
                 <div class="item-desc">Every TD allele constitutively activates FGFR3 — ligand-independent receptor tyrosine phosphorylation and ligand-independent proliferative signalling — but the defining feature at the root level is that the TD alleles activate the receptor more strongly than the achondroplasia G380R allele does. This graded activation is the mechanistic basis of the FGFR3 severity gradient: hypochondroplasia (N540K), achondroplasia (G380R), SADDAN (K650M), thanatophoric dysplasia (R248C and related extracellular cysteine changes; K650E). Homozygous achondroplasia, which doubles the dose of a weaker allele, phenocopies TD — the dose-response corollary of the same claim. The receptor biology itself is held once in the `fgfr_gain_of_function_skeletal_dysplasia` module and is not re-derived here; see `Achondroplasia.yaml`, `Hypochondroplasia.yaml`, `SADDAN.yaml` and `Crouzon_Syndrome_with_Acanthosis_Nigricans.yaml` for the other points on the gradient.</div>
 
 
@@ -4881,6 +4989,8 @@ This pathophysiological event involves increased transmembrane receptor protein 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4904,6 +5014,8 @@ This pathophysiological event involves increased transmembrane receptor protein 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4925,6 +5037,8 @@ This pathophysiological event involves increased transmembrane receptor protein 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4951,6 +5065,7 @@ This pathophysiological event involves increased transmembrane receptor protein 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-endochondral-growth-failure-and-micromelia" data-dismech-node="Severe Endochondral Growth Failure and Micromelia" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Endochondral Growth Failure and Micromelia</div>
+
 
                 <div class="item-desc">Endochondral ossification fails throughout the appendicular and axial skeleton, producing extreme micromelia, platyspondyly and — critically — short ribs. Histologically the growth plate shows disordered ossification with chondrocyte hyperplasia and loss of the orderly proliferative columns. At the root level this node exists to carry the step from cartilage failure to the thoracic dimension; the zone-by-zone growth-plate detail belongs to the module and the subtype entries.</div>
 
@@ -5139,6 +5254,8 @@ This pathophysiological event involves dysregulated growth plate cartilage devel
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5160,6 +5277,8 @@ This pathophysiological event involves dysregulated growth plate cartilage devel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5184,6 +5303,7 @@ This pathophysiological event involves dysregulated growth plate cartilage devel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thoracic-insufficiency-and-pulmonary-hypoplasia" data-dismech-node="Thoracic Insufficiency and Pulmonary Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Thoracic Insufficiency and Pulmonary Hypoplasia</div>
+
 
                 <div class="item-desc">The step that makes thanatophoric dysplasia lethal, and the one part of the chain that is TD-specific rather than shared with the viable members of the FGFR3 allelic series. Severely shortened ribs and a narrow thorax restrict fetal lung growth and neonatal chest-wall excursion; respiratory insufficiency is the immediate cause of death in the great majority of affected infants. Survival beyond the perinatal period has been reported only with long-term tracheostomy and ventilation. This node is deliberately not anchored on the FGFR module: achondroplasia and hypochondroplasia share every upstream node and do not reach this one.</div>
 
@@ -5314,6 +5434,8 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5337,6 +5459,8 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5350,14 +5474,16 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39778871" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39778871" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39778871" target="_blank">PMID:39778871</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5416,6 +5542,8 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,6 +5658,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5544,6 +5675,8 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5601,6 +5734,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5615,6 +5751,8 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5679,6 +5817,9 @@ This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5693,6 +5834,8 @@ This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5757,6 +5900,9 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5771,6 +5917,8 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5826,6 +5974,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5840,6 +5991,8 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5904,6 +6057,9 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5918,6 +6074,8 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5975,6 +6133,9 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5989,6 +6150,8 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6044,6 +6207,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6058,6 +6224,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6111,6 +6279,9 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6125,6 +6296,8 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6189,6 +6362,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6203,6 +6379,8 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6304,6 +6482,9 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6318,6 +6499,8 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6341,6 +6524,8 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6425,6 +6610,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because most affected infants die in the perinatal period from multisystem complications, management goals are set with the family and commonly focus on comfort care. Infants who are to be supported require long-term respiratory support, typically tracheostomy and ventilation. Anaesthetic guidelines for skeletal dysplasias apply. Other measures in long-term survivors include shunting for hydrocephalus, suboccipital decompression for craniocervical-junction constriction, anti-seizure medication and hearing aids.</div>
 
 
@@ -6455,6 +6665,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6499,6 +6711,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6520,6 +6734,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6606,6 +6822,31 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Vosoritide is a C-type natriuretic peptide analogue that counteracts FGFR3 overactivation and is approved for achondroplasia, not for thanatophoric dysplasia. Its use in TD rests on a SINGLE off-label case report (n = 1): a 9-year-old long-term TD1 survivor treated for 28 months, in whom growth velocity and lung vital capacity improved and foramen magnum stenosis did not radiologically progress. This is one uncontrolled observation in an exceptional survivor and must not be read as evidence of benefit in TD generally, still less as altering the perinatal lethality that defines the disorder. The authors themselves call for larger studies.</div>
 
 
@@ -6619,14 +6860,16 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41078071" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41078071" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41078071" target="_blank">PMID:41078071</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6642,14 +6885,16 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41078071" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41078071" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41078071" target="_blank">PMID:41078071</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6673,6 +6918,8 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6702,6 +6949,728 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-prenatal-ultrasound-recognition">
+                <div class="item-name">
+                    Prenatal ultrasound recognition
+
+                </div>
+
+                <div class="item-desc">TD is usually first recognised prenatally, on ultrasound showing severe shortening of all long bones with a narrow thorax and relative macrocephaly. Prenatal ultrasound is sufficient to drive management decisions but does not by itself separate TD from the other lethal skeletal dysplasias.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        ultrasound imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17230" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C17230</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301540" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301540" target="_blank">PMID:20301540</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prenatal diagnosis is possible by ultrasound examination and molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the two prenatal diagnostic modalities for TD as a whole.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39778871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39778871" target="_blank">PMID:39778871</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The decision was based on ultrasonographic examination showing pronounced shortening of all long bones with a characteristic curvature of the femur, without evidence of heredity."</div>
+
+
+                <div class="evidence-explanation">A worked example of the ultrasound findings that trigger the diagnosis, including the femoral curvature that points towards TD1 specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-and-radiographic-diagnosis">
+                <div class="item-name">
+                    Clinical and radiographic diagnosis
+
+                </div>
+
+                <div class="item-desc">The diagnosis is established on characteristic clinical and radiologic features — micromelia, short ribs and narrow thorax, platyspondyly, and the femur and skull shape that separate the subtypes — and/or on molecular confirmation. Radiography is what assigns TD1 (curved femurs) versus TD2 (straight femurs with cloverleaf skull).</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        radiograph imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38101" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C38101</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301540" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301540" target="_blank">PMID:20301540</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of TD is established in a proband with characteristic clinical and/or radiologic features and/or a heterozygous pathogenic variant in FGFR3 identified on molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the diagnostic criteria for TD as a whole, giving clinical, radiologic and molecular routes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39778871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39778871" target="_blank">PMID:39778871</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The X-rays validated the gross findings, emphasizing abnormalities in the long bones of the extremities and the skull."</div>
+
+
+                <div class="evidence-explanation">Confirms radiography as the modality that validates the skeletal findings in practice, including at postmortem examination.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-confirmation-of-fgfr3-variant">
+                <div class="item-name">
+                    Molecular confirmation of FGFR3 variant
+
+                </div>
+
+                <div class="item-desc">Molecular testing confirms the clinical and radiological diagnosis, distinguishes TD from the other lethal chondrodysplasias, and assigns the subtype. A single multiplexed PCR plus single-nucleotide-extension assay covers 14 recurrent FGFR3 changes accounting for 99% of TD1 and TD2 together — including the technically awkward adjacent stop-codon changes in exon 18 — so one reaction serves both subtypes with a shorter turnaround than Sanger or next-generation sequencing. This shared single-assay diagnostic pathway is a root-level property of TD: it is defined over the union of the subtypes, not over either one.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39357670" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39357670" target="_blank">PMID:39357670</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We developed a single multiplexed PCR and a single-nucleotide extension (SNE) assay to identify 14 common mutations causing 99% of TD I and TD II, including the challenging three adjacent mutations in the stop codon of exon 18 of the FGFR3 gene."</div>
+
+
+                <div class="evidence-explanation">Establishes that one assay covers both TD subtypes at 99% of cases — the technical basis for treating molecular confirmation as a single TD-level diagnostic step rather than two subtype-specific ones.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39357670" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39357670" target="_blank">PMID:39357670</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutation analysis provides confirmation of a clinical and radiological diagnosis of thanatophoric dysplasia types I and II (TD I and II)."</div>
+
+
+                <div class="evidence-explanation">States the role of molecular testing as confirmatory of the clinical and radiological diagnosis, for both subtypes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42547059" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42547059" target="_blank">PMID:42547059</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular analysis allows to distinguish it from other lethal chondrodysplasias and to provide appropriate genetic counseling."</div>
+
+
+                <div class="evidence-explanation">States the clinical purpose of molecular confirmation — separating TD from the other lethal chondrodysplasias and enabling counselling.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-perinatal-death-from-respiratory-insufficiency">
+                <div class="item-name">Perinatal death from respiratory insufficiency</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth to the first days of life</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Death in the perinatal period is the expected outcome. This is curated under `progression` rather than as a `phenotypes` entry because the corresponding HPO terms (HP:0003811 Neonatal death, HP:0001522 Death in infancy) sit in the HPO clinical-modifier/mortality branch rather than under HP:0000118 Phenotypic abnormality, and so are not members of the PhenotypeTerm dynamic enum — the same convention already used in `Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.yaml` and `Arthrogryposis-Renal_Dysfunction-Cholestasis_Syndrome.yaml`.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301540" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301540" target="_blank">PMID:20301540</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most affected infants die of respiratory insufficiency shortly after birth. Rare long-term survivors have been reported."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the timing and mode of death for TD as a whole, and that long-term survival is exceptional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18698630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18698630" target="_blank">PMID:18698630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of the 29 cases that were born alive, medical records indicated that 28 died during the neonatal period."</div>
+
+
+                <div class="evidence-explanation">Quantifies neonatal lethality in a population-based surveillance series, 28 of 29 liveborn cases, rather than relying on a narrative term.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-live-births">
+                <div class="item-name">Worldwide (live births)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        5.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Long-standing 1 in 20,000 live-birth figure from the original FGFR3 mutation series; predates routine prenatal ascertainment and termination, so it is not directly comparable with the surveillance estimates below.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7773297" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7773297" target="_blank">PMID:7773297</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thanatophoric dysplasia (TD), the most common neonatal lethal skeletal dysplasia, affects one out of 20,000 live births."</div>
+
+
+                <div class="evidence-explanation">States the live-birth frequency of thanatophoric dysplasia as a whole, and its standing as the commonest neonatal-lethal skeletal dysplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-four-population-based-birth-defects-surveillance-programs-atlanta-iowa-oklahoma-texas">
+                <div class="item-name">United States, four population-based birth-defects surveillance programs (Atlanta, Iowa, Oklahoma, Texas)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">2.1&ndash;3.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">0.21-0.30 per 10,000 livebirths (1 in 47,620 to 1 in 33,330), reported for thanatophoric dysplasia overall rather than by subtype. Registries ascertained livebirths, late fetal deaths and elective terminations, so the estimate is less depressed by prenatal termination than a livebirth-only count would be.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18698630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18698630" target="_blank">PMID:18698630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of thanatophoric dysplasia ranged from 0.21 to 0.30 per 10,000 livebirths (1/33,330-1/47,620 livebirths)."</div>
+
+
+                <div class="evidence-explanation">Population-based US birth prevalence for thanatophoric dysplasia as a single entity across four surveillance programs.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18698630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18698630" target="_blank">PMID:18698630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These data suggest that thanatophoric dysplasia is one-third to one-half as frequent as achondroplasia."</div>
+
+
+                <div class="evidence-explanation">Anchors TD&#39;s occurrence against achondroplasia, the reference point of the same FGFR3 allelic series, within a single ascertainment framework.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-western-mexico-hospital-civil-de-guadalajara-dr-juan-i-menchaca-2009-2024">
+                <div class="item-name">Western Mexico, Hospital Civil de Guadalajara Dr. Juan I. Menchaca, 2009-2024</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        8.5 per 100,000
+                        (3.2&ndash;13.7)
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">0.85 per 10,000 births (95% CI 0.32-1.37); 10 TD births in 118,154, i.e. 1 in 11,815. Single-hospital referral series, materially higher than the US surveillance figure; all ten cases were TD1.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42547059" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42547059" target="_blank">PMID:42547059</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of TD was 0.85 per 10,000 births (95% CI: 0.32-1.37)."</div>
+
+
+                <div class="evidence-explanation">A second, independent population estimate of TD birth prevalence, reported for TD as a whole with a confidence interval.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42547059" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42547059" target="_blank">PMID:42547059</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ten live births with TD were included from a total of 118,154 births between 2009 and 2024 at the Hospital Civil de Guadalajara Dr. Juan I. Menchaca (Mexico)."</div>
+
+
+                <div class="evidence-explanation">Gives the numerator and denominator behind the rate. Recorded as PARTIAL because a single tertiary referral hospital is not a defined source population, so the point estimate is not directly comparable with the population-based US figure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6767,6 +7736,8 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6830,6 +7801,8 @@ This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7140,7 +8113,7 @@ prevalence:
     reference_title: &gt;-
       Thanatophoric dysplasia: prevalence, clinical characteristics, and molecular
       findings in a public hospital from Western Mexico.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Ten live births with TD were included from a total of 118,154 births between 2009 and 2024 at the Hospital Civil de Guadalajara Dr. Juan I. Menchaca (Mexico).
@@ -7396,7 +8369,7 @@ pathophysiology:
     reference_title: &gt;-
       An immunohistochemical study of thanatophoric dysplasia type 1 after fetus
       autopsy examination.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In the lungs, pseudoglandular growth predominated, transitioning partially to an early canalicular phase, and incomplete development was noted in bronchi, with primary and a few secondary bronchi visible, covered with pseudostratified columnar ciliated epithelium, with scattered goblet cells
@@ -7931,7 +8904,7 @@ treatments:
   evidence:
   - reference: PMID:41078071
     reference_title: &#34;Thanatophoric Dysplasia Type 1 Treated with Vosoritide: A Case Report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We report the response to vosoritide therapy in a 9-year-old girl with genetically confirmed TD1 (c.2420G&gt;T).
@@ -7940,7 +8913,7 @@ treatments:
       PARTIAL because a single uncontrolled case cannot establish efficacy.
   - reference: PMID:41078071
     reference_title: &#34;Thanatophoric Dysplasia Type 1 Treated with Vosoritide: A Case Report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Vosoritide was well tolerated and improved growth velocity and lung function in this long-term TD1 survivor, suggesting therapeutic potential even in severe FGFR3 overactivation. Given TD1&#39;s rarity, larger studies and further off-label experience are essential to validate these findings.
@@ -8566,7 +9539,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thanatophoric Dysplasia", "mondoId": "MONDO:0017042", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thanatophoric_Dysplasia", "yamlRevision": "59c98013da51"};
+        const OS_CONFIG = {"diseaseName": "Thanatophoric Dysplasia", "mondoId": "MONDO:0017042", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thanatophoric_Dysplasia", "yamlRevision": "abaf1b9d8c4b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

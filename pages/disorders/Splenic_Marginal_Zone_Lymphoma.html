@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4160,6 +4253,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-antigenic-stimulation-of-splenic-marginal-zone-b-cells" data-dismech-node="Chronic Antigenic Stimulation of Splenic Marginal Zone B Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Antigenic Stimulation of Splenic Marginal Zone B Cells</div>
 
+
                 <div class="item-desc">Sustained antigenic drive selects and expands marginal zone B cells of the splenic white pulp. Two independent lines of evidence point to a specific, non-random antigen rather than a random founding event: strongly biased immunoglobulin heavy-chain variable gene usage, with a large fraction of cases using IGHV1-2, and an epidemiological and therapeutic association with chronic hepatitis C virus infection. A stereotyped receptor repertoire implies that the founding clone is chosen by its antigen-binding specificity, placing SMZL alongside MALT lymphoma in the family of inflammation-associated, antigen-driven B-cell neoplasms.</div>
 
 
@@ -4321,6 +4415,8 @@ This pathophysiological event occurs in white pulp of spleen (UBERON:0001959). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4344,6 +4440,8 @@ This pathophysiological event occurs in white pulp of spleen (UBERON:0001959). U
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4365,6 +4463,8 @@ This pathophysiological event occurs in white pulp of spleen (UBERON:0001959). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4391,6 +4491,7 @@ This pathophysiological event occurs in white pulp of spleen (UBERON:0001959). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disruption-of-marginal-zone-b-cell-identity-and-quiescence" data-dismech-node="Disruption of Marginal Zone B-cell Identity and Quiescence" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of Marginal Zone B-cell Identity and Quiescence</div>
+
 
                 <div class="item-desc">SMZL is genetically defined by lesions in the very program that specifies marginal zone B cells and holds them quiescent. NOTCH2 signaling is required for marginal zone B-cell development, and recurrent truncating mutations clustered in the C-terminal PEST degron eliminate the degradation signal, stabilizing the activated protein and producing a sustained differentiation cue. KLF2, a transcription factor that restrains NF-kB and NOTCH output in mature B cells, is recurrently inactivated, removing that brake. Deletion of the long arm of chromosome 7 is the most frequent cytogenetic abnormality in the disease. Mutations in additional NOTCH-pathway members and in other pathways governing marginal zone development affect a majority of cases. This constellation is the mechanistic signature separating SMZL from MALT lymphoma, which reaches a comparable endpoint through BCL10-MALT1 translocations instead.</div>
 
@@ -4515,6 +4616,8 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4538,6 +4641,8 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4559,6 +4664,8 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4585,6 +4692,7 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-nf-kb-pathway-activation" data-dismech-node="Constitutive NF-kB Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive NF-kB Pathway Activation</div>
+
 
                 <div class="item-desc">Recurrent mutations in regulators of the NF-kB pathway, most notably TNFAIP3 which encodes the negative regulator A20, converge with KLF2 loss and stabilized NOTCH2 to drive constitutive nuclear NF-kB activity. This is the shared effector node across marginal zone lymphomas: MALT lymphoma reaches it through the BCL10-MALT1 translocations, SMZL through mutation of the same pathway&#39;s regulators. Sequencing of marginal zone lymphoma treated with a BTK inhibitor found NF-kB, NOTCH, or B-cell receptor pathway genes involved in the large majority of cases, confirming that these three inputs form one convergent signaling module. Constitutive NF-kB output sustains proliferation and suppresses apoptosis without continued antigenic stimulation, which is why advanced disease no longer regresses when the antigenic driver is removed.</div>
 
@@ -4777,6 +4885,8 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4790,14 +4900,16 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22891273" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22891273" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22891273" target="_blank">PMID:22891273</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4822,6 +4934,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-splenic-white-pulp-infiltration-and-hypersplenism" data-dismech-node="Splenic White Pulp Infiltration and Hypersplenism" data-dismech-type="pathophysiology">
                 <div class="item-name">Splenic White Pulp Infiltration and Hypersplenism</div>
+
 
                 <div class="item-desc">The lymphoma clone expands the splenic white pulp in a characteristic micronodular pattern, effacing normal follicular architecture and spilling into the red pulp. The enlarging spleen sequesters and destroys circulating blood cells, producing cytopenias out of proportion to marrow reserve. Marrow involvement is reported in nodular, interstitial, and intrasinusoidal patterns, and the tumor cells circulate as villous lymphocytes, the feature that gave the disease its older name of splenic lymphoma with villous lymphocytes. Because a substantial share of the cytopenia is mechanical, removing the spleen historically corrected the blood counts without eradicating the lymphoma.</div>
 
@@ -4963,6 +5076,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4984,6 +5099,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5009,6 +5126,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5031,6 +5150,7 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytopenias-and-autoimmune-complications" data-dismech-node="Cytopenias and Autoimmune Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytopenias and Autoimmune Complications</div>
+
 
                 <div class="item-desc">Anemia and thrombocytopenia in SMZL arise from two superimposed mechanisms: mechanical sequestration by the enlarged spleen, and true autoimmune destruction. The lymphoma clone and the dysregulated B-cell compartment around it generate autoantibodies, so autoimmune hemolytic anemia and immune thrombocytopenia are recognized paraneoplastic complications rather than incidental findings. This dual mechanism matters clinically because it separates patients whose counts respond to splenectomy or to lymphoma-directed therapy from those who require immunosuppression.</div>
 
@@ -5066,6 +5186,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5126,6 +5248,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5170,6 +5294,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5218,6 +5344,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5264,6 +5392,8 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5300,14 +5430,16 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28892912" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28892912" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28892912" target="_blank">PMID:28892912</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5371,11 +5503,9 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5385,8 +5515,80 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-Cell Lymphoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        B-Cell Lymphoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012191</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Splenic marginal zone lymphoma (SMZL) is a rare, predominantly indolent B-cell lymphoma constituting fewer than 2% of lymphoid neoplasms."</div>
+
+
+                <div class="evidence-explanation">Directly classifies SMZL as an indolent B-cell lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-lymphocytosis-with-villous-lymphocytes" data-dismech-node="Lymphocytosis with Villous Lymphocytes" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5404,15 +5606,18 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100827</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100827</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased total lymphocyte count (HP:0100827). HP:0100827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5434,6 +5639,8 @@ This clinical feature is Increased total lymphocyte count (HP:0100827). HP:01008
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5447,14 +5654,16 @@ This clinical feature is Increased total lymphocyte count (HP:0100827). HP:01008
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8652403" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:8652403" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8652403" target="_blank">PMID:8652403</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5494,15 +5703,18 @@ This clinical feature is Increased total lymphocyte count (HP:0100827). HP:01008
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5514,14 +5726,16 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25201005" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25201005" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25201005" target="_blank">PMID:25201005</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5561,15 +5775,18 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001873</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5581,14 +5798,16 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25201005" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25201005" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25201005" target="_blank">PMID:25201005</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5628,15 +5847,18 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001890</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5656,6 +5878,8 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5697,15 +5921,18 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001973</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001973</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5725,6 +5952,8 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5773,15 +6002,18 @@ This clinical feature is Autoimmune thrombocytopenia (HP:0001973). HP:0001973 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001744</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001744</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5801,6 +6033,8 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5826,6 +6060,8 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5834,82 +6070,6 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                 <div class="evidence-explanation">A 100-patient series characterizes the disease by splenomegaly, independently confirming it as the defining clinical feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-Cell Lymphoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        B-Cell Lymphoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012191</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Splenic marginal zone lymphoma (SMZL) is a rare, predominantly indolent B-cell lymphoma constituting fewer than 2% of lymphoid neoplasms."</div>
-
-
-                <div class="evidence-explanation">Directly classifies SMZL as an indolent B-cell lymphoma.</div>
 
 
 
@@ -6001,6 +6161,9 @@ This disease-associated gene is NOTCH2 (hgnc:7882). hgnc:7882 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6015,6 +6178,8 @@ This disease-associated gene is NOTCH2 (hgnc:7882). hgnc:7882 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6040,6 +6205,8 @@ This disease-associated gene is NOTCH2 (hgnc:7882). hgnc:7882 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6061,6 +6228,8 @@ This disease-associated gene is NOTCH2 (hgnc:7882). hgnc:7882 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6121,6 +6290,9 @@ This disease-associated gene is KLF2 (hgnc:6347). hgnc:6347 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6135,6 +6307,8 @@ This disease-associated gene is KLF2 (hgnc:6347). hgnc:6347 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6195,20 +6369,25 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6224,14 +6403,16 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36947202" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36947202" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36947202" target="_blank">PMID:36947202</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6276,6 +6457,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6290,6 +6474,8 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6313,6 +6499,8 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6373,6 +6561,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6387,6 +6578,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6437,6 +6630,20 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Asymptomatic patients with low-risk disease can be managed expectantly. A prospective study of a risk-adapted strategy found observation to be the best approach for the lowest-risk group, making watchful waiting an evidence-based option rather than merely a default.</div>
 
 
@@ -6460,6 +6667,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6481,6 +6690,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6565,6 +6776,31 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-CD20 monoclonal antibody, now the preferred first-line therapy for symptomatic SMZL. In a prospective multicenter series, rituximab-containing arms achieved a higher overall response rate than splenectomy.</div>
 
 
@@ -6588,6 +6824,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6609,6 +6847,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6671,6 +6911,31 @@ This treatment is Splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical removal of the spleen, the historical first-line treatment and still an option in patients fit for surgery. It corrects the mechanical cytopenias and relieves mass effect but does not eradicate the lymphoma, and has been largely superseded by rituximab on response-rate grounds.</div>
 
 
@@ -6712,6 +6977,8 @@ This treatment is Splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6725,14 +6992,16 @@ This treatment is Splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervent
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37386877" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37386877" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37386877" target="_blank">PMID:37386877</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6795,6 +7064,20 @@ This treatment is Antiviral Therapy (NCIT:C16119). NCIT:C16119 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In hepatitis C virus-associated SMZL, therapy directed at the virus rather than at the lymphoma can induce hematologic response. This is the splenic counterpart of Helicobacter pylori eradication in gastric MALT lymphoma and is the strongest therapeutic evidence for the antigen-driven model of marginal zone lymphomagenesis.</div>
 
 
@@ -6836,6 +7119,8 @@ This treatment is Antiviral Therapy (NCIT:C16119). NCIT:C16119 is a clinical int
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6857,6 +7142,8 @@ This treatment is Antiviral Therapy (NCIT:C16119). NCIT:C16119 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6941,6 +7228,31 @@ This treatment uses zanubrutinib (NCIT:C141428). NCIT:C141428 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">BTK inhibitors block B-cell receptor signal transmission upstream of NF-kB. Zanubrutinib is used for relapsed or refractory marginal zone lymphoma after anti-CD20 therapy, and mutations in NF-kB pathway genes are associated with the response.</div>
 
 
@@ -6982,6 +7294,8 @@ This treatment uses zanubrutinib (NCIT:C141428). NCIT:C141428 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7003,6 +7317,8 @@ This treatment uses zanubrutinib (NCIT:C141428). NCIT:C141428 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7104,6 +7420,31 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cladribine (2-chlorodeoxyadenosine), a purine analog, given alone or with an anti-CD20 antibody, is an effective pharmacological option for patients who are poor surgical candidates. An extended-follow-up series of 50 SMZL patients reported an 87% overall response rate and 80% five-year progression-free survival.</div>
 
 
@@ -7125,6 +7466,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7150,6 +7493,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7171,6 +7516,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7200,6 +7547,457 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-immunophenotyping">
+                <div class="item-name">
+                    Immunophenotyping
+
+                </div>
+
+                <div class="item-desc">Diagnosis is made by combining clinical findings, lymphocyte morphology, bone marrow histology, and immunophenotype, because splenectomy is now rarely performed for diagnostic purposes. The characteristic profile is a CD20-positive clonal B-cell population lacking the markers that define the principal mimics, so the diagnosis is substantially one of exclusion by marker panel.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"diagnosis is usually based on a combination of clinical findings, lymphocyte morphology, bone marrow histology, immunohistochemical and immunophenotypic features"</div>
+
+
+                <div class="evidence-explanation">States the composite basis on which SMZL is diagnosed in the absence of splenic histology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The typical immunophenotype includes surface expression of IgM, CD20, CD27, CD49d, and variable expression of IgD, CD5, CD11c, and CD25"</div>
+
+
+                <div class="evidence-explanation">Gives the positive arm of the diagnostic immunophenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lack of expression of CD103, CD123, annexin A1, and cyclin D1 serve to distinguish SMZL from other splenic lymphomas"</div>
+
+
+                <div class="evidence-explanation">Gives the exclusionary arm of the panel, the markers whose absence separates SMZL from hairy cell leukemia and mantle cell lymphoma.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-indolent-phase">
+                <div class="item-name">Indolent phase</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Most patients follow a prolonged indolent course. A substantial minority, however, have materially shorter survival despite available treatment, which is why risk stratification rather than uniform therapy governs management.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"around 30% of patients have a shorter survival despite currently available treatments"</div>
+
+
+                <div class="evidence-explanation">Quantifies the minority of SMZL patients whose disease does not follow the expected indolent course.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8652403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8652403" target="_blank">PMID:8652403</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SLVL is a disease of the elderly with a relatively benign clinical course."</div>
+
+
+                <div class="evidence-explanation">Characterizes the typical course as indolent and establishes the older adult age distribution.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8652403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8652403" target="_blank">PMID:8652403</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the present series the 5-year overall survival was 78%."</div>
+
+
+                <div class="evidence-explanation">Quantifies survival in a 100-patient series, giving a concrete measure of the indolent course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-histological-transformation-to-large-cell-lymphoma">
+                <div class="item-name">Histological transformation to large cell lymphoma</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">A minority of cases undergo histological transformation to a large cell lymphoma, which carries a markedly worse prognosis and represents the main lethal endpoint of the disease. The source review is internally inconsistent on the rate: its abstract and body give 5-15%, while Table 1 gives 10-20% into DLBCL. Both figures are recorded rather than silently reconciled, the same treatment applied to the KLF2 case-fraction discrepancy.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the prognosis is especially poor for the 5-15% of cases that transform to a large cell lymphoma"</div>
+
+
+                <div class="evidence-explanation">Quantifies the transformation rate and its prognostic impact, per the review&#39;s abstract and body text.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Transformation 10–20% into DLBCL"</div>
+
+
+                <div class="evidence-explanation">Table 1 of the same review gives a higher transformation rate than its body text; recorded as PARTIAL to make the intra-paper discrepancy explicit rather than picking one figure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.13 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Reported annual incidence of 0.13 per 100,000 individuals, i.e. 1.3 per million, placing SMZL in the 1-9 per million band.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with an incidence rate of 0.13 per 100,000 individuals per year"</div>
+
+
+                <div class="evidence-explanation">Gives the annual incidence of SMZL as a population rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-2">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">SMZL accounts for fewer than 2% of lymphoid neoplasms. This is a case-mix fraction among lymphoid malignancies rather than a population rate, so no normalized rate per 100,000 is recorded.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39280243" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39280243" target="_blank">PMID:39280243</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Splenic marginal zone lymphoma (SMZL) is a rare, predominantly indolent B-cell lymphoma constituting fewer than 2% of lymphoid neoplasms."</div>
+
+
+                <div class="evidence-explanation">Provides the share of lymphoid neoplasms accounted for by SMZL and characterizes the disease as rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7248,6 +8046,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7269,6 +8069,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7325,6 +8127,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7377,6 +8181,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7433,6 +8239,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7487,6 +8295,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7531,14 +8341,16 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19575895" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19575895" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19575895" target="_blank">PMID:19575895</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7562,6 +8374,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7706,12 +8520,16 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"This is a single arm study to evaluate the efficacy, safety and tolerability of zanubrutinib (BGB-3111) in participants with relapsed/refractory marginal zone lymphoma (R/R MZL)."</div>
 
 
-                <div class="evidence-explanation">ClinicalTrials.gov summary confirms the design and population of the MAGNOLIA trial.</div>
+                <div class="evidence-explanation">ClinicalTrials.gov registration record confirming the design and population of the MAGNOLIA trial. Graded OTHER because a registration summary is a registration document rather than reported study evidence; the trial&#39;s outcome is carried by the accompanying MAGNOLIA publication.</div>
 
 
 
@@ -7725,6 +8543,8 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7851,7 +8671,7 @@ pathophysiology:
     explanation: Links the antigen-selection signature to the downstream genetic lesions, tying this node to the next one in the chain.
   - reference: PMID:34384734
     reference_title: &#34;Repertoire of Rearranged Immunoglobulin Heavy Chain Genes in Russian Patients With B-Cell Lymphoproliferative Diseases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In the half of SMZL patients was identified gene IGHV1-2.&#34;
     explanation: Independent cohort corroborating the IGHV1-2 bias; retained only as secondary support since it is a small mixed B-LPD series reporting IGHV1-2 rather than the *04 allele specifically.
@@ -7967,7 +8787,7 @@ pathophysiology:
     explanation: Whole-exome sequencing of marginal zone lymphoma shows the NF-kB, NOTCH, and B-cell receptor pathways are involved in the large majority of cases.
   - reference: PMID:22891273
     reference_title: &#34;The coding genome of splenic marginal zone lymphoma: activation of NOTCH2 and other pathways regulating marginal zone development.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;given the availability of drugs that can target NOTCH, NF-κB, and other pathways deregulated in this disease&#34;
     explanation: Identifies NF-kB as one of the pathways deregulated in SMZL and therapeutically targetable; indirect support since the paper&#39;s primary finding concerns NOTCH2.
@@ -8138,7 +8958,7 @@ phenotypes:
     explanation: A 100-patient series establishes circulating villous lymphocytes in peripheral blood as a defining feature of the disease.
   - reference: PMID:8652403
     reference_title: &#34;Splenic lymphoma with villous lymphocytes: clinical presentation, biology and prognostic factors in a series of 100 patients. Groupe Francais d&#39;Hématologie Cellulaire (GFHC).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The cytological diagnosis can be difficult in patients without an absolute lymphocytosis&#34;
     explanation: Qualifies the lymphocytosis claim by noting that some patients lack an absolute lymphocytosis, which is why no frequency band is asserted for this phenotype.
@@ -8155,7 +8975,7 @@ phenotypes:
   evidence:
   - reference: PMID:25201005
     reference_title: &#34;Lupus anticoagulant and thrombosis in splenic marginal zone lymphoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;autoimmune hemolytic anemia (AIHA), autoimmune thrombocytopenia (ITP) and C1 esterase inhibitor deficiency are relatively common&#34;
     explanation: Supports anemia in SMZL via its autoimmune hemolytic mechanism; the mechanical sequestration contribution is not quantified in this source.
@@ -8172,7 +8992,7 @@ phenotypes:
   evidence:
   - reference: PMID:25201005
     reference_title: &#34;Lupus anticoagulant and thrombosis in splenic marginal zone lymphoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;autoimmune thrombocytopenia (ITP) and C1 esterase inhibitor deficiency are relatively common&#34;
     explanation: Supports thrombocytopenia in SMZL via its immune-mediated mechanism; the hypersplenic contribution is not quantified in this source.
@@ -8281,7 +9101,12 @@ genetic:
     case_fraction_low: 12
     case_fraction_high: 42
     notes: &gt;-
-      Reported as 12-42% of SMZL cases; the wide band reflects heterogeneity between cohorts.
+      Reported as 12-42% of SMZL cases in the review&#39;s recurrent-mutation table; the
+      wide band reflects heterogeneity between cohorts. A summary figure in the same
+      review instead gives KLF2 as 20-30%, the same kind of intra-paper discrepancy
+      recorded for TP53 and for the transformation rate; the table figure is recorded
+      here because it is the one the review itself annotates as the most frequent
+      mutation in SMZL.
     evidence:
     - reference: PMID:39280243
       reference_title: &#34;The genomic and molecular landscape of splenic marginal zone lymphoma, biological and clinical implications.&#34;
@@ -8330,13 +9155,13 @@ genetic:
   evidence:
   - reference: PMID:39280243
     reference_title: &#34;The genomic and molecular landscape of splenic marginal zone lymphoma, biological and clinical implications.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;TNFAIP3 7–15% Mutations resulted in a loss of NF-κB cascade inhibition in other NHLs.&#34;
     explanation: Supports recurrent TNFAIP3 mutation in SMZL; marked PARTIAL because the same sentence attributes the NF-kB functional consequence to other non-Hodgkin lymphomas, not to SMZL.
   - reference: PMID:36947202
     reference_title: &#34;Molecular associations of response to the new-generation BTK inhibitor zanubrutinib in marginal zone lymphoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;MYD88, TNFAIP3, and KMT2D mutations correlate with PFS in patients with relapsed/refractory MZL treated with zanubrutinib.&#34;
     explanation: Shows TNFAIP3 is prognostically relevant under BTK inhibition; marked PARTIAL because the cohort spans marginal zone lymphoma subtypes rather than SMZL specifically.
@@ -8482,7 +9307,7 @@ progression:
     explanation: Quantifies the transformation rate and its prognostic impact, per the review&#39;s abstract and body text.
   - reference: PMID:39280243
     reference_title: &#34;The genomic and molecular landscape of splenic marginal zone lymphoma, biological and clinical implications.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Transformation 10–20% into DLBCL&#34;
     explanation: Table 1 of the same review gives a higher transformation rate than its body text; recorded as PARTIAL to make the intra-paper discrepancy explicit rather than picking one figure.
@@ -8556,7 +9381,7 @@ treatments:
     explanation: Confirms splenectomy as an established first-line option for surgically fit SMZL patients.
   - reference: PMID:37386877
     reference_title: &#34;Low-risk HPLLs/ABC score patients with splenic marginal zone lymphoma can be safely managed without treatment: Results from a prospective Spanish study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The overall response rate was higher in the rituximab chemotherapy and in the rituximab arms compared with the splenectomy arm&#34;
     explanation: Supports the displacement of splenectomy by rituximab on response rate, though lymphoma-specific survival did not differ by treatment received.
@@ -8777,7 +9602,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:19575895
     reference_title: &#34;[Clinicopathologic study of splenic marginal zone B-cell lymphoma].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The differential diagnosis includes other small B-cell lymphomas and lymphoid hyperplasia of spleen.&#34;
     explanation: Establishes that other small B-cell lymphomas of the spleen are the differential; PARTIAL because this source does not name this entity individually.
@@ -8844,7 +9669,7 @@ histopathology:
   evidence:
   - reference: PMID:28892912
     reference_title: &#34;Important Diagnostic Clues for Diagnosing Splenic Marginal Zone Lymphoma in Absence of Splenic Histology.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;tumour cells in nodular, interstitial and intrasinusoidal pattern of infiltration&#34;
     explanation: Documents the intrasinusoidal marrow pattern; marked PARTIAL because this is a single case report and cannot establish how characteristic the pattern is.
@@ -8864,8 +9689,13 @@ clinical_trials:
   - reference: clinicaltrials:NCT03846427
     reference_title: &#34;A Phase 2, Open-label Study of Zanubrutinib (BGB-3111) in Patients With Relapsed or Refractory Marginal Zone Lymphoma&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;This is a single arm study to evaluate the efficacy, safety and tolerability of zanubrutinib (BGB-3111) in participants with relapsed/refractory marginal zone lymphoma (R/R MZL).&#34;
-    explanation: ClinicalTrials.gov summary confirms the design and population of the MAGNOLIA trial.
+    explanation: &gt;-
+      ClinicalTrials.gov registration record confirming the design and population of
+      the MAGNOLIA trial. Graded OTHER because a registration summary is a
+      registration document rather than reported study evidence; the trial&#39;s outcome
+      is carried by the accompanying MAGNOLIA publication.
   - reference: PMID:34526366
     reference_title: &#34;The MAGNOLIA Trial: Zanubrutinib, a Next-Generation Bruton Tyrosine Kinase Inhibitor, Demonstrates Safety and Efficacy in Relapsed/Refractory Marginal Zone Lymphoma.&#34;
     supports: SUPPORT
@@ -9026,6 +9856,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Splenic Marginal Zone Lymphoma</strong> · 2026-07-31T19:37:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Splenic_Marginal_Zone_Lymphoma/2026-07-31T193724Z-claude-code-f16ab9.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Splenic_Marginal_Zone_Lymphoma.yaml (MONDO:0019462) de novo. Duplicate preflight against origin/main, all PRs and all issues confirmed no existing entry; issue #5044 had closed the marginal zone lymphoma ROOT (MONDO:0017604) as covered by MALT_Lymphoma.yaml, but splenic MZL is a distinct sibling disease with its own MONDO term and CURATE_ROOT recommendation, and no KB entry mentioned it except as a differential. Modeled a five-node pathophysiology chain: chronic antigenic stimulation of splenic marginal zone B cells (conforms_to tumor_promoting_inflammation#Chronic Inflammatory Stimulus) to disruption of marginal zone B-cell identity and quiescence (NOTCH2 PEST-domain truncation, KLF2 loss, 7q deletion) to constitutive NF-kB activation (conforms_to sustaining_proliferative_signaling#Constitutive Mitogenic Pathway Activation) to splenic white pulp infiltration and hypersplenism to cytopenias and autoimmune complications. Used CL:0000845 marginal zone B cell of spleen rather than the lymph-node sibling used by MALT_Lymphoma. Bound the splenic nodes to UBERON:0001959 white pulp of spleen and UBERON:0002106 spleen via the locations slot. Curated 6 phenotypes, 4 genetic drivers (NOTCH2, KLF2, TNFAIP3, TP53), 5 treatments including the hepatitis C antiviral arm as the splenic counterpart of H. pylori eradication in gastric MALT lymphoma, plus prevalence and progression blocks. Frequency bands were deliberately omitted throughout rather than estimated, and the lymphocytosis phenotype carries an explicit PARTIAL qualifier because absolute lymphocytosis is not universal in this disease. Deep research: just research-disorder claude_code was run per the curate skill (21 web searches, ~20 min, 5.86 USD, session f8f5205d). The resulting artifact is RETAINED FOR PROVENANCE ONLY and was NOT used as an evidence source: the provider hit the known claude_code serialization defect and wrote only its final turn, so the report body and its Appendix A are absent and the artifact cites zero PMIDs. The one substantive item surviving in the fragment, UBERON:0001959, was independently re-verified against the live EBI OLS API before use rather than trusted from the report. All evidence was therefore sourced independently via direct PubMed E-utilities searches. All 10 references fetched with just fetch-reference; every snippet was pre-verified as an exact whitespace-normalized substring of the cached reference body using a scratch checker, with known-good CI-passing MALT_Lymphoma snippets used as a control to confirm the validator normalizes whitespace rather than requiring raw substring equality. Validation: just validate passed schema, term and reference validation with 42/42 snippets verified against cached references; just compliance reports 92.3 percent global and 93.1 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9117,7 +9960,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Splenic Marginal Zone Lymphoma", "mondoId": "MONDO:0019462", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Splenic_Marginal_Zone_Lymphoma", "yamlRevision": "b616c8d4e14a"};
+        const OS_CONFIG = {"diseaseName": "Splenic Marginal Zone Lymphoma", "mondoId": "MONDO:0019462", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Splenic_Marginal_Zone_Lymphoma", "yamlRevision": "a70fdcdd0bdb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

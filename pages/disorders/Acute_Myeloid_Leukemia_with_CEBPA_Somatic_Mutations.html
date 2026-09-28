@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4244,6 +4337,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4265,6 +4360,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4338,11 +4435,13 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"in-frame bZIP-mutation irrespective of double or single CEBPA-mutated status [12– 14] has been adapted in both ICC and the 2022 ELN recommendation"</div>
+                <div class="evidence-snippet">"in-frame bZIP-mutation irrespective of double or single CEBPA-mutated status ... has been adapted in both ICC and the 2022 ELN recommendation"</div>
 
 
                 <div class="evidence-explanation">The classification review describes the ICC shift to in-frame bZIP mutation irrespective of allelic state.</div>
@@ -4361,6 +4460,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4374,14 +4475,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4495,6 +4598,8 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4575,6 +4680,8 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4588,14 +4695,16 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4810,6 +4919,8 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4848,7 +4959,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4866,14 +4977,16 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5027,6 +5140,8 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5048,6 +5163,8 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5112,7 +5229,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
 
-    <span class="entity-ref-chip">diagnosis#Bone-Marrow Multiparameter Flow MRD Assessment</span>
+    <a class="entity-ref-chip" href="#diagnosis-bone-marrow-multiparameter-flow-mrd-assessment">diagnosis#Bone-Marrow Multiparameter Flow MRD Assessment</a>
 
 
 
@@ -5193,14 +5310,16 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5216,14 +5335,16 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5358,6 +5479,8 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5379,6 +5502,8 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5415,6 +5540,7 @@ This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-n-terminal-cebpa-p42-to-p30-dysregulation" data-dismech-node="N-Terminal CEBPA p42-to-p30 Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">N-Terminal CEBPA p42-to-p30 Dysregulation</div>
+
 
                 <div class="item-desc">Acquired N-terminal TAD frameshift or nonsense variants truncate the p42 isoform while permitting downstream translation reinitiation and excess p30. The retained p30 protein interferes with normal C/EBPalpha transcriptional control; this is a dominant-negative isoform imbalance rather than simple absence of the protein.</div>
 
@@ -5623,6 +5749,8 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5644,6 +5772,8 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5668,6 +5798,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c-terminal-cebpa-bzip-dna-binding-and-dimerization-dysfunction" data-dismech-node="C-Terminal CEBPA bZIP DNA-Binding and Dimerization Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">C-Terminal CEBPA bZIP DNA-Binding and Dimerization Dysfunction</div>
+
 
                 <div class="item-desc">Acquired C-terminal bZIP in-frame indels or missense variants alter the DNA-binding and leucine-zipper dimerization region. In-frame bZIP indels are the prognostically favorable mutation class, but they remain leukemogenic lesions that disturb CEBPA-regulated transcription and lineage commitment.</div>
 
@@ -5876,6 +6007,8 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5898,6 +6031,7 @@ This pathophysiological event involves abnormal DNA-binding transcription factor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulocytic-differentiation-arrest" data-dismech-node="Granulocytic Differentiation Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulocytic Differentiation Arrest</div>
+
 
                 <div class="item-desc">Variant-specific failure of CEBPA transcription prevents normal granulocytic maturation. Immature myeloid progenitors persist instead of completing the neutrophil differentiation program.</div>
 
@@ -6065,6 +6199,8 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6087,6 +6223,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premalignant-hsc-and-leukemia-initiating-progenitor-expansion" data-dismech-node="Premalignant HSC and Leukemia-Initiating Progenitor Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Premalignant HSC and Leukemia-Initiating Progenitor Expansion</div>
+
 
                 <div class="item-desc">C-terminal lesions can expand premalignant long-term HSCs, while N-terminal lesions preserve committed myeloid progenitors that can become leukemia-initiating cells. Combined N- and C-terminal lesions incorporate both properties and accelerate disease development.</div>
 
@@ -6263,6 +6400,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6285,6 +6424,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leukemic-myeloblast-accumulation" data-dismech-node="Leukemic Myeloblast Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Leukemic Myeloblast Accumulation</div>
+
 
                 <div class="item-desc">Leukemic myeloblasts expand in bone marrow and may circulate in blood. This establishes the acute leukemic state and creates a marrow environment that suppresses normal downstream hematopoietic production.</div>
 
@@ -6447,6 +6587,8 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6469,6 +6611,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-normal-hematopoiesis" data-dismech-node="Suppression of Normal Hematopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Normal Hematopoiesis</div>
+
 
                 <div class="item-desc">The AML marrow environment impedes normal differentiation downstream of the hematopoietic stem-cell compartment. Reduced erythroid, megakaryocytic, and granulocytic output produces multilineage or lineage-specific cytopenias.</div>
 
@@ -6574,6 +6717,8 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6596,6 +6741,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytopenia-associated-complications" data-dismech-node="Cytopenia-Associated Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytopenia-Associated Complications</div>
+
 
                 <div class="item-desc">Anemia contributes to fatigue, thrombocytopenia produces bruising or bleeding, and neutropenia increases bacterial and fungal infection risk. These are AML-wide consequences rather than distinctive CEBPA-subtype features.</div>
 
@@ -6685,6 +6831,8 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6707,6 +6855,13 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-correlated-ifn-and-mitochondrial-high-risk-state" data-dismech-node="Correlated IFN and Mitochondrial High-Risk State" data-dismech-type="pathophysiology">
                 <div class="item-name">Correlated IFN and Mitochondrial High-Risk State</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Within the CEBPA bZIP in-frame-indel analytic subgroup, a subset has increased interferon-stimulated and mitochondrial-complex gene expression associated with shorter event-free survival. This node is explicitly an emerging, correlation-based risk hypothesis rather than a settled causal CEBPA mechanism.</div>
 
@@ -6772,14 +6927,16 @@ This pathophysiological event involves increased type I interferon-mediated sign
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6838,6 +6995,8 @@ This pathophysiological event involves increased type I interferon-mediated sign
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6946,6 +7105,9 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6960,6 +7122,8 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7013,20 +7177,25 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7080,6 +7249,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7094,6 +7266,8 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7147,20 +7321,25 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7216,20 +7395,25 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7285,6 +7469,9 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7299,6 +7486,8 @@ This clinical feature is Leukocytosis, annotated with Increased total leukocyte 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7352,6 +7541,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7366,6 +7558,8 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7428,20 +7622,25 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23901108" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7504,6 +7703,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7518,6 +7720,8 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7619,6 +7823,9 @@ This disease-associated gene is CEBPA (hgnc:1833). hgnc:1833 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7633,6 +7840,8 @@ This disease-associated gene is CEBPA (hgnc:1833). hgnc:1833 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7665,6 +7874,7 @@ This disease-associated gene is CEBPA (hgnc:1833). hgnc:1833 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7684,11 +7894,17 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">truncating variant</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Somatic N-terminal TAD frameshift or nonsense variants truncate p42 while preserving downstream p30 translation, producing a dominant-negative isoform imbalance and impaired granulocytic transcription.</div>
@@ -7743,6 +7959,8 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7773,6 +7991,7 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7792,11 +8011,17 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">inframe indel</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Somatic in-frame insertions or deletions in the C-terminal bZIP region disrupt DNA binding and dimerization. This variant class, rather than all CEBPA variants, carries the reproducible favorable-risk association.</div>
@@ -7849,6 +8074,8 @@ This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7914,20 +8141,25 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7943,14 +8175,16 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8011,20 +8245,25 @@ This disease-associated gene is DNMT3A (hgnc:2978). hgnc:2978 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38253683" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8040,14 +8279,16 @@ This disease-associated gene is DNMT3A (hgnc:2978). hgnc:2978 is a gene from the
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8108,20 +8349,25 @@ This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36701843" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36701843" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36701843" target="_blank">PMID:36701843</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8137,14 +8383,16 @@ This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the H
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8177,6 +8425,7 @@ This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8196,11 +8445,17 @@ This variant is in FLT3 (hgnc:3765). hgnc:3765 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">internal tandem duplication</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Somatic FLT3 internal tandem duplication reported as an adverse marker in some CEBPA-mutated cohorts.</div>
@@ -8227,6 +8482,8 @@ This variant is in FLT3 (hgnc:3765). hgnc:3765 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8353,6 +8610,20 @@ This treatment uses daunorubicin (CHEBI:41977). CHEBI:41977 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Medically fit patients are generally treated with anthracycline- and cytarabine-based induction followed by cytarabine-containing consolidation. This is an AML treatment backbone, not a CEBPA-directed therapy. The favorable reproducible favorable-outcome evidence applies most securely to bZIP in-frame-indel disease treated intensively; it does not establish that every classification-included bZIP variant responds equivalently.</div>
 
 
@@ -8383,6 +8654,8 @@ This treatment uses daunorubicin (CHEBI:41977). CHEBI:41977 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8425,6 +8698,8 @@ This treatment uses daunorubicin (CHEBI:41977). CHEBI:41977 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8527,6 +8802,20 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A hypomethylating agent plus venetoclax is a lower-intensity frontline AML option when age, frailty, or comorbidity precludes intensive chemotherapy. CEBPA-specific evidence is limited: favorable-risk AML was excluded from VIALE-A, and the reported CEBPA double-mutated experience is a small subset. The addition of low-dose cytarabine is being studied and is not encoded as established standard care for this molecular subtype.</div>
 
 
@@ -8557,6 +8846,8 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8601,6 +8892,8 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8614,14 +8907,16 @@ This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8685,6 +8980,31 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Retrospective double-mutated CEBPA cohorts found improved relapse-free but not overall survival from transplantation in first complete remission and support reserving allogeneic transplantation for refractory disease, relapse, or second remission. Whether co-mutations or post-treatment MRD identify a first-remission subgroup with an overall-survival benefit remains unresolved and is represented below as an open discussion, not a recommendation. Suspected germline CEBPA predisposition requires constitutional evaluation before related-donor selection.</div>
 
 
@@ -8715,6 +9035,8 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8759,6 +9081,8 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8780,6 +9104,8 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8838,6 +9164,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8956,6 +9296,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8977,6 +9319,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9006,6 +9350,1012 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">7</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-complete-blood-count-and-peripheral-blood-smear">
+                <div class="item-name">
+                    Complete Blood Count and Peripheral Blood Smear
+
+                </div>
+
+                <div class="item-desc">CBC and smear assess anemia, thrombocytopenia, neutropenia or leukocytosis and identify circulating blasts. The pattern establishes urgency and supports AML evaluation but is not specific for CEBPA-mutated disease.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        complete blood count
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C28133" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C28133</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Cytopenias or leukocytosis with circulating myeloblasts may be present.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34320176" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34320176" target="_blank">PMID:34320176</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patients carrying CEBPAbi or CEBPAsmbZIP shared several clinical factors: they were significantly younger (median, 46 and 50 years, respectively) and had higher white blood cell (WBC) counts at diagnosis"</div>
+
+
+                <div class="evidence-explanation">The cohort supports CBC-detectable WBC elevation in major CEBPA-defined groups.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-bone-marrow-morphology-and-blast-enumeration">
+                <div class="item-name">
+                    Bone Marrow Morphology and Blast Enumeration
+
+                </div>
+
+                <div class="item-desc">Aspirate and core biopsy establish an acute myeloid blast process, assess maturation and dysplasia, and supply material for flow, cytogenetic, and molecular studies. Apply the classification-specific threshold: WHO-HAEM5 requires at least 20% blasts for AML with CEBPA mutation, whereas ICC uses at least 10% for its in-frame bZIP entity.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        biopsy of bone marrow
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15193" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C15193</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> An acute myeloid blast proliferation meeting the selected WHO or ICC threshold.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35732831" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"at least 20% blasts for diagnosis."</div>
+
+
+                <div class="evidence-explanation">WHO directly establishes the CEBPA-entity blast threshold.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ICC and ELN require a minimum of 10% blast for AML-CEBPA, whereas WHO-5 mandates 20% blast threshold."</div>
+
+
+                <div class="evidence-explanation">The classification review states the ICC-versus-WHO threshold difference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-flow-cytometric-myeloid-lineage-assessment">
+                <div class="item-name">
+                    Flow-Cytometric Myeloid Lineage Assessment
+
+                </div>
+
+                <div class="item-desc">Multiparameter flow cytometry confirms an acute myeloid immunophenotype and establishes a leukemia-associated phenotype for later MRD assessment. CEBPA double-mutated blasts frequently express CD7, CD15, and HLA-DR, but no immunophenotype substitutes for sequencing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        flow cytometry procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16585" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C16585</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Myeloid blasts with a reproducible leukemia-associated immunophenotype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"frequency of CD7, CD15, and HLA-DR expression"</div>
+
+
+                <div class="evidence-explanation">The review summarizes the characteristic but non-pathognomonic flow phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cytogenetic-and-broad-myeloid-molecular-profiling">
+                <div class="item-name">
+                    Cytogenetic and Broad Myeloid Molecular Profiling
+
+                </div>
+
+                <div class="item-desc">Karyotyping/FISH and broad myeloid NGS identify competing AML-defining lesions, myelodysplasia-related abnormalities, and co-mutations that affect integrated risk. A normal karyotype is common but is not a diagnostic requirement.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        cytogenetic analysis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18280" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C18280</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Cytogenetic and co-mutation profile used for diagnostic hierarchy and risk assignment.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CEBPAdm is strongly associated with a normal karyotype"</div>
+
+
+                <div class="evidence-explanation">The review supports cytogenetic assessment while showing that CEBPA AML is often karyotypically normal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-full-length-cebpa-sequencing-and-variant-annotation">
+                <div class="item-name">
+                    Full-Length CEBPA Sequencing and Variant Annotation
+
+                </div>
+
+                <div class="item-desc">Sequence the full single-exon CEBPA coding region and report domain, insertion/deletion frame, variant allele fraction, and co-occurring CEBPA lesions. Capture-based NGS is preferred over amplicon-only methods because the locus is GC-rich and indel-heavy. Routine short reads may not phase distant N- and C-terminal variants.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-54">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Precise CEBPA mutation pattern supporting WHO/ICC assignment and ELN risk classification.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"method for CEBPA mutation detection is full length sequencing of this single exon gene."</div>
+
+
+                <div class="evidence-explanation">The review directly recommends full-length sequencing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Capture-based NGS has been shown to perform better than amplicon-based NGS in CEBPA mutation detection"</div>
+
+
+                <div class="evidence-explanation">This supports the assay-design recommendation for the GC-rich, indel-prone locus.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-constitutional-evaluation-for-germline-cebpa-predisposition">
+                <div class="item-name">
+                    Constitutional Evaluation for Germline CEBPA Predisposition
+
+                </div>
+
+                <div class="item-desc">Evaluate germline predisposition when the CEBPA variant persists in complete remission, onset or family history is suggestive, or donor selection makes constitutional status consequential. Marrow or blood VAF near 50% cannot distinguish germline from somatic disease. Cultured skin fibroblasts are the preferred constitutional specimen; related donors require appropriate testing and counseling.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Constitutional testing distinguishes this somatic-only entry from germline CEBPA-associated predisposition.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"VAF cannot be reliably used as a marker"</div>
+
+
+                <div class="evidence-explanation">This directly refutes using diagnostic blood or marrow VAF alone to assign origin.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The gold standard constitutional sample type for germline confirmation is cultured skin fibroblasts"</div>
+
+
+                <div class="evidence-explanation">The review identifies the preferred constitutional specimen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-bone-marrow-multiparameter-flow-mrd-assessment">
+                <div class="item-name">
+                    Bone-Marrow Multiparameter Flow MRD Assessment
+
+                </div>
+
+                <div class="item-desc">Assess MRD using bone-marrow multiparameter flow after therapy, especially during consolidation, and interpret it with integrated genetic risk. Persisting CEBPA sequence alone is not automatically residual leukemia because it can indicate a constitutional variant.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        flow cytometry procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16585" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C16585</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> MRD category used for dynamic relapse-risk and transplant assessment.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRD-positive status during consolidation but not after induction was associated with an increased risk of relapse and decreased relapse free survival."</div>
+
+
+                <div class="evidence-explanation">The CEBPA review supports consolidation-time MFC-MRD as prognostic.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41397238" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41397238" target="_blank">PMID:41397238</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRD recommendations are tailored to individual prognostic and genetic subgroups."</div>
+
+
+                <div class="evidence-explanation">Current ELN-DAVID consensus supports genotype-aware MRD interpretation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-diagnosis-and-classification-assignment">
+                <div class="item-name">Diagnosis and Classification Assignment</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Establish AML, apply the selected WHO or ICC blast threshold, identify the precise CEBPA domain and variant type, and distinguish disease definition from ELN treatment-context risk assignment. Diagnostic marrow VAF cannot by itself establish somatic origin.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35732831" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"include biallelic (biCEBPA) as well as single mutations located in the basic leucine zipper (bZIP) region of the gene (smbZIP- CEBPA)."</div>
+
+
+                <div class="evidence-explanation">WHO shows why exact mutation pattern is part of disease assignment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-induction-and-complete-remission">
+                <div class="item-name">Induction and Complete Remission</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">CEBPA bZIP In-Frame-Indel AML</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Fit patients usually receive intensive induction. The bZIP in-frame-indel subgroup has higher complete-remission rates and better survival than other CEBPA mutation patterns, but this prognostic association does not eliminate relapse risk.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38228680" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only bZIPInDel patients had significantly higher rates of complete remission and longer relapse free and overall survival (OS) compared with all other CEBPA-mutant subgroups."</div>
+
+
+                <div class="evidence-explanation">The pooled analysis identifies the response and survival advantage of the in-frame bZIP subgroup.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-consolidation-and-mrd-reassessment">
+                <div class="item-name">Consolidation and MRD Reassessment</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Bone-marrow multiparameter-flow MRD during consolidation refines relapse risk. CEBPA mutation detection is not automatically an MRD assay because a persisting variant can indicate germline predisposition; interpret molecular findings with remission tissue and broader clonality context.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRD-positive status during consolidation but not after induction was associated with an increased risk of relapse and decreased relapse free survival."</div>
+
+
+                <div class="evidence-explanation">The CEBPA review summarizes the prognostic timing of flow-cytometric MRD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41397238" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41397238" target="_blank">PMID:41397238</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Measurable residual disease (MRD) monitoring has become a critical component in the management of acute myeloid leukemia (AML), to inform prognosis, guide therapy, and serve as a key end point in clinical trials."</div>
+
+
+                <div class="evidence-explanation">Current ELN-DAVID consensus establishes MRD as a dynamic AML management tool.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-relapsed-or-refractory-disease">
+                <div class="item-name">Relapsed or Refractory Disease</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Relapsed CEBPA double-mutated AML can remain chemotherapy-sensitive. Reinduction, molecular reassessment, MRD response, donor suitability, and overall AML risk inform allogeneic transplantation in second remission or refractory disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1007/s11899-023-00699-3" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The second CR rate was reported to be 83–85% [78, 79]."</div>
+
+
+                <div class="evidence-explanation">The review supports retained chemosensitivity after relapse in double-mutated disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9067,6 +10417,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9142,6 +10494,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9213,6 +10567,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9276,6 +10632,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9351,6 +10709,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9420,6 +10780,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9485,6 +10847,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9554,6 +10918,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9604,6 +10970,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9658,6 +11026,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9706,6 +11076,8 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9791,11 +11163,11 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
         Cebpa
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:1833</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9844,6 +11216,8 @@ This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9913,11 +11287,11 @@ This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the
         Cebpa
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:1833</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9966,6 +11340,8 @@ This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10038,6 +11414,8 @@ This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10160,7 +11538,7 @@ has_subtypes:
       other CEBPA-mutant patterns on outcome.
   - reference: PMID:38228680
     reference_title: Prognostic impact of CEBPA mutational subgroups in adult AML.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       ELN2022 and ICC recommendations (including CEBPA bZIPms).
@@ -10205,9 +11583,8 @@ definitions:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
-      in-frame bZIP-mutation irrespective of double or single CEBPA-mutated
-      status [12– 14] has been adapted in both ICC and the 2022 ELN
-      recommendation
+      in-frame bZIP-mutation irrespective of double or single CEBPA-mutated status ... has been
+      adapted in both ICC and the 2022 ELN recommendation
     explanation: The classification review describes the ICC shift to in-frame bZIP mutation irrespective of allelic state.
   - reference: DOI:10.1007/s11899-023-00699-3
     reference_title: Sporadic and Familial Acute Myeloid Leukemia with CEBPA Mutations
@@ -10219,7 +11596,7 @@ definitions:
     explanation: The review directly contrasts the ICC and WHO blast thresholds.
   - reference: PMID:38228680
     reference_title: Prognostic impact of CEBPA mutational subgroups in adult AML.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       ELN2022 and ICC recommendations (including CEBPA bZIPms).
@@ -10256,7 +11633,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:38253683
     reference_title: Dysregulated immune and metabolic pathways are associated with poor survival in adult acute myeloid leukemia with CEBPA bZIP in-frame mutations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       RNA-sequencing analysis revealed an enrichment of interferon (IFN)
@@ -10606,7 +11983,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23901108
       reference_title: Acute myeloid leukemia does not deplete normal hematopoietic stem cells but induces cytopenias by impeding their differentiation.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Acute myeloid leukemia (AML) induces bone marrow (BM) failure in
@@ -10635,7 +12012,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23901108
       reference_title: Acute myeloid leukemia does not deplete normal hematopoietic stem cells but induces cytopenias by impeding their differentiation.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         normal progenitors and other downstream hematopoietic cells were reduced
@@ -10649,7 +12026,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23901108
       reference_title: Acute myeloid leukemia does not deplete normal hematopoietic stem cells but induces cytopenias by impeding their differentiation.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         normal progenitors and other downstream hematopoietic cells were reduced
@@ -10751,7 +12128,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38253683
     reference_title: Dysregulated immune and metabolic pathways are associated with poor survival in adult acute myeloid leukemia with CEBPA bZIP in-frame mutations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Genes in mitochondrial complexes I (NDUFA12 and NDUFB6) and V (ATP5PB and
@@ -10810,7 +12187,7 @@ phenotypes:
   evidence:
   - reference: PMID:23901108
     reference_title: Acute myeloid leukemia does not deplete normal hematopoietic stem cells but induces cytopenias by impeding their differentiation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Rather, AML inhibits production of downstream hematopoietic cells by
@@ -10845,7 +12222,7 @@ phenotypes:
   evidence:
   - reference: PMID:23901108
     reference_title: Acute myeloid leukemia does not deplete normal hematopoietic stem cells but induces cytopenias by impeding their differentiation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       normal progenitors and other downstream hematopoietic cells were reduced
@@ -10864,7 +12241,7 @@ phenotypes:
   evidence:
   - reference: PMID:23901108
     reference_title: Acute myeloid leukemia does not deplete normal hematopoietic stem cells but induces cytopenias by impeding their differentiation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       normal progenitors and other downstream hematopoietic cells were reduced
@@ -10924,7 +12301,7 @@ phenotypes:
   evidence:
   - reference: PMID:23901108
     reference_title: Acute myeloid leukemia does not deplete normal hematopoietic stem cells but induces cytopenias by impeding their differentiation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Acute myeloid leukemia (AML) induces bone marrow (BM) failure in patients,
@@ -11054,7 +12431,7 @@ genetic:
   evidence:
   - reference: PMID:38253683
     reference_title: Dysregulated immune and metabolic pathways are associated with poor survival in adult acute myeloid leukemia with CEBPA bZIP in-frame mutations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Concurrent WT1 or DNMT3A mutations significantly predicted worse survival
@@ -11062,7 +12439,7 @@ genetic:
     explanation: This cohort found an adverse WT1 association, supporting one side of a conflicting literature.
   - reference: PMID:38228680
     reference_title: Prognostic impact of CEBPA mutational subgroups in adult AML.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       co-mutations in bZIPInDel patients (e.g. GATA2, FLT3, WT1 as well as
@@ -11082,7 +12459,7 @@ genetic:
   evidence:
   - reference: PMID:38253683
     reference_title: Dysregulated immune and metabolic pathways are associated with poor survival in adult acute myeloid leukemia with CEBPA bZIP in-frame mutations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Concurrent WT1 or DNMT3A mutations significantly predicted worse survival
@@ -11090,7 +12467,7 @@ genetic:
     explanation: This cohort supports an adverse association, but it does not establish a universal independent effect.
   - reference: DOI:10.1007/s11899-023-00699-3
     reference_title: Sporadic and Familial Acute Myeloid Leukemia with CEBPA Mutations
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       results are likely attributable to the small sample sizes limiting the
@@ -11126,7 +12503,7 @@ genetic:
   evidence:
   - reference: PMID:36701843
     reference_title: Clinical Significance of bZIP In-Frame CEBPA-Mutated Normal Karyotype Acute Myeloid Leukemia.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       For relapse-free survival (RFS) and cumulative incidence of relapse,
@@ -11135,7 +12512,7 @@ genetic:
     explanation: This human cohort supports adverse association in one normal-karyotype setting.
   - reference: PMID:38228680
     reference_title: Prognostic impact of CEBPA mutational subgroups in adult AML.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       co-mutations in bZIPInDel patients (e.g. GATA2, FLT3, WT1 as well as
@@ -11604,7 +12981,7 @@ treatments:
     explanation: The review supports this as an eligibility-based lower-intensity AML approach.
   - reference: DOI:10.1007/s11899-023-00699-3
     reference_title: Sporadic and Familial Acute Myeloid Leukemia with CEBPA Mutations
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The complete remission (CR) and complete remission with incomplete count
@@ -11950,7 +13327,7 @@ discussions:
   evidence:
   - reference: PMID:38253683
     reference_title: Dysregulated immune and metabolic pathways are associated with poor survival in adult acute myeloid leukemia with CEBPA bZIP in-frame mutations.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Concurrent WT1 or DNMT3A mutations significantly predicted worse survival
@@ -11958,7 +13335,7 @@ discussions:
     explanation: This cohort supports one proposed adverse-risk signal.
   - reference: PMID:38228680
     reference_title: Prognostic impact of CEBPA mutational subgroups in adult AML.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       co-mutations in bZIPInDel patients (e.g. GATA2, FLT3, WT1 as well as
@@ -12189,6 +13566,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12692,7 +14071,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Myeloid Leukemia with CEBPA Somatic Mutations", "mondoId": "MONDO:0017894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Myeloid_Leukemia_with_CEBPA_Somatic_Mutations", "yamlRevision": "535d0715e5ef"};
+        const OS_CONFIG = {"diseaseName": "Acute Myeloid Leukemia with CEBPA Somatic Mutations", "mondoId": "MONDO:0017894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Myeloid_Leukemia_with_CEBPA_Somatic_Mutations", "yamlRevision": "447bc11aed5e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

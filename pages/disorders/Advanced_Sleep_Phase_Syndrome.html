@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4305,6 +4394,8 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4328,6 +4419,8 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4349,6 +4442,8 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4391,6 +4486,8 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4465,6 +4562,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4488,6 +4587,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4509,6 +4610,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4595,6 +4698,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4616,6 +4721,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4710,6 +4817,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4731,6 +4840,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4794,6 +4905,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4815,6 +4928,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4996,6 +5111,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5009,14 +5126,16 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38695651" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38695651" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38695651" target="_blank">PMID:38695651</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5137,6 +5256,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5299,6 +5420,8 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5333,6 +5456,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-related-suprachiasmatic-nucleus-decline" data-dismech-node="Age-Related Suprachiasmatic Nucleus Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Related Suprachiasmatic Nucleus Decline</div>
+
 
                 <div class="item-desc">The trigger of the SPORADIC / AGE-RELATED arm, mechanistically distinct from the Mendelian arm. With advancing age - and compounded by neurodegenerative disease - the suprachiasmatic nucleus itself is affected, reducing the robustness and amplitude of central pacemaker output. This is a degenerative/structural route to an unstable, easily-advanced clock rather than a change in the kinetics of the molecular oscillator, and it explains why advanced sleep timing becomes progressively more common with age. It is the arm that accounts for the substantially higher population-level prevalence figures (approximately 1% of middle-aged adults, and early morning awakening in about 4% of older individuals) relative to the rare Mendelian kindreds.</div>
 
@@ -5486,6 +5610,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5507,6 +5633,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5531,6 +5659,7 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-photic-sensitivity-and-light-responsiveness" data-dismech-node="Reduced Photic Sensitivity and Light Responsiveness" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Photic Sensitivity and Light Responsiveness</div>
+
 
                 <div class="item-desc">The mediating step of the sporadic/age-related arm. Ageing reduces both the sensitivity of the circadian system to light and its responsiveness to it - through the SCN and its input pathway - so the daily zeitgeber signal that normally holds the clock at the correct phase is weakened. A weakened entraining signal is less able to oppose a drift toward earlier timing, and it also blunts the response to the evening light used therapeutically, which is part of why light therapy is harder to deliver effectively in exactly the older population in which this arm predominates.
 A behavioral positive-feedback loop compounds this: early awakening leads to premature morning light exposure, which falls on the phase-advance limb of the phase-response curve and advances the clock further.</div>
@@ -5677,6 +5806,8 @@ This pathophysiological event occurs in Retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5698,6 +5829,8 @@ This pathophysiological event occurs in Retina (UBERON:0000966). UBERON:0000966 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5722,6 +5855,7 @@ This pathophysiological event occurs in Retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autosomal-dominant-circadian-regulatory-gene-variant" data-dismech-node="Autosomal Dominant Circadian-Regulatory Gene Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Autosomal Dominant Circadian-Regulatory Gene Variant</div>
+
 
                 <div class="item-desc">A germline, autosomal dominant variant in a component of the core circadian transcription-translation feedback loop (TTFL), its regulatory kinase, or a channel that shapes light entrainment. In the canonical loop, CLOCK-BMAL1 activates transcription of PER and CRY; PER/CRY protein complexes accumulate, are phosphorylated, enter the nucleus, and repress CLOCK-BMAL1. The rate constants of this loop - phosphorylation, degradation, and nuclear entry - set the intrinsic period (tau). Most FASPS variants perturb these rate constants; CACNA1D variants instead alter Cav1.3 channel dynamics and photic entrainment. Reported genes are PER2, CSNK1D, CRY2, PER3, TIMELESS, and CACNA1D.</div>
 
@@ -6171,6 +6305,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6192,6 +6328,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6217,6 +6355,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6239,6 +6379,7 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-per2-s662-site-hypophosphorylation" data-dismech-node="PER2 S662-Site Hypophosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">PER2 S662-Site Hypophosphorylation</div>
+
 
                 <div class="item-desc">The original FASPS lesion, PER2 p.Ser662Gly (S662G), substitutes glycine for a serine within the casein kinase I epsilon/delta binding region of hPER2. The substitution causes hypophosphorylation by CK1epsilon in vitro. Newer evidence separates in-vitro kinase capacity from physiological control: MARK2 binds PER2, phosphorylates S662, and stabilizes PER2, while deletion of CK1delta/epsilon or five other candidate kinases did not reproduce phase advancement. Loss of S662-site phosphorylation retunes PER2 stability and the feedback loop, altering circadian period.</div>
 
@@ -6474,6 +6615,8 @@ This pathophysiological event involves Regulation of circadian rhythm (GO:004275
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6497,6 +6640,8 @@ This pathophysiological event involves Regulation of circadian rhythm (GO:004275
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6518,6 +6663,8 @@ This pathophysiological event involves Regulation of circadian rhythm (GO:004275
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6544,6 +6691,7 @@ This pathophysiological event involves Regulation of circadian rhythm (GO:004275
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ck1delta-reduced-kinase-activity" data-dismech-node="CK1delta Reduced Kinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">CK1delta Reduced Kinase Activity</div>
+
 
                 <div class="item-desc">CSNK1D p.Thr44Ala (T44A) mutates the kinase rather than the substrate: the mutant kinase has decreased enzymatic activity in vitro and causes FASPS in humans. Transgenic mice bearing CK1delta-T44A have a shortened circadian period, and CK1delta dosage modulates the PER2 S662G phenotype in vivo, showing genetic interaction with PER2. This does not establish that CK1delta is the physiologically decisive kinase at S662; 2026 knockout and biochemical evidence instead identifies MARK2 in that role. The CSNK1D lesion therefore remains a distinct clock-kinase route into altered TTFL feedback rather than the enzyme side of a single S662 biochemical lesion.</div>
 
@@ -6677,6 +6825,8 @@ This pathophysiological event involves decreased Protein phosphorylation (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6698,6 +6848,8 @@ This pathophysiological event involves decreased Protein phosphorylation (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6723,6 +6875,8 @@ This pathophysiological event involves decreased Protein phosphorylation (GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6745,6 +6899,7 @@ This pathophysiological event involves decreased Protein phosphorylation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cry2-destabilization-by-fbxl3" data-dismech-node="CRY2 Destabilization by FBXL3" data-dismech-type="pathophysiology">
                 <div class="item-name">CRY2 Destabilization by FBXL3</div>
+
 
                 <div class="item-desc">CRY2 p.Ala260Thr (A260T) lies in the phosphate loop of the FAD-binding domain of CRY2. The substitution changes CRY2 conformation so as to increase its accessibility and affinity for FBXL3, an E3 ubiquitin ligase, thereby promoting CRY2 ubiquitination and degradation. Accelerated turnover of this negative-limb repressor shortens the circadian period.</div>
 
@@ -6920,6 +7075,8 @@ This pathophysiological event involves increased Protein destabilization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6941,6 +7098,8 @@ This pathophysiological event involves increased Protein destabilization (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6965,6 +7124,7 @@ This pathophysiological event involves increased Protein destabilization (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-timeless-nuclear-exclusion" data-dismech-node="TIMELESS Nuclear Exclusion" data-dismech-type="pathophysiology">
                 <div class="item-name">TIMELESS Nuclear Exclusion</div>
+
 
                 <div class="item-desc">A mutation in human TIMELESS (hTIM) prevents TIM from accumulating in the nucleus and alters its affinity for CRY2, destabilizing the PER/CRY complex and weakening repression of CLOCK-BMAL1. Notably, this variant produces advanced sleep phase primarily by altering photic entrainment rather than by shortening the organismal period: CRISPR mutant mice show advanced sleep phase with altered photic entrainment but a normal circadian period, even though period shortening is seen in mutant fibroblasts. What distinguishes TIMELESS from the other FASPS lesions is specifically the NORMAL organismal period - entrainment involvement as such is not unique to it, since the CRY2 A260T variant also shows a reduced phase-shift to early-night light while additionally shortening period.</div>
 
@@ -7136,6 +7296,8 @@ This pathophysiological event involves Entrainment of circadian clock by photope
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7159,6 +7321,8 @@ This pathophysiological event involves Entrainment of circadian clock by photope
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7172,14 +7336,16 @@ This pathophysiological event involves Entrainment of circadian clock by photope
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31138685" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31138685" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31138685" target="_blank">PMID:31138685</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7204,6 +7370,7 @@ This pathophysiological event involves Entrainment of circadian clock by photope
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cacna1d-channel-dynamics-alteration" data-dismech-node="CACNA1D Channel-Dynamics Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">CACNA1D Channel-Dynamics Alteration</div>
+
 
                 <div class="item-desc">Five CACNA1D variants identified across five independent FASP families alter the dynamics of the Cav1.3 L-type voltage-gated calcium channel in vitro. Unlike TTFL variants that primarily shorten free-running period, the mouse model of the CACNA1D p.Glu427Lys (E427K) variant leaves period normal in constant darkness but changes phase shifts to light during subjective night. CACNA1D therefore defines a calcium-channel route to FASP through altered photic entrainment.</div>
 
@@ -7337,6 +7504,8 @@ This pathophysiological event involves abnormal voltage-gated calcium channel ac
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7358,6 +7527,8 @@ This pathophysiological event involves abnormal voltage-gated calcium channel ac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7382,6 +7553,7 @@ This pathophysiological event involves abnormal voltage-gated calcium channel ac
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-per3-destabilization" data-dismech-node="PER3 Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">PER3 Destabilization</div>
+
 
                 <div class="item-desc">Two rare PER3 variants (p.Pro415Ala and p.His417Arg, PER3-P415A/H417R) were identified in individuals with familial advanced sleep phase who also had higher Beck Depression Inventory and seasonality scores. The variants destabilize PER3 and fail to stabilize PER1/PER2 proteins. The evidence base here is weaker than for PER2 or CSNK1D - a single kindred with a two-variant haplotype, and the human phenotype is co-reported with a mood trait rather than isolated phase advance - so this node is curated as a contributory rather than an established mechanism.</div>
 
@@ -7515,6 +7687,8 @@ This pathophysiological event involves increased Protein destabilization (GO:003
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7536,6 +7710,8 @@ This pathophysiological event involves increased Protein destabilization (GO:003
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7560,6 +7736,7 @@ This pathophysiological event involves increased Protein destabilization (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-per-cry-negative-feedback-on-clock-bmal1" data-dismech-node="Altered PER/CRY Negative Feedback on CLOCK-BMAL1" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered PER/CRY Negative Feedback on CLOCK-BMAL1</div>
+
 
                 <div class="item-desc">The protein-stability and phosphorylation routes to FASPS converge here. The TTFL keeps time because PER/CRY repressor complexes accumulate, are post-translationally delayed, enter the nucleus, repress CLOCK-BMAL1, and are then degraded, permitting the next cycle. Reducing the delay - through PER2 S662-site hypophosphorylation, reduced CSNK1D activity, accelerated CRY2 degradation, or PER3 destabilization - can make each iteration of the loop complete faster. CACNA1D bypasses this node and acts through altered entrainment; TIMELESS also has a distinct entrainment phenotype.</div>
 
@@ -7676,6 +7853,8 @@ This pathophysiological event involves PER/CRY transcriptional repression of CLO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7698,6 +7877,7 @@ This pathophysiological event involves PER/CRY transcriptional repression of CLO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-photic-entrainment-of-the-circadian-pacemaker" data-dismech-node="Altered Photic Entrainment of the Circadian Pacemaker" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Photic Entrainment of the Circadian Pacemaker</div>
+
 
                 <div class="item-desc">Light reaching intrinsically photosensitive retinal ganglion cells is conveyed by the retinohypothalamic tract to the suprachiasmatic nucleus and is the dominant zeitgeber that entrains the clock to the 24-hour day. The direction of the resulting shift depends on when in the circadian cycle the light falls (the phase-response curve): light in the late night/early morning advances the clock, light in the evening delays it. A clock lesion can therefore advance phase either by shortening period or by biasing this entrainment response; TIMELESS and CACNA1D variants act predominantly through the latter. This node is also the substrate on which treatment acts, and the reason mistimed light worsens the disorder.</div>
 
@@ -7856,6 +8036,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7879,6 +8061,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7900,6 +8084,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7926,6 +8112,7 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-intrinsic-circadian-period" data-dismech-node="Shortened Intrinsic Circadian Period" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Intrinsic Circadian Period</div>
+
 
                 <div class="item-desc">A major physiological route in Mendelian FASPS - a free-running circadian period (tau) measurably shorter than the normal ~24.2 hours. A clock that runs fast must be reset backwards each day by the zeitgeber; the steady-state consequence of entraining a short-period oscillator to a 24-hour day is that it settles at an abnormally early phase angle. This is the direct mechanistic explanation for why a period abnormality produces a phase abnormality, and it is the reason FASPS individuals are phase-advanced rather than simply free-running. It is not universal: TIMELESS and CACNA1D model organisms show altered photic entrainment with a normal organismal period and reach the advanced phase by the parallel entrainment route.</div>
 
@@ -8107,6 +8294,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8128,6 +8317,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8153,6 +8344,8 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8175,6 +8368,7 @@ This pathophysiological event occurs in Suprachiasmatic nucleus (UBERON:0002034)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-advanced-circadian-phase-of-melatonin-temperature-and-sleep-propensity" data-dismech-node="Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity" data-dismech-type="pathophysiology">
                 <div class="item-name">Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity</div>
+
 
                 <div class="item-desc">The integrated organism-level output - the entire circadian ensemble, pineal melatonin secretion, core body temperature nadir, and the circadian drive for sleep, is displaced several hours earlier than normal. In the original FASPS kindreds this amounted to roughly a 4-hour advance of the sleep, temperature, and melatonin rhythms. Crucially, the oscillation itself is intact and of normal amplitude; only its phase is shifted. This is why sleep architecture and duration remain normal, and why the disorder is one of timing rather than of sleep quality.</div>
 
@@ -8381,6 +8575,8 @@ This pathophysiological event occurs in Pineal body (UBERON:0001905). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8402,6 +8598,8 @@ This pathophysiological event occurs in Pineal body (UBERON:0001905). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8426,6 +8624,7 @@ This pathophysiological event occurs in Pineal body (UBERON:0001905). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circadian-misalignment-with-conventional-social-schedule" data-dismech-node="Circadian Misalignment with Conventional Social Schedule" data-dismech-type="pathophysiology">
                 <div class="item-name">Circadian Misalignment with Conventional Social Schedule</div>
+
 
                 <div class="item-desc">The clinically disabling step. An advanced clock is not intrinsically harmful; morbidity arises when biological night conflicts with the socially required schedule. Attempting to stay awake for evening obligations produces overwhelming evening sleepiness; attempting to remain asleep to a conventional wake time produces early-morning awakening experienced as terminal insomnia; and resisting the advanced schedule at both ends causes chronic sleep restriction. Distress or functional impairment arising from this misalignment - not the early timing per se - is what converts an advanced chronotype into advanced sleep-wake phase disorder.</div>
 
@@ -8476,6 +8675,8 @@ This pathophysiological event occurs in Pineal body (UBERON:0001905). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8497,6 +8698,8 @@ This pathophysiological event occurs in Pineal body (UBERON:0001905). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8565,9 +8768,9 @@ This pathophysiological event occurs in Pineal body (UBERON:0001905). UBERON:000
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8607,6 +8810,9 @@ This clinical feature is Advanced phase of melatonin secretion, annotated with A
                     </div>
 
 
+
+
+
                     <div class="item-desc">HP:0012689 is defined as &#34;An anomaly in the amount or timing of melatonin secretion by the pineal gland&#34;, so the timing sense is within its scope; the more specific claim (advance rather than delay) is carried by preferred_term and description, as HPO has no direction-specific child.</div>
 
 
@@ -8626,6 +8832,8 @@ This clinical feature is Advanced phase of melatonin secretion, annotated with A
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8649,6 +8857,8 @@ This clinical feature is Advanced phase of melatonin secretion, annotated with A
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8680,192 +8890,7 @@ This clinical feature is Advanced phase of melatonin secretion, annotated with A
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-evening-sleepiness" data-dismech-node="Evening Sleepiness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Evening Sleepiness
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Drowsiness</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002329</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Evening drowsiness, annotated with Drowsiness (HP:0002329), qualified as temporality diurnal. HP:0002329 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: DIURNAL</span>
-
-
-
-
-
-
-                    </div>
-
-
-                    <div class="item-desc">`frequency:` is deliberately omitted. The cited source reports no per-symptom frequency data for evening sleepiness, and no quantitative frequency band could be justified from the available abstracts. Per the project frequency-evidence guidelines, omission is preferred to a fabricated band.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31384946" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31384946" target="_blank">PMID:31384946</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"This can optimize treatment for evening sleepiness and early morning awakening"</div>
-
-
-                <div class="evidence-explanation">Identifies evening sleepiness (paired with early morning awakening) as the treatable symptom complex of extreme advanced chronotypes. Marked PARTIAL because this is a conclusions-section statement about treatment targets in a prevalence study, not a direct observation of the phenotype or its frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-restriction-and-functional-impairment" data-dismech-node="Sleep Restriction and Functional Impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep Restriction and Functional Impairment
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Sleep disturbance</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002360</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep deprivation, annotated with Sleep disturbance (HP:0002360), qualified as temporality chronic. HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34493186" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34493186" target="_blank">PMID:34493186</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The main clinical manifestations are insomnia and excessive daytime sleepiness that often lead to clinically meaningful distress or cause mental, physical, social, occupational, educational, or other functional impairment."</div>
-
-
-                <div class="evidence-explanation">Documents the functional-impairment domains that result from circadian sleep-wake disorders.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-early-chronotype" data-dismech-node="Early Chronotype" data-dismech-type="phenotype">
@@ -8884,10 +8909,10 @@ This clinical feature is Sleep deprivation, annotated with Sleep disturbance (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0031873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0031873</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Early chronotype (HP:0031873), qualified as course stable. HP:0031873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8916,6 +8941,9 @@ This clinical feature is Early chronotype (HP:0031873), qualified as course stab
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8930,6 +8958,8 @@ This clinical feature is Early chronotype (HP:0031873), qualified as course stab
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8953,6 +8983,8 @@ This clinical feature is Early chronotype (HP:0031873), qualified as course stab
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8996,10 +9028,10 @@ This clinical feature is Early chronotype (HP:0031873), qualified as course stab
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0031873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0031873</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Advanced sleep onset, annotated with Early chronotype (HP:0031873), qualified as temporality chronic. HP:0031873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9025,6 +9057,9 @@ This clinical feature is Advanced sleep onset, annotated with Early chronotype (
                     </div>
 
 
+
+
+
                     <div class="item-desc">NEEDS TERM (NTR candidate). This phenotype shares HP:0031873 with `Early Chronotype`, but the two are distinct claims: HP:0031873 is defined as &#34;A tendency towards rising very early in the morning and going to bed early in the evening&#34; - a stable trait disposition - whereas this row asserts the specific clock-time observation of involuntary sleep onset in the early evening. &#34;Advanced sleep onset&#34; is an EXACT synonym of HP:0031873, so it is the correct available binding, and the alternative (the grandparent HP:0006979 Sleep-wake cycle disturbance) is direction-neutral and would fit delayed sleep phase equally well. A distinct HPO child term for advanced sleep onset would resolve the reuse.</div>
 
 
@@ -9044,6 +9079,8 @@ This clinical feature is Advanced sleep onset, annotated with Early chronotype (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9067,6 +9104,8 @@ This clinical feature is Advanced sleep onset, annotated with Early chronotype (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9110,10 +9149,10 @@ This clinical feature is Advanced sleep onset, annotated with Early chronotype (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031356" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0031356</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031356" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0031356</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Terminal insomnia (HP:0031356), qualified as temporality chronic. HP:0031356 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9142,6 +9181,9 @@ This clinical feature is Terminal insomnia (HP:0031356), qualified as temporalit
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9156,6 +9198,8 @@ This clinical feature is Terminal insomnia (HP:0031356), qualified as temporalit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9181,6 +9225,8 @@ This clinical feature is Terminal insomnia (HP:0031356), qualified as temporalit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9204,12 +9250,210 @@ This clinical feature is Terminal insomnia (HP:0031356), qualified as temporalit
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-evening-sleepiness" data-dismech-node="Evening Sleepiness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Evening Sleepiness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Drowsiness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002329</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Evening drowsiness, annotated with Drowsiness (HP:0002329), qualified as temporality diurnal. HP:0002329 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: DIURNAL</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">`frequency:` is deliberately omitted. The cited source reports no per-symptom frequency data for evening sleepiness, and no quantitative frequency band could be justified from the available abstracts. Per the project frequency-evidence guidelines, omission is preferred to a fabricated band.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31384946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31384946" target="_blank">PMID:31384946</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This can optimize treatment for evening sleepiness and early morning awakening"</div>
+
+
+                <div class="evidence-explanation">Identifies evening sleepiness (paired with early morning awakening) as the treatable symptom complex of extreme advanced chronotypes. Marked PARTIAL because this is a conclusions-section statement about treatment targets in a prevalence study, not a direct observation of the phenotype or its frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-restriction-and-functional-impairment" data-dismech-node="Sleep Restriction and Functional Impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sleep Restriction and Functional Impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sleep disturbance</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep deprivation, annotated with Sleep disturbance (HP:0002360), qualified as temporality chronic. HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34493186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34493186" target="_blank">PMID:34493186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main clinical manifestations are insomnia and excessive daytime sleepiness that often lead to clinically meaningful distress or cause mental, physical, social, occupational, educational, or other functional impairment."</div>
+
+
+                <div class="evidence-explanation">Documents the functional-impairment domains that result from circadian sleep-wake disorders.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-preserved-sleep-quality-and-duration-on-a-self-selected-schedule" data-dismech-node="Preserved Sleep Quality and Duration on a Self-Selected Schedule" data-dismech-type="phenotype">
                     <div class="item-name">
                         Preserved Sleep Quality and Duration on a Self-Selected Schedule
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Deliberately curated WITHOUT a phenotype_term. This assertion is the ABSENCE of a sleep-quality abnormality, so binding any HPO abnormality term (e.g. HP:0006979 Sleep-wake cycle disturbance) would make the entry assert the negation of its own claim and would be read by downstream consumers as a positive abnormality. HPO has no &#34;normal sleep architecture&#34; term; a normality/negation construct or a new term request would be needed. The same discriminating information is carried in the Insomnia Disorder and Major Depressive Disorder differential_diagnoses and in the ICSD-3 criteria set.</div>
@@ -9231,6 +9475,8 @@ This clinical feature is Terminal insomnia (HP:0031356), qualified as temporalit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9256,6 +9502,8 @@ This clinical feature is Terminal insomnia (HP:0031356), qualified as temporalit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9277,6 +9525,8 @@ This clinical feature is Terminal insomnia (HP:0031356), qualified as temporalit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9376,6 +9626,9 @@ This disease-associated gene is PER2 (hgnc:8846). hgnc:8846 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9390,6 +9643,8 @@ This disease-associated gene is PER2 (hgnc:8846). hgnc:8846 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9446,6 +9701,9 @@ This disease-associated gene is CSNK1D (hgnc:2452). hgnc:2452 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9460,6 +9718,8 @@ This disease-associated gene is CSNK1D (hgnc:2452). hgnc:2452 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9516,6 +9776,9 @@ This disease-associated gene is CRY2 (hgnc:2385). hgnc:2385 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9530,6 +9793,8 @@ This disease-associated gene is CRY2 (hgnc:2385). hgnc:2385 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9586,6 +9851,9 @@ This disease-associated gene is TIMELESS (hgnc:11813). hgnc:11813 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9600,6 +9868,8 @@ This disease-associated gene is TIMELESS (hgnc:11813). hgnc:11813 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9656,6 +9926,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9670,6 +9943,8 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9726,20 +10001,25 @@ This disease-associated gene is PER3 (hgnc:8847). hgnc:8847 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26903630" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26903630" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26903630" target="_blank">PMID:26903630</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9755,14 +10035,16 @@ This disease-associated gene is PER3 (hgnc:8847). hgnc:8847 is a gene from the H
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38695651" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38695651" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38695651" target="_blank">PMID:38695651</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9845,6 +10127,31 @@ This treatment is bright white light therapy (NCIT:C174524). NCIT:C174524 is a c
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The principal evidence-based treatment. Bright light delivered in the evening falls on the phase-delay portion of the human phase-response curve and pushes the advanced clock later. Phototherapy for ASWPD is usually given between 19:00 and 21:00, and the recommended dose to achieve a phase delay is at least 5,000 lux for 2 hours at night. The AASM 2015 guideline gives light therapy positive endorsement, at a second-tier degree of confidence, for adults with ASWPD, and the AASM guideline is summarized in the review literature as recommending night bright light therapy for ASWPD specifically.
 Tolerability is the main practical limitation: multiple studies report that elderly patients exposed to bright light at night could not tolerate it, resulting in poor compliance, and one comparison found better compliance (and symptom improvement) with dim rather than enhanced-intensity evening light. Side effects are otherwise minimal (eye fatigue, nausea, restlessness, headache) and usually self-limiting.
 DIRECTION IS CRITICAL. The same intervention mistimed does harm - morning bright light falls on the phase-advance portion of the curve and would further advance an already-advanced clock, worsening the disorder. Correct timing therefore depends on knowing circadian phase (DLMO or core body temperature minimum), not merely clock time. Tolerance of prolonged evening light can be poor in older adults, the group in whom ASPS is most common.</div>
@@ -9888,6 +10195,8 @@ DIRECTION IS CRITICAL. The same intervention mistimed does harm - morning bright
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9911,6 +10220,8 @@ DIRECTION IS CRITICAL. The same intervention mistimed does harm - morning bright
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9932,6 +10243,8 @@ DIRECTION IS CRITICAL. The same intervention mistimed does harm - morning bright
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10018,6 +10331,31 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Exogenous melatonin shifts circadian phase according to a phase-response curve that is approximately the inverse of the light PRC - melatonin taken in the morning delays the clock, whereas melatonin taken in the evening advances it. For ASPS the theoretically correct direction is therefore MORNING melatonin to produce a phase delay, the exact opposite of the evening dosing used in delayed sleep-wake phase disorder. Evening melatonin would advance the clock further and is expected to worsen ASPS.
 This treatment is included because review-level literature reports timed melatonin as useful across circadian rhythm sleep disorders including advanced sleep phase, but it must be flagged that the AASM 2015 guideline did NOT endorse melatonin for ASWPD - its melatonin endorsement was restricted to DSWPD, blind adults with N24SWD, and children/adolescents with ISWRD. Morning dosing also risks residual daytime sleepiness. Melatonin for ASPS should therefore be regarded as mechanistically rational but not guideline-supported.</div>
 
@@ -10060,6 +10398,8 @@ This treatment is included because review-level literature reports timed melaton
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10083,6 +10423,8 @@ This treatment is included because review-level literature reports timed melaton
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10104,6 +10446,8 @@ This treatment is included because review-level literature reports timed melaton
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10169,6 +10513,31 @@ This treatment is behavioral and educational intervention, annotated with Behavi
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Where occupational and social circumstances permit, the simplest and often the most effective management is to accommodate the early schedule rather than fight it, since sleep is normal when taken at the biologically preferred time. Where a delay is required, a prescribed and consistently maintained later sleep-wake schedule may be attempted, typically alongside evening light. The AASM guideline made no recommendation on prescribed sleep scheduling or timed exercise for ASWPD because the evidence was insufficient.
 Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE OF BRIGHT LIGHT IN THE MORNING - the direction-critical negative instruction, since morning light sits on the phase-advance limb of the PRC and would worsen the disorder - alongside a midday nap, postponing bedtime, physical activity, and walking outdoors in the evening under bright light. Chronotherapy for ASWPD delays sleep onset progressively (by 3 hours every 2 days) until the desired later bedtime is reached; a single case maintained a 23:00 bedtime at 5-month follow-up.</div>
 
@@ -10211,6 +10580,8 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10234,6 +10605,8 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10247,14 +10620,16 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34493186" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34493186" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34493186" target="_blank">PMID:34493186</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10343,6 +10718,8 @@ This environmental factor is visible light exposure, annotated with exposure to 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10383,14 +10760,16 @@ This environmental factor is visible light exposure, annotated with exposure to 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21243069" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21243069" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21243069" target="_blank">PMID:21243069</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10469,6 +10848,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10482,14 +10863,16 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39864932" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39864932" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39864932" target="_blank">PMID:39864932</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10542,6 +10925,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10555,14 +10940,16 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39864932" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39864932" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39864932" target="_blank">PMID:39864932</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10618,6 +11005,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10666,6 +11055,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10773,6 +11164,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10824,6 +11217,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10902,14 +11297,16 @@ This environmental factor is decreased insufficient evening light exposure, anno
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39864932" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39864932" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39864932" target="_blank">PMID:39864932</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10925,14 +11322,16 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40460120" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40460120" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40460120" target="_blank">PMID:40460120</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11021,6 +11420,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11099,6 +11500,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11156,6 +11559,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11177,6 +11582,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11234,6 +11641,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11342,6 +11751,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11417,6 +11828,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11496,6 +11909,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11569,6 +11984,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11649,6 +12066,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11723,6 +12142,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -11800,6 +12221,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11865,6 +12288,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11913,6 +12338,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -12166,6 +12593,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12207,6 +12636,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -12286,6 +12717,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12327,6 +12760,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -12381,6 +12816,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12423,6 +12860,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -12639,6 +13078,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12678,6 +13119,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -12757,6 +13200,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12796,6 +13241,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -12850,6 +13297,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -12892,6 +13341,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -13083,6 +13534,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -13122,6 +13575,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -13199,6 +13654,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -13238,6 +13695,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -13292,6 +13751,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -13334,6 +13795,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -13548,6 +14011,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -13587,6 +14052,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -13641,6 +14108,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -13682,6 +14151,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -13726,6 +14197,8 @@ This environmental factor is decreased insufficient evening light exposure, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -14462,7 +14935,7 @@ pathophysiology:
       destabilization as the molecular consequence.
   - reference: PMID:31138685
     reference_title: &#34;TIMELESS mutation alters phase responsiveness and causes advanced sleep phase.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Tim CRISPR mutant mice exhibit FASP with altered photic entrainment but
@@ -15029,7 +15502,7 @@ phenotypes:
   evidence:
   - reference: PMID:31384946
     reference_title: &#34;Extreme morning chronotypes are often familial and not exceedingly rare: the estimated prevalence of advanced sleep phase, familial advanced sleep phase, and advanced sleep-wake phase disorder in a sleep clinic population.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       This can optimize treatment for evening sleepiness and early morning
@@ -15099,7 +15572,7 @@ phenotypes:
       preserved, consistent with normal sleep quantity and quality.
   - reference: PMID:10470086
     reference_title: &#34;Familial advanced sleep-phase syndrome: A short-period circadian rhythm variant in humans.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Here we describe three kindreds with a profound phase advance of the
@@ -15204,7 +15677,7 @@ environmental:
     evidence:
     - reference: PMID:21243069
       reference_title: &#34;Therapeutics for Circadian Rhythm Sleep Disorders.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Light is the strongest entraining agent of circadian rhythms and timed exposure to bright light is often used in the treatment of circadian rhythm sleep disorders.&#34;
       explanation: &gt;-
@@ -15267,7 +15740,7 @@ environmental:
         sleep phase. Direction and outcome together, at this node.
     - reference: PMID:39864932
       reference_title: &#34;Advanced sleep phase syndrome: Role of genetics and aging.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Age-related alterations in circadian rhythms are exacerbated and compounded by neurodegenerative disorders, impacting the suprachiasmatic nucleus (SCN), sensitivity to light, and light responsiveness in those affected.&#34;
       explanation: &gt;-
@@ -15301,7 +15774,7 @@ environmental:
       the clock.
   - reference: PMID:39864932
     reference_title: &#34;Advanced sleep phase syndrome: Role of genetics and aging.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Age-related alterations in circadian rhythms are exacerbated and
@@ -15531,7 +16004,7 @@ genetic:
   evidence:
   - reference: PMID:26903630
     reference_title: &#34;A PERIOD3 variant causes a circadian phenotype and is associated with a seasonal mood trait.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We identified two rare variants in the circadian clock gene PERIOD3
@@ -15543,7 +16016,7 @@ genetic:
       derives from one small kindred.
   - reference: PMID:38695651
     reference_title: &#34;Variants in the circadian clock genes PER2 and PER3 associate with familial sleep phase disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We identified a family with autosomal dominant inheritance of two PER3
@@ -15835,7 +16308,7 @@ diagnosis:
   evidence:
   - reference: PMID:39864932
     reference_title: &#34;Advanced sleep phase syndrome: Role of genetics and aging.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Autosomal dominant mutations in circadian clock genes like PER2, CK1,
@@ -15847,7 +16320,7 @@ diagnosis:
       than isolated phase advance.
   - reference: PMID:40460120
     reference_title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Overall, these experiments establish CACNA1D as an FASP gene with altered
@@ -16161,7 +16634,7 @@ computational_models:
         PER2 phosphorylation and predicts its effect on clock period.
     - reference: PMID:41812650
       reference_title: Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Circadian period was shortened in Mark2-deficient cells in an S662-dependent manner.&#34;
       explanation: &gt;-
@@ -16310,7 +16783,7 @@ computational_models:
       explanation: Establishes the competing phosphorylation fates represented by the model lineage.
     - reference: PMID:41812650
       reference_title: Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;We found S662 phosphorylation by casein kinase 1 (CK1) δ and ε, testis-specific serine kinase (TSSK) 1 and 2, and salt inducible kinase (SIK) 1-3, but no phase advancement phenotype after genetic deletion of any of these seven genes.&#34;
       explanation: &gt;-
@@ -16318,7 +16791,7 @@ computational_models:
         assignment of the physiologically decisive priming kinase.
     - reference: PMID:41812650
       reference_title: Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Circadian period was shortened in Mark2-deficient cells in an S662-dependent manner.&#34;
       explanation: Directly links newer MARK2 evidence to S662-dependent period control.
@@ -16727,7 +17200,7 @@ treatments:
       ASWPD is specifically for NIGHT (evening) bright light.
   - reference: PMID:34493186
     reference_title: &#34;Treatment of Circadian Rhythm Sleep-Wake Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Multiple studies have shown that the circadian rhythm phase is delayed in
@@ -16904,7 +17377,7 @@ treatments:
       negative counterpart of evening light therapy.
   - reference: PMID:34493186
     reference_title: &#34;Treatment of Circadian Rhythm Sleep-Wake Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       the sleep onset time is delayed by 3 hours every 2 days until the sleep
@@ -17076,7 +17549,7 @@ discussions:
       together with a mood/seasonality trait - that motivates this gap.
   - reference: PMID:38695651
     reference_title: &#34;Variants in the circadian clock genes PER2 and PER3 associate with familial sleep phase disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The variants were significantly linked to Advanced sleep phase disorder
@@ -17626,6 +18099,25 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Review: Advanced Sleep Phase Syndrome publication readiness</strong> · 2026-08-05T00:54:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Advanced_Sleep_Phase_Syndrome/2026-08-05T005423Z-codex-be70fe.yaml">View source</a></p>
+                        <p class="research-review-text">Independent publication-readiness review. Cross-checked the existing deep-research artifact and current literature across phenotype, subtypes, mechanisms, treatments and trials, genetics, diagnostics, references, and overall consumption. Added the omitted CACNA1D FASP mechanism and gene evidence from PMID:40460120, updated PER2 S662 kinase interpretation with physiological MARK2 evidence and CK1 refutation from PMID:41812650, incorporated limited PER3 replication from PMID:38695651, and added the primary familial phenotyping cohort from PMID:11448298. Tightened mechanism, penetrance, gene-panel, source-type, and evidence-scope language. No disease-specific GeneReviews chapter was found. Targeted schema, ontology, reference and snippet, compliance, connectivity, history, and focused test validation performed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Advanced Sleep Phase Syndrome (MONDO:0015609)</strong> · 2026-08-01T07:52:19Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Advanced_Sleep_Phase_Syndrome/2026-08-01T075219Z-claude-code-41d4ef.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of advanced sleep phase syndrome (ASPS/ASWPD, MONDO:0015609). Deep research via Edison/Falcon (research/Advanced_Sleep_Phase_Syndrome-deep-research-falcon.md, 22 citations, 600s). All DR leads treated as leads only: every PMID re-fetched via just fetch-reference, every snippet verified as an exact substring of the cached abstract, every ontology ID OAK-resolved and its definition read. Falcon emitted 6 semantically wrong ontology IDs that were rejected (HP:0002367 = Visual hallucination not &#39;Abnormality of sleep&#39;; HP:0002189 obsolete; HP:0012686 = Increased pineal volume not &#39;Abnormality of circadian rhythm&#39;; HP:0031473 = Anger not &#39;Impaired social interactions&#39;; NCIT:C15407 = Family Study not Phototherapy; NCIT:C101216 = Myopathy not Melatonin) plus one mislabel (UBERON:0002034 called &#39;hypothalamus&#39;). Mechanistic centrepiece is the familial form: a PER2-substrate (S662G, CK1 phosphoacceptor loss) and CSNK1D-kinase (T44A) convergence modelled as an explicit kinase-to-substrate causal edge evidenced by CKIdelta dosage epistasis (PMID:17218255), converging with CRY2 A260T (FBXL3 degradation) and PER3 destabilization on altered PER/CRY feedback, then on a shortened intrinsic period that yields an advanced phase angle of entrainment. TIMELESS modelled on a separate photic-entrainment branch since its mice show normal organismal period. Delayed-sleep-phase contamination actively guarded against: CRY1 and DEC2 deliberately excluded with written rationale, treatment direction (evening bright light, morning melatonin) verified correct in all five places it appears, and AASM non-endorsement of melatonin for ASWPD recorded as NO_EVIDENCE rather than implied support. Red-teamed against dismech-pr-review before opening the PR; fixes included replacing GO:0042754 (means loss of rhythmicity, opposite of the claim), removing a misleading HP term from a preserved-normal phenotype, upgrading CL:0000740 to CL:0020014 and NCIT:C15184 to NCIT:C63474, splitting mixed human/in-vitro evidence items, and dropping an unsupported frequency band. Validation: just validate PASS, validate-terms PASS, validate-references 75/75 snippets verified, compliance 84.4 percent (weighted 84.7), compliance-connectivity reports no gaps (all phenotypes causally connected, all causal genes wired). All 84 reference_title values scripted-checked against cached paper titles per issue 7536.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -18063,7 +18555,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Advanced Sleep Phase Syndrome", "mondoId": "MONDO:0015609", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Advanced_Sleep_Phase_Syndrome", "yamlRevision": "a85cd8995ec8"};
+        const OS_CONFIG = {"diseaseName": "Advanced Sleep Phase Syndrome", "mondoId": "MONDO:0015609", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Advanced_Sleep_Phase_Syndrome", "yamlRevision": "058094ec4e4b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

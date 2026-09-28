@@ -54,6 +54,10 @@ Sibling module: ``dismech.enum_cache`` owns the *semantic* half of ``cache/**``
 canonical-ordering audit. This module owns the *structural* half. Keep new
 cache checks in whichever of the two fits rather than adding a third scanner.
 
+``scripts/generated_cache_merge.py`` also consumes ``_check_row`` and
+``_check_enum_row`` as the structural gate for cache-conflict publication.
+Keep that caller and its tests in sync when changing either helper's contract.
+
 The heavier last line of defence remains the ``linkml-term-validator`` run
 inside ``just validate-terms`` / ``just qc``.
 """

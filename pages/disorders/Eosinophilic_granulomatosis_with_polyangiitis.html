@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4055,6 +4148,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-2-eosinophilic-immune-polarization" data-dismech-node="Type 2 eosinophilic immune polarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Type 2 eosinophilic immune polarization</div>
 
+
                 <div class="item-desc">EGPA is driven in part by Th2-skewed immunity with IL-5-centered eosinophil expansion, tissue recruitment, and persistent eosinophilic inflammation.</div>
 
 
@@ -4208,6 +4302,8 @@ This pathophysiological event involves group 2 innate lymphoid cell (CL:0001069)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4229,6 +4325,8 @@ This pathophysiological event involves group 2 innate lymphoid cell (CL:0001069)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4253,6 +4351,7 @@ This pathophysiological event involves group 2 innate lymphoid cell (CL:0001069)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophil-tissue-infiltration-and-degranulation" data-dismech-node="Eosinophil tissue infiltration and degranulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophil tissue infiltration and degranulation</div>
+
 
                 <div class="item-desc">Activated eosinophils infiltrate tissues and release toxic granule proteins that injure myocardium, nerves, airways, and vascular endothelium.</div>
 
@@ -4355,6 +4454,8 @@ This pathophysiological event involves mature eosinophil (CL:0000041). CL:000004
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4376,6 +4477,8 @@ This pathophysiological event involves mature eosinophil (CL:0000041). CL:000004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4400,6 +4503,7 @@ This pathophysiological event involves mature eosinophil (CL:0000041). CL:000004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mpo-anca-mediated-neutrophil-priming-and-activation" data-dismech-node="MPO-ANCA-mediated neutrophil priming and activation" data-dismech-type="pathophysiology">
                 <div class="item-name">MPO-ANCA-mediated neutrophil priming and activation</div>
+
 
                 <div class="item-desc">In ANCA-positive EGPA, circulating neutrophils are primed by inflammatory cytokines and C5a and then activated by MPO-ANCA, initiating the vasculitic arm of disease.</div>
 
@@ -4558,6 +4662,8 @@ This pathophysiological event involves abnormal complement activation, alternati
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4579,6 +4685,8 @@ This pathophysiological event involves abnormal complement activation, alternati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4603,6 +4711,7 @@ This pathophysiological event involves abnormal complement activation, alternati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-mediated-endothelial-injury" data-dismech-node="Neutrophil-mediated endothelial injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil-mediated endothelial injury</div>
+
 
                 <div class="item-desc">ANCA-activated neutrophils marginate into vessel walls and cause endothelial damage through respiratory burst, degranulation, NETosis, and necrosis.</div>
 
@@ -4761,6 +4870,8 @@ This pathophysiological event involves abnormal neutrophil degranulation (GO:004
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4783,6 +4894,7 @@ This pathophysiological event involves abnormal neutrophil degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-necrotizing-small-vessel-vasculitis" data-dismech-node="Necrotizing small-vessel vasculitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Necrotizing small-vessel vasculitis</div>
+
 
                 <div class="item-desc">The vasculitic arm of EGPA produces ischemic and inflammatory injury across multiple organs, especially nerves, skin, and kidney.</div>
 
@@ -4843,6 +4955,8 @@ This pathophysiological event involves abnormal neutrophil degranulation (GO:004
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4865,6 +4979,7 @@ This pathophysiological event involves abnormal neutrophil degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-eosinophilic-injury-and-remodeling" data-dismech-node="Cardiac eosinophilic injury and remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac eosinophilic injury and remodeling</div>
+
 
                 <div class="item-desc">Cardiac involvement is often clinically occult at diagnosis and reflects eosinophilic inflammation with chronic tissue injury and remodeling.</div>
 
@@ -4938,6 +5053,8 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4959,6 +5076,8 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4983,6 +5102,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-nerve-injury" data-dismech-node="Peripheral nerve injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral nerve injury</div>
+
 
                 <div class="item-desc">Neuropathy in EGPA reflects combined eosinophilic neurotoxicity and vasculitic injury to peripheral nerves and epineural vessels.</div>
 
@@ -5035,6 +5155,8 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5057,6 +5179,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophil-induced-prothrombotic-state" data-dismech-node="Eosinophil-induced prothrombotic state" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophil-induced prothrombotic state</div>
+
 
                 <div class="item-desc">Activated eosinophils generate thrombin, expose tissue factor on endothelium, and form eosinophil extracellular traps, producing a procoagulant microenvironment that predisposes to arterial and venous thrombosis in EGPA.</div>
 
@@ -5181,6 +5304,8 @@ This pathophysiological event involves increased positive regulation of blood co
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5241,6 +5366,8 @@ This pathophysiological event involves increased positive regulation of blood co
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5287,6 +5414,8 @@ This pathophysiological event involves increased positive regulation of blood co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5352,23 +5481,23 @@ This pathophysiological event involves increased positive regulation of blood co
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Immune<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Immune<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5409,6 +5538,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5423,6 +5555,8 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5476,6 +5610,9 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5490,6 +5627,8 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5545,6 +5684,9 @@ This clinical feature is Arterial and venous thrombosis, annotated with Abnormal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5559,6 +5701,8 @@ This clinical feature is Arterial and venous thrombosis, annotated with Abnormal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5590,8 +5734,80 @@ This clinical feature is Arterial and venous thrombosis, annotated with Abnormal
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-necrotizing-vasculitis" data-dismech-node="Necrotizing vasculitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Necrotizing vasculitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:6000253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Necrotizing vasculitis (HP:6000253). HP:6000253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27536680" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27536680" target="_blank">PMID:27536680</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Antineutrophil cytoplasmic autoantibodies (ANCA) are associated with a spectrum of necrotizing vasculitis including granulomatosis with polyangiitis, microscopic polyangiitis, eosinophilic granulomatosis with polyangiitis, and renal-limited necrotizing and crescentic glomerulonephritis."</div>
+
+
+                <div class="evidence-explanation">Places eosinophilic granulomatosis with polyangiitis within the spectrum of ANCA-associated necrotizing vasculitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cardiomyopathy" data-dismech-node="Cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5607,15 +5823,18 @@ This clinical feature is Arterial and venous thrombosis, annotated with Abnormal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001638</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5635,6 +5854,8 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5676,15 +5897,18 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001025</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001025</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5704,6 +5928,8 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5745,15 +5971,18 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002633</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002633</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5773,6 +6002,8 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5814,15 +6045,18 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000822</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5842,6 +6076,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5883,15 +6119,18 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5911,6 +6150,8 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5961,15 +6202,18 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5989,6 +6233,8 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6030,15 +6276,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002017</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002017</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6058,6 +6307,8 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6089,7 +6340,7 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hematuria" data-dismech-node="Hematuria" data-dismech-type="phenotype">
@@ -6108,15 +6359,18 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000790</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6138,6 +6392,8 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6146,6 +6402,80 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                 <div class="evidence-explanation">Orphanet records hematuria as a frequent (30-79%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tubulointerstitial-nephritis" data-dismech-node="Tubulointerstitial nephritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tubulointerstitial nephritis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001970</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tubulointerstitial nephritis (HP:0001970). HP:0001970 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:183" target="_blank">ORPHA:183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001970 | Tubulointerstitial nephritis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records tubulointerstitial nephritis as a frequent (30-79%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
 
 
 
@@ -6184,15 +6514,18 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011109" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011109</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011109" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0011109</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic sinusitis (HP:0011109). HP:0011109 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6212,6 +6545,8 @@ This clinical feature is Chronic sinusitis (HP:0011109). HP:0011109 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6253,15 +6588,18 @@ This clinical feature is Chronic sinusitis (HP:0011109). HP:0011109 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000246</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000246</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sinusitis (HP:0000246). HP:0000246 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6281,6 +6619,8 @@ This clinical feature is Sinusitis (HP:0000246). HP:0000246 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6312,8 +6652,80 @@ This clinical feature is Sinusitis (HP:0000246). HP:0000246 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Asthma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EGPA occurs in patients with asthma and peripheral and tissue eosinophilia, and ~30% of the patients present antineutrophil cytoplasm antibodies (ANCA) mainly specific for myeloperoxidase (MPO)"</div>
+
+
+                <div class="evidence-explanation">This directly supports asthma as a core diagnostic clinical feature of EGPA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6331,15 +6743,18 @@ This clinical feature is Sinusitis (HP:0000246). HP:0000246 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6361,6 +6776,8 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6369,6 +6786,80 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
                 <div class="evidence-explanation">Orphanet records autoimmunity as a very frequent (80-99%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-inflammatory-response" data-dismech-node="Increased inflammatory response" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased inflammatory response
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012649</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased inflammatory response (HP:0012649). HP:0012649 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:183" target="_blank">ORPHA:183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012649 | Increased inflammatory response | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records increased inflammatory response as a very frequent (80-99%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
 
 
 
@@ -6400,15 +6891,18 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000988</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000988</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6428,6 +6922,8 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6458,80 +6954,13 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
+                    Integument
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopigmented-skin-patches" data-dismech-node="Hypopigmented skin patches" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Peripheral neuropathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0009830</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In contrast, MPO-ANCA-positive patients present a more “vasculitic phenotype,” which comprises palpable purpura, peripheral neuropathy, rapidly progressive glomerulonephritis and, rarely alveolar hemorrhage."</div>
-
-
-                <div class="evidence-explanation">This directly supports peripheral neuropathy as a hallmark vasculitic manifestation in EGPA.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-disturbance" data-dismech-node="Gait disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gait disturbance
+                        Hypopigmented skin patches
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -6545,15 +6974,18 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001288</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001053</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6575,14 +7007,16 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0001288 | Gait disturbance | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0001053 | Hypopigmented skin patches | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet records gait disturbance as a frequent (30-79%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
+                <div class="evidence-explanation">Orphanet records hypopigmented skin patches as a frequent (30-79%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
 
 
 
@@ -6603,13 +7037,13 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
             <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
+                    Nervous System
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-infiltrates" data-dismech-node="Pulmonary infiltrates" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Pulmonary infiltrates
+                        Peripheral neuropathy
 
 
 
@@ -6621,236 +7055,18 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002113</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"An increasing amount of evidence indicates that EGPA&#39;s clinical phenotypes tends to segregate according to ANCA-status, as the major eosinophil-driven complications are most frequently found in the ANCA-negative subset of EGPA, namely lung infiltrates, myocardiopathy, and gastrointestinal manifestations."</div>
-
-
-                <div class="evidence-explanation">This directly supports pulmonary infiltrates as a common eosinophilic manifestation of EGPA.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Weight loss
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001824</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:183" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:183" target="_blank">ORPHA:183</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001824 | Weight loss | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records weight loss as a very frequent (80-99%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-necrotizing-vasculitis" data-dismech-node="Necrotizing vasculitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Necrotizing vasculitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:6000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Necrotizing vasculitis (HP:6000253). HP:6000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27536680" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27536680" target="_blank">PMID:27536680</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Antineutrophil cytoplasmic autoantibodies (ANCA) are associated with a spectrum of necrotizing vasculitis including granulomatosis with polyangiitis, microscopic polyangiitis, eosinophilic granulomatosis with polyangiitis, and renal-limited necrotizing and crescentic glomerulonephritis."</div>
-
-
-                <div class="evidence-explanation">Places eosinophilic granulomatosis with polyangiitis within the spectrum of ANCA-associated necrotizing vasculitis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Asthma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0009830</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6872,14 +7088,16 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"EGPA occurs in patients with asthma and peripheral and tissue eosinophilia, and ~30% of the patients present antineutrophil cytoplasm antibodies (ANCA) mainly specific for myeloperoxidase (MPO)"</div>
+                <div class="evidence-snippet">"In contrast, MPO-ANCA-positive patients present a more “vasculitic phenotype,” which comprises palpable purpura, peripheral neuropathy, rapidly progressive glomerulonephritis and, rarely alveolar hemorrhage."</div>
 
 
-                <div class="evidence-explanation">This directly supports asthma as a core diagnostic clinical feature of EGPA.</div>
+                <div class="evidence-explanation">This directly supports peripheral neuropathy as a hallmark vasculitic manifestation in EGPA.</div>
 
 
 
@@ -6925,6 +7143,9 @@ This clinical feature is Central nervous system degeneration (HP:0007009). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6939,6 +7160,8 @@ This clinical feature is Central nervous system degeneration (HP:0007009). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6987,6 +7210,7 @@ This clinical feature is Central nervous system degeneration (HP:0007009). HP:00
             </div>
 
 
+
             <div class="context-notes">Source-specific assertion from the Orphanet product4 dataset, which assigns a higher frequency band than clinical cohorts. Retained for provenance; the primary frequency above reflects clinical-literature estimates.</div>
 
 
@@ -7005,6 +7229,8 @@ This clinical feature is Central nervous system degeneration (HP:0007009). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7032,9 +7258,173 @@ This clinical feature is Central nervous system degeneration (HP:0007009). HP:00
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-inflammatory-response" data-dismech-node="Increased inflammatory response" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-disturbance" data-dismech-node="Gait disturbance" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Increased inflammatory response
+                        Gait disturbance
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001288</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:183" target="_blank">ORPHA:183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001288 | Gait disturbance | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records gait disturbance as a frequent (30-79%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-infiltrates" data-dismech-node="Pulmonary infiltrates" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary infiltrates
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002113</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An increasing amount of evidence indicates that EGPA&#39;s clinical phenotypes tends to segregate according to ANCA-status, as the major eosinophil-driven complications are most frequently found in the ANCA-negative subset of EGPA, namely lung infiltrates, myocardiopathy, and gastrointestinal manifestations."</div>
+
+
+                <div class="evidence-explanation">This directly supports pulmonary infiltrates as a common eosinophilic manifestation of EGPA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight loss" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Weight loss
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
@@ -7048,153 +7438,18 @@ This clinical feature is Central nervous system degeneration (HP:0007009). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012649</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased inflammatory response (HP:0012649). HP:0012649 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:183" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:183" target="_blank">ORPHA:183</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012649 | Increased inflammatory response | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records increased inflammatory response as a very frequent (80-99%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopigmented-skin-patches" data-dismech-node="Hypopigmented skin patches" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypopigmented skin patches
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001053</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:183" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:183" target="_blank">ORPHA:183</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001053 | Hypopigmented skin patches | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records hypopigmented skin patches as a frequent (30-79%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tubulointerstitial-nephritis" data-dismech-node="Tubulointerstitial nephritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tubulointerstitial nephritis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001970</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001824</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tubulointerstitial nephritis (HP:0001970). HP:0001970 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7216,14 +7471,16 @@ This clinical feature is Tubulointerstitial nephritis (HP:0001970). HP:0001970 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0001970 | Tubulointerstitial nephritis | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0001824 | Weight loss | Very frequent (99-80%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet records tubulointerstitial nephritis as a frequent (30-79%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
+                <div class="evidence-explanation">Orphanet records weight loss as a very frequent (80-99%) phenotype of eosinophilic granulomatosis with polyangiitis.</div>
 
 
 
@@ -7311,6 +7568,9 @@ This disease-associated gene is IL5 (hgnc:6016). hgnc:6016 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7325,6 +7585,8 @@ This disease-associated gene is IL5 (hgnc:6016). hgnc:6016 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7381,6 +7643,9 @@ This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7395,6 +7660,8 @@ This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7451,6 +7718,9 @@ This disease-associated gene is GPA33 (hgnc:4445). hgnc:4445 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7465,6 +7735,8 @@ This disease-associated gene is GPA33 (hgnc:4445). hgnc:4445 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7569,6 +7841,31 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systemic corticosteroids remain foundational remission-induction therapy across EGPA phenotypes.</div>
 
 
@@ -7590,6 +7887,8 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7675,6 +7974,31 @@ This treatment uses mepolizumab (NCIT:C157376). NCIT:C157376 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-IL-5 therapy reduces eosinophilic activity, steroid burden, and relapse frequency in relapsing or refractory EGPA.</div>
 
 
@@ -7696,6 +8020,8 @@ This treatment uses mepolizumab (NCIT:C157376). NCIT:C157376 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7781,6 +8107,31 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Anti-CD20 therapy is used for remission induction in vasculitic EGPA and is being evaluated against conventional induction strategies in randomized clinical trials.</div>
 
 
@@ -7804,6 +8155,8 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7825,6 +8178,8 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7856,6 +8211,427 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-peripheral-eosinophil-quantification">
+                <div class="item-name">
+                    Peripheral eosinophil quantification
+
+                </div>
+
+                <div class="item-desc">Demonstration of marked blood eosinophilia is a core diagnostic step and anchors the eosinophilic vasculitis phenotype of EGPA.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Marked peripheral eosinophilia supports EGPA in the proper clinical context.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Particularly, blood and tissue eosinophilia represent the diagnostic cornerstone of EGPA, making it the prototype of eosinophilic vasculitis."</div>
+
+
+                <div class="evidence-explanation">This directly supports eosinophil quantification as a central diagnostic procedure in EGPA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-mpo-anca-serology">
+                <div class="item-name">
+                    MPO-ANCA serology
+
+                </div>
+
+                <div class="item-desc">ANCA testing helps identify the vasculitic EGPA subset, particularly patients with MPO-specific autoantibodies.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> MPO-ANCA positivity supports an ANCA-associated vasculitic EGPA phenotype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EGPA occurs in patients with asthma and peripheral and tissue eosinophilia, and ~30% of the patients present antineutrophil cytoplasm antibodies (ANCA) mainly specific for myeloperoxidase (MPO) (1)."</div>
+
+
+                <div class="evidence-explanation">This supports MPO-ANCA serology as a disease-relevant diagnostic discriminator in EGPA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-tissue-biopsy-for-vasculitis-or-eosinophilic-infiltrates">
+                <div class="item-name">
+                    Tissue biopsy for vasculitis or eosinophilic infiltrates
+
+                </div>
+
+                <div class="item-desc">Biopsy can document necrotizing vasculitis, eosinophilic infiltrates, or granulomatous inflammation when diagnostic uncertainty remains.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Histopathologic vasculitis or eosinophil-rich tissue infiltrates support EGPA.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An analogous dichotomy is also supported by histological findings, as biopsy-proven vasculitis is found more frequently in ANCA-positive patients than in ANCA-negative ones, whereas eosinophilic infiltrates and granulomas are found with a similar frequency in the two groups (24)."</div>
+
+
+                <div class="evidence-explanation">This supports tissue biopsy as a useful diagnostic procedure for confirming vasculitic or eosinophilic pathology in EGPA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cardiac-magnetic-resonance-imaging">
+                <div class="item-name">
+                    Cardiac magnetic resonance imaging
+
+                </div>
+
+                <div class="item-desc">Baseline cardiac MRI can uncover clinically occult EGPA cardiac involvement and is recommended during initial evaluation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Occult myocardial abnormalities on cardiac MRI support EGPA cardiac involvement.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40632386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40632386" target="_blank">PMID:40632386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Given the challenges in early detection and the prognostic significance of cardiac involvement, we recommend including CMR in the baseline evaluation of all EGPA patients at diagnosis."</div>
+
+
+                <div class="evidence-explanation">This directly supports cardiac MRI as a diagnostic procedure for baseline evaluation in EGPA.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40632386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40632386" target="_blank">PMID:40632386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In a meta-analysis of 62 EGPA patients with cardiac involvement, CMR was abnormal in all cases"</div>
+
+
+                <div class="evidence-explanation">This supports the high diagnostic sensitivity of cardiac MRI, which was abnormal in every EGPA patient with cardiac involvement in a pooled analysis, including cases with normal ECG or echocardiography.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7873,12 +8649,11 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-idiopathic-hypereosinophilic-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Idiopathic hypereosinophilic syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Idiopathic_Hypereosinophilic_Syndrome.html">Idiopathic hypereosinophilic syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0011895" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0011895" target="_blank">
                             MONDO:0011895
                         </a>
                     </span>
@@ -7920,6 +8695,8 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7985,14 +8762,16 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33718405" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33718405" target="_blank">PMID:33718405</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8088,6 +8867,8 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8152,6 +8933,8 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The purpose of this randomized, double-blind study is to investigate the efficacy and safety of mepolizumab"</div>
@@ -8202,6 +8985,8 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Phase III, comparative, multicenter, randomized, controlled, double-blind and superiority research, comparing rituximab-based regimen with conventional therapeutic strategy"</div>
@@ -8250,6 +9035,8 @@ This treatment uses Rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -8412,6 +9199,7 @@ pathophysiology:
   - target: Eosinophil-induced prothrombotic state
     description: Eosinophil granule proteins and extracellular traps generate a procoagulant endothelial microenvironment.
 - name: MPO-ANCA-mediated neutrophil priming and activation
+  conforms_to: &#34;necrotizing_vasculitis#Vessel Wall Immune Stimulus Deposition and Endothelial Activation&#34;
   description: &gt;-
     In ANCA-positive EGPA, circulating neutrophils are primed by inflammatory
     cytokines and C5a and then activated by MPO-ANCA, initiating the
@@ -8460,6 +9248,7 @@ pathophysiology:
   - target: Neutrophil-mediated endothelial injury
     description: ANCA-activated neutrophils damage endothelium and vessel walls.
 - name: Neutrophil-mediated endothelial injury
+  conforms_to: &#34;necrotizing_vasculitis#Intramural Leukocyte Degranulation and Oxidative Burst&#34;
   description: &gt;-
     ANCA-activated neutrophils marginate into vessel walls and cause endothelial
     damage through respiratory burst, degranulation, NETosis, and necrosis.
@@ -8495,6 +9284,7 @@ pathophysiology:
   - target: Necrotizing small-vessel vasculitis
     description: ANCA-activated neutrophils and complement drive vascular wall injury and necrosis.
 - name: Necrotizing small-vessel vasculitis
+  conforms_to: &#34;necrotizing_vasculitis#Fibrinoid Necrosis of the Vessel Wall&#34;
   description: &gt;-
     The vasculitic arm of EGPA produces ischemic and inflammatory injury across
     multiple organs, especially nerves, skin, and kidney.
@@ -8894,7 +9684,7 @@ phenotypes:
       label: &#34;Sinusitis&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000246 | Sinusitis | Very frequent (99-80%)&#34;
@@ -8910,7 +9700,7 @@ phenotypes:
       label: &#34;Urticaria&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001025 | Urticaria | Very frequent (99-80%)&#34;
@@ -8926,7 +9716,7 @@ phenotypes:
       label: &#34;Weight loss&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001824 | Weight loss | Very frequent (99-80%)&#34;
@@ -8942,7 +9732,7 @@ phenotypes:
       label: &#34;Vasculitis&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002633 | Vasculitis | Very frequent (99-80%)&#34;
@@ -8958,7 +9748,7 @@ phenotypes:
       label: &#34;Autoimmunity&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002960 | Autoimmunity | Very frequent (99-80%)&#34;
@@ -9000,7 +9790,7 @@ phenotypes:
       estimates.
     evidence:
     - reference: ORPHA:183
-      reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+      reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0007009 | Central nervous system degeneration | Very frequent (99-80%)&#34;
@@ -9016,7 +9806,7 @@ phenotypes:
       label: &#34;Increased inflammatory response&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012649 | Increased inflammatory response | Very frequent (99-80%)&#34;
@@ -9032,7 +9822,7 @@ phenotypes:
       label: &#34;Hematuria&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000790 | Hematuria | Frequent (79-30%)&#34;
@@ -9048,7 +9838,7 @@ phenotypes:
       label: &#34;Hypertension&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000822 | Hypertension | Frequent (79-30%)&#34;
@@ -9064,7 +9854,7 @@ phenotypes:
       label: &#34;Skin rash&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000988 | Skin rash | Frequent (79-30%)&#34;
@@ -9080,7 +9870,7 @@ phenotypes:
       label: &#34;Hypopigmented skin patches&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001053 | Hypopigmented skin patches | Frequent (79-30%)&#34;
@@ -9096,7 +9886,7 @@ phenotypes:
       label: &#34;Gait disturbance&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001288 | Gait disturbance | Frequent (79-30%)&#34;
@@ -9112,7 +9902,7 @@ phenotypes:
       label: &#34;Hypertrophic cardiomyopathy&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001639 | Hypertrophic cardiomyopathy | Frequent (79-30%)&#34;
@@ -9128,7 +9918,7 @@ phenotypes:
       label: &#34;Tubulointerstitial nephritis&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001970 | Tubulointerstitial nephritis | Frequent (79-30%)&#34;
@@ -9144,7 +9934,7 @@ phenotypes:
       label: &#34;Dysphagia&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002015 | Dysphagia | Frequent (79-30%)&#34;
@@ -9160,7 +9950,7 @@ phenotypes:
       label: &#34;Nausea and vomiting&#34;
   evidence:
   - reference: ORPHA:183
-    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Eosinophilic granulomatosis with polyangiitis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002017 | Nausea and vomiting | Frequent (79-30%)&#34;
@@ -9442,7 +10232,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:33718405
     reference_title: &#34;Eosinophilic Granulomatosis With Polyangiitis: Dissecting the Pathophysiology.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       MPO/ANCA-positive EGPA has a significant association with HLA class II DQ
@@ -9551,6 +10341,18 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation used the Asta deep-research report in research/ and retained only disease-specific references with direct support for EGPA pathophysiology, clinical phenotype, diagnosis, trials, and datasets.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9934,7 +10736,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Eosinophilic granulomatosis with polyangiitis", "mondoId": "MONDO:0015943", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Eosinophilic_granulomatosis_with_polyangiitis", "yamlRevision": "7d41b4d636a1"};
+        const OS_CONFIG = {"diseaseName": "Eosinophilic granulomatosis with polyangiitis", "mondoId": "MONDO:0015943", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Eosinophilic_granulomatosis_with_polyangiitis", "yamlRevision": "de16e3653e0b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

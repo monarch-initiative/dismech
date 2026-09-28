@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fimmu.2025.1624667
+extractor_version: 1
 title: "Beneath the surface in autoimmune hemolytic anemia: pathogenetic networks, therapeutic advancements and open questions"
 authors:
 - Alessandro Costa
@@ -12,7 +13,8 @@ journal: Frontiers in Immunology
 year: '2025'
 doi: 10.3389/fimmu.2025.1624667
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Beneath the surface in autoimmune hemolytic anemia: pathogenetic networks, therapeutic advancements and open questions

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4274,6 +4367,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4320,6 +4415,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kcnh1-gain-of-function-mutations" data-dismech-node="KCNH1 gain-of-function mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">KCNH1 gain-of-function mutations</div>
+
 
                 <div class="item-desc">Pathogenic missense mutations in KCNH1 cluster in the S4 voltage-sensor and S6 pore domains of the EAG1 (Kv10.1) voltage-gated potassium channel. These mutations produce gain-of-function effects with decreased threshold of activation and delayed deactivation, increasing channel open probability at near-resting membrane potentials.
 </div>
@@ -4418,6 +4514,8 @@ This pathophysiological event involves increased KCNH1 (hgnc:6250). hgnc:6250 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4439,6 +4537,8 @@ This pathophysiological event involves increased KCNH1 (hgnc:6250). hgnc:6250 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4463,6 +4563,7 @@ This pathophysiological event involves increased KCNH1 (hgnc:6250). hgnc:6250 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-channel-gating-kinetics" data-dismech-node="Altered channel gating kinetics" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered channel gating kinetics</div>
+
 
                 <div class="item-desc">Disease-associated KCNH1 variants produce leftward shifts in activation voltage-dependence, faster activation kinetics, and delayed deactivation. These biophysical changes increase channel open probability and K+ conductance at near-resting membrane potentials, altering cellular electrophysiology in both excitable and non-excitable cells.
 </div>
@@ -4600,6 +4701,8 @@ This pathophysiological event involves increased Voltage-gated potassium channel
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4621,6 +4724,8 @@ This pathophysiological event involves increased Voltage-gated potassium channel
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4645,6 +4750,7 @@ This pathophysiological event involves increased Voltage-gated potassium channel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-neuronal-excitability" data-dismech-node="Aberrant neuronal excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant neuronal excitability</div>
+
 
                 <div class="item-desc">KCNH1 gain-of-function increases K+ conductance at near-resting potentials, disrupting neuronal membrane potential dynamics, firing patterns, and network activity. The channel is predominantly expressed in glutamatergic neurons in cortical layers III and IV, where altered excitability affects both mature neuronal circuits and developing neural networks.
 </div>
@@ -4842,6 +4948,8 @@ This pathophysiological event involves dysregulated Synaptic transmission, annot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4863,6 +4971,8 @@ This pathophysiological event involves dysregulated Synaptic transmission, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4887,6 +4997,7 @@ This pathophysiological event involves dysregulated Synaptic transmission, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptogenesis" data-dismech-node="Epileptogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptogenesis</div>
+
 
                 <div class="item-desc">Aberrant neuronal excitability from KCNH1 gain-of-function drives epileptiform network activity. Seizures are typically infantile-onset and include focal, generalized, and myoclonic types. EEG shows diffusely slow background with variable epileptiform abnormalities. Variant location within the channel correlates with epilepsy severity, with S4/S6 hotspot variants associated with epileptic encephalopathy.
 </div>
@@ -4948,6 +5059,8 @@ This pathophysiological event involves dysregulated Synaptic transmission, annot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4969,6 +5082,8 @@ This pathophysiological event involves dysregulated Synaptic transmission, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4993,6 +5108,7 @@ This pathophysiological event involves dysregulated Synaptic transmission, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurodevelopment" data-dismech-node="Impaired neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired neurodevelopment</div>
+
 
                 <div class="item-desc">Altered KCNH1 channel activity during critical periods of brain development impairs neuronal differentiation, migration, and circuit formation. KCNH1 is highly expressed in the developing central nervous system, and gain-of-function effects disrupt normal developmental trajectories resulting in severe intellectual disability and global developmental delay.
 </div>
@@ -5134,6 +5250,8 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5155,6 +5273,8 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5179,6 +5299,7 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-ciliogenesis-and-hedgehog-signaling" data-dismech-node="Disrupted ciliogenesis and Hedgehog signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted ciliogenesis and Hedgehog signaling</div>
+
 
                 <div class="item-desc">KCNH1 localizes to the base of the primary cilium in pre-ciliary vesicles and the ciliary pocket. Gain-of-function variants perturb cilia morphology, assembly/disassembly dynamics, and Sonic Hedgehog signaling. This links channel dysfunction to ectodermal and skeletal developmental defects beyond the neuronal phenotype.
 </div>
@@ -5304,6 +5425,8 @@ This pathophysiological event involves dysregulated Hedgehog signaling pathway, 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5325,6 +5448,8 @@ This pathophysiological event involves dysregulated Hedgehog signaling pathway, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5349,6 +5474,7 @@ This pathophysiological event involves dysregulated Hedgehog signaling pathway, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectodermal-developmental-defects" data-dismech-node="Ectodermal developmental defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectodermal developmental defects</div>
+
 
                 <div class="item-desc">Disrupted primary cilia and Hedgehog signaling pathways impair ectodermal morphogenesis, particularly affecting nail and digit development as well as craniofacial patterning. This explains the characteristic nail aplasia/hypoplasia and broadening of thumbs and great toes that are pathognomonic for Temple-Baraitser syndrome, as well as the facial dysmorphic features shared across KCNH1/KCNK4/KCNN3 channelopathies.
 </div>
@@ -5442,6 +5568,8 @@ This pathophysiological event involves dysregulated Hedgehog signaling pathway, 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5463,6 +5591,8 @@ This pathophysiological event involves dysregulated Hedgehog signaling pathway, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5580,6 +5710,9 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5594,6 +5727,8 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5617,6 +5752,8 @@ This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5672,6 +5809,9 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5686,6 +5826,8 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5709,6 +5851,8 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5775,6 +5919,9 @@ This clinical feature is Absent thumbnail (HP:0012554). HP:0012554 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5789,6 +5936,8 @@ This clinical feature is Absent thumbnail (HP:0012554). HP:0012554 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5812,6 +5961,8 @@ This clinical feature is Absent thumbnail (HP:0012554). HP:0012554 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5869,6 +6020,9 @@ This clinical feature is Absent nail of hallux (HP:0012555). HP:0012555 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5883,6 +6037,8 @@ This clinical feature is Absent nail of hallux (HP:0012555). HP:0012555 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5906,6 +6062,8 @@ This clinical feature is Absent nail of hallux (HP:0012555). HP:0012555 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5970,6 +6128,9 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5984,6 +6145,8 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6007,6 +6170,8 @@ This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6062,6 +6227,9 @@ This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6076,6 +6244,8 @@ This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6099,6 +6269,8 @@ This clinical feature is Broad hallux (HP:0010055). HP:0010055 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6163,6 +6335,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6177,6 +6352,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6200,6 +6377,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6264,6 +6443,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6278,6 +6460,8 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6301,6 +6485,8 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6358,6 +6544,9 @@ This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:00012
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6372,6 +6561,8 @@ This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6395,6 +6586,8 @@ This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6450,6 +6643,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6464,6 +6660,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6487,6 +6685,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6544,6 +6744,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6558,6 +6761,8 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6581,6 +6786,8 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6678,6 +6885,9 @@ This disease-associated gene is KCNH1 (hgnc:6250). hgnc:6250 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6692,6 +6902,8 @@ This disease-associated gene is KCNH1 (hgnc:6250). hgnc:6250 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6725,6 +6937,12 @@ This disease-associated gene is KCNH1 (hgnc:6250). hgnc:6250 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Various missense mutations at highly conserved residues causing gain-of-function effects.</div>
 
 
@@ -6751,6 +6969,8 @@ This disease-associated gene is KCNH1 (hgnc:6250). hgnc:6250 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6774,6 +6994,8 @@ This disease-associated gene is KCNH1 (hgnc:6250). hgnc:6250 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6795,6 +7017,8 @@ This disease-associated gene is KCNH1 (hgnc:6250). hgnc:6250 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6921,6 +7145,20 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard antiepileptic medications are used to manage seizures in affected individuals, though specific drug efficacy may vary based on seizure type and individual response. Given the gain-of-function mechanism, channel blockade represents a rational therapeutic strategy, though precision anti-seizure efficacy for KCNH1 gain-of-function remains investigational.
 </div>
 
@@ -6984,6 +7222,8 @@ This treatment targets EEG abnormality (HP:0002353). HP:0002353 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7005,6 +7245,8 @@ This treatment targets EEG abnormality (HP:0002353). HP:0002353 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7063,6 +7305,31 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7148,6 +7415,8 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7169,6 +7438,8 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7227,6 +7498,20 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7295,6 +7580,8 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7316,6 +7603,8 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7379,6 +7668,20 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Comprehensive genetic counseling is important for families given the autosomal dominant inheritance pattern, high de novo mutation rate, and documented cases of maternal mosaicism with variable penetrance.
 </div>
 
@@ -7403,6 +7706,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7424,6 +7729,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7453,6 +7760,123 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-published-literature-cohorts-worldwide">
+                <div class="item-name">Published literature cohorts worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">approximately 6 molecularly characterized individuals</span>
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population-based prevalence studies were identified in PubMed abstracts. The best available evidence remains case-based: a 2010 clinical report summarized four unrelated patients, and the 2015 KCNH1 discovery paper reported six individuals with molecularly confirmed Temple-Baraitser syndrome.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20683999" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20683999" target="_blank">PMID:20683999</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Temple-Baraitser syndrome, previously described in two unrelated patients, is the association of severe mental retardation and abnormal thumbs and great toes. We report two additional unrelated patients with Temple-Baraitser syndrome, review clinical and radiological features of previously..."</div>
+
+
+                <div class="evidence-explanation">This clinical report shows that only four unrelated cases had been described in the literature by 2010.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25420144" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25420144" target="_blank">PMID:25420144</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Temple-Baraitser syndrome (TBS) is a multisystem developmental disorder characterized by intellectual disability, epilepsy, and hypoplasia or aplasia of the nails of the thumb and great toe. Here we report damaging de novo mutations in KCNH1 (encoding a protein called ether à go-go, EAG1 or..."</div>
+
+
+                <div class="evidence-explanation">This molecular discovery paper provides the clearest PubMed-abstract case count for TBS and confirms that the disorder remained ultra-rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7527,6 +7951,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7548,6 +7974,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7627,6 +8055,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7648,6 +8078,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7718,6 +8150,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7792,6 +8226,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7813,6 +8249,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7939,6 +8377,8 @@ This clinical trial targets Severe intellectual disability (HP:0010864). HP:0010
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The creation of a database with retrospective follow-up of a large number of patients on a national scale will enable better knowledge of specific biomarkers, and thus a better classification and understanding of the natural evolution of DEE according to their etiology."</div>
@@ -8010,6 +8450,8 @@ This clinical trial targets Epilepsy, annotated with Seizure (HP:0001250). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -8117,6 +8559,8 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>

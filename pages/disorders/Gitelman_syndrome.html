@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4154,6 +4247,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4236,6 +4331,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4257,6 +4354,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4305,6 +4404,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ncc-loss-in-distal-convoluted-tubule" data-dismech-node="NCC loss in distal convoluted tubule" data-dismech-type="pathophysiology">
                 <div class="item-name">NCC loss in distal convoluted tubule</div>
+
 
                 <div class="item-desc">SLC12A3 loss-of-function variants reduce NCC activity in distal convoluted tubule epithelial cells, decreasing thiazide-sensitive sodium chloride transport across the apical membrane.
 </div>
@@ -4532,6 +4632,8 @@ This pathophysiological event occurs in distal convoluted tubule (UBERON:0001292
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4553,6 +4655,8 @@ This pathophysiological event occurs in distal convoluted tubule (UBERON:0001292
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4578,6 +4682,8 @@ This pathophysiological event occurs in distal convoluted tubule (UBERON:0001292
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4600,6 +4706,7 @@ This pathophysiological event occurs in distal convoluted tubule (UBERON:0001292
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-volume-contraction" data-dismech-node="Extracellular volume contraction" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular volume contraction</div>
+
 
                 <div class="item-desc">Reduced distal sodium chloride reabsorption causes chronic renal salt wasting and extracellular volume contraction. Blood pressure remains low to normal because the tubular defect prevents effective sodium retention.
 </div>
@@ -4675,6 +4782,8 @@ This pathophysiological event occurs in distal convoluted tubule (UBERON:0001292
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4696,6 +4805,8 @@ This pathophysiological event occurs in distal convoluted tubule (UBERON:0001292
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4720,6 +4831,7 @@ This pathophysiological event occurs in distal convoluted tubule (UBERON:0001292
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-raas-activation" data-dismech-node="Secondary RAAS activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary RAAS activation</div>
+
 
                 <div class="item-desc">Extracellular volume contraction stimulates renin secretion and secondary aldosterone activation, which increases collecting-duct sodium reabsorption and drives potassium and hydrogen ion wasting.
 </div>
@@ -4809,6 +4921,8 @@ This pathophysiological event involves increased renin secretion into blood stre
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4830,6 +4944,8 @@ This pathophysiological event involves increased renin secretion into blood stre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4854,6 +4970,7 @@ This pathophysiological event involves increased renin secretion into blood stre
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collecting-duct-potassium-and-hydrogen-wasting" data-dismech-node="Collecting-duct potassium and hydrogen wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Collecting-duct potassium and hydrogen wasting</div>
+
 
                 <div class="item-desc">Salt wasting and aldosterone activation increase distal sodium delivery and collecting-duct sodium reabsorption, promoting potassium and hydrogen ion secretion. This produces hypokalemia and metabolic alkalosis and contributes to cramps, weakness, paralysis risk, and ventricular repolarization changes.
 </div>
@@ -5011,6 +5128,8 @@ This pathophysiological event involves decreased potassium ion homeostasis (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5032,6 +5151,8 @@ This pathophysiological event involves decreased potassium ion homeostasis (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5056,6 +5177,7 @@ This pathophysiological event involves decreased potassium ion homeostasis (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-distal-calcium-and-magnesium-handling" data-dismech-node="Altered distal calcium and magnesium handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered distal calcium and magnesium handling</div>
+
 
                 <div class="item-desc">NCC loss in the distal convoluted tubule alters distal divalent cation handling, producing the diagnostic combination of hypomagnesemia and low urinary calcium excretion. The exact molecular coupling remains incompletely resolved, but distal convoluted tubule calcium-magnesium crosstalk and altered TRPV5/6 and related transport pathways are implicated.
 </div>
@@ -5189,6 +5311,8 @@ This pathophysiological event involves decreased calcium ion homeostasis (GO:005
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5210,6 +5334,8 @@ This pathophysiological event involves decreased calcium ion homeostasis (GO:005
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5276,21 +5402,19 @@ This pathophysiological event involves decreased calcium ion homeostasis (GO:005
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5300,8 +5424,107 @@ This pathophysiological event involves decreased calcium ion homeostasis (GO:005
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-to-normal-blood-pressure" data-dismech-node="Low-to-normal blood pressure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Low-to-normal blood pressure
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002632" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002632</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Low-to-normal blood pressure (HP:0002632). HP:0002632 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002632 | Low-to-normal blood pressure | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records low-to-normal blood pressure as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41278357" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41278357" target="_blank">PMID:41278357</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Compared with the general population, adult patients with GS had lower rates of chronic kidney disease (CKD) and hypertension"</div>
+
+
+                <div class="evidence-explanation">Large survey supports lower hypertension rates consistent with a salt-wasting phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-qt-interval" data-dismech-node="Prolonged QT interval" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5319,15 +5542,18 @@ This pathophysiological event involves decreased calcium ion homeostasis (GO:005
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001657</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5347,6 +5573,8 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5397,15 +5625,18 @@ This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000017</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000017</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nocturia (HP:0000017). HP:0000017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5425,6 +5656,8 @@ This clinical feature is Nocturia (HP:0000017). HP:0000017 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5448,6 +5681,8 @@ This clinical feature is Nocturia (HP:0000017). HP:0000017 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5489,15 +5724,18 @@ This clinical feature is Nocturia (HP:0000017). HP:0000017 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5517,6 +5755,8 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5540,6 +5780,8 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5571,7 +5813,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypokalemia" data-dismech-node="Hypokalemia" data-dismech-type="phenotype">
@@ -5590,15 +5832,18 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002900</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002900</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5618,6 +5863,8 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5643,6 +5890,8 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5666,18 +5915,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle weakness" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypomagnesemia" data-dismech-node="Hypomagnesemia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Muscle weakness
+                        Hypomagnesemia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -5691,15 +5931,18 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002917</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hypomagnesemia (HP:0002917). HP:0002917 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5719,6 +5962,215 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002917 | Hypomagnesemia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records hypomagnesemia as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41278357" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41278357" target="_blank">PMID:41278357</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Symptom burden was higher in adult females and patients with lower blood magnesium."</div>
+
+
+                <div class="evidence-explanation">Large clinical survey links lower magnesium with higher symptom burden.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-metabolic-alkalosis" data-dismech-node="Metabolic alkalosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Metabolic alkalosis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0200114</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metabolic alkalosis (HP:0200114). HP:0200114 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0200114 | Metabolic alkalosis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records metabolic alkalosis in the HPO table.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28003083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28003083" target="_blank">PMID:28003083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypokalemic metabolic alkalosis with hypomagnesemia and hypocalciuria"</div>
+
+
+                <div class="evidence-explanation">KDIGO consensus supports metabolic alkalosis as a defining feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Muscle weakness
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5742,6 +6194,8 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5783,15 +6237,18 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003394</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5811,6 +6268,8 @@ This clinical feature is Muscle spasm (HP:0003394). HP:0003394 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5836,6 +6295,8 @@ This clinical feature is Muscle spasm (HP:0003394). HP:0003394 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5844,6 +6305,105 @@ This clinical feature is Muscle spasm (HP:0003394). HP:0003394 is a phenotype fr
 
 
                 <div class="evidence-explanation">Large clinical survey supports cramps as a common clinical symptom.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chondrocalcinosis" data-dismech-node="Chondrocalcinosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chondrocalcinosis
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000934</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chondrocalcinosis (HP:0000934). HP:0000934 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000934 | Chondrocalcinosis | Very rare (&lt;4-1%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records chondrocalcinosis as very rare.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41278357" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41278357" target="_blank">PMID:41278357</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Adult patients with GS had a high prevalence of chondrocalcinosis (15%)"</div>
+
+
+                <div class="evidence-explanation">Large clinical survey supports chondrocalcinosis in adults with Gitelman syndrome.</div>
 
 
 
@@ -5884,15 +6444,18 @@ This clinical feature is Muscle spasm (HP:0003394). HP:0003394 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0030083</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030083</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Salt craving (HP:0030083). HP:0030083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5912,6 +6475,8 @@ This clinical feature is Salt craving (HP:0030083). HP:0030083 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5935,6 +6500,8 @@ This clinical feature is Salt craving (HP:0030083). HP:0030083 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5985,15 +6552,18 @@ This clinical feature is Salt craving (HP:0030083). HP:0030083 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6013,6 +6583,8 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6052,15 +6624,18 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012378</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012378</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6080,6 +6655,8 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6130,15 +6707,18 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6158,6 +6738,8 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6183,6 +6765,8 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6191,383 +6775,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Large survey supports impaired growth/weight in pediatric Gitelman syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypomagnesemia" data-dismech-node="Hypomagnesemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypomagnesemia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002917</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypomagnesemia (HP:0002917). HP:0002917 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002917 | Hypomagnesemia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records hypomagnesemia as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41278357" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41278357" target="_blank">PMID:41278357</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Symptom burden was higher in adult females and patients with lower blood magnesium."</div>
-
-
-                <div class="evidence-explanation">Large clinical survey links lower magnesium with higher symptom burden.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-metabolic-alkalosis" data-dismech-node="Metabolic alkalosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Metabolic alkalosis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0200114</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Metabolic alkalosis (HP:0200114). HP:0200114 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0200114 | Metabolic alkalosis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records metabolic alkalosis in the HPO table.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28003083" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28003083" target="_blank">PMID:28003083</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypokalemic metabolic alkalosis with hypomagnesemia and hypocalciuria"</div>
-
-
-                <div class="evidence-explanation">KDIGO consensus supports metabolic alkalosis as a defining feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-low-to-normal-blood-pressure" data-dismech-node="Low-to-normal blood pressure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Low-to-normal blood pressure
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002632" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002632</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Low-to-normal blood pressure (HP:0002632). HP:0002632 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002632 | Low-to-normal blood pressure | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records low-to-normal blood pressure as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41278357" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41278357" target="_blank">PMID:41278357</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Compared with the general population, adult patients with GS had lower rates of chronic kidney disease (CKD) and hypertension"</div>
-
-
-                <div class="evidence-explanation">Large survey supports lower hypertension rates consistent with a salt-wasting phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chondrocalcinosis" data-dismech-node="Chondrocalcinosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chondrocalcinosis
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000934</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chondrocalcinosis (HP:0000934). HP:0000934 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000934 | Chondrocalcinosis | Very rare (&lt;4-1%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records chondrocalcinosis as very rare.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41278357" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41278357" target="_blank">PMID:41278357</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Adult patients with GS had a high prevalence of chondrocalcinosis (15%)"</div>
-
-
-                <div class="evidence-explanation">Large clinical survey supports chondrocalcinosis in adults with Gitelman syndrome.</div>
 
 
 
@@ -6655,6 +6862,9 @@ This disease-associated gene is SLC12A3 (hgnc:10912). hgnc:10912 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6669,6 +6879,8 @@ This disease-associated gene is SLC12A3 (hgnc:10912). hgnc:10912 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6694,6 +6906,8 @@ This disease-associated gene is SLC12A3 (hgnc:10912). hgnc:10912 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6715,6 +6929,8 @@ This disease-associated gene is SLC12A3 (hgnc:10912). hgnc:10912 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6771,6 +6987,9 @@ This disease-associated gene is CLCNKB (hgnc:2027). hgnc:2027 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6785,6 +7004,8 @@ This disease-associated gene is CLCNKB (hgnc:2027). hgnc:2027 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6867,6 +7088,8 @@ This disease-associated gene is CLCNKB (hgnc:2027). hgnc:2027 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6888,6 +7111,8 @@ This disease-associated gene is CLCNKB (hgnc:2027). hgnc:2027 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6986,6 +7211,31 @@ This treatment uses sodium chloride (CHEBI:26710). CHEBI:26710 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Liberal salt intake helps compensate for chronic renal sodium chloride wasting and is recommended with oral magnesium and potassium supplements.
 </div>
 
@@ -7008,6 +7258,8 @@ This treatment uses sodium chloride (CHEBI:26710). CHEBI:26710 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7092,6 +7344,20 @@ This treatment uses potassium chloride (CHEBI:32588). CHEBI:32588 is a therapeut
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral potassium chloride supplementation is used to counter chronic potassium wasting and reduce hypokalemia-related symptoms and arrhythmia risk.
 </div>
 
@@ -7138,6 +7404,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7159,6 +7427,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7243,6 +7513,20 @@ This treatment uses magnesium ion (CHEBI:39128). CHEBI:39128 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral magnesium supplementation targets hypomagnesemia and may also help stabilize potassium by improving magnesium-dependent potassium handling.
 </div>
 
@@ -7289,6 +7573,8 @@ This treatment targets Hypomagnesemia (HP:0002917). HP:0002917 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7310,6 +7596,8 @@ This treatment targets Hypomagnesemia (HP:0002917). HP:0002917 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7428,6 +7716,20 @@ This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Potassium-sparing agents such as amiloride, spironolactone, or eplerenone can be used when supplementation alone does not adequately improve serum potassium or symptoms.
 </div>
 
@@ -7472,6 +7774,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7537,6 +7841,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7583,6 +7889,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7633,6 +7941,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7654,6 +7964,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7704,6 +8016,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7752,6 +8066,8 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7773,6 +8089,237 @@ This treatment targets Hypokalemia (HP:0002900). HP:0002900 is a phenotype from 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-recognition-and-chronic-course">
+                <div class="item-name">Recognition and chronic course</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Gitelman syndrome is often recognized in adolescence or adulthood after incidental electrolyte testing or nonspecific symptoms, but childhood presentation with impaired growth or more severe manifestations also occurs.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28003083" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28003083" target="_blank">PMID:28003083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GS is usually detected during adolescence or adulthood, either fortuitously or in association with mild or nonspecific symptoms or both."</div>
+
+
+                <div class="evidence-explanation">KDIGO consensus supports the usual timing and mode of recognition.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17329572" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17329572" target="_blank">PMID:17329572</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A subgroup of patients presented with early onset, growth retardation, and/or detrimental manifestations, confirming the potential severity of GS."</div>
+
+
+                <div class="evidence-explanation">Patient cohort plus functional study supports severe and early-onset presentations in a subset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-symptom-burden">
+                <div class="item-name">Long-term symptom burden</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Long-term burden is driven by electrolyte derangements, cramps, weakness, salt craving, polydipsia/polyuria, fatigue, cognitive and physical function effects, and adult complications such as chondrocalcinosis or albuminuria/proteinuria in some cohorts.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41278357" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41278357" target="_blank">PMID:41278357</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with GS scored worse than the general population in fatigue, physical, and cognitive function; and ranked salt craving and polydipsia-polyuria as the most severe symptoms."</div>
+
+
+                <div class="evidence-explanation">The 2025 multinational survey documents patient-reported long-term burden.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-europe">
+                <div class="item-name">Europe</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Orphanet records a European point-prevalence band of 1-9 per 100,000.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:358" target="_blank">ORPHA:358</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Europe | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the regional point-prevalence band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7899,13 +8446,13 @@ external_assertions:
     this curation.
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MONDO:0009904 | Exact&#34;
     explanation: Orphanet maps ORPHA:358 exactly to the MONDO identifier used here.
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:263800 | Exact&#34;
@@ -7918,7 +8465,7 @@ definitions:
     significant hypomagnesemia and low urinary calcium excretion.
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;hypokalemic metabolic alkalosis in combination with significant hypomagnesemia and low urinary calcium excretion&#34;
@@ -7933,7 +8480,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -7950,7 +8497,7 @@ prevalence:
     Orphanet records a European point-prevalence band of 1-9 per 100,000.
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 100 000 | Europe | Point prevalence | ORPHANET&#34;
@@ -8003,7 +8550,7 @@ genetic:
     molecular cause of Gitelman syndrome.
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;SLC12A3 | solute carrier family 12 member 3 | hgnc:10912 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -8035,7 +8582,7 @@ genetic:
     Gitelman-like genotype.
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CLCNKB | chloride voltage-gated channel Kb | hgnc:2027 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -8122,7 +8669,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:358
-      reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Gitelman syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002632 | Low-to-normal blood pressure | Frequent (79-30%)&#34;
@@ -8144,7 +8691,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:358
-      reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Gitelman syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000017 | Nocturia | Occasional (29-5%)&#34;
@@ -8258,7 +8805,7 @@ pathophysiology:
     - Hypokalemia and hypomagnesemia altering cardiac repolarization.
     evidence:
     - reference: ORPHA:358
-      reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Gitelman syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001657 | Prolonged QT interval | Frequent (79-30%)&#34;
@@ -8332,7 +8879,7 @@ phenotypes:
       label: Hypokalemia
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002900 | Hypokalemia | Very frequent (99-80%)&#34;
@@ -8357,7 +8904,7 @@ phenotypes:
       label: Hypomagnesemia
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002917 | Hypomagnesemia | Frequent (79-30%)&#34;
@@ -8382,7 +8929,7 @@ phenotypes:
       label: Metabolic alkalosis
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0200114 | Metabolic alkalosis | Occasional (29-5%)&#34;
@@ -8406,7 +8953,7 @@ phenotypes:
       label: Low-to-normal blood pressure
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002632 | Low-to-normal blood pressure | Frequent (79-30%)&#34;
@@ -8430,7 +8977,7 @@ phenotypes:
       label: Muscle weakness
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001324 | Muscle weakness | Frequent (79-30%)&#34;
@@ -8454,7 +9001,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001508 | Failure to thrive | Frequent (79-30%)&#34;
@@ -8478,7 +9025,7 @@ phenotypes:
       label: Prolonged QT interval
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001657 | Prolonged QT interval | Frequent (79-30%)&#34;
@@ -8496,7 +9043,7 @@ phenotypes:
       label: Abdominal pain
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002027 | Abdominal pain | Frequent (79-30%)&#34;
@@ -8514,7 +9061,7 @@ phenotypes:
       label: Muscle spasm
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003394 | Muscle spasm | Occasional (29-5%)&#34;
@@ -8538,7 +9085,7 @@ phenotypes:
       label: Salt craving
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0030083 | Salt craving | Occasional (29-5%)&#34;
@@ -8562,7 +9109,7 @@ phenotypes:
       label: Nocturia
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000017 | Nocturia | Occasional (29-5%)&#34;
@@ -8586,7 +9133,7 @@ phenotypes:
       label: Chondrocalcinosis
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000934 | Chondrocalcinosis | Very rare (&lt;4-1%)&#34;
@@ -8610,7 +9157,7 @@ phenotypes:
       label: Proteinuria
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000093 | Proteinuria | Occasional (29-5%)&#34;
@@ -8664,7 +9211,7 @@ biochemical:
   notes: Low urinary calcium excretion is a key biochemical discriminator from many Bartter phenotypes.
   evidence:
   - reference: ORPHA:358
-    reference_title: &#34;Gitelman syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Gitelman syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;low urinary calcium excretion&#34;
@@ -9088,6 +9635,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9297,6 +9846,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9369,6 +9920,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9437,6 +9990,8 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9509,6 +10064,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9577,6 +10134,8 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9649,6 +10208,8 @@ datasets:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9700,6 +10261,66 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Gitelman syndrome (Changes required)</strong> · 2026-05-31T03:02:18Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Gitelman_Syndrome/2026-05-31T030218Z-github-review-3611.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3611
+Issue state: OPEN
+Issue created: 2026-05-31T03:02:18Z
+Issue updated: 2026-05-31T03:02:18Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Gitelman syndrome**
+- Entry: `kb/disorders/Gitelman_Syndrome.yaml`
+- Selection basis: #142 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Blocking: the entry has no `diagnosis` section. Add disease-specific diagnostic criteria, recommended tests/imaging/biochemical markers, and molecular confirmation strategy for Gitelman syndrome; this is necessary for curators to evaluate whether the modeled mechanism and phenotype scope match the intended disease.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include NCC loss in distal convoluted tubule, Extracellular volume contraction, Secondary RAAS activation, Collecting-duct potassium and hydrogen wasting. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment modeling: treatments are present (Liberal salt intake, Potassium supplementation, Magnesium supplementation, Potassium-sparing medication). Check therapeutic agents, subtype applicability, evidence strength, and surveillance/supportive-care needs; avoid broad treatment claims that are not tied to the relevant phenotype or disease stage.
+6. Evidence/reference check: top references include ORPHA:358, PMID:28003083, PMID:17329572, PMID:41278357. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: phenotype list needs manual review for disease-defining features.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: gap noted; diagnosis absent.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Gitelman_Syndrome-deep-research-falcon.md`
+- `ORPHA:358`
+- PMID:28003083: https://pubmed.ncbi.nlm.nih.gov/28003083/
+- PMID:17329572: https://pubmed.ncbi.nlm.nih.gov/17329572/
+- PMID:41278357: https://pubmed.ncbi.nlm.nih.gov/41278357/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10636,7 +11257,7 @@ The authors’ abstract further reports preference and symptom/biochemical impro
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gitelman syndrome", "mondoId": "MONDO:0009904", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gitelman_syndrome", "yamlRevision": "29f912dfc24c"};
+        const OS_CONFIG = {"diseaseName": "Gitelman syndrome", "mondoId": "MONDO:0009904", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gitelman_syndrome", "yamlRevision": "5a1f096a1429"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

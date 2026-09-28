@@ -1,0 +1,75 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Asthma
+  path: kb/disorders/Asthma.yaml
+session:
+  id: 2026-09-17T032743Z-claude-code-e0f2a4
+  timestamp: '2026-09-17T03:27:43Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/9959
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/12007
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - biochemical
+  - pathophysiology
+  - evidence
+  summary: 'Review round 2: correct the BEC LOINC binding, structure the IL-5 claim,
+    join the record to the pathograph'
+  details: |
+    Second review round on PR #12007 (reviewer verdict CHANGES_REQUESTED), one blocking
+    finding plus the three optional suggestions, in one push.
+
+    Blocking - the BEC reference range was bound to the wrong LOINC code. The record
+    carried id LOINC:26450-7 beside label "Eosinophils [#/volume] in Blood". Those are
+    two different tests: 26450-7 is "Eosinophils/Leukocytes in Blood", PROPERTY NFr, the
+    eosinophil percentage of leukocytes, while the label written there is the long common
+    name of LOINC:26449-9, PROPERTY NCnc, the absolute count. Everything hanging off the
+    binding is the absolute count - unit cells/uL, bands at 150/300/500 cells/uL, the
+    DREAM/MENSA strata, CALIMA stratification - so against the fraction code a band with a
+    lower bound of 500 is impossible rather than merely wrong. Corrected the id to
+    LOINC:26449-9 and left the label unchanged; both codes re-verified against the NLM
+    Clinical Table Search Service before the edit. Kept the method-less code rather than
+    LOINC:711-2 ("by Automated count") because the record is deliberately not
+    method-specific.
+
+    The binding came in with the original curation and survived the first review, which
+    called it correct. No gate in this repo can see it: LOINC has no adapter in
+    conf/oak_config.yaml, so linkml-term-validator never resolves the CURIE, and the record
+    reads as internally consistent - a plausible code beside a real label. This is the
+    failure mode the CLAUDE.md rule "every CURIE is read from a source in the same step it
+    is written" exists for, reached through the one identifier class with no validator
+    behind it.
+
+    Suggestions taken:
+    - The IL-5 prose on the Type 2 Immune Response / Th2 Signaling node had no structured
+      counterpart, so the claim was unqueryable. Added GO:0038043 (interleukin-5-mediated
+      signaling pathway) and GO:0030222 (eosinophil differentiation) to that node's
+      biological_processes; both were already in cache/go/terms.csv and the
+      biologicalprocessterm enum cache, so they validate offline.
+    - Recorded quote_role: BACKGROUND on the CALIMA evidence item, whose quoted sentence
+      sits in that abstract's BACKGROUND: paragraph.
+    - Joined the BEC record to the pathograph with a readouts link to Type 2 Immune
+      Response / Th2 Signaling (READOUT_OF, POSITIVE, DIAGNOSTIC), carrying its own
+      evidence and an interpretation stating that the blood compartment is an indirect
+      measure of the node and not a measure of airway eosinophilia.
+
+    Also bound biomarker_term to NCIT:C188680 (Absolute Eosinophil Count), which the
+    reviewer noted was available and unused. Chose the NCIT analyte term over the
+    HP:0001880 phenotype term used on the STAT6_Gain_of_Function_Disease BEC record:
+    BiomarkerDescriptor documents NCIT as its vocabulary, and HP:0001880 ("Increased total
+    eosinophil count") names an abnormal state rather than the measurement, which the
+    record already carries in presence: Elevated.
+
+    Validation: just validate-disorders kb/disorders/Asthma.yaml passes (schema, terms,
+    references), plus the offline gate battery.

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4008,6 +4101,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-respiratory-epithelial-infection" data-dismech-node="Upper Respiratory Epithelial Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Respiratory Epithelial Infection</div>
 
+
                 <div class="item-desc">The endemic human coronaviruses infect the respiratory epithelium, where viral replication elicits an innate antiviral/interferon and inflammatory response. They typically produce mild-to-moderate upper respiratory illness resembling the common cold. The four viruses use different host-cell receptors, reflecting distinct tropism within the shared respiratory niche.
 </div>
 
@@ -4243,6 +4337,8 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4264,6 +4360,8 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4288,6 +4386,7 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lower-respiratory-and-complicated-infection" data-dismech-node="Lower Respiratory and Complicated Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Lower Respiratory and Complicated Infection</div>
+
 
                 <div class="item-desc">Although usually mild, the endemic human coronaviruses can cause lower respiratory infection, otitis media, asthma exacerbations, gastroenteritis, and occasional systemic complications, particularly in infants, the elderly, and patients with comorbidities.
 </div>
@@ -4383,6 +4482,8 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4500,6 +4601,9 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -4539,6 +4643,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4553,6 +4660,8 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4619,6 +4728,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -4662,6 +4774,9 @@ This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
@@ -4687,6 +4802,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4786,6 +4904,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of endemic seasonal coronavirus infection is supportive; no specific antiviral therapy or licensed vaccine is currently available.
 </div>
 
@@ -4804,6 +4936,555 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-human-coronavirus-229e">
+                <div class="item-name">Human coronavirus 229E</div>
+
+                <div class="item-desc">An endemic alphacoronavirus that uses aminopeptidase N as its host-cell receptor and circulates seasonally as a cause of the common cold.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        HCoV-229E
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_11137" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-15">NCBITaxon:11137</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33186086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186086" target="_blank">PMID:33186086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory coronaviruses that typically cause mild to moderate upper respiratory infections, similar to the common cold."</div>
+
+
+                <div class="evidence-explanation">Names HCoV-229E as one of the four endemic human respiratory coronaviruses that cause this illness.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41295541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41295541" target="_blank">PMID:41295541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63, HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and account for a substantial proportion of common cold cases, particularly in infants, the elderly, and immunocompromised individuals."</div>
+
+
+                <div class="evidence-explanation">Confirms HCoV-229E as a seasonal human coronavirus accounting for a substantial share of common cold cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-human-coronavirus-nl63">
+                <div class="item-name">Human coronavirus NL63</div>
+
+                <div class="item-desc">An endemic alphacoronavirus that, unusually among the seasonal human coronaviruses, uses ACE2 - the SARS-CoV-2 receptor - for cell entry.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        HCoV-NL63
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_277944" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-16">NCBITaxon:277944</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33186086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186086" target="_blank">PMID:33186086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory coronaviruses that typically cause mild to moderate upper respiratory infections, similar to the common cold."</div>
+
+
+                <div class="evidence-explanation">Names HCoV-NL63 as one of the four endemic human respiratory coronaviruses that cause this illness.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41295541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41295541" target="_blank">PMID:41295541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63, HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and account for a substantial proportion of common cold cases, particularly in infants, the elderly, and immunocompromised individuals."</div>
+
+
+                <div class="evidence-explanation">Confirms HCoV-NL63 as a seasonal human coronavirus accounting for a substantial share of common cold cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-human-coronavirus-oc43">
+                <div class="item-name">Human coronavirus OC43</div>
+
+                <div class="item-desc">An endemic betacoronavirus that attaches via 9-O-acetylated sialic acid and is often the most frequently detected of the four seasonal coronaviruses.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        HCoV-OC43
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_31631" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-17">NCBITaxon:31631</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33186086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186086" target="_blank">PMID:33186086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory coronaviruses that typically cause mild to moderate upper respiratory infections, similar to the common cold."</div>
+
+
+                <div class="evidence-explanation">Names HCoV-OC43 as one of the four endemic human respiratory coronaviruses that cause this illness.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41295541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41295541" target="_blank">PMID:41295541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63, HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and account for a substantial proportion of common cold cases, particularly in infants, the elderly, and immunocompromised individuals."</div>
+
+
+                <div class="evidence-explanation">Confirms HCoV-OC43 as a seasonal human coronavirus accounting for a substantial share of common cold cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-human-coronavirus-hku1">
+                <div class="item-name">Human coronavirus HKU1</div>
+
+                <div class="item-desc">An endemic betacoronavirus, the most recently recognised of the four, which like HCoV-OC43 attaches via 9-O-acetylated sialic acid.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        HCoV-HKU1
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_290028" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-18">NCBITaxon:290028</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33186086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186086" target="_blank">PMID:33186086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory coronaviruses that typically cause mild to moderate upper respiratory infections, similar to the common cold."</div>
+
+
+                <div class="evidence-explanation">Names HCoV-HKU1 as one of the four endemic human respiratory coronaviruses that cause this illness.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41295541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41295541" target="_blank">PMID:41295541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63, HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and account for a substantial proportion of common cold cases, particularly in infants, the elderly, and immunocompromised individuals."</div>
+
+
+                <div class="evidence-explanation">Confirms HCoV-HKU1 as a seasonal human coronavirus accounting for a substantial share of common cold cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-household-and-community-transmission-between-close-contacts">
+                <div class="item-name">Household and community transmission between close contacts</div>
+
+                <div class="item-desc">The seasonal coronaviruses spread from person to person through close contact, both within households and in the wider community, producing the recurrent winter-dominant epidemics that characterise them.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36350773" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36350773" target="_blank">PMID:36350773</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The estimated weekly household transmission probability was 9% (95% CrI, 6-13) and weekly community acquisition probability was 7% (95% CrI, 5-10)."</div>
+
+
+                <div class="evidence-explanation">Prospective surveillance of 223 households quantifies person-to-person spread of the endemic coronaviruses within households alongside community acquisition.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36350773" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36350773" target="_blank">PMID:36350773</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Household transmission studies inform how viruses spread among close contacts, but few characterize household transmission of endemic coronaviruses."</div>
+
+
+                <div class="evidence-explanation">Frames the household as the close-contact setting whose transmission this study measures for the endemic coronaviruses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -4907,6 +5588,168 @@ synonyms:
 - Endemic human coronavirus infection
 - Common cold coronavirus
 - HCoV-229E/NL63/OC43/HKU1 infection
+infectious_agent:
+- name: Human coronavirus 229E
+  infectious_agent_term:
+    preferred_term: HCoV-229E
+    term:
+      id: NCBITaxon:11137
+      label: Human coronavirus 229E
+  description: &gt;-
+    An endemic alphacoronavirus that uses aminopeptidase N as its host-cell
+    receptor and circulates seasonally as a cause of the common cold.
+  evidence:
+  - reference: PMID:33186086
+    reference_title: Complicating Infections Associated with Common Endemic Human Respiratory Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory
+      coronaviruses that typically cause mild to moderate upper respiratory
+      infections, similar to the common cold.
+    explanation: &gt;-
+      Names HCoV-229E as one of the four endemic human respiratory
+      coronaviruses that cause this illness.
+  - reference: PMID:41295541
+    reference_title: Current Status and Challenges of Vaccine Development for Seasonal Human Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63,
+      HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and
+      account for a substantial proportion of common cold cases, particularly in
+      infants, the elderly, and immunocompromised individuals.
+    explanation: &gt;-
+      Confirms HCoV-229E as a seasonal human coronavirus accounting for a
+      substantial share of common cold cases.
+- name: Human coronavirus NL63
+  infectious_agent_term:
+    preferred_term: HCoV-NL63
+    term:
+      id: NCBITaxon:277944
+      label: Human coronavirus NL63
+  description: &gt;-
+    An endemic alphacoronavirus that, unusually among the seasonal human
+    coronaviruses, uses ACE2 - the SARS-CoV-2 receptor - for cell entry.
+  evidence:
+  - reference: PMID:33186086
+    reference_title: Complicating Infections Associated with Common Endemic Human Respiratory Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory
+      coronaviruses that typically cause mild to moderate upper respiratory
+      infections, similar to the common cold.
+    explanation: &gt;-
+      Names HCoV-NL63 as one of the four endemic human respiratory
+      coronaviruses that cause this illness.
+  - reference: PMID:41295541
+    reference_title: Current Status and Challenges of Vaccine Development for Seasonal Human Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63,
+      HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and
+      account for a substantial proportion of common cold cases, particularly in
+      infants, the elderly, and immunocompromised individuals.
+    explanation: &gt;-
+      Confirms HCoV-NL63 as a seasonal human coronavirus accounting for a
+      substantial share of common cold cases.
+- name: Human coronavirus OC43
+  infectious_agent_term:
+    preferred_term: HCoV-OC43
+    term:
+      id: NCBITaxon:31631
+      label: Human coronavirus OC43
+  description: &gt;-
+    An endemic betacoronavirus that attaches via 9-O-acetylated sialic acid and
+    is often the most frequently detected of the four seasonal coronaviruses.
+  evidence:
+  - reference: PMID:33186086
+    reference_title: Complicating Infections Associated with Common Endemic Human Respiratory Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory
+      coronaviruses that typically cause mild to moderate upper respiratory
+      infections, similar to the common cold.
+    explanation: &gt;-
+      Names HCoV-OC43 as one of the four endemic human respiratory
+      coronaviruses that cause this illness.
+  - reference: PMID:41295541
+    reference_title: Current Status and Challenges of Vaccine Development for Seasonal Human Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63,
+      HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and
+      account for a substantial proportion of common cold cases, particularly in
+      infants, the elderly, and immunocompromised individuals.
+    explanation: &gt;-
+      Confirms HCoV-OC43 as a seasonal human coronavirus accounting for a
+      substantial share of common cold cases.
+- name: Human coronavirus HKU1
+  infectious_agent_term:
+    preferred_term: HCoV-HKU1
+    term:
+      id: NCBITaxon:290028
+      label: Human coronavirus HKU1
+  description: &gt;-
+    An endemic betacoronavirus, the most recently recognised of the four, which
+    like HCoV-OC43 attaches via 9-O-acetylated sialic acid.
+  evidence:
+  - reference: PMID:33186086
+    reference_title: Complicating Infections Associated with Common Endemic Human Respiratory Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Coronaviruses OC43, 229E, NL63, and HKU1 are endemic human respiratory
+      coronaviruses that typically cause mild to moderate upper respiratory
+      infections, similar to the common cold.
+    explanation: &gt;-
+      Names HCoV-HKU1 as one of the four endemic human respiratory
+      coronaviruses that cause this illness.
+  - reference: PMID:41295541
+    reference_title: Current Status and Challenges of Vaccine Development for Seasonal Human Coronaviruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Seasonal human coronaviruses (HCoVs), including HCoV-229E, HCoV-NL63,
+      HCoV-OC43, and HCoV-HKU1, circulate globally in an epidemic pattern and
+      account for a substantial proportion of common cold cases, particularly in
+      infants, the elderly, and immunocompromised individuals.
+    explanation: &gt;-
+      Confirms HCoV-HKU1 as a seasonal human coronavirus accounting for a
+      substantial share of common cold cases.
+transmission:
+- name: Household and community transmission between close contacts
+  description: &gt;-
+    The seasonal coronaviruses spread from person to person through close contact,
+    both within households and in the wider community, producing the recurrent
+    winter-dominant epidemics that characterise them.
+  evidence:
+  - reference: PMID:36350773
+    reference_title: Household Transmission Dynamics of Seasonal Human Coronaviruses.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The estimated weekly household transmission probability was 9% (95% CrI,
+      6-13) and weekly community acquisition probability was 7% (95% CrI, 5-10).
+    explanation: &gt;-
+      Prospective surveillance of 223 households quantifies person-to-person
+      spread of the endemic coronaviruses within households alongside community
+      acquisition.
+  - reference: PMID:36350773
+    reference_title: Household Transmission Dynamics of Seasonal Human Coronaviruses.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Household transmission studies inform how viruses spread among close
+      contacts, but few characterize household transmission of endemic
+      coronaviruses.
+    explanation: &gt;-
+      Frames the household as the close-contact setting whose transmission this
+      study measures for the endemic coronaviruses.
 pathophysiology:
 - name: Upper Respiratory Epithelial Infection
   conforms_to: &#34;innate_antiviral_interferon_response#Interferon-Stimulated Gene Antiviral State&#34;
@@ -5085,8 +5928,9 @@ notes: &gt;
   OC43, HKU1) as one entry; conforms to the innate_antiviral_interferon_response
   module. HCoV-NL63 uses the ACE2 receptor (the SARS-CoV-2 receptor), a potential
   future host_directed_antiviral_dependency conformance once receptor-specific
-  evidence is curated. The infectious_agent (NCBITaxon) block was omitted at
-  creation and the organisms are described in text.
+  evidence is curated. The infectious_agent (NCBITaxon) and transmission blocks
+  were backfilled under dismech#10115, with one agent record per endemic HCoV
+  species.
 datasets:
 - accession: geo:GSE282464
   title: &#39;Molecular landscape of respiratory infection: A large-scale, multi-centre blood transcriptome dataset&#39;
@@ -5160,7 +6004,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Seasonal Coronavirus Infection", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Seasonal_Coronavirus_Infection", "yamlRevision": "5ea402b57ec5"};
+        const OS_CONFIG = {"diseaseName": "Seasonal Coronavirus Infection", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Seasonal_Coronavirus_Infection", "yamlRevision": "55d64fdb8252"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
