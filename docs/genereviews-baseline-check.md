@@ -43,7 +43,7 @@ them apart:
 | `UNTAGGED_CHAPTER` | a chapter whose title, normalised, **equals** one of the entry's names exists and is not tagged | GeneReviews only |
 | `TAGGED` | at least one tagged reference is a verified chapter | no |
 | `CANDIDATE_CHAPTER` | only partial title matches, or only a retired chapter | no, by design |
-| `NO_CHAPTER` | nothing in the snapshot names this entry | no |
+| `NO_CHAPTER` | nothing in the snapshot names this entry | only when the entry has no synonyms (below) |
 
 Names compared are the entry `name`, its `synonyms`, and the `disease_term`
 preferred term and ontology label. Normalisation drops case, diacritics,
@@ -59,6 +59,20 @@ Dominant Robinow Syndrome* and is. The check lists the title and the match kind
 keep this list short: a numbered title never stands in for a differently numbered
 name (*Usher Syndrome Type I* is not a candidate for `Usher Syndrome Type 4`),
 and two `<GENE>-Related …` forms must name the same gene.
+
+**A negative from an entry with no synonyms is not a verified negative.** GeneReviews
+often titles a chapter by a synonym: *17q12 Recurrent Duplication* is the chapter
+for `Chromosome 17q12 Duplication Syndrome`, and matching the entry name alone
+misses it. Stripping the `synonyms:` block from 88 committed entries that had a
+chapter match turned eight exact-title `UNTAGGED_CHAPTER` findings into
+`NO_CHAPTER` (#12075). So when an entry has no non-empty `synonyms`, a
+`NO_CHAPTER` or `CANDIDATE_CHAPTER` verdict carries a note listing the strings
+that were searched. That note is printed whenever the file is named on the
+command line, and `--strict` fails a GeneReviews `NO_CHAPTER` of this kind. A
+whole-KB run counts these verdicts on a separate summary line rather than
+listing them, because several hundred finished entries have no synonyms;
+`--all` lists them. The fix is to add the entry's synonyms and re-run, not to
+record that no chapter exists.
 
 Gating is opt-in (`--strict`) and only ever on GeneReviews. A `TAGGED` entry
 that also has an untagged candidate is reported, not failed.
