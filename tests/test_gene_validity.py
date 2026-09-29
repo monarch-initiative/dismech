@@ -361,6 +361,69 @@ def test_symbol_match_when_no_hgnc_is_bound(cache):
     assert ("backfill", "MODERATE") in _kinds(assess(data, "x.yaml", cache))
 
 
+# --- attribution to the record that cites the assertion ----------------------
+
+
+def _two_records(cited_in_causative=True, entry_level=False):
+    """A causative row and a susceptibility row for the same gene (review #1)."""
+    causative = {
+        "name": "TUBA4A causative",
+        "relationship_type": "CAUSATIVE",
+        "gene_term": {"term": {"id": "hgnc:12407", "label": "TUBA4A"}},
+        "evidence": [{"reference": ALS22}] if cited_in_causative else [],
+    }
+    susceptibility = {
+        "name": "TUBA4A susceptibility",
+        "relationship_type": "SUSCEPTIBILITY",
+        "gene_term": {"term": {"id": "hgnc:12407", "label": "TUBA4A"}},
+    }
+    data = {
+        "name": "Probe",
+        "disease_term": {"term": {"id": "MONDO:0014531"}},
+        "genetic": [causative, susceptibility],
+    }
+    if entry_level:
+        data["external_assertions"] = [{"source": "ClinGen", "external_id": ALS22}]
+    return data
+
+
+def test_assertion_is_attributed_only_to_the_record_that_cites_it(cache):
+    """A ClinGen tier must not be offered for a susceptibility row it never classified."""
+    findings = assess(_two_records(), "x.yaml", cache)
+    backfill = [f for f in findings if f.kind == "backfill"]
+    assert [f.record for f in backfill] == ["TUBA4A causative"]
+
+
+def test_overstated_follows_the_same_attribution(cache):
+    findings = assess(_two_records(), "x.yaml", cache)
+    assert [f.record for f in findings if f.kind == "overstated"] == [
+        "TUBA4A causative"
+    ]
+
+
+def test_entry_level_citation_with_several_records_is_unplaced_once(cache):
+    data = _two_records(cited_in_causative=False, entry_level=True)
+    findings = assess(data, "x.yaml", cache)
+    assert _kinds(findings) == [("unplaced", "MODERATE")]
+    assert "TUBA4A causative" in findings[0].detail
+    assert "TUBA4A susceptibility" in findings[0].detail
+
+
+def test_entry_level_citation_with_one_record_is_attributed_to_it(cache):
+    data = _entry(relationship="RISK_FACTOR")
+    data["external_assertions"] = [{"source": "ClinGen", "external_id": ALS22}]
+    findings = assess(data, "x.yaml", cache)
+    assert [(f.kind, f.record) for f in findings] == [("backfill", "TUBA4A")]
+
+
+def test_committed_kb_reports_no_duplicate_rows():
+    """Each (record, assertion) pair appears at most once in the worklist."""
+    findings, errors = mod.collect([])
+    assert errors == []
+    keys = [(f.path, f.kind, f.record, f.detail) for f in findings]
+    assert len(keys) == len(set(keys))
+
+
 # --- CLI ---------------------------------------------------------------------
 
 

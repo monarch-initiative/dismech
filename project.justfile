@@ -1566,7 +1566,7 @@ list-qualifier-terms *files:
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
 
-# #10179. unsourced / backfill / other_disease / overstated / uncached are
+# #10179. unsourced / backfill / other_disease / unplaced / overstated / uncached are
 # reported; exit 1 only when a recorded ClinGen tier contradicts its CGGV: record.
 # Compare Genetic.gene_disease_validity with the ClinGen CGGV: assertions it cites.
 [group('QC')]

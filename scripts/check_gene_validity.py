@@ -15,6 +15,15 @@ It walks ``kb/disorders`` and, for every ``genetic[]`` record, collects the
 gene. Matching is on the HGNC identifier when the record binds one, else on the
 gene symbol.
 
+**An assertion belongs to the record that cites it.** An entry can carry
+several ``genetic[]`` records for one gene -- a causative row and a
+susceptibility row for the same locus -- and a ClinGen tier describes only one
+of those claims. So an assertion is attributed to the record(s) whose own
+subtree cites it. When it is cited elsewhere in the entry (an
+``external_assertions`` block, a pathophysiology node) it is attributed to the
+gene's record only if the gene has exactly one; otherwise it is ``unplaced``
+and reported once, never copied onto every row.
+
 **A tier belongs to a gene-disease pair, not to a gene.** An assertion only
 speaks for the entry when its MONDO disease is the entry's own: the
 ``disease_term``, a ``has_subtypes[].subtype_term``, or a
@@ -48,6 +57,11 @@ Finding classes
     The entry cites ClinGen for this gene only against a different MONDO
     disease, and records nothing. Whether ClinGen's entity is the entry's (a
     lumped parent, a synonym MONDO has not merged) is a curator's call.
+
+``unplaced``  (report)
+    A same-disease ClinGen assertion cited outside ``genetic[]`` for a gene
+    with several records, none of which cites it. Which claim the tier
+    describes is a curator's call.
 
 ``overstated``  (report)
     ``relationship_type: CAUSATIVE``, whose schema description says ClinGen
@@ -108,9 +122,10 @@ CONFLICT = "conflict"
 UNSOURCED = "unsourced"
 BACKFILL = "backfill"
 OTHER_DISEASE = "other_disease"
+UNPLACED = "unplaced"
 OVERSTATED = "overstated"
 UNCACHED = "uncached"
-KINDS = (CONFLICT, UNSOURCED, BACKFILL, OTHER_DISEASE, OVERSTATED, UNCACHED)
+KINDS = (CONFLICT, UNSOURCED, BACKFILL, OTHER_DISEASE, UNPLACED, OVERSTATED, UNCACHED)
 
 
 @dataclass(frozen=True)
@@ -128,6 +143,7 @@ class Assertion:
 class Finding:
     path: str
     kind: str
+    record: str  # genetic[].name the finding is about; "" when none
     gene: str
     recorded: str
     clingen: str
@@ -255,16 +271,39 @@ def assess(
         assertion = load_assertion(curie, cache_dir)
         if assertion is None:
             # Missing file, or a file whose validity row does not parse.
-            findings.append(Finding(display, UNCACHED, "", "", "", curie))
+            findings.append(Finding(display, UNCACHED, "", "", "", "", curie))
         else:
             assertions.append(assertion)
     by_curie = {a.curie: a for a in assertions}
 
     own = entry_diseases(data)
-    for record in data.get("genetic") or []:
-        if not isinstance(record, dict):
-            continue
-        gene = gene_keys(record)[1] or str(record.get("name") or "?")
+    records = [r for r in data.get("genetic") or [] if isinstance(r, dict)]
+
+    # Attribute each assertion to the record(s) it describes (module docstring).
+    owned: dict[int, list[Assertion]] = {id(r): [] for r in records}
+    for a in assertions:
+        candidates = [r for r in records if a in assertions_for(r, [a])]
+        citing = [r for r in candidates if a.curie in cited_cggv(r)]
+        owners = citing or (candidates if len(candidates) == 1 else [])
+        for r in owners:
+            owned[id(r)].append(a)
+        if candidates and not owners and a.mondo in own:
+            findings.append(
+                Finding(
+                    display,
+                    UNPLACED,
+                    "",
+                    a.gene,
+                    "",
+                    a.classification,
+                    f"{_describe(a)}; records: "
+                    + ", ".join(str(r.get("name") or "?") for r in candidates),
+                )
+            )
+
+    for record in records:
+        name = str(record.get("name") or "?")
+        gene = gene_keys(record)[1] or name
         hgnc = gene_keys(record)[0]
         recorded = recorded_assertions(record)
 
@@ -277,7 +316,9 @@ def assess(
                 continue
             if not external_id.startswith("CGGV:"):
                 findings.append(
-                    Finding(display, UNSOURCED, gene, tier, "", external_id or "-")
+                    Finding(
+                        display, UNSOURCED, name, gene, tier, "", external_id or "-"
+                    )
                 )
                 continue
             source = by_curie.get(external_id)
@@ -291,6 +332,7 @@ def assess(
                     Finding(
                         display,
                         CONFLICT,
+                        name,
                         gene,
                         tier,
                         source.classification,
@@ -298,7 +340,7 @@ def assess(
                     )
                 )
 
-        matched = assertions_for(record, assertions)
+        matched = owned[id(record)]
         if not matched:
             continue
         same = [a for a in matched if a.mondo in own]
@@ -308,6 +350,7 @@ def assess(
                     Finding(
                         display,
                         OTHER_DISEASE,
+                        name,
                         gene,
                         "",
                         ",".join(sorted({a.classification for a in matched})),
@@ -319,9 +362,21 @@ def assess(
         for a in same:
             if a.curie not in recorded_ids:
                 findings.append(
-                    Finding(display, BACKFILL, gene, "", a.classification, _describe(a))
+                    Finding(
+                        display,
+                        BACKFILL,
+                        name,
+                        gene,
+                        "",
+                        a.classification,
+                        _describe(a),
+                    )
                 )
 
+        # Deliberately ignores mode of inheritance: CAUSATIVE is overstated
+        # only when no same-disease assertion for this record reaches Strong.
+        # JPH2 in dilated cardiomyopathy (Strong AR, Limited AD) is therefore
+        # not flagged; which MOI the record claims is not machine-readable.
         tiers = {a.classification for a in same}
         if record.get("relationship_type") == "CAUSATIVE" and not (
             tiers & CAUSATIVE_TIERS
@@ -330,6 +385,7 @@ def assess(
                 Finding(
                     display,
                     OVERSTATED,
+                    name,
                     gene,
                     "CAUSATIVE",
                     ",".join(sorted(tiers)),
@@ -389,9 +445,12 @@ def collect(paths: list[str]) -> tuple[list[Finding], list[str]]:
 
 
 def iter_rows(findings: list[Finding]) -> Iterator[str]:
-    yield "path\tkind\tgene\trecorded\tclingen\tdetail"
+    yield "path\tkind\trecord\tgene\trecorded\tclingen\tdetail"
     for f in findings:
-        yield f"{f.path}\t{f.kind}\t{f.gene}\t{f.recorded}\t{f.clingen}\t{f.detail}"
+        yield (
+            f"{f.path}\t{f.kind}\t{f.record}\t{f.gene}\t{f.recorded}"
+            f"\t{f.clingen}\t{f.detail}"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -436,7 +495,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 recorded = f" recorded={f.recorded}" if f.recorded else ""
                 print(
-                    f"  [{f.kind}] {f.path}: {f.gene}{recorded} "
+                    f"  [{f.kind}] {f.path}: {f.record or '-'} ({f.gene}){recorded} "
                     f"clingen={f.clingen} -- {f.detail}"
                 )
 

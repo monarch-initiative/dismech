@@ -2357,6 +2357,10 @@ Rules for filling it:
   hypertrophic cardiomyopathy cited from an ALPK3 entry) is a different pair.
 - **Orphanet submits everything to GenCC as `SUPPORTIVE`.** That is its whole
   scale, not a weak rating.
+- **Record it on the claim ClinGen classified.** An entry can carry a
+  causative row and a susceptibility row for the same gene; a ClinGen
+  Definitive AR tier belongs on the causative one only. The audit attributes
+  an assertion to the record whose own evidence cites it.
 - **Quote the source row as evidence**, as with any structured-source citation.
 
 ```bash
@@ -2368,9 +2372,11 @@ just list-gene-validity kb/disorders/MyDisease.yaml
 Only `conflict` fails: a recorded `CLINGEN` assertion whose cached `CGGV:`
 record carries a different tier or a different gene. The report classes are
 `unsourced` (a `CLINGEN` tier with no `CGGV:` identifier), `backfill` (a cited
-same-disease ClinGen assertion not yet recorded, one row per assertion),
+same-disease ClinGen assertion not yet recorded on the record that cites it),
 `other_disease` (ClinGen classified the gene only for a different MONDO
-disease: decide whether the entities are the same before copying),
+disease: decide whether the entities are the same before copying), `unplaced`
+(an assertion cited outside `genetic[]` for a gene with several records, so the
+audit cannot tell which claim it describes),
 `overstated` (`relationship_type: CAUSATIVE`, which the schema defines as
 Definitive or Strong, on a gene ClinGen rates lower for this disease), and
 `uncached`. Only ClinGen is checked, because it is the one source cached per
