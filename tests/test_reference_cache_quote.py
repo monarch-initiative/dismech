@@ -118,6 +118,33 @@ def test_scoped_normalization_preserves_bare_curie_and_body(tmp_path):
     assert unrelated.read_text(encoding="utf-8") == unrelated_before
 
 
+def test_scoped_normalization_strips_trailing_body_whitespace(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    cited = cache_dir / "PMID_123.md"
+    cited.write_text(
+        "---\n"
+        "reference_id: PMID:123\n"
+        "title: A paper\n"
+        "content_type: full_text_xml\n"
+        "---\n\n"
+        "Body line with generated trailing space. \n"
+        "Body line with generated trailing tab.\t\n",
+        encoding="utf-8",
+    )
+    data_file = tmp_path / "Disease.yaml"
+    data_file.write_text(
+        "evidence:\n- reference: PMID:123\n  snippet: Body line\n",
+        encoding="utf-8",
+    )
+
+    assert normalize_reference_cache(cache_dir, [data_file]) == [cited.name]
+    assert cited.read_text(encoding="utf-8").endswith(
+        "Body line with generated trailing space.\n"
+        "Body line with generated trailing tab.\n"
+    )
+
+
 def test_scope_includes_accession_and_bare_nct(tmp_path):
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
@@ -168,7 +195,7 @@ def test_cli_scopes_to_data_files_and_tolerates_missing_cache(tmp_path, capsys):
     data_file.write_text("evidence:\n- reference: PMID:123\n", encoding="utf-8")
 
     assert reference_cache_quote.main([str(cache_dir), str(data_file)]) == 0
-    assert "re-quoted 1 file(s)" in capsys.readouterr().out
+    assert "normalized 1 file(s)" in capsys.readouterr().out
     assert reference_cache_quote.main([str(tmp_path / "missing")]) == 0
 
 

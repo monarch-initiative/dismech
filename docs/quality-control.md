@@ -24,36 +24,36 @@ fail independently:
 | **Compliance scoring** | **`linkml-data-qc`** | **How *complete* is the entry — are recommended fields populated?** |
 | Graph integrity | `dismech.graph --validate` | Do causal edges point at real nodes (no orphan targets)? |
 
-### Reading reference-validation output ("Total checks: 0" is not a no-op)
+### Reading reference-validation output
 
-`linkml-reference-validator` prints `Total checks: 0` on **every** clean run,
-including entries with hundreds of verified snippets. The counter is mislabeled
-upstream: it holds the number of *issues found*, not the number of checks
-*performed* (the plugin only emits a result when something fails), so on a
-passing file it is 0 by definition. This has already been misdiagnosed as a
-silently broken validator — see issue #7252.
-
-As a downstream mitigation, `scripts/run_reference_validator.sh` appends an
-affirmative count after every `validate data` run:
+`linkml-reference-validator` reports how many snippets it compared, separately
+from how many problems it found:
 
 ```console
 $ just validate-kb-references kb/disorders/Vici_Syndrome.yaml
 Validation Summary:
+  Input files: 1
   Files validated: 1
-  Total checks: 0
-  All validations passed!
-  Snippets checked: 46/46 verified against cached references
+  Snippets checked: 46
+  Snippets skipped: 0
+  Snippets unavailable: 0
+  Titles checked: 12
+  Issues found: 0
 ```
 
-That line comes from `dismech.reference_snippet_audit`, which independently
-walks the same `reference`/`snippet` pairs (discovered from the schema's
-`implements: [linkml:excerpt]` / `[linkml:authoritative_reference]`
-annotations) and re-checks each against the body already in
-`references_cache/`, reusing the validator's own normalization so "verified"
-means the same thing in both places. It is **read-only, offline, and advisory**:
-it never fetches, and it never changes the exit code — `linkml-reference-validator`
-remains the sole authority on pass/fail. Set `DISMECH_SKIP_SNIPPET_AUDIT=1` to
-suppress it, or run it on its own:
+It also says `No snippet comparisons were performed.` when the count is zero, so
+a run that checked nothing is distinguishable from a run that found nothing
+wrong.
+
+That distinction used to be missing: the only counter was `Total checks: 0`,
+which held *issues found* rather than checks *performed* and so read as a silent
+no-op on every clean file. It was misdiagnosed as a broken validator more than
+once (issue #7252), and `scripts/run_reference_validator.sh` appended a count of
+its own as a downstream mitigation. That is fixed upstream
+(linkml/linkml-reference-validator#72) and the appended line is gone.
+
+For the same count **without** running a validation — read-only, offline, and
+typically seconds rather than minutes — use the audit directly:
 
 ```bash
 just count-verified-snippets kb/disorders/Asthma.yaml

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 from dismech.yaml_io import safe_load
@@ -42,10 +43,12 @@ def test_validate_comorbidities_batches_expensive_validators() -> None:
 
 
 def test_ci_changed_comorbidity_validation_uses_batched_recipe() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "main.yaml").read_text()
-    changed_step = workflow.split("- name: Validate changed comorbidity KB files", 1)[
-        1
-    ].split("- name: Validate history records", 1)[0]
+    # Parsed, not sliced between two step names: the step no longer sits next
+    # to "Validate history records", and a text slice would silently widen to
+    # cover every step in between.
+    changed_step = _step_named("main.yaml", "Validate changed comorbidity KB files")[
+        "run"
+    ]
 
     assert "just validate-comorbidity-batch" in changed_step
     assert "for f in" not in changed_step
@@ -111,12 +114,28 @@ def test_entity_ref_check_runs_ungated_over_the_whole_kb() -> None:
     at all, and a PR deleting a referenced node need not touch the file that
     references it.
     """
-    step = _step_named("main.yaml", "Check entity references resolve")
-    assert "if" not in step, "the entity-ref check must stay ungated"
-    run = step["run"].strip()
+    # The check is one gate of the ungated "Run whole-repo gates" step, which
+    # runs every gate regardless of what the PR touches.
+    step = _step_named("main.yaml", "Run whole-repo gates")
+    assert "if" not in step, "the whole-repo gates must stay ungated"
+    gates = _gates_in(step)
+    assert "Check entity references resolve" in gates
+    run = gates["Check entity references resolve"]
     assert run.endswith("scripts/check_entity_refs.py"), (
         f"the sweep must take no file arguments; got {run!r}"
     )
+
+
+def _gates_in(step: dict) -> dict[str, str]:
+    """Gate name -> command, parsed by the runner itself so the two cannot drift."""
+    run = step["run"]
+    assert "scripts/run_ci_gates.sh" in run
+    body = run.split("<<'GATES'\n", 1)[1].rsplit("\nGATES", 1)[0]
+    listed = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "run_ci_gates.sh"), "--list"],
+        input=body, capture_output=True, text=True, check=True,
+    ).stdout
+    return dict(line.split("\t", 1) for line in listed.splitlines())
 
 
 def test_nightly_sweep_runs_both_pytest_lanes() -> None:
