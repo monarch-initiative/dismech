@@ -124,3 +124,92 @@ def test_batch_rejects_missing_answers():
     )
     with pytest.raises(ValueError, match="unexpected questions"):
         client.classify_many([structured_claim_task(claim())])
+
+
+def test_choice_accepts_float_noise_but_rejects_a_real_probability_difference():
+    task = structured_claim_task(claim())
+    answer = {
+        "type": "choice",
+        "choice": "MATCH",
+        "confidence": 0.2,
+        "probabilities": {
+            "PARTIAL": 0.46,
+            "MATCH": 0.45999999999999996,
+            "MISMATCH": 0.08,
+        },
+    }
+    result = TypeSafeClassifier._answer(task, answer)
+    assert result.label == "MATCH"
+    assert result.probabilities == answer["probabilities"]
+    answer["probabilities"] = {"PARTIAL": 0.47, "MATCH": 0.45, "MISMATCH": 0.08}
+    with pytest.raises(ValueError, match="inconsistent choice"):
+        TypeSafeClassifier._answer(task, answer)
+
+
+def test_oversized_bundles_split_without_changing_claim_or_questions():
+    import hashlib
+
+    task = structured_claim_task(claim())
+    tasks = [replace(task, name=str(i)) for i in range(5)]
+    sent, accepted = [], []
+
+    def handle(request):
+        payload = json.loads(request.content)
+        sent.append(payload)
+        if len(payload["questions"]) > 2:
+            return httpx.Response(
+                400, json={"detail": {"error_type": "max_tokens_exceeded"}}
+            )
+        accepted.append(payload)
+        return httpx.Response(
+            200,
+            json={
+                "model": "jev-test",
+                "usage": {"input_tokens": 7, "output_tokens": 2},
+                "answers": {
+                    name: {
+                        "type": "choice",
+                        "choice": "MATCH",
+                        "confidence": 1,
+                        "probabilities": {"MATCH": 1, "PARTIAL": 0, "MISMATCH": 0},
+                    }
+                    for name in payload["questions"]
+                },
+            },
+        )
+
+    client = TypeSafeClassifier(api_key="test", transport=httpx.MockTransport(handle))
+    result = client.classify_many(tasks)
+    assert set(result.answers) == {t.name for t in tasks}
+    assert [len(p["questions"]) for p in accepted] == [2, 1, 2]
+    assert all(p["state"] == task.state for p in sent)
+    assert {k: v for p in accepted for k, v in p["questions"].items()} == sent[0][
+        "questions"
+    ]
+    assert result.usage == {"input_tokens": 21, "output_tokens": 6}
+
+    def digest(p):
+        return hashlib.sha256(json.dumps(p, sort_keys=True).encode()).hexdigest()
+
+    assert result.request_sha256 == digest(sent[0])
+    assert result.request_sha256s == [digest(p) for p in accepted]
+
+
+@pytest.mark.parametrize("error_type", ["max_tokens_exceeded", "other_error"])
+def test_single_oversized_question_and_other_400s_do_not_retry_forever(error_type):
+    task = structured_claim_task(claim())
+    tasks = (
+        [task]
+        if error_type == "max_tokens_exceeded"
+        else [task, replace(task, name="other")]
+    )
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        return httpx.Response(400, json={"detail": {"error_type": error_type}})
+
+    client = TypeSafeClassifier(api_key="test", transport=httpx.MockTransport(handle))
+    with pytest.raises(httpx.HTTPStatusError):
+        client.classify_many(tasks)
+    assert len(calls) == 1

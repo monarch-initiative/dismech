@@ -406,3 +406,28 @@ def test_time_limited_cli_and_merged_report_are_incomplete(tmp_path, monkeypatch
     combined = json.loads((tmp_path / "combined" / "manifest.json").read_text())
     assert not combined["complete"]
     assert "INCOMPLETE RUN" in (tmp_path / "combined" / "summary.md").read_text()
+
+
+def test_payment_required_stops_new_calls_but_still_returns_cached_pairs(tmp_path):
+    file = tmp_path / "Example.yaml"
+    file.write_text(yaml.safe_dump(disease()))
+    rows = [r for r in inventory([file]) if r["status"] == "ready"]
+    assert len(rows) >= 2
+    cache = ResultCache(tmp_path / "cache")
+    fake = FakeClassifier()
+    list(assess(rows[:1], fake, cache, 1))
+    sent = []
+
+    def handle(request):
+        sent.append(request)
+        return httpx.Response(402)
+
+    client = TypeSafeClassifier(
+        model=fake.model, api_key="test", transport=httpx.MockTransport(handle)
+    )
+    results = list(assess([rows[1], rows[0], rows[1]], client, cache, 1))
+    assert len(sent) == 1
+    assert results[0]["http_status"] == 402
+    assert results[1]["cached"] and results[1]["status"] == "assessed"
+    assert results[2]["status"] == "not_assessed"
+    assert results[2]["error"] == "API payment required"

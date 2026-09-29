@@ -184,7 +184,7 @@ def assess(
     submitted = {}
     refreshed = set()
     exhausted = False
-    fatal = False
+    fatal = None
     with ThreadPoolExecutor(max_workers=workers) as pool:
         while pending or not exhausted:
             while not exhausted and len(pending) < workers:
@@ -212,11 +212,7 @@ def assess(
                     pending[submitted[key]][0].append(row)
                     continue
                 if fatal or time.monotonic() >= deadline:
-                    reason = (
-                        "API authentication failure"
-                        if fatal
-                        else "run time budget exhausted"
-                    )
+                    reason = fatal or "run time budget exhausted"
                     yield dict(row, status="not_assessed", error=reason)
                     continue
                 future = pool.submit(classify, classifier, tasks)
@@ -236,7 +232,9 @@ def assess(
                         waiting[0], key, outcome, tasks, classifier.model, revision
                     )
                 elif outcome.get("http_status") in {401, 403}:
-                    fatal = True
+                    fatal = "API authentication failure"
+                elif outcome.get("http_status") == 402:
+                    fatal = "API payment required"
                 for index, row in enumerate(waiting):
                     yield dict(row, **outcome, cache_key=key, cached=index > 0)
 
