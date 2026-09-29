@@ -124498,6 +124498,121 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Estrogen Resistance Syndrome",
+    "disease_id": "MONDO:0014148",
+    "category": "Mendelian",
+    "parents": [
+      "Endocrine Disorder"
+    ],
+    "creation_date": "2026-09-29T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Estrogen resistance syndrome is a rare autosomal recessive endocrine disorder caused by biallelic loss-of-function variants in ESR1, the gene encoding estrogen receptor alpha. The receptor cannot transduce estrogen at physiological concentrations, so estradiol and gonadotropins are markedly elevated while estrogen action is absent or severely reduced in bone, the reproductive tract and metabolic tissues. The truncating allele abolishes the receptor; the ligand-binding-domain alleles leave one that still responds, but only far above the physiological estradiol range. Affected individuals of both sexes show delayed bone maturation, persistently open epiphyses and osteoporosis with increased bone turnover. Most reported patients grow continuously into adulthood and are tall, but not all: the first female reported lacked the pubertal growth spurt and stayed below the 50th height percentile. Affected females lack breast development and present with primary amenorrhea, a small uterus and enlarged multicystic ovaries; the index male was normally masculinized. Impaired glucose tolerance, hyperinsulinemia and acanthosis nigricans are reported in some patients and absent in others. Estrogen administration does not reverse the skeletal phenotype. Six families have been reported in the sources cited here. The disease is distinct from aromatase deficiency, a CYP19A1 ligand-supply defect in which estradiol is low rather than high.",
+    "pathophysiology": [
+      "ESR1 Loss-of-Function",
+      "Loss of Estrogen Receptor Signaling in Target Tissues",
+      "Loss of Estrogen Negative Feedback on the Gonadotropin Axis",
+      "Failure of Epiphyseal Fusion",
+      "Increased Bone Resorption with Failed Mineral Accrual",
+      "Failure of Estrogen-Dependent Female Reproductive Development",
+      "Insulin Resistance and Metabolic Dysregulation"
+    ],
+    "cell_types": [
+      "growth plate chondrocyte",
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "estrogen receptor signaling pathway",
+      "cellular response to estradiol stimulus",
+      "negative regulation of gonadotropin secretion",
+      "gonadotropin secretion",
+      "growth plate cartilage development",
+      "bone resorption",
+      "bone mineralization",
+      "mammary gland development",
+      "cellular response to insulin stimulus"
+    ],
+    "phenotypes": [
+      "Tall stature",
+      "Absent pubertal growth spurt",
+      "Delayed skeletal maturation",
+      "Osteoporosis",
+      "Breast aplasia",
+      "Primary amenorrhea",
+      "Hypoplasia of the uterus",
+      "Enlarged polycystic ovaries",
+      "Delayed puberty",
+      "Elevated circulating follicle stimulating hormone level",
+      "Elevated circulating luteinizing hormone level",
+      "Increased serum estradiol",
+      "Impaired glucose tolerance",
+      "Hyperinsulinemia",
+      "Acanthosis nigricans"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Reproductive",
+      "Endocrine",
+      "Metabolic",
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000098",
+      "HP:0031087",
+      "HP:0002750",
+      "HP:0000939",
+      "HP:0100783",
+      "HP:0000786",
+      "HP:0000013",
+      "HP:0008675",
+      "HP:0000823",
+      "HP:0008232",
+      "HP:0011969",
+      "HP:0025134",
+      "HP:0040270",
+      "HP:0000842",
+      "HP:0000956"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ESR1"
+    ],
+    "treatments": [
+      "Estrogen Administration",
+      "Selective Estrogen Receptor Modulator Therapy",
+      "Progestin Suppression of Gonadotropin-Driven Ovarian Enlargement"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Estradiol",
+      "Estrogen-Regulated Hepatic Binding Proteins",
+      "Serum Follicle-Stimulating Hormone",
+      "Serum Luteinizing Hormone"
+    ],
+    "source_file": "Estrogen_Resistance_Syndrome.yaml",
+    "page_url": "../pages/disorders/Estrogen_Resistance_Syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Ethmoid Sinus Adenocarcinoma",
     "disease_id": "MONDO:0002418",
     "category": "",
@@ -152957,12 +153072,14 @@ window.searchData = [
     "cell_types": [
       "Cardiomyocyte",
       "Cardiac Fibroblast",
+      "cardiac endothelial cell",
       "Endothelial Cell",
       "Vascular Smooth Muscle Cell"
     ],
     "cell_type_ids": [
       "CL:0000746",
       "CL:0002548",
+      "CL:0010008",
       "CL:0000115",
       "CL:0000359"
     ],
@@ -344730,17 +344847,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3243,
+  "total_disorder_pages": 3244,
   "total_subtypes": 4460,
-  "total_disorders_and_subtypes": 7703,
-  "total_unique_evidence_sources": 47620,
-  "total_unique_publications": 44630,
+  "total_disorders_and_subtypes": 7704,
+  "total_unique_evidence_sources": 47634,
+  "total_unique_publications": 44644,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3238,
-  "total_unique_pathological_events": 20727,
+  "total_pathographs": 3239,
+  "total_unique_pathological_events": 20734,
   "total_modules": 180,
-  "total_research_reports": 3359,
+  "total_research_reports": 3360,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 110
