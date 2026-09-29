@@ -48,6 +48,19 @@ computed from the sums, not averaged per report. The relevance check leaves an
 undecided middle band (assessed, neither on nor off topic); it is printed so
 that a low off-topic rate is not read as everything else being cleared.
 
+``needs_review`` when the key is missing
+---------------------------------------
+Upstream writes ``needs_review: true`` when a trigger fires and omits the key
+otherwise, so an absent key reads as an all-clear. On a few committed reports
+the key is absent although the block's own counters meet a trigger (dismech
+#11794). Each report is therefore also checked against the triggers directly:
+``not_found > 0``, a non-empty ``unresolved_references``, ``quotes_valid <
+quotes_checked`` (or ``quotes_unsupported > 0``), and ``off_topic > 0`` (or a
+non-empty ``off_topic_references``). A report that meets one without carrying
+the key is counted as ``needs_review_missing`` and is listed by
+``--needs-review`` beside the flagged ones. The undecided relevance band is not
+a trigger: a reference nobody ruled on has not been ruled off topic.
+
 Caveats the numbers cannot see
 ------------------------------
 The block records what the validator could check at generation time. It says
@@ -103,9 +116,16 @@ class ReportRow:
     provider: str
     status: str
     needs_review: bool = False
+    #: Triggers the block's own counters meet (see module docstring).
+    review_triggers: tuple[str, ...] = ()
     validator_version: str = ""
     counters: dict[str, int] = field(default_factory=dict)
     coercion_failures: int = 0
+
+    @property
+    def needs_review_missing(self) -> bool:
+        """A trigger fired but the block does not carry ``needs_review: true``."""
+        return bool(self.review_triggers) and not self.needs_review
 
     def as_flat(self) -> dict[str, object]:
         flat: dict[str, object] = {
@@ -114,6 +134,8 @@ class ReportRow:
             "provider": self.provider,
             "status": self.status,
             "needs_review": self.needs_review,
+            "needs_review_missing": self.needs_review_missing,
+            "review_triggers": ",".join(self.review_triggers),
             "validator_version": self.validator_version,
         }
         for key in COUNTER_KEYS:
@@ -128,6 +150,7 @@ class Totals:
     body_only: int = 0
     unvalidated: int = 0
     needs_review: int = 0
+    needs_review_missing: int = 0
     coercion_failures: int = 0
     counters: dict[str, int] = field(default_factory=lambda: dict.fromkeys(COUNTER_KEYS, 0))
 
@@ -138,6 +161,8 @@ class Totals:
             self.coercion_failures += row.coercion_failures
             if row.needs_review:
                 self.needs_review += 1
+            if row.needs_review_missing:
+                self.needs_review_missing += 1
             for key in COUNTER_KEYS:
                 self.counters[key] += row.counters.get(key, 0)
         elif row.status == STATUS_BODY_ONLY:
@@ -206,6 +231,21 @@ def coerce_int(value: object) -> tuple[int, bool]:
     return 0, False
 
 
+def review_triggers(block: Mapping[str, object], counters: Mapping[str, int]) -> tuple[str, ...]:
+    """The ``needs_review`` triggers this block's own values meet, in a fixed order."""
+    fired: list[str] = []
+    if counters.get("not_found", 0) > 0 or block.get("unresolved_references"):
+        fired.append("unresolved")
+    checked, valid = counters.get("quotes_checked", 0), counters.get("quotes_valid", 0)
+    if counters.get("quotes_unsupported", 0) > 0 or (
+        "quotes_checked" in block and "quotes_valid" in block and valid < checked
+    ):
+        fired.append("quote_mismatch")
+    if counters.get("off_topic", 0) > 0 or block.get("off_topic_references"):
+        fired.append("off_topic")
+    return tuple(fired)
+
+
 def report_provider(frontmatter: Mapping[str, object], filename_provider: str) -> str:
     value = frontmatter.get("provider")
     if isinstance(value, str) and value.strip():
@@ -236,6 +276,7 @@ def classify_report(path: Path, research_dir: Path) -> ReportRow | None:
             row.counters[key] = value
             if not ok:
                 row.coercion_failures += 1
+        row.review_triggers = review_triggers(block, row.counters)
     elif BODY_SECTION_RE.search(body):
         row.status = STATUS_BODY_ONLY
     return row
@@ -290,6 +331,8 @@ def write_summary(
         f"    off topic:          {c['off_topic']}  ({fmt_rate(overall.rate('off_topic', 'relevance_assessed'))})\n"
         f"    undecided:          {overall.relevance_undecided}  (assessed, neither on nor off topic)\n"
         f"  reports needs_review: {overall.needs_review}\n"
+        f"    trigger met, key absent: {overall.needs_review_missing}"
+        "  (listed by --needs-review; absence of the key is not an all-clear)\n"
     )
     out.write("\nPer provider (reports = all of that provider's; counters from its frontmatter-validated reports only):\n")
     header = (
@@ -326,7 +369,17 @@ def write_summary(
 
 
 def write_tsv(out: TextIO, rows: list[ReportRow]) -> None:
-    fieldnames = ["path", "disorder", "provider", "status", "needs_review", "validator_version", *COUNTER_KEYS]
+    fieldnames = [
+        "path",
+        "disorder",
+        "provider",
+        "status",
+        "needs_review",
+        "needs_review_missing",
+        "review_triggers",
+        "validator_version",
+        *COUNTER_KEYS,
+    ]
     writer = csv.DictWriter(out, fieldnames=fieldnames, delimiter="\t", lineterminator="\n")
     writer.writeheader()
     for row in rows:
@@ -343,20 +396,35 @@ def write_json(out: TextIO, rows: list[ReportRow], overall: Totals, by_provider:
     out.write("\n")
 
 
+def _write_review_row(out: TextIO, row: ReportRow) -> None:
+    c = row.counters
+    out.write(
+        f"  {row.path}\t"
+        f"not_found={c.get('not_found', 0)}\t"
+        f"quotes_unsupported={c.get('quotes_unsupported', 0)}\t"
+        f"quotes_valid={c.get('quotes_valid', 0)}/{c.get('quotes_checked', 0)}\t"
+        f"off_topic={c.get('off_topic', 0)}\n"
+    )
+
+
 def write_needs_review(out: TextIO, rows: list[ReportRow]) -> None:
     flagged = [row for row in rows if row.needs_review]
-    if not flagged:
-        out.write("No report carries needs_review: true.\n")
+    missing = [row for row in rows if row.needs_review_missing]
+    if not flagged and not missing:
+        out.write("No report carries needs_review: true, and none meets a trigger without it.\n")
         return
-    out.write(f"{len(flagged)} report(s) flagged needs_review (not found / unsupported quotes / off topic):\n")
-    for row in flagged:
-        c = row.counters
+    if flagged:
+        out.write(f"{len(flagged)} report(s) flagged needs_review (not found / unsupported quotes / off topic):\n")
+        for row in flagged:
+            _write_review_row(out, row)
+    if missing:
         out.write(
-            f"  {row.path}\t"
-            f"not_found={c.get('not_found', 0)}\t"
-            f"quotes_unsupported={c.get('quotes_unsupported', 0)}\t"
-            f"off_topic={c.get('off_topic', 0)}\n"
+            f"{len(missing)} report(s) meet a needs_review trigger but omit the key "
+            "(read these as flagged; see dismech #11794):\n"
         )
+        for row in missing:
+            out.write(f"  [{','.join(row.review_triggers)}]")
+            _write_review_row(out, row)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -376,7 +444,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--needs-review",
         action="store_true",
-        help="List the reports whose block carries needs_review: true, then exit",
+        help="List the reports whose block carries needs_review: true, and those that meet "
+        "a needs_review trigger but omit the key, then exit",
     )
     parser.add_argument(
         "--validated-only",

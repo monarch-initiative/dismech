@@ -83,6 +83,10 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
+It reads the local MONDO build and exits 2 when that is absent rather than
+downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
+first. `--no-hgnc` also keeps it off the HGNC build.
+
 Interpret the result as follows:
 
 - `PASS`: proceed to normal source, snippet, and term verification.
@@ -102,6 +106,15 @@ Compare its causal-gene relationship (`RO:0004003`), OMIM xref, and synonyms
 with the report. Look specifically for synonym aliasing, eponymic collision,
 abbreviation ambiguity, or conflation with a closely related disease. On any
 identity mismatch, discard the report rather than cherry-picking from it.
+
+A report that cites the right OMIM number can still be about the wrong gene
+(#12166: an immunodeficiency 97 report cited OMIM 619802 and discussed TBK1,
+never PIK3CG). When the canonical gene is never named, `preflight-dr` looks up
+whether the genes the report does discuss cause another MONDO disease and, if
+one does, returns `FAIL` whatever the OMIM citation says. A `WARN` that reports
+a matching OMIM number and zero canonical-gene mentions means no rival gene
+resolved to another disease: search the report for the gene under any name,
+and discard it if the gene is not there.
 
 See `docs/deep-research-reference-validation.md` and
 `research/nec_risk_disease_classes.md` for uncommon cases.

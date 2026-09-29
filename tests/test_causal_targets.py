@@ -18,6 +18,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 # Inline the path rather than assigning ROOT first: ruff's E402 allows an
 # import preceded by a `sys.path` preamble, but an intervening assignment
 # breaks that allowance, and the two ruff versions this repo sees disagree
@@ -194,6 +196,7 @@ def test_update_baseline_refuses_to_be_scoped_to_paths():
     assert BASELINE.read_bytes() == before, "the committed baseline must be untouched"
 
 
+@pytest.mark.ci_step_twin("scripts/check_causal_targets.py")
 def test_committed_kb_has_no_new_broken_targets():
     """The gate itself, over the real KB."""
     result = subprocess.run(

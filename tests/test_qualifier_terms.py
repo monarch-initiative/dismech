@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 # See the note in test_causal_targets.py: the `sys.path` preamble must sit
 # directly before the import for ruff's E402 allowance to apply.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -247,6 +249,7 @@ def test_not_found_classification_walks_the_exception_chain():
     )
 
 
+@pytest.mark.ci_step_twin("scripts/check_qualifier_terms.py")
 def test_committed_kb_qualifier_labels_are_correct():
     """The gate itself, over the real KB."""
     result = subprocess.run(

@@ -247,6 +247,13 @@ review retry. Assignment remains a hold on automatic merging, not reviewing.
 
 The controller discovers failed/timed-out `claude-code-review.yml` runs within
 GitHub's 30-day rerun window and invokes `gh run rerun RUN_ID --failed`.
+It also checks the review checks attached to open PRs' current head commits.
+If a failed run is absent from the Actions census, that second lookup recovers
+it after verifying the workflow, PR association, and head commit. Recovered
+runs pass the same retry guards and budget; the summary lists them separately
+and reports how many distinct runs the Actions census returned. Errors reading
+current checks are reported and make the job fail rather than silently claiming
+a complete sweep. A specific-PR request limits this cross-check to that PR.
 It never creates a replacement dispatch, changes a branch, or alters a review.
 Cancelled and intentionally skipped runs, missing reviews with no existing run,
 and successful workflows that forgot to post a verdict are separate recovery
@@ -388,6 +395,16 @@ deliberately not a hold, because ejection does not imply fault: a PR ahead in th
 stack can poison it, and a third-party outage can fail it. What triggers the hold
 is repetition against unchanged content. The count is keyed on the head commit's
 `committedDate`, so any push resets it to zero, and a lookup failure fails open.
+
+A second hold with no trace on the PR page is the **cache-row hold**. When a
+merge queue is active, a candidate that adds a row to a `cache/<prefix>/*.csv`
+term cache already added by a PR enqueued *earlier in the same sweep* is skipped
+for that sweep, because the two would conflict in the queue and the second
+would be ejected. Only multi-field rows (`curie,label,retrieved_at`) count; a
+bare-CURIE enum-cache row is identical in both PRs and merges cleanly. The hold
+is within-run and lasts exactly one sweep; it does not apply in direct-merge
+mode, and `--no-conflict-batching` disables it. Its only trace is a `SKIP` line
+naming the PR that holds the row. A failed changed-files lookup fails open.
 
 Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
@@ -665,13 +682,15 @@ that opportunity rather than as an arbitrary cooling-off period.
 > **To stop a PR being auto-merged, assign it to a human or leave a
 > `CHANGES_REQUESTED` review.** Draft status does not block it.
 
-There is a third hold, which nobody chooses: a PR held back by the **ejection
-hold** above. Unlike assignment and `CHANGES_REQUESTED`, it leaves no label,
-review, or assignee — its only trace is a `SKIP` line naming the strike count,
-inside the run summary's collapsed `Skipped N near-miss PR(s)` block. So an
-approved, green, days-old PR that is not merging and has neither a human
-assignee nor a requested-changes review has one remaining explanation, and the
-run summary is where to look for it. A push clears it.
+There are two more holds, which nobody chooses: the **ejection hold** and the
+**cache-row hold** above. Unlike assignment and `CHANGES_REQUESTED`, they leave
+no label, review, or assignee. Their only trace is a `SKIP` line, inside the run
+summary's collapsed `Skipped N near-miss PR(s)` block, naming the strike count
+or the PR holding the contended cache row. So an approved, green, days-old PR
+that is not merging and has neither a human assignee nor a requested-changes
+review has one of these two explanations, and the run summary is where to look
+for it. A push clears the ejection hold; the cache-row hold clears itself on the
+next sweep.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 

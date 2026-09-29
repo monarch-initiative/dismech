@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT05086744
+extractor_version: 1
 title: "An Open-label, Multi-center, Phase 2 Basket Study to Assess Efficacy, Safety and Pharmacokinetics of Iptacopan (LNP023) in Participants With Autoimmune Benign Hematological Disorders"
 content_type: summary
 full_text_attempted: true
